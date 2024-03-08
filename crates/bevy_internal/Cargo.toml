@@ -113,12 +113,7 @@ webgpu = [
 ]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = [
-  "bevy_app/bevy_ci_testing",
-  "bevy_time/bevy_ci_testing",
-  "bevy_render?/bevy_ci_testing",
-  "bevy_render?/ci_limits",
-]
+bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
@@ -163,6 +158,12 @@ bevy_debug_stepping = [
   "bevy_app/bevy_debug_stepping",
 ]
 
+# Provides a collection of developer tools
+bevy_dev_tools = ["dep:bevy_dev_tools"]
+
+# Enable support for the ios_simulator by downgrading some rendering capabilities
+ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
@@ -201,6 +202,7 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.14.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.14.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.14.0-dev", default-features = false }
+bevy_dev_tools = { path = "../bevy_dev_tools/", optional = true, version = "0.14.0-dev" }
 
 [lints]
 workspace = true

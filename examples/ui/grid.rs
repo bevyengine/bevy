@@ -87,7 +87,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(DARK_GRAY.into()),
+                    background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     ..default()
                 })
                 .with_children(|builder| {

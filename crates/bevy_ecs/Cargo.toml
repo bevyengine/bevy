@@ -22,6 +22,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", optional = tr
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
+petgraph = "0.6"
 
 bitflags = "2.3"
 concurrent-queue = "2.4.0"
