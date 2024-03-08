@@ -6,6 +6,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     query::With,
+    schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
 use bevy_input::{keyboard::KeyCode, ButtonInput};
@@ -27,7 +28,14 @@ impl Plugin for FpsOverlayPlugin {
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
-            .add_systems(Update, (customize_text, update_text, toggle_overlay));
+            .add_systems(
+                Update,
+                (
+                    customize_text.run_if(resource_changed::<FpsOverlayConfig>),
+                    update_text,
+                    toggle_overlay,
+                ),
+            );
     }
 }
 
@@ -121,10 +129,6 @@ fn customize_text(
     asset_server: Res<AssetServer>,
     mut query: Query<&mut Text, With<FpsText>>,
 ) {
-    if !overlay_config.is_changed() {
-        return;
-    }
-
     for mut text in &mut query {
         for section in text.sections.iter_mut() {
             section.style = if let Some(font_path) = &overlay_config.font_path {
