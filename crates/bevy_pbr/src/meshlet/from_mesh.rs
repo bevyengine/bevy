@@ -3,7 +3,6 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
-use bevy_utils::thiserror;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
 use std::borrow::Cow;
 

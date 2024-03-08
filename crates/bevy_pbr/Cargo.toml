@@ -16,7 +16,7 @@ shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
 # Enables processing meshes into meshlet meshes
-meshlet_processor = ["dep:meshopt"]
+meshlet_processor = ["dep:meshopt", "dep:thiserror"]
 
 [dependencies]
 # bevy
@@ -37,6 +37,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
 meshopt = { version = "0.2", optional = true }
+thiserror = { version = "1", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.4"
 # direct dependency required for derive macro
