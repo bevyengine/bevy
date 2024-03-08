@@ -39,7 +39,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         register_type = Some(quote! {
             #[doc(hidden)]
             fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                registry.write().register::<Self>();
+                match registry.internal.try_write() {
+                    Ok(mut registry) => registry.register::<Self>(),
+                    Err(_) => panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>()),
+                }
             }
         });
     }
@@ -76,7 +79,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         register_type = Some(quote! {
             #[doc(hidden)]
             fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                registry.write().register::<Self>();
+                match registry.internal.try_write() {
+                    Ok(mut registry) => registry.register::<Self>(),
+                    Err(_) => panic!("Deadlock while registering <{}>.", ::std::any::type_name::<Self>()),
+                }
             }
         });
     }

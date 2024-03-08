@@ -579,7 +579,6 @@ mod tests {
             registry.register::<Entity>();
             registry.register::<MyResource>();
         }
-        world.insert_resource(registry);
         world
     }
 
