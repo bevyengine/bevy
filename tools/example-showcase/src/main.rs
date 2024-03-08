@@ -464,7 +464,7 @@ header_message = \"Examples (WebGL2)\"
                 if !to_show.wasm {
                     continue;
                 }
-                let category_path = root_path.join(&to_show.category);
+                let category_path = root_path.join(&to_show.category.replace(['(', ')'], "").replace(' ', "-").to_lowercase());
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -500,6 +500,7 @@ title = \"{}\"
 template = \"example{}.html\"
 weight = {}
 description = \"{}\"
+aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
@@ -516,6 +517,12 @@ header_message = \"Examples ({})\"
                             },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
+                            to_show.category,
+                            &to_show.technical_name.replace('_', "-"),
                             &to_show.technical_name.replace('_', "-"),
                             match api {
                                 WebApi::Webgpu => "-webgpu",
