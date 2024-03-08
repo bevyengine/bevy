@@ -104,7 +104,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 
     /// Spawns the resulting observer into the world.
-    pub fn run<B: Bundle, M>(&mut self, callback: impl IntoObserverSystem<E, B, M>) -> Entity {
+    pub fn run<B: Bundle, M>(&mut self, system: impl IntoObserverSystem<E, B, M>) -> Entity {
         B::get_component_ids(self.commands.components(), &mut |id| {
             self.descriptor.components.push(id.unwrap_or_else(|| {
                 panic!(
@@ -116,7 +116,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
         let entity = self.commands.spawn_empty().id();
         let descriptor = self.descriptor.clone();
         self.commands.add(move |world: &mut World| {
-            let component = ObserverComponent::from(world, descriptor, callback);
+            let component = ObserverComponent::from(world, descriptor, system);
             world.entity_mut(entity).insert(component);
             world.register_observer(entity);
         });

@@ -239,10 +239,10 @@ impl World {
     /// Spawn an [`Observer`] and returns it's [`Entity`].
     pub fn observer<E: Component, B: Bundle, M>(
         &mut self,
-        callback: impl IntoObserverSystem<E, B, M>,
+        system: impl IntoObserverSystem<E, B, M>,
     ) -> Entity {
         B::component_ids(&mut self.components, &mut self.storages, &mut |_| {});
-        ObserverBuilder::new(self.commands()).run(callback)
+        ObserverBuilder::new(self.commands()).run(system)
     }
 
     /// Constructs an [`EventBuilder`].

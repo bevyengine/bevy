@@ -51,7 +51,7 @@ fn setup(world: &mut World) {
     world.init_component::<Explode>();
 
     // Observers are triggered when a certain event it fired, each event is represented by a component type.
-    // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as a callback.
+    // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as closures.
     world.observer(
         |observer: Observer<TriggerMines>,
          mines: Query<&Mine>,
@@ -106,10 +106,10 @@ fn setup(world: &mut World) {
                 |observer: Observer<Explode>, query: Query<&Mine>, mut commands: Commands| {
                     // If an event is targeting a specific entity you can access it with `.source()`
                     let source = observer.source();
-                    println!("Boom! {:?} exploded.", source);
                     let Some(mut entity) = commands.get_entity(source) else {
                         return;
                     };
+                    println!("Boom! {:?} exploded.", source);
                     entity.despawn();
                     let mine = query.get(source).unwrap();
                     // Fire another event to cascade into other mines.
