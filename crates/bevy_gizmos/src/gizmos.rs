@@ -337,7 +337,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         SphereBuilder {
             gizmos: self,
             position,
-            rotation,
+            rotation: rotation.normalize(),
             radius,
             color: color.into(),
             circle_segments: DEFAULT_CIRCLE_SEGMENTS,
