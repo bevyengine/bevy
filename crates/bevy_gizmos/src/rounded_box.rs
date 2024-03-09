@@ -229,6 +229,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect(
     ///         Vec3::ZERO,
@@ -284,6 +285,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect_2d(
     ///         Vec2::ZERO,
@@ -339,12 +341,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_cuboid(
     ///         Vec3::ZERO,
     ///         Quat::IDENTITY,
     ///         Vec3::ONE,
-    ///         ColorGREEN
+    ///         GREEN
     ///         )
     ///         .edge_radius(0.25)
     ///         .arc_segments(10);
