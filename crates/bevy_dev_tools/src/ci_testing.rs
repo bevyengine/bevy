@@ -3,8 +3,9 @@
 use bevy_app::{App, AppExit, Update};
 use bevy_ecs::{
     entity::Entity,
-    prelude::Resource,
+    prelude::{resource_exists, Resource},
     query::With,
+    schedule::IntoSystemConfigs,
     system::{Local, Query, Res, ResMut},
 };
 use bevy_render::view::screenshot::ScreenshotManager;
@@ -67,8 +68,13 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
             )));
     }
 
-    app.insert_resource(config)
-        .add_systems(Update, (ci_testing_exit_after, ci_testing_screenshot_at));
+    app.insert_resource(config).add_systems(
+        Update,
+        (
+            ci_testing_exit_after,
+            ci_testing_screenshot_at.run_if(resource_exists::<ScreenshotManager>),
+        ),
+    );
 
     app
 }

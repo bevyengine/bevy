@@ -4,6 +4,7 @@
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_a11y::Focus;
 

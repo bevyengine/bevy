@@ -3,6 +3,7 @@
 //! The commonly used types are vectors like [`Vec2`] and [`Vec3`],
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod affine3;
 mod aspect_ratio;
