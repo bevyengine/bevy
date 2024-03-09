@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 default = []
-debug_layout = ["bevy_gizmos", "bevy_core"]
 serialize = ["serde", "smallvec/serde"]
 
 [dependencies]

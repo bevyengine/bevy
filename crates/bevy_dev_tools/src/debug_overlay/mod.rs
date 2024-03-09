@@ -6,9 +6,11 @@ use bevy_color::Hsla;
 use bevy_core::Name;
 use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_gizmos::config::GizmoConfigStore;
-use bevy_gizmos::prelude::Gizmos;
-use bevy_gizmos::AppGizmoBuilder;
+use bevy_gizmos::{
+    config::GizmoConfigStore,
+    prelude::Gizmos,
+    AppGizmoBuilder
+};
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_render::{
@@ -17,10 +19,10 @@ use bevy_render::{
     view::{RenderLayers, VisibilitySystems},
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
+use bevy_ui::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};
 
-use crate::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
 use inset::InsetGizmo;
 
 use self::inset::UiGizmosDebug;

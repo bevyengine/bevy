@@ -371,7 +371,7 @@ fn mouse_scroll(
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_overlay(
     input: Res<ButtonInput<KeyCode>>,
-    mut options: ResMut<bevy::ui::debug_overlay::UiDebugOptions>,
+    mut options: ResMut<bevy::dev_tools::debug_overlay::UiDebugOptions>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {

@@ -153,7 +153,7 @@ file_watcher = ["bevy_asset?/file_watcher"]
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 # Enable the bevy_ui debug overlay
-bevy_ui_debug = ["bevy_ui?/debug_layout"]
+bevy_ui_debug = ["bevy_dev_tools?/bevy_ui_debug", "bevy_dev_tools"]
 
 # Enable system stepping support
 bevy_debug_stepping = [
