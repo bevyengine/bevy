@@ -14,9 +14,10 @@ use bevy_reflect::{
     ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
     TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {

@@ -11,7 +11,6 @@ keywords = ["bevy"]
 [features]
 default = []
 serialize = ["serde"]
-bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing"]
 
 [dependencies]
 # bevy
@@ -23,7 +22,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.14.0-dev", optional = true }
 
 # other
 crossbeam-channel = "0.5.0"
@@ -32,3 +30,6 @@ thiserror = "1.0"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

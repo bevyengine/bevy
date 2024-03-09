@@ -3,7 +3,7 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
-use bevy_utils::{thiserror, HashMap};
+use bevy_utils::HashMap;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_meshlet_bounds_decoder, simplify, SimplifyOptions, VertexDataAdapter,
