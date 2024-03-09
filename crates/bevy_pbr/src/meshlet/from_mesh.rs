@@ -116,7 +116,7 @@ impl MeshletMesh {
             let next_lod_start = meshlets.len();
 
             for group_meshlets in groups.values() {
-                // Simplify each group to ~50% triangle count
+                // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
                 let mut group_indices = Vec::new();
                 for meshlet_id in group_meshlets {
                     let meshlet = meshlets.get(*meshlet_id);
@@ -125,11 +125,12 @@ impl MeshletMesh {
                     }
                 }
 
+                // Simplify the group to ~50% triangle count
                 let mut error = 0.0;
                 let simplified_group_indices = simplify(
                     &group_indices,
                     &vertices,
-                    group_indices.len() / 6,
+                    group_indices.len() / 2,
                     0.01,
                     SimplifyOptions::LockBorder,
                     Some(&mut error),
