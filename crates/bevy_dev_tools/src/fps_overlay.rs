@@ -11,7 +11,6 @@ use bevy_ecs::{
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
-#[derive(Default)]
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
 /// This plugin will add the [`FrameTimeDiagnosticsPlugin`] if it wasn't added before.
@@ -19,6 +18,7 @@ use bevy_ui::node_bundles::TextBundle;
 /// Note: It is recommended to use native overlay of rendering statistics when possible for lower overhead and more accurate results.
 /// The correct way to do this will vary by platform:
 /// - **Metal**: setting env variable `MTL_HUD_ENABLED=1`
+#[derive(Default)]
 pub struct FpsOverlayPlugin {
     /// Starting configuration of overlay, this can be later be changed through [`FpsOverlayConfig`] resource.
     pub config: FpsOverlayConfig,
@@ -41,8 +41,8 @@ impl Plugin for FpsOverlayPlugin {
     }
 }
 
-#[derive(Resource, Clone)]
 /// Configuration options for the FPS overlay.
+#[derive(Resource, Clone)]
 pub struct FpsOverlayConfig(pub TextStyle);
 
 impl Default for FpsOverlayConfig {
