@@ -163,7 +163,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-          targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
+          targets: wasm32-unknown-unknown
+          components: rust-std
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
