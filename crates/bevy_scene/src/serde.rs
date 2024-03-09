@@ -572,10 +572,7 @@ mod tests {
             registry.register::<MyEnum>();
             registry.register::<String>();
             registry.register_type_data::<String, ReflectSerialize>();
-            registry.register::<[usize; 3]>();
-            registry.register::<(f32, f32)>();
             registry.register::<MyEntityRef>();
-            registry.register::<Entity>();
             registry.register::<MyResource>();
         }
         world

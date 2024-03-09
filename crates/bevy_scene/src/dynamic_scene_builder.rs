@@ -398,10 +398,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-        }
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -421,11 +417,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -471,11 +462,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -497,10 +483,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-        }
 
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
@@ -519,10 +501,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ResourceA>();
-        }
 
         world.insert_resource(ResourceA);
 
@@ -539,10 +517,6 @@ mod tests {
         let mut world = World::default();
 
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ResourceA>();
-        }
 
         world.insert_resource(ResourceA);
 
@@ -559,11 +533,6 @@ mod tests {
     fn should_extract_allowed_components() {
         let mut world = World::default();
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -584,11 +553,6 @@ mod tests {
     fn should_not_extract_denied_components() {
         let mut world = World::default();
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -609,11 +573,6 @@ mod tests {
     fn should_extract_allowed_resources() {
         let mut world = World::default();
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
@@ -631,11 +590,6 @@ mod tests {
     fn should_not_extract_denied_resources() {
         let mut world = World::default();
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut register = world.resource::<AppTypeRegistry>().write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
