@@ -113,7 +113,7 @@ fn draw_example_collection(
             Vec3::new(-2.0, 0.75, -0.75),
             Quat::IDENTITY,
             Vec3::splat(0.9),
-            LegacyColor::TURQUOISE,
+            TURQUOISE,
         )
         .edge_radius(0.1)
         .arc_segments(4);

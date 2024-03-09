@@ -67,6 +67,15 @@ fn draw_example_collection(
         BLACK,
     );
 
+    my_gizmos
+        .rounded_rect_2d(
+            Vec2::ZERO,
+            time.elapsed_seconds() / -3.,
+            Vec2::splat(300.),
+            BLACK,
+        )
+        .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
+
     // The circles have 32 line-segments by default.
     my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK);
     my_gizmos.ellipse_2d(
