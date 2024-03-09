@@ -108,7 +108,7 @@ impl DerefMut for AppTypeRegistry {
 
 impl FromWorld for AppTypeRegistry {
     fn from_world(world: &mut World) -> Self {
-        Self(world.__type_registry().clone())
+        Self(world.type_registry().clone())
     }
 }
 

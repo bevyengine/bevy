@@ -155,9 +155,8 @@ impl World {
         World::default()
     }
 
-    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub fn __type_registry(&self) -> &TypeRegistryArc {
+    pub(crate) fn type_registry(&self) -> &TypeRegistryArc {
         &self.components().type_registry
     }
 
