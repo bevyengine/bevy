@@ -37,7 +37,7 @@ fn arc_bounding_points(arc: Arc2d, rotation: f32) -> SmallVec<[Vec2; 7]> {
     bounds.push(arc.left_endpoint().rotate(rotation_vec));
     bounds.push(arc.right_endpoint().rotate(rotation_vec));
 
-    // The half-angles are measured from a starting point of π/2, being the angle of Vec::Y.
+    // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
     // Compute the normalized angles of the endpoints with the rotation taken into account, and then
     // check if we are looking for an angle that is between or outside them.
     let left_angle = (PI / 2.0 + arc.half_angle + rotation).rem_euclid(2.0 * PI);
@@ -62,10 +62,7 @@ impl Bounded2d for Arc2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // If our arc covers more than a circle, just return the bounding box of the circle.
         if self.half_angle >= PI {
-            return Circle {
-                radius: self.radius,
-            }
-            .aabb_2d(translation, rotation);
+            return Circle::new(self.radius).aabb_2d(translation, rotation);
         }
 
         Aabb2d::from_point_cloud(translation, 0.0, &arc_bounding_points(*self, rotation))
@@ -90,13 +87,10 @@ impl Bounded2d for CircularSector {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // If our sector covers more than a circle, just return the bounding box of the circle.
         if self.half_angle() >= PI {
-            return Circle {
-                radius: self.radius(),
-            }
-            .aabb_2d(translation, rotation);
+            return Circle::new(self.radius()).aabb_2d(translation, rotation);
         }
 
-        // Otherwise, we use the same logic as for Arc2d, above, just with the circle's cetner as an additional possibility.
+        // Otherwise, we use the same logic as for Arc2d, above, just with the circle's center as an additional possibility.
         let mut bounds = arc_bounding_points(self.arc, rotation);
         bounds.push(Vec2::ZERO);
 

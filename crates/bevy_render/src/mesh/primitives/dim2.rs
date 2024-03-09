@@ -82,7 +82,7 @@ impl From<CircleMeshBuilder> for Mesh {
     }
 }
 
-/// Specifies how to generate UV-mappings for [`CircularSector`] and [`CircularSegment`] shapes.
+/// Specifies how to generate UV-mappings for the [`CircularSector`] and [`CircularSegment`] shapes.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CircularMeshUvMode {
     /// Treats the shape as a mask over a circle of equal size and radius,
@@ -102,7 +102,7 @@ impl Default for CircularMeshUvMode {
 /// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
-/// at the centure of the texture.
+/// at the center of the texture.
 #[derive(Clone, Debug)]
 pub struct CircularSectorMeshBuilder {
     /// The sector shape.
@@ -225,7 +225,7 @@ impl From<CircularSectorMeshBuilder> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
-/// at the centure of the texture.
+/// at the center of the texture.
 #[derive(Clone, Copy, Debug)]
 pub struct CircularSegmentMeshBuilder {
     /// The segment shape.

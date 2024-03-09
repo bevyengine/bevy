@@ -71,16 +71,16 @@ const HALF_PI: f32 = PI / 2.0;
 ///
 /// An arc has no area.
 /// If you want to include the portion of a circle's area swept out by the arc,
-/// use [`CircularSector`].
+/// use the pie-shaped [`CircularSector`].
 /// If you want to include only the space inside the convex hull of the arc,
-/// use [`CircularSegment`].
+/// use the bowl-shaped [`CircularSegment`].
 ///
 /// The arc is drawn starting from [`Vec2::Y`], extending by `half_angle` radians on
 /// either side. The center of the circle is the origin [`Vec2::ZERO`]. Note that this
 /// means that the origin may not be within the `Arc2d`'s convex hull.
 ///
 /// **Warning:** Arcs with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
-/// We recommend normalizing arcs to have an angle in [0, 2π].
+/// It is recommended to normalize arcs to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[doc(alias("CircularArc", "CircleArc"))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -103,7 +103,7 @@ impl Default for Arc2d {
 }
 
 impl Arc2d {
-    /// Create a new [`Arc2d`] from a `radius`, and a `half_angle`
+    /// Create a new [`Arc2d`] from a `radius` and a `half_angle`
     #[inline(always)]
     pub fn new(radius: f32, half_angle: f32) -> Self {
         Self { radius, half_angle }
@@ -258,7 +258,7 @@ pub struct CircularSector {
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
-    /// Returns the default [`CircularSector`] with radius `0.5` and covering a quarter circle
+    /// Returns the default [`CircularSector`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
     }
@@ -271,7 +271,7 @@ impl From<Arc2d> for CircularSector {
 }
 
 impl CircularSector {
-    /// Create a new [`CircularSector`] from a `radius`, and an `angle`
+    /// Create a new [`CircularSector`] from a `radius` and an `angle`
     #[inline(always)]
     pub fn new(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::new(radius, angle))
@@ -391,7 +391,7 @@ pub struct CircularSegment {
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
-    /// Returns the default [`CircularSegment`] with radius `0.5` and covering a quarter circle.
+    /// Returns the default [`CircularSegment`] with radius `0.5` and covering a third of a circle.
     fn default() -> Self {
         Self::from(Arc2d::default())
     }
@@ -462,14 +462,14 @@ impl CircularSegment {
         Vec2::ZERO
     }
 
-    /// Get half the length of the chord of the segment, which is the segment's base
+    /// Get half the length of the chord, which is the segment's base
     #[inline(always)]
     #[doc(alias = "half_base_length")]
     pub fn half_chord_length(&self) -> f32 {
         self.arc.half_chord_length()
     }
 
-    /// Get the length of the chord of the segment, which is the segment's base
+    /// Get the length of the chord, which is the segment's base
     #[inline(always)]
     #[doc(alias = "base_length")]
     #[doc(alias = "base")]
@@ -477,7 +477,7 @@ impl CircularSegment {
         self.arc.chord_length()
     }
 
-    /// Get the midpoint of the chord of the segment, which is the segment's base
+    /// Get the midpoint of the chord, which is the segment's base
     #[inline(always)]
     #[doc(alias = "base_midpoint")]
     pub fn chord_midpoint(&self) -> Vec2 {

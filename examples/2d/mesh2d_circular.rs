@@ -118,7 +118,6 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, Color::RED);
 
         let bounding_circle = shape.0.bounding_circle(translation, rotation);
-        dbg!(bounding_circle);
         gizmos.circle_2d(
             bounding_circle.center,
             bounding_circle.radius(),
