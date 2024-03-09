@@ -8,7 +8,7 @@ use crate::{
     system::Resource,
     world::{FromWorld, World},
 };
-use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
 mod component;
@@ -23,6 +23,23 @@ pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
+
+#[doc(hidden)]
+pub fn register_type_shim<T: GetTypeRegistration>(registry: &TypeRegistryArc) {
+    if let Ok(mut registry) = registry.internal.try_write() {
+        registry.register::<T>();
+        return;
+    }
+    if let Ok(registry) = registry.internal.try_read() {
+        if registry.contains(::core::any::TypeId::of::<T>()) {
+            return;
+        }
+    }
+    panic!(
+        "Deadlock while registering <{}>.",
+        ::std::any::type_name::<T>()
+    );
+}
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

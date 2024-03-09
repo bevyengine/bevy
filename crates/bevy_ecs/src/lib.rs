@@ -56,6 +56,7 @@ pub mod prelude {
 #[doc(hidden)]
 pub mod private {
     pub mod bevy_reflect {
+        pub use crate::reflect::register_type_shim;
         pub use bevy_reflect::TypeRegistryArc;
     }
 }
