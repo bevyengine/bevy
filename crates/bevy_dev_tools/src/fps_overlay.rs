@@ -13,6 +13,7 @@ use bevy_ui::node_bundles::TextBundle;
 
 #[derive(Default)]
 /// A plugin that adds an FPS overlay to the Bevy application.
+/// Warning: This plugin will add [`FrameTimeDiagnosticsPlugin`] if it wasn't added before.
 pub struct FpsOverlayPlugin {
     /// Starting configuration of overlay, this can be later be changed through `[FpsOverlayConfig]` resource.
     pub config: FpsOverlayConfig,
