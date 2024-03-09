@@ -124,6 +124,9 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
 /// The full callstack will still be visible with `RUST_BACKTRACE=full`.
 /// They are specialized for `System::run` & co instead of being generic over closures because this avoids an
 /// extra frame in the backtrace.
+///
+/// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call stack for symbols
+/// containing the string __rust_begin_short_backtrace in their mangled name.
 mod __rust_begin_short_backtrace {
     use std::hint::black_box;
 
