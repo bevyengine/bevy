@@ -58,9 +58,9 @@ impl MeshletMesh {
                     .entry(meshlet_id)
                     .or_insert(HashSet::new());
                 for v in meshlet.triangles.chunks(3) {
-                    meshlet_triangle_edges.insert(v[0].min(v[1]));
-                    meshlet_triangle_edges.insert(v[0].min(v[2]));
-                    meshlet_triangle_edges.insert(v[1].min(v[2]));
+                    meshlet_triangle_edges.insert((v[0].min(v[1]), v[0].max(v[1])));
+                    meshlet_triangle_edges.insert((v[0].min(v[2]), v[0].max(v[2])));
+                    meshlet_triangle_edges.insert((v[1].min(v[2]), v[1].max(v[2])));
                 }
             }
 
