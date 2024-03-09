@@ -8,21 +8,15 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-[features]
-default = []
-serialize = ["serde", "smallvec/serde"]
-
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.14.0-dev", optional = true }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_gizmos = { path = "../bevy_gizmos", version = "0.14.0-dev", optional = true }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
@@ -43,6 +37,9 @@ bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
 nonmax = "0.5"
 smallvec = "1.11"
+
+[features]
+serialize = ["serde", "smallvec/serde"]
 
 [lints]
 workspace = true
