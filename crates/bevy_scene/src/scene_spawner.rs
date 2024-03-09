@@ -464,10 +464,6 @@ mod tests {
 
         // setup
         world.init_resource::<AppTypeRegistry>();
-        {
-            let mut registry = world.resource::<AppTypeRegistry>().write();
-            registry.register::<A>();
-        }
         world.insert_resource(Assets::<DynamicScene>::default());
 
         // start test
