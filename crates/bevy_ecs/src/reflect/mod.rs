@@ -87,8 +87,8 @@ pub fn register_type_shim<T: GetTypeRegistration>(registry: &TypeRegistryArc) {
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
-#[derive(Resource, Clone)]
-pub struct AppTypeRegistry(pub TypeRegistryArc);
+#[derive(Resource, Clone, Debug)]
+pub struct AppTypeRegistry(TypeRegistryArc);
 
 impl Deref for AppTypeRegistry {
     type Target = TypeRegistryArc;
