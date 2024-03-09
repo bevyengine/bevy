@@ -1,6 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
-    color::palettes::basic::{BLUE, GREEN, RED},
+    color::palettes::basic::{BLUE, LIME, RED},
     prelude::*,
 };
 
@@ -52,7 +52,7 @@ fn setup(
             // right ear indicator
             parent.spawn(PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(GREEN)),
+                material: materials.add(Color::from(LIME)),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
             });

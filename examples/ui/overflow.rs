@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: DARK_GRAY.into(),
+                                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -95,8 +95,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             min_height: Val::Px(100.),
                                             ..Default::default()
                                         },
-                                        background_color: Color::WHITE.into(),
-
                                         ..Default::default()
                                     },
                                     Interaction::default(),

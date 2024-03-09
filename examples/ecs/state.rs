@@ -74,7 +74,7 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: NORMAL_BUTTON.into(),
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -95,21 +95,21 @@ fn setup_menu(mut commands: Commands) {
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
+        (&Interaction, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
+    for (interaction, mut image) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
+                image.color = PRESSED_BUTTON;
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
+                image.color = HOVERED_BUTTON;
             }
             Interaction::None => {
-                *color = NORMAL_BUTTON.into();
+                image.color = NORMAL_BUTTON;
             }
         }
     }

@@ -38,3 +38,6 @@ rmp-serde = "1.1"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

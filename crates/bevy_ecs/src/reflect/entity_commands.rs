@@ -1,6 +1,7 @@
 use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
-use crate::system::{Command, EntityCommands, Resource};
+use crate::system::{EntityCommands, Resource};
+use crate::world::Command;
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
 use std::borrow::Cow;

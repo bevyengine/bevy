@@ -35,3 +35,6 @@ debug_glam_assert = ["glam/debug-glam-assert"]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

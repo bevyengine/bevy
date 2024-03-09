@@ -21,12 +21,15 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", optional = tr
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
+petgraph = "0.6"
 
+bitflags = "2.3"
 concurrent-queue = "2.4.0"
 fixedbitset = "0.4.2"
 rustc-hash = "1.1"
 serde = "1"
 thiserror = "1.0"
+nonmax = "0.5"
 
 [dev-dependencies]
 rand = "0.8"
@@ -46,3 +49,6 @@ path = "examples/change_detection.rs"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

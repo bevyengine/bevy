@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod io;
 pub mod meta;
@@ -55,9 +56,8 @@ use bevy_ecs::{
     system::Resource,
     world::FromWorld,
 };
-use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::HashSet;
+use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
@@ -379,7 +379,6 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
-            .register_type::<AssetId<A>>()
             .add_systems(
                 First,
                 Assets::<A>::asset_events
