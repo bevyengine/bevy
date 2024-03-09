@@ -6,8 +6,8 @@
 use std::f32::consts::FRAC_PI_2;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
-use bevy_render::color::LegacyColor;
 use bevy_transform::components::Transform;
 
 /// A builder returned by [`Gizmos::rounded_rect`] and [`Gizmos::rounded_rect_2d`]
@@ -25,7 +25,7 @@ pub struct RoundedCuboidBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
 struct RoundedBoxConfig {
     position: Vec3,
     rotation: Quat,
-    color: LegacyColor,
+    color: Color,
     corner_radius: f32,
     arc_segments: usize,
 }
@@ -234,7 +234,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         Vec3::ZERO,
     ///         Quat::IDENTITY,
     ///         Vec2::ONE,
-    ///         LegacyColor::GREEN
+    ///         GREEN
     ///         )
     ///         .corner_radius(0.25)
     ///         .arc_segments(10);
@@ -246,7 +246,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         size: Vec2,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
         let corner_radius = size.min_element() / 10.0;
         RoundedRectBuilder {
@@ -254,7 +254,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             config: RoundedBoxConfig {
                 position,
                 rotation,
-                color,
+                color: color.into(),
                 corner_radius,
                 arc_segments: DEFAULT_ARC_SEGMENTS,
             },
@@ -289,7 +289,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         Vec2::ZERO,
     ///         0.,
     ///         Vec2::ONE,
-    ///         LegacyColor::GREEN
+    ///         GREEN
     ///         )
     ///         .corner_radius(0.25)
     ///         .arc_segments(10);
@@ -301,7 +301,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec2,
         rotation: f32,
         size: Vec2,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
         let corner_radius = size.min_element() / 10.0;
         RoundedRectBuilder {
@@ -309,7 +309,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             config: RoundedBoxConfig {
                 position: position.extend(0.),
                 rotation: Quat::from_rotation_z(rotation),
-                color,
+                color: color.into(),
                 corner_radius,
                 arc_segments: DEFAULT_ARC_SEGMENTS,
             },
@@ -344,7 +344,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         Vec3::ZERO,
     ///         Quat::IDENTITY,
     ///         Vec3::ONE,
-    ///         LegacyColor::GREEN
+    ///         ColorGREEN
     ///         )
     ///         .edge_radius(0.25)
     ///         .arc_segments(10);
@@ -356,7 +356,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         size: Vec3,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> RoundedCuboidBuilder<'_, 'w, 's, T> {
         let corner_radius = size.min_element() / 10.0;
         RoundedCuboidBuilder {
@@ -364,7 +364,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             config: RoundedBoxConfig {
                 position,
                 rotation,
-                color,
+                color: color.into(),
                 corner_radius,
                 arc_segments: DEFAULT_ARC_SEGMENTS,
             },
