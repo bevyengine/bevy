@@ -132,7 +132,7 @@ fn get_type_registration(
 
         attr.parse_nested_meta(|meta| {
             meta.path.is_ident(reflect_trait)
-                .then(|| ())
+                .then_some(())
                 .ok_or_else(|| meta.error("missing required reflect attribute"))
         })
         .is_ok()
