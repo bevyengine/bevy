@@ -10,14 +10,14 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             FpsOverlayPlugin {
-                config: FpsOverlayConfig {
+                config: FpsOverlayConfig(TextStyle {
                     // Here we define size of our overlay
                     font_size: 50.0,
                     // We can also change color of the overlay
-                    font_color: Color::srgb(0.0, 1.0, 0.0),
+                    color: Color::srgb(0.0, 1.0, 0.0),
                     // If we want, we can use a custom font
-                    font_path: None,
-                },
+                    font: default(),
+                }),
             },
         ))
         .add_systems(Startup, setup)
@@ -55,9 +55,9 @@ fn setup(mut commands: Commands) {
 fn system(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
-        overlay.font_color = Color::srgb(1.0, 0.0, 0.0);
+        overlay.0.color = Color::srgb(1.0, 0.0, 0.0);
     }
     if input.just_pressed(KeyCode::Digit2) {
-        overlay.font_size -= 2.0;
+        overlay.0.font_size -= 2.0;
     }
 }
