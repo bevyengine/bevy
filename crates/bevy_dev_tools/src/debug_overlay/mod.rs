@@ -6,11 +6,7 @@ use bevy_color::Hsla;
 use bevy_core::Name;
 use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_gizmos::{
-    config::GizmoConfigStore,
-    prelude::Gizmos,
-    AppGizmoBuilder
-};
+use bevy_gizmos::{config::GizmoConfigStore, prelude::Gizmos, AppGizmoBuilder};
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_render::{

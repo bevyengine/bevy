@@ -46,6 +46,5 @@ impl Plugin for DevToolsPlugin {
 
         #[cfg(feature = "bevy_ui_debug")]
         _app.add_plugins(debug_overlay::DebugUiPlugin);
-
     }
 }
