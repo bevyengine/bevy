@@ -1,15 +1,14 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use glam::{Mat2, Vec2};
 use smallvec::SmallVec;
 
 use crate::{
     primitives::{
-        BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
-        Ellipse, Line2d, Plane2d, Polygon,
-        Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+        Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
+        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d,
+        Triangle2d,
     },
     Dir2, Mat2, Vec2,
 };
@@ -40,11 +39,11 @@ fn arc_bounding_points(arc: Arc2d, rotation: f32) -> SmallVec<[Vec2; 7]> {
     // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
     // Compute the normalized angles of the endpoints with the rotation taken into account, and then
     // check if we are looking for an angle that is between or outside them.
-    let left_angle = (PI / 2.0 + arc.half_angle + rotation).rem_euclid(2.0 * PI);
-    let right_angle = (PI / 2.0 - arc.half_angle + rotation).rem_euclid(2.0 * PI);
+    let left_angle = (FRAC_PI_2 + arc.half_angle + rotation).rem_euclid(TAU);
+    let right_angle = (FRAC_PI_2 - arc.half_angle + rotation).rem_euclid(TAU);
     let inverted = left_angle < right_angle;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
-        let angle = extremum.to_angle().rem_euclid(2.0 * PI);
+        let angle = extremum.to_angle().rem_euclid(TAU);
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
@@ -366,7 +365,7 @@ impl Bounded2d for Capsule2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use std::f32::consts::{PI, TAU};
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
@@ -374,8 +373,8 @@ mod tests {
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Direction2d, Ellipse,
-            Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+            Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d, Plane2d,
+            Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
         },
         Dir2,
     };
@@ -561,7 +560,7 @@ mod tests {
             // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
-                arc: Arc2d::from_radians(1.0, 2.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, TAU / 3.0),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-apothem, 0.0),
@@ -713,7 +712,6 @@ mod tests {
         assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
 
         let bounding_circle = Plane2d::new(Vec2::Y).bounding_circle(translation, 0.0);
-        dbg!(bounding_circle);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
     }

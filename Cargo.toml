@@ -404,13 +404,13 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "mesh2d_circular"
-path = "examples/2d/mesh2d_circular.rs"
+name = "mesh2d_arcs"
+path = "examples/2d/mesh2d_arcs.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_circular]
-name = "Circular 2D Meshes"
-description = "Demonstrates UV-mapping of circular primitives"
+name = "Arc 2D Meshes"
+description = "Demonstrates UV-mapping of the circular segment and sector primitives"
 category = "2D Rendering"
 wasm = true
 

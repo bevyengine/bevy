@@ -83,7 +83,16 @@ impl From<CircleMeshBuilder> for Mesh {
 }
 
 /// Specifies how to generate UV-mappings for the [`CircularSector`] and [`CircularSegment`] shapes.
+///
+/// Currently the only variant is `Mask`, which is good for showing a portion of a texture that includes
+/// the entire circle, particularly the same texture will be displayed with different fractions of a
+/// complete circle.
+///
+/// It's expected that more will be added in the future, such as a variant that causes the texture to be
+/// scaled to fit the bounding box of the shape, which would be good for packed textures only including the
+/// portion of the circle that is needed to display.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum CircularMeshUvMode {
     /// Treats the shape as a mask over a circle of equal size and radius,
     /// with the center of the circle at the center of the texture.
