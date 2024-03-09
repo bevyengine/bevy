@@ -67,7 +67,7 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// // Print out our serialized scene in the RON format.
 /// let registry = world.resource::<AppTypeRegistry>();
 /// let scene = DynamicScene::from_world(&world);
-/// let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+/// let scene_serializer = SceneSerializer::new(&scene, &registry);
 /// println!("{}", bevy_scene::serialize_ron(scene_serializer).unwrap());
 /// ```
 pub struct SceneSerializer<'a> {
@@ -621,7 +621,7 @@ mod tests {
   },
 )"#;
         let output = scene
-            .serialize_ron(&world.resource::<AppTypeRegistry>().0)
+            .serialize_ron(world.resource::<AppTypeRegistry>())
             .unwrap();
         assert_eq!(expected, output);
     }
@@ -704,11 +704,11 @@ mod tests {
         let scene = DynamicScene::from_world(&world);
 
         let serialized = scene
-            .serialize_ron(&world.resource::<AppTypeRegistry>().0)
+            .serialize_ron(world.resource::<AppTypeRegistry>())
             .unwrap();
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
+            type_registry: &registry.read(),
         };
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
@@ -753,7 +753,7 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
-        let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+        let scene_serializer = SceneSerializer::new(&scene, registry);
         let serialized_scene = postcard::to_allocvec(&scene_serializer).unwrap();
 
         assert_eq!(
@@ -767,7 +767,7 @@ mod tests {
         );
 
         let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
+            type_registry: &registry.read(),
         };
         let deserialized_scene = scene_deserializer
             .deserialize(&mut postcard::Deserializer::from_bytes(&serialized_scene))
@@ -791,7 +791,7 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
-        let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+        let scene_serializer = SceneSerializer::new(&scene, registry);
         let mut buf = Vec::new();
         let mut ser = rmp_serde::Serializer::new(&mut buf);
         scene_serializer.serialize(&mut ser).unwrap();
@@ -808,7 +808,7 @@ mod tests {
         );
 
         let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
+            type_registry: &registry.read(),
         };
         let mut reader = BufReader::new(buf.as_slice());
 
@@ -834,7 +834,7 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
-        let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+        let scene_serializer = SceneSerializer::new(&scene, registry);
         let serialized_scene = bincode::serialize(&scene_serializer).unwrap();
 
         assert_eq!(
@@ -850,7 +850,7 @@ mod tests {
         );
 
         let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
+            type_registry: &registry.read(),
         };
 
         let deserialized_scene = bincode::DefaultOptions::new()
