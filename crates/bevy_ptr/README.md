@@ -35,7 +35,7 @@ Note these rules aren't final and are still in flux as the Rust Project hashes o
 final set of constraints are going to be a superset of this list, not a subset.
 
 This list already is non-trivial to satisfy in isolation. Thankfully, the Rust core/standard library provides a progressive list of pointer types that help
-build these safety guarentees...
+build these safety guarantees...
 
 ## Standard Pointers
 
@@ -56,10 +56,10 @@ without the use of `unsafe`.
 
 `&UnsafeCell<T>` is the first step away from safety. `UnsafeCell` is the *only* way to get a mutable borrow from an immutable one in the language, so it's the
 base primitive for all interior mutability in the language: `Cell<T>`, `RefCell<T>`, `Mutex<T>`, `RwLock<T>`, etc. are all built on top of
-`UnsafeCell<T>`. To safety convert `&UnsafeCell<T>` into a `&T` or `&mut T`, the caller must guarentee that all simultaneous access follow Rust's aliasing rules.
+`UnsafeCell<T>`. To safety convert `&UnsafeCell<T>` into a `&T` or `&mut T`, the caller must guarantee that all simultaneous access follow Rust's aliasing rules.
 
 `NonNull<T>` takes quite a step down from the aforementioned types. In addition to allowing aliasing, it's the first pointer type on this list to drop both
-lifetimes and the alignment guarentees of borrows. The only guarentees it provides are that the pointer is not null, and that it points to a valid instance
+lifetimes and the alignment guarantees of borrows. The only guarantees it provides are that the pointer is not null, and that it points to a valid instance
 of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++ reference (`T&`).
 
 `*const T` and `*mut T` are what most developers with a background in C or C++ would consider pointers.
@@ -104,6 +104,6 @@ multiple instances to collectively own the data it points to, and as a result, f
 `ThinSlicePtr<'a, T>` is a `&'a [T]` without the slice length. This means it's smaller on the stack, but it means bounds checking is impossible locally, so
 accessing elements in the slice is `unsafe`. In debug builds, the length is included and will be checked.
 
-`OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<"a>` act like `NonNull<()>`, but attempts to restore much of the safety guarentees of `Unique<T>`, `&T`, and `&mut T`.
+`OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<"a>` act like `NonNull<()>`, but attempts to restore much of the safety guarantees of `Unique<T>`, `&T`, and `&mut T`.
 They allow working with heterogenous type erased storage (i.e. ECS tables, typemaps) without the overhead of dynamic dispatch in a manner that progressively
 translates back to safe borrows. These types also support optional alignment requirements at a type level, and will verify it on dereference in debug builds.
