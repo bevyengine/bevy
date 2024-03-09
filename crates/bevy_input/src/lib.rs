@@ -3,6 +3,7 @@
 //! # Supported input devices
 //!
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod axis;
 mod button_input;
