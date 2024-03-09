@@ -1,3 +1,5 @@
+//! Module containing logic for FPS overlay.
+
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::Handle;
 use bevy_color::Color;
