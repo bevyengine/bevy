@@ -52,12 +52,12 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// // Normally, [`App`] handles providing the type registry.
 /// let mut world = World::new();
 /// world.init_resource::<AppTypeRegistry>();
-/// {
-///     let mut registry = world.resource::<AppTypeRegistry>().write();
-///     // Register our component. Primitives and String are registered by default.
-///     // Sequence types are automatically handled.
-///     registry.register::<MyComponent>();
-/// }
+/// // Components that implement Reflect are automatically registered in the World
+/// // upon being first spawned or referenced by a system.
+/// //
+/// // Note: This only works for non-generic types implemented via the Component
+/// // and Reflect derive macros, and Component must be reflected (#[reflect(Component)]).
+/// // Manual implementations of Component must be manually registered.
 /// world.spawn(MyComponent {
 ///     foo: [1, 2, 3],
 ///     bar: (1.3, 3.7),
