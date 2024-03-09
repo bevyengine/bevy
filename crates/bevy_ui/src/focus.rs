@@ -256,6 +256,9 @@ pub fn ui_focus_system(
                 camera_cursor_positions
                     .get(&camera_entity)
                     .and_then(|cursor_position| {
+                        // ensure node size is non-zero in all dimensions, otherwise relative position will be
+                        // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
+                        // false positives for mouse_over (#12395)
                         (node_rect.size().cmpgt(Vec2::ZERO).all())
                             .then_some((*cursor_position - node_rect.min) / node_rect.size())
                     });
