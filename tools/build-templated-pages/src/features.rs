@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fs::File};
 
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::Document;
+use toml_edit::{Document, Key, Table, Value};
 
 use crate::Command;
 
@@ -25,29 +25,9 @@ impl PartialOrd for Feature {
     }
 }
 
-fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
-    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
-
-    let features = manifest["features"].as_table().unwrap();
-    let default: Vec<_> = features
-        .get("default")
-        .unwrap()
-        .as_array()
-        .unwrap()
-        .iter()
-        .flat_map(|v| {
-            std::iter::once(v.as_str().unwrap().to_string()).chain(
-                features
-                    .get(v.as_str().unwrap())
-                    .unwrap()
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_str().unwrap().to_string()),
-            )
-        })
-        .collect();
+fn parse_features(what_to_run: Command) -> Vec<Feature> {
+    let features = get_manifest_features();
+    let default = get_default_features(&features);
 
     features
         .get_values()
@@ -58,53 +38,89 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
             if key == "default" {
                 None
             } else {
-                let name = key
-                    .as_repr()
-                    .unwrap()
-                    .as_raw()
-                    .as_str()
-                    .unwrap()
-                    .to_string();
-                if let Some(description) = key.leaf_decor().prefix() {
-                    let description = description.as_str().unwrap().to_string();
-                    if !description.starts_with("\n# ") || !description.ends_with('\n') {
-                        panic!("Missing description for feature {name}");
+                let key_name = get_key_name(key);
+                let key_prefix = key.leaf_decor().prefix().unwrap().as_str();
+                if what_to_run.contains(Command::CHECK_MISSING) {
+                    match key_prefix {
+                        Some(description) => create_feature(&default, key_name, description),
+                        None => panic!("Missing description for feature {key_name}"),
                     }
-                    let description = description
-                        .strip_prefix("\n# ")
-                        .unwrap()
-                        .strip_suffix('\n')
-                        .unwrap()
-                        .to_string();
-                    Some(Feature {
-                        is_default: default.contains(&name),
-                        name,
-                        description,
-                    })
-                } else if panic_on_missing {
-                    panic!("Missing description for feature {name}");
                 } else {
-                    None
+                    key_prefix
+                        .map(|description| create_feature(&default, key_name, description))
+                        .unwrap()
                 }
             }
         })
         .collect()
 }
 
-pub(crate) fn check(what_to_run: Command) {
-    let mut features = parse_features(what_to_run.contains(Command::CHECK_MISSING));
+fn get_manifest_features() -> Table {
+    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
+    let manifest = manifest_file.parse::<Document>().unwrap();
+    let features = manifest["features"].as_table().unwrap().clone();
+    features
+}
+
+fn create_feature(default: &[&str], name: &str, description: &str) -> Option<Feature> {
+    let description = description.to_string();
+    if let Some(stripped_description) = description
+        .strip_prefix("\n# ")
+        .and_then(|d| d.strip_suffix('\n'))
+    {
+        let is_default = default.contains(&name);
+        let description = get_description(stripped_description, name);
+        Some(Feature {
+            is_default,
+            name: name.to_string(),
+            description: description.to_string(),
+        })
+    } else {
+        panic!("Missing description for feature {name}");
+    }
+}
+
+fn get_description<'a>(description: &'a str, name: &str) -> &'a str {
+    if !description.starts_with("\n# ") || !description.ends_with('\n') {
+        panic!("Missing description for feature {name}");
+    }
+    description
+        .strip_prefix("\n# ")
+        .unwrap()
+        .strip_suffix('\n')
+        .unwrap()
+}
+
+fn get_key_name(key: &Key) -> &str {
+    key.as_repr().unwrap().as_raw().as_str().unwrap()
+}
+
+fn get_default_features(features: &Table) -> Vec<&str> {
+    let features_to_array = |name| features.get(name).unwrap().as_array().unwrap();
+    features_to_array("default")
+        .iter()
+        .flat_map(|v: &Value| {
+            let feature_name = v.as_str().unwrap();
+            let features_to_array = |name| features.get(name).unwrap().as_array().unwrap();
+            let map = features_to_array(feature_name)
+                .iter()
+                .map(|v: &Value| v.as_str().unwrap());
+            std::iter::once(feature_name).chain(map)
+        })
+        .collect()
+}
+
+pub(crate) fn check(command: Command) {
+    let mut features = parse_features(command);
     features.sort();
 
-    if what_to_run.contains(Command::UPDATE) {
+    if command.contains(Command::UPDATE) {
         let mut context = Context::new();
         context.insert("features", &features);
+        let file = File::create("docs/cargo_features.md").expect("error creating file");
         Tera::new("docs-template/*.md.tpl")
             .expect("error parsing template")
-            .render_to(
-                "features.md.tpl",
-                &context,
-                File::create("docs/cargo_features.md").expect("error creating file"),
-            )
+            .render_to("features.md.tpl", &context, file)
             .expect("error rendering template");
     }
 }
