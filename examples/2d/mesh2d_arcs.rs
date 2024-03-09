@@ -4,6 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},
     math::bounding::{Bounded2d, BoundingVolume},
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
@@ -37,7 +38,7 @@ fn setup(
 
     commands.spawn(Camera2dBundle {
         camera: Camera {
-            clear_color: ClearColorConfig::Custom(Color::DARK_GRAY),
+            clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
             ..default()
         },
         ..default()
@@ -115,13 +116,9 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let rotation = rotation.to_euler(EulerRot::XYZ).2;
 
         let aabb = shape.0.aabb_2d(translation, rotation);
-        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, Color::RED);
+        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
 
         let bounding_circle = shape.0.bounding_circle(translation, rotation);
-        gizmos.circle_2d(
-            bounding_circle.center,
-            bounding_circle.radius(),
-            Color::BLUE,
-        );
+        gizmos.circle_2d(bounding_circle.center, bounding_circle.radius(), BLUE);
     }
 }
