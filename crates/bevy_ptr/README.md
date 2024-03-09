@@ -90,15 +90,19 @@ multiple instances to collectively own the data it points to, and as a result, f
 
 ## Available in `bevy_ptr`
 
-|Pointer Type       |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|:------------------|:----------|:------|:-------------|:------|:-------|:---------------|:-----------------|
-|`ConstNonNull<T>`  |No         |No     |Yes           |No     |Yes     |No              |Yes               |
-|`OwningPtr<'a>`    |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
-|`Ptr<'a>`          |Yes        |No     |No            |Maybe  |Yes     |No              |No                |
-|`PtrMut<'a>`       |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
+|Pointer Type         |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
+|:--------------------|:----------|:------|:-------------|:------|:-------|:---------------|:-----------------|
+|`ConstNonNull<T>`    |No         |No     |Yes           |No     |Yes     |No              |Yes               |
+|`ThinSlicePtr<'a, T>`|Yes        |No     |Yes           |Yes    |Yes     |Yes             |Yes               |
+|`OwningPtr<'a>`      |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
+|`Ptr<'a>`            |Yes        |No     |No            |Maybe  |Yes     |No              |No                |
+|`PtrMut<'a>`         |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
 
 `ConstNonNull<T>` is like `NonNull<T>` but disallows safe conversions into types that allow mutable access to the value it points to. It's the `*const T` to
 `NonNull<T>`'s `*mut T`.
+
+`ThinSlicePtr<'a, T>` is a `&'a [T]` without the slice length. This means it's smaller on the stack, but it means bounds checking is impossible locally, so
+accessing elements in the slice is `unsafe`. In debug builds, the length is included and will be checked.
 
 `OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<"a>` act like `NonNull<()>`, but attempts to restore much of the safety guarentees of `Unique<T>`, `&T`, and `&mut T`.
 They allow working with heterogenous type erased storage (i.e. ECS tables, typemaps) without the overhead of dynamic dispatch in a manner that progressively
