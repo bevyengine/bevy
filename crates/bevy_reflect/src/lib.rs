@@ -467,6 +467,7 @@
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod array;
 mod fields;
@@ -481,9 +482,11 @@ mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
+
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+
     #[cfg(feature = "bevy_math")]
     mod math {
         mod direction;
@@ -491,12 +494,15 @@ mod impls {
         mod primitives3d;
         mod rect;
     }
+    #[cfg(feature = "petgraph")]
+    mod petgraph;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
 
     mod std;
+    #[cfg(feature = "uuid")]
     mod uuid;
 }
 
@@ -535,9 +541,48 @@ pub use erased_serde;
 
 extern crate alloc;
 
+/// Exports used by the reflection macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
 pub mod __macro_exports {
-    pub use bevy_utils::uuid::generate_composite_uuid;
+    use crate::{
+        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+    };
+
+    /// A wrapper trait around [`GetTypeRegistration`].
+    ///
+    /// This trait is used by the derive macro to recursively register all type dependencies.
+    /// It's used instead of `GetTypeRegistration` directly to avoid making dynamic types also
+    /// implement `GetTypeRegistration` in order to be used as active fields.
+    ///
+    /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
+    /// and manual implementations for all dynamic types (which simply do nothing).
+    pub trait RegisterForReflection {
+        #[allow(unused_variables)]
+        fn __register(registry: &mut TypeRegistry) {}
+    }
+
+    impl<T: GetTypeRegistration> RegisterForReflection for T {
+        fn __register(registry: &mut TypeRegistry) {
+            registry.register::<T>();
+        }
+    }
+
+    impl RegisterForReflection for DynamicEnum {}
+
+    impl RegisterForReflection for DynamicTupleStruct {}
+
+    impl RegisterForReflection for DynamicStruct {}
+
+    impl RegisterForReflection for DynamicMap {}
+
+    impl RegisterForReflection for DynamicList {}
+
+    impl RegisterForReflection for DynamicArray {}
+
+    impl RegisterForReflection for DynamicTuple {}
 }
 
 #[cfg(test)]
@@ -1003,6 +1048,124 @@ mod tests {
     }
 
     #[test]
+    fn should_auto_register_fields() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect)]
+        enum Bar {
+            Variant(Baz),
+        }
+
+        #[derive(Reflect)]
+        struct Baz(usize);
+
+        // === Basic === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Foo`"
+        );
+
+        // === Option === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Option<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Option<Foo>`"
+        );
+
+        // === Tuple === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<(Foo, Foo)>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `(Foo, Foo)`"
+        );
+
+        // === Array === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<[Foo; 3]>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `[Foo; 3]`"
+        );
+
+        // === Vec === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Vec<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Vec<Foo>`"
+        );
+
+        // === HashMap === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<HashMap<i32, Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `HashMap<i32, Foo>`"
+        );
+    }
+
+    #[test]
+    fn should_allow_dynamic_fields() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct(
+            DynamicEnum,
+            DynamicTupleStruct,
+            DynamicStruct,
+            DynamicMap,
+            DynamicList,
+            DynamicArray,
+            DynamicTuple,
+            i32,
+        );
+
+        assert_impl_all!(MyStruct: Reflect, GetTypeRegistration);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<MyStruct>();
+
+        assert_eq!(2, registry.iter().count());
+        assert!(registry.contains(TypeId::of::<MyStruct>()));
+        assert!(registry.contains(TypeId::of::<i32>()));
+    }
+
+    #[test]
+    fn should_not_auto_register_existing_types() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect, Default)]
+        struct Bar(usize);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Bar>();
+        registry.register_type_data::<Bar, ReflectDefault>();
+        registry.register::<Foo>();
+
+        assert!(
+            registry
+                .get_type_data::<ReflectDefault>(TypeId::of::<Bar>())
+                .is_some(),
+            "registry should contain existing registration for `Bar`"
+        );
+    }
+
+    #[test]
     fn reflect_serialize() {
         #[derive(Reflect)]
         struct Foo {
@@ -1387,7 +1550,6 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
-            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();
@@ -1979,6 +2141,39 @@ bevy_reflect::tests::Test {
         let _ = <RecurseA as TypePath>::type_path();
         let _ = <RecurseB as Typed>::type_info();
         let _ = <RecurseB as TypePath>::type_path();
+    }
+
+    #[test]
+    fn recursive_registration_does_not_hang() {
+        #[derive(Reflect)]
+        struct Recurse<T>(T);
+
+        let mut registry = TypeRegistry::empty();
+
+        registry.register::<Recurse<Recurse<()>>>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        registry.register::<SelfRecurse>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        registry.register::<RecurseA>();
+        assert!(registry.contains(TypeId::of::<RecurseA>()));
+        assert!(registry.contains(TypeId::of::<RecurseB>()));
     }
 
     #[test]

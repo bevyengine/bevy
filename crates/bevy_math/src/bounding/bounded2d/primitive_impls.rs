@@ -5,7 +5,7 @@ use crate::{
         BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
         Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
     },
-    Direction2d, Mat2, Vec2,
+    Dir2, Mat2, Vec2,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
@@ -236,7 +236,7 @@ impl Bounded2d for Capsule2d {
         // Get the line segment between the hemicircles of the rotated capsule
         let segment = Segment2d {
             // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: Direction2d::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
+            direction: Dir2::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
             half_length: self.half_length,
         };
         let (a, b) = (segment.point1(), segment.point2());
@@ -266,7 +266,7 @@ mod tests {
             Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
         },
-        Direction2d,
+        Dir2,
     };
 
     #[test]
@@ -322,31 +322,22 @@ mod tests {
     fn line() {
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb1 = Line2d {
-            direction: Direction2d::Y,
-        }
-        .aabb_2d(translation, 0.0);
+        let aabb1 = Line2d { direction: Dir2::Y }.aabb_2d(translation, 0.0);
         assert_eq!(aabb1.min, Vec2::new(2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec2::new(2.0, f32::MAX / 2.0));
 
-        let aabb2 = Line2d {
-            direction: Direction2d::X,
-        }
-        .aabb_2d(translation, 0.0);
+        let aabb2 = Line2d { direction: Dir2::X }.aabb_2d(translation, 0.0);
         assert_eq!(aabb2.min, Vec2::new(-f32::MAX / 2.0, 1.0));
         assert_eq!(aabb2.max, Vec2::new(f32::MAX / 2.0, 1.0));
 
         let aabb3 = Line2d {
-            direction: Direction2d::from_xy(1.0, 1.0).unwrap(),
+            direction: Dir2::from_xy(1.0, 1.0).unwrap(),
         }
         .aabb_2d(translation, 0.0);
         assert_eq!(aabb3.min, Vec2::new(-f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let bounding_circle = Line2d {
-            direction: Direction2d::Y,
-        }
-        .bounding_circle(translation, 0.0);
+        let bounding_circle = Line2d { direction: Dir2::Y }.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
     }

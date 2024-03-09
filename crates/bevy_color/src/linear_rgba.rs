@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -48,6 +50,30 @@ impl LinearRgba {
         green: 0.0,
         blue: 0.0,
         alpha: 0.0,
+    };
+
+    /// A fully red color with full alpha.
+    pub const RED: Self = Self {
+        red: 1.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully green color with full alpha.
+    pub const GREEN: Self = Self {
+        red: 0.0,
+        green: 1.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully blue color with full alpha.
+    pub const BLUE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 1.0,
+        alpha: 1.0,
     };
 
     /// An invalid color.
@@ -127,6 +153,26 @@ impl LinearRgba {
             self.mix_assign(Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
         }
     }
+
+    /// Converts the color into a [f32; 4] array in RGBA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    /// Converts this color to a u32.
+    ///
+    /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
+    /// `A` will be the most significant byte and `R` the least significant.
+    pub fn as_u32(&self) -> u32 {
+        u32::from_le_bytes([
+            (self.red * 255.0) as u8,
+            (self.green * 255.0) as u8,
+            (self.blue * 255.0) as u8,
+            (self.alpha * 255.0) as u8,
+        ])
+    }
 }
 
 impl Default for LinearRgba {
@@ -193,6 +239,11 @@ impl Alpha for LinearRgba {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl EuclideanDistance for LinearRgba {
@@ -224,6 +275,48 @@ impl From<LinearRgba> for wgpu::Color {
             g: color.green as f64,
             b: color.blue as f64,
             a: color.alpha as f64,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for LinearRgba {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Self {
+            red: self.red * rhs,
+            green: self.green * rhs,
+            blue: self.blue * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Mul<LinearRgba> for f32 {
+    type Output = LinearRgba;
+
+    fn mul(self, rhs: LinearRgba) -> LinearRgba {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for LinearRgba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self {
+        Self {
+            red: self.red / rhs,
+            green: self.green / rhs,
+            blue: self.blue / rhs,
+            alpha: self.alpha,
         }
     }
 }

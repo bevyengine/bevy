@@ -4,8 +4,8 @@ use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
-use bevy_log::{debug, warn};
 use bevy_time::{Real, Time};
+use bevy_utils::tracing::{debug, warn};
 use bevy_utils::{synccell::SyncCell, Duration, HashMap};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
