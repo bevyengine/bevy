@@ -27,7 +27,7 @@ Correctly and safety converting a pointer into a valid borrow is at the core of 
   * The pointer cannot be null, even for zero sized types.
   * The pointer must be within bounds of a valid allocated object (on the stack or the heap).
   * The pointer must point to an initialized instance of `T`.
-  * The newly assigned lifetime should be valid for the value that the pointer is targetting.
+  * The newly assigned lifetime should be valid for the value that the pointer is targeting.
   * The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
     in time, and converting from `&T` to `&mut T` is always not allowed.
 
