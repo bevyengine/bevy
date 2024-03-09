@@ -27,7 +27,7 @@ impl MeshletMesh {
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
             return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
         }
-        if mesh.attributes().map(|(id, _)| id).eq([
+        if mesh.attributes().map(|(id, _)| id).ne([
             Mesh::ATTRIBUTE_POSITION.id,
             Mesh::ATTRIBUTE_NORMAL.id,
             Mesh::ATTRIBUTE_UV_0.id,
