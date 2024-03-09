@@ -13,6 +13,7 @@ use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
+    load_and_forget_shader,
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -27,10 +28,6 @@ use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
 use crate::*;
-
-pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
-
-const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10123618247720234751);
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
@@ -47,18 +44,8 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_VERTEX_OUTPUT_SHADER_HANDLE,
-            "ui_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            UI_MATERIAL_SHADER_HANDLE,
-            "ui_material.wgsl",
-            Shader::from_wgsl
-        );
+        load_and_forget_shader!(app, "ui_vertex_output.wgsl");
+        embedded_asset!(app, "ui_material.wgsl");
         app.init_asset::<M>()
             .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
@@ -135,8 +122,8 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 pub struct UiMaterialPipeline<M: UiMaterial> {
     pub ui_layout: BindGroupLayout,
     pub view_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
+    pub vertex_shader: Handle<Shader>,
+    pub fragment_shader: Handle<Shader>,
     marker: PhantomData<M>,
 }
 
@@ -164,13 +151,13 @@ where
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
+                shader: self.vertex_shader.clone_weak(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
+                shader: self.fragment_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -202,13 +189,6 @@ where
             },
             label: Some("ui_material_pipeline".into()),
         };
-        if let Some(vertex_shader) = &self.vertex_shader {
-            descriptor.vertex.shader = vertex_shader.clone();
-        }
-
-        if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
-        }
 
         descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
 
@@ -235,19 +215,18 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
             ),
         );
 
+        let ui_shader = load_embedded_asset!(asset_server, "ui_material.wgsl");
+
+        let load_shader_ref = |shader_ref| match shader_ref {
+            ShaderRef::Default => ui_shader.clone(),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        };
         UiMaterialPipeline {
             ui_layout,
             view_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
+            vertex_shader: load_shader_ref(M::vertex_shader()),
+            fragment_shader: load_shader_ref(M::fragment_shader()),
             marker: PhantomData,
         }
     }

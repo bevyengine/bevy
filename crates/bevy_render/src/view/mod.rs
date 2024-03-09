@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -11,7 +10,8 @@ use crate::{
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::{Image, Shader},
+    load_and_forget_shader,
+    prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -35,13 +35,11 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
-
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+        load_and_forget_shader!(app, "view.wgsl");
 
         app.register_type::<InheritedVisibility>()
             .register_type::<ViewVisibility>()

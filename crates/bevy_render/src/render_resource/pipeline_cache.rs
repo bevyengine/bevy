@@ -136,7 +136,7 @@ struct ShaderCache {
     composer: naga_oil::compose::Composer,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),

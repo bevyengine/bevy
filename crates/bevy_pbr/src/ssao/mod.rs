@@ -1,6 +1,6 @@
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
@@ -19,6 +19,7 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
+    load_and_forget_shader,
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -38,35 +39,15 @@ use bevy_utils::{
 };
 use std::mem;
 
-const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
-const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
-const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(466162052558226);
-const GTAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(366465052568786);
-
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PREPROCESS_DEPTH_SHADER_HANDLE,
-            "preprocess_depth.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, GTAO_SHADER_HANDLE, "gtao.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SPATIAL_DENOISE_SHADER_HANDLE,
-            "spatial_denoise.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            GTAO_UTILS_SHADER_HANDLE,
-            "gtao_utils.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "preprocess_depth.wgsl");
+        load_and_forget_shader!(app, "gtao.wgsl");
+        embedded_asset!(app, "spatial_denoise.wgsl");
+        load_and_forget_shader!(app, "gtao_utils.wgsl");
 
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
     }
@@ -309,6 +290,7 @@ struct SsaoPipelines {
 
     hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
+    gtao_shader: Handle<Shader>,
 }
 
 impl FromWorld for SsaoPipelines {
@@ -320,7 +302,7 @@ impl FromWorld for SsaoPipelines {
         let hilbert_index_lut = render_device
             .create_texture_with_data(
                 render_queue,
-                &(TextureDescriptor {
+                &TextureDescriptor {
                     label: Some("ssao_hilbert_index_lut"),
                     size: Extent3d {
                         width: HILBERT_WIDTH as u32,
@@ -333,7 +315,7 @@ impl FromWorld for SsaoPipelines {
                     format: TextureFormat::R16Uint,
                     usage: TextureUsages::TEXTURE_BINDING,
                     view_formats: &[],
-                }),
+                },
                 TextureDataOrder::default(),
                 bytemuck::cast_slice(&generate_hilbert_index_lut()),
             )
@@ -409,7 +391,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: PREPROCESS_DEPTH_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
             });
@@ -422,7 +404,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: SPATIAL_DENOISE_SHADER_HANDLE,
+                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
             });
@@ -438,6 +420,7 @@ impl FromWorld for SsaoPipelines {
 
             hilbert_index_lut,
             point_clamp_sampler,
+            gtao_shader: load_embedded_asset!(world, "gtao.wgsl"),
         }
     }
 }
@@ -473,7 +456,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
                 self.common_bind_group_layout.clone(),
             ],
             push_constant_ranges: vec![],
-            shader: GTAO_SHADER_HANDLE,
+            shader: self.gtao_shader.clone_weak(),
             shader_defs,
             entry_point: "gtao".into(),
         }

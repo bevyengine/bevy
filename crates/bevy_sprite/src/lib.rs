@@ -1,7 +1,7 @@
+//! Provides 2D sprite rendering functionality.
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 
-//! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
@@ -36,14 +36,14 @@ pub use texture_atlas_builder::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     mesh::Mesh,
     primitives::Aabb,
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
+    render_resource::SpecializedRenderPipelines,
     texture::Image,
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -52,8 +52,6 @@ use bevy_render::{
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpritePlugin;
-
-pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -64,12 +62,7 @@ pub enum SpriteSystem {
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            SPRITE_SHADER_HANDLE,
-            "render/sprite.wgsl",
-            Shader::from_wgsl
-        );
+        bevy_render::load_and_forget_shader!(app, "render/sprite.wgsl");
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()

@@ -136,8 +136,8 @@ use bevy_ecs::component::Component;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
-        TextureSampleType, TextureView,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
+        TextureView,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, Image},
@@ -153,9 +153,6 @@ use crate::{
 };
 
 use super::LightProbeComponent;
-
-pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(160299515939076705258408299184317675488);
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use

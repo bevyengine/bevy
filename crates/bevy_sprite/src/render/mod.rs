@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite,
 };
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -46,6 +46,7 @@ pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
     pub dummy_white_gpu_image: GpuImage,
+    pub sprite_shader: Handle<Shader>,
 }
 
 impl FromWorld for SpritePipeline {
@@ -111,6 +112,7 @@ impl FromWorld for SpritePipeline {
             view_layout,
             material_layout,
             dummy_white_gpu_image,
+            sprite_shader: load_embedded_asset!(world, "sprite.wgsl"),
         }
     }
 }
@@ -256,13 +258,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SPRITE_SHADER_HANDLE,
+                shader: self.sprite_shader.clone_weak(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: SPRITE_SHADER_HANDLE,
+                shader: self.sprite_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

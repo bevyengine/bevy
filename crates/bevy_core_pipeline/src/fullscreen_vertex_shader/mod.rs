@@ -1,6 +1,10 @@
 use bevy_asset::Handle;
 use bevy_render::{prelude::Shader, render_resource::VertexState};
 
+// TODO: Migrate this to the embedded setup.
+// Currently not possible, because it would require modifying
+// fullscreen_shader_vertex_state to accept context, which greatly increases
+// code complexity on user-side.
 pub const FULLSCREEN_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7837534426033940724);
 
 /// uses the [`FULLSCREEN_SHADER_HANDLE`] to output a

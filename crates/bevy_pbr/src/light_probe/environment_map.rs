@@ -56,8 +56,8 @@ use bevy_render::{
     prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
-        TextureSampleType, TextureView,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
+        TextureView,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, Image},
@@ -71,10 +71,6 @@ use crate::{
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
-
-/// A handle to the environment map helper shader.
-pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(154476556247605696);
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.

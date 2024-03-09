@@ -1,6 +1,6 @@
 use crate::{
     config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts, DrawLineGizmo, GizmoRenderSystem,
-    LineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
+    LineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -59,6 +59,7 @@ impl Plugin for LineGizmo3dPlugin {
 
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
+    line_shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
 }
@@ -66,6 +67,7 @@ struct LineGizmoPipeline {
 impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
         LineGizmoPipeline {
+            line_shader: bevy_asset::load_embedded_asset!(render_world, "lines.wgsl"),
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()
@@ -110,13 +112,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.line_shader.clone_weak(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.line_shader.clone_weak(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

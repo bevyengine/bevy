@@ -3,11 +3,12 @@ use crate::{
     prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::load_embedded_asset;
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    load_and_forget_shader,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -23,18 +24,11 @@ use bevy_render::{
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
-pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(5230948520734987);
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
-            "copy_deferred_lighting_id.wgsl",
-            Shader::from_wgsl
-        );
+        load_and_forget_shader!(app, "copy_deferred_lighting_id.wgsl");
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -137,6 +131,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
             ),
         );
 
+        let shader = load_embedded_asset!(world, "copy_deferred_lighting_id.wgsl");
         let pipeline_id =
             world
                 .resource_mut::<PipelineCache>()
@@ -145,7 +140,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     layout: vec![layout.clone()],
                     vertex: fullscreen_shader_vertex_state(),
                     fragment: Some(FragmentState {
-                        shader: COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
+                        shader,
                         shader_defs: vec![],
                         entry_point: "fragment".into(),
                         targets: vec![],
