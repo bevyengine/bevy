@@ -43,15 +43,20 @@ impl Plugin for FpsOverlayPlugin {
 
 /// Configuration options for the FPS overlay.
 #[derive(Resource, Clone)]
-pub struct FpsOverlayConfig(pub TextStyle);
+pub struct FpsOverlayConfig {
+    /// Configuration of text in the overlay.
+    pub text_config: TextStyle,
+}
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
-        FpsOverlayConfig(TextStyle {
-            font: Handle::<Font>::default(),
-            font_size: 32.0,
-            color: Color::WHITE,
-        })
+        FpsOverlayConfig {
+            text_config: TextStyle {
+                font: Handle::<Font>::default(),
+                font_size: 32.0,
+                color: Color::WHITE,
+            },
+        }
     }
 }
 
@@ -61,8 +66,8 @@ struct FpsText;
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands.spawn((
         TextBundle::from_sections([
-            TextSection::new("FPS: ", overlay_config.0.clone()),
-            TextSection::from_style(overlay_config.0.clone()),
+            TextSection::new("FPS: ", overlay_config.text_config.clone()),
+            TextSection::from_style(overlay_config.text_config.clone()),
         ]),
         FpsText,
     ));
@@ -84,7 +89,7 @@ fn customize_text(
 ) {
     for mut text in &mut query {
         for section in text.sections.iter_mut() {
-            section.style = overlay_config.0.clone();
+            section.style = overlay_config.text_config.clone();
         }
     }
 }
