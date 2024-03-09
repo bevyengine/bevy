@@ -145,23 +145,16 @@ fn has_reflect_attr(ast: &DeriveInput, reflect_trait: &'static str) -> bool {
 
     const REFLECT: &str = "reflect";
     ast.attrs.iter().any(|attr| {
-        if !attr.path().is_ident(REFLECT) {
+        if !attr.path().is_ident(REFLECT) || !matches!(attr.meta, Meta::List(_)) {
             return false;
         }
-
-        if !matches!(attr.meta, Meta::List(_)) {
-            return false;
-        }
-
-        let mut is_component_registered = false;
 
         attr.parse_nested_meta(|meta| {
-            is_component_registered |= meta.path.is_ident(reflect_trait);
-            Ok(())
+            meta.path.is_ident(reflect_trait)
+                .then(|| ())
+                .ok_or_else(|| meta.error("missing required reflect attribute"))
         })
-        .ok();
-
-        is_component_registered
+        .is_ok()
     })
 }
 
