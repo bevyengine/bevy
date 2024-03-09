@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Meta, Path, Result};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -32,17 +32,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-    let mut register_type: Option<proc_macro2::TokenStream> = None;
-
-    #[cfg(feature = "bevy_reflect")]
-    if has_reflect_attr(&ast, "Resource") {
-        register_type = Some(quote! {
-            #[doc(hidden)]
-            fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                #bevy_ecs_path::private::bevy_reflect::register_type_shim::<Self>(registry);
-            }
-        });
-    }
+    let register_type = get_type_registration(&ast, &bevy_ecs_path, "Resource");
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
@@ -69,17 +59,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-    let mut register_type: Option<proc_macro2::TokenStream> = None;
-
-    #[cfg(feature = "bevy_reflect")]
-    if has_reflect_attr(&ast, "Component") {
-        register_type = Some(quote! {
-            #[doc(hidden)]
-            fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
-                #bevy_ecs_path::private::bevy_reflect::register_type_shim::<Self>(registry);
-            }
-        });
-    }
+    let register_type = get_type_registration(&ast, &bevy_ecs_path, "Component");
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
@@ -91,6 +71,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
+const REFLECT: &str = "reflect";
 
 struct Attrs {
     storage: StorageTy,
@@ -133,17 +114,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     Ok(attrs)
 }
 
-#[cfg(feature = "bevy_reflect")]
-fn has_reflect_attr(ast: &DeriveInput, reflect_trait: &'static str) -> bool {
-    use syn::Meta;
-
+fn get_type_registration(
+    ast: &DeriveInput,
+    bevy_ecs_path: &Path,
+    reflect_trait: &'static str,
+) -> Option<proc_macro2::TokenStream> {
     // Generics require the generic parameters to implement Reflect
     // This is unsupported for now.
-    if !ast.generics.params.is_empty() {
-        return false;
+    if !cfg!(feature = "bevy_reflect") || !ast.generics.params.is_empty() {
+        return None;
     }
 
-    const REFLECT: &str = "reflect";
     ast.attrs.iter().any(|attr| {
         if !attr.path().is_ident(REFLECT) || !matches!(attr.meta, Meta::List(_)) {
             return false;
@@ -155,6 +136,12 @@ fn has_reflect_attr(ast: &DeriveInput, reflect_trait: &'static str) -> bool {
                 .ok_or_else(|| meta.error("missing required reflect attribute"))
         })
         .is_ok()
+    })
+    .then(|| quote! {
+        #[doc(hidden)]
+        fn __register_type(registry: &#bevy_ecs_path::private::bevy_reflect::TypeRegistryArc) {
+            #bevy_ecs_path::private::bevy_reflect::register_type_shim::<Self>(registry);
+        }
     })
 }
 
