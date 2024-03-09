@@ -21,7 +21,7 @@ fn main() {
             },
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, system)
+        .add_systems(Update, customize_config)
         .run();
 }
 
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
     );
 }
 
-fn system(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
         overlay.0.color = Color::srgb(1.0, 0.0, 0.0);
