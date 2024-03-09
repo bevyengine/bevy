@@ -994,17 +994,18 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "bevy_reflect")]
 mod test {
-    #[test]
-    #[cfg(feature = "bevy_reflect")]
-    fn init_component_registers_component() {
-        use crate as bevy_ecs;
-        use crate::{
-            component::Components, prelude::Component, reflect::ReflectComponent, storage::Storages,
-        };
-        use bevy_reflect::Reflect;
-        use core::any::TypeId;
+    use crate as bevy_ecs;
+    use crate::{
+        component::Components, prelude::Component, prelude::Resource, reflect::ReflectComponent,
+        reflect::ReflectResource, storage::Storages,
+    };
+    use bevy_reflect::Reflect;
+    use core::any::TypeId;
 
+    #[test]
+    fn init_component_registers_component() {
         #[derive(Component, Reflect)]
         #[reflect(Component)]
         struct A(usize);
@@ -1012,6 +1013,18 @@ mod test {
         let mut components = Components::default();
         let mut storages = Storages::default();
         components.init_component::<A>(&mut storages);
+
+        assert!(components.type_registry.read().contains(TypeId::of::<A>()));
+    }
+
+    #[test]
+    fn init_resource_registers_resource() {
+        #[derive(Resource, Reflect)]
+        #[reflect(Resource)]
+        struct A(usize);
+
+        let mut components = Components::default();
+        components.init_resource::<A>();
 
         assert!(components.type_registry.read().contains(TypeId::of::<A>()));
     }
