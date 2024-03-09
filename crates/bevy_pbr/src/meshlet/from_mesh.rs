@@ -3,7 +3,7 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_meshlet_bounds_decoder, simplify, SimplifyOptions, VertexDataAdapter,
@@ -50,26 +50,26 @@ impl MeshletMesh {
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         while simplification_queue.len() != 1 {
-            // For each meshlet build a list of triangle edges
+            // For each meshlet build a set of triangle edges
             let mut triangle_edges_per_meshlet = HashMap::new();
             for meshlet_id in simplification_queue.clone() {
                 let meshlet = meshlets.get(meshlet_id);
-                for (edge_v1, edge_v2) in meshlet.triangles.iter().copied().tuple_windows() {
-                    triangle_edges_per_meshlet
-                        .entry(meshlet_id)
-                        .or_insert(Vec::new())
-                        .push((edge_v1.min(edge_v2), edge_v1.max(edge_v2)));
+                let meshlet_triangle_edges = triangle_edges_per_meshlet
+                    .entry(meshlet_id)
+                    .or_insert(HashSet::new());
+                for v in meshlet.triangles.chunks(3) {
+                    meshlet_triangle_edges.insert(v[0].min(v[1]));
+                    meshlet_triangle_edges.insert(v[0].min(v[2]));
+                    meshlet_triangle_edges.insert(v[1].min(v[2]));
                 }
             }
 
             // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
             let mut connected_meshlets_per_meshlet = HashMap::new();
             for (meshlet_id1, meshlet_id2) in simplification_queue.clone().tuple_combinations() {
-                let shared_edge_count: u32 = triangle_edges_per_meshlet[&meshlet_id1]
-                    .iter()
-                    .cartesian_product(triangle_edges_per_meshlet[&meshlet_id2].iter())
-                    .map(|(edge1, edge2)| (*edge1 == *edge2) as u32)
-                    .sum();
+                let shared_edge_count = triangle_edges_per_meshlet[&meshlet_id1]
+                    .intersection(&triangle_edges_per_meshlet[&meshlet_id2])
+                    .count();
                 if shared_edge_count != 0 {
                     connected_meshlets_per_meshlet
                         .entry(meshlet_id1)
