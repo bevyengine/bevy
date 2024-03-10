@@ -1,5 +1,5 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, Archetypes},
     change_detection::{Ticks, TicksMut},
     component::{Component, ComponentId, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
@@ -393,7 +393,8 @@ unsafe impl WorldQuery for EntityLocation {
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
-        fetch.get(entity).debug_checked_unwrap()
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        unsafe { fetch.get(entity).debug_checked_unwrap() }
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -789,7 +790,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for &Archetype {
     type Item<'w> = &'w Archetype;
-    type Fetch<'w> = Option<&'w Archetype>;
+    type Fetch<'w> = (&'w Entities, &'w Archetypes);
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -797,38 +798,42 @@ unsafe impl WorldQuery for &Archetype {
     }
 
     unsafe fn init_fetch<'w>(
-        _world: UnsafeWorldCell<'w>,
+        world: UnsafeWorldCell<'w>,
         _state: &Self::State,
         _last_run: Tick,
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
-        None
+        (world.entities(), world.archetypes())
     }
 
-    const IS_DENSE: bool = false;
+    // This could probably be a non-dense query and just get set a Option<&Archetype> fetch value in
+    // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
+    const IS_DENSE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
+        _fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
-        archetype: &'w Archetype,
+        _archetype: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.replace(archetype);
     }
 
     #[inline]
     unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
-        unreachable!();
     }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
+        entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
-        fetch.debug_checked_unwrap()
+        let (entities, archetypes) = *fetch;
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        let location = unsafe { entities.get(entity).debug_checked_unwrap() };
+        // SAFETY: The assigned archetype for a living entity must always be valid.
+        unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() }
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
