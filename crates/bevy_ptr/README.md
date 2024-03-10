@@ -6,8 +6,8 @@
 [![Docs](https://docs.rs/bevy_ptr/badge.svg)](https://docs.rs/bevy_ptr/latest/bevy_ptr/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
-Pointers in computer programming, according to Wikipedia, are "objects in many programming languages that stores a memory address". 
-They're a fundamental building block for constructing more complex data structures.
+Pointers in computer programming are objects that store a memory address. They're a fundamental building block for constructing more 
+complex data structures.
 
 They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying 
 memory has been freed, and even ignore type safety and misread or mutate the underlying memory improperly.
@@ -16,7 +16,7 @@ Rust is a programming language that heavily relies on its types to enforce corre
 Rust has an entire zoo of types for working with pointers, and a graph of safe and unsafe conversions that make working with them safer.
 
 `bevy_ptr` is a crate that attempts to bridge the gap between the full blown unsafety of `*mut ()` and the safe `&'a T`, allowing users 
-to build progressively to choose what invariants to uphold.
+to choose what invariants to uphold for their pointer, with the intent to enable building progressively safer abstractions.
 
 ## How to Build a Borrow (From Scratch)
 Correctly and safety converting a pointer into a valid borrow is at the core of all `unsafe` code in Rust. Looking at the documentation for
