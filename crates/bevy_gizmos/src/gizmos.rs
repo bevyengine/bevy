@@ -18,13 +18,11 @@ use crate::{
     prelude::GizmoConfig,
 };
 
-type PositionItem = [f32; 3];
-
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
-    pub(crate) list_positions: Vec<PositionItem>,
+    pub(crate) list_positions: Vec<Vec3>,
     pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<PositionItem>,
+    pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
@@ -102,9 +100,9 @@ where
 
 #[derive(Default)]
 struct GizmoBuffer<T: GizmoConfigGroup> {
-    list_positions: Vec<PositionItem>,
+    list_positions: Vec<Vec3>,
     list_colors: Vec<LinearRgba>,
-    strip_positions: Vec<PositionItem>,
+    strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
@@ -297,11 +295,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         strip_colors.reserve(min);
 
         for (position, color) in points {
-            strip_positions.push(position.to_array());
+            strip_positions.push(position);
             strip_colors.push(LinearRgba::from(color.into()));
         }
 
-        strip_positions.push([f32::NAN; 3]);
+        strip_positions.push(Vec3::NAN);
         strip_colors.push(LinearRgba::NAN);
     }
 
@@ -601,9 +599,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer
-            .list_positions
-            .extend(positions.into_iter().map(|vec3| vec3.to_array()));
+        self.buffer.list_positions.extend(positions);
     }
 
     #[inline]
@@ -627,12 +623,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(
-            positions
-                .into_iter()
-                .map(|vec3| vec3.to_array())
-                .chain(iter::once([f32::NAN; 3])),
-        );
+        self.buffer.strip_positions.extend(positions);
+        self.buffer.strip_positions.push(Vec3::NAN);
     }
 }
 
