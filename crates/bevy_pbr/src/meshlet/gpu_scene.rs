@@ -25,6 +25,7 @@ use bevy_utils::{default, HashMap, HashSet};
 use encase::internal::WriteInto;
 use std::{
     iter,
+    mem::size_of,
     ops::{DerefMut, Range},
     sync::Arc,
 };
@@ -854,14 +855,14 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().push(0);
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let (buffer_slices, index_count) = self
+        let ([_, _, _, meshlets_slice, _], index_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
-        let meshlets_slice =
-            (buffer_slices[4].start as u32 / 12)..(buffer_slices[4].end as u32 / 12);
+        let meshlets_slice = (meshlets_slice.start as u32 / size_of::<Meshlet>() as u32)
+            ..(meshlets_slice.end as u32 / size_of::<Meshlet>() as u32);
 
         let current_cluster_id_start = self.scene_meshlet_count;
 
