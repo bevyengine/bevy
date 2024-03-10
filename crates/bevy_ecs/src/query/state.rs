@@ -782,7 +782,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
     /// The `iter_combinations` method does not guarantee order of iteration.
-    /// 
+    ///
     /// This iterator is always guaranteed to return results from each unique pair of matching entities.
     /// Iteration order is not guaranteed.
     ///
