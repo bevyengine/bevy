@@ -61,3 +61,39 @@ pub trait Alpha: Sized {
         self.alpha() >= 1.0
     }
 }
+
+/// Method for manipulating the hue of a color.
+pub trait Hue: Sized {
+    /// Return a new version of this color with the hue channel set to the given value.
+    fn with_hue(&self, hue: f32) -> Self;
+
+    /// Return the hue of this color (0.0 - 360.0).
+    fn hue(&self) -> f32;
+
+    /// Sets the hue of this color.
+    fn set_hue(&mut self, hue: f32);
+
+    /// Return a new version of this color with the hue channel rotated by the given degrees.
+    fn rotate_hue(&self, degrees: f32) -> Self {
+        let degrees = degrees.rem_euclid(360.);
+        self.with_hue((self.hue() + degrees) % 360.)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Hsla;
+
+    #[test]
+    fn test_rotate_hue() {
+        let hsla = Hsla::hsl(180.0, 1.0, 0.5);
+        assert_eq!(hsla.rotate_hue(90.0), Hsla::hsl(270.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-90.0), Hsla::hsl(90.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(0.0), hsla);
+        assert_eq!(hsla.rotate_hue(360.0), hsla);
+        assert_eq!(hsla.rotate_hue(-360.0), hsla);
+    }
+}
