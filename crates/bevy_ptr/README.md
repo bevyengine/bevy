@@ -86,7 +86,9 @@ etc.
 `Shared<T>` is currently available in `core::ptr` on nightly Rust builds. It's the pointer that backs both `Rc<T>` and `Arc<T>`. It's semantics allow for
 multiple instances to collectively own the data it points to, and as a result, forbids getting a mutable borrow.
 
-`bevy_ptr` does not support these types right now, but may support polyfills for these pointer types upon request.
+`bevy_ptr` does not support these types right now, but may support [polyfills] for these pointer types upon request.
+
+[polyfills]: https://en.wikipedia.org/wiki/Polyfill_(programming)
 
 ## Available in `bevy_ptr`
 
