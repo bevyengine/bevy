@@ -326,6 +326,12 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
+            max_color_attachments: limits
+                .max_color_attachments
+                .min(constrained_limits.max_color_attachments),
+            max_color_attachment_bytes_per_sample: limits
+                .max_color_attachment_bytes_per_sample
+                .min(constrained_limits.max_color_attachment_bytes_per_sample),
         };
     }
 

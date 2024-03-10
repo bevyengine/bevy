@@ -70,7 +70,8 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "0.19.3", default-features = false, features = [
+# wgpu = { version = "0.19.3", default-features = false, features = [
+wgpu = { git = "https://github.com/gfx-rs/wgpu.git", rev = "b731495e053fe3a15879ff2637c2fb8db74ace3e", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -78,7 +79,8 @@ wgpu = { version = "0.19.3", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "0.19", features = ["wgsl-in"] }
+# naga = { version = "0.19", features = ["wgsl-in"] }
+naga = { git = "https://github.com/gfx-rs/wgpu.git", rev = "b731495e053fe3a15879ff2637c2fb8db74ace3e", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
@@ -104,12 +106,14 @@ smallvec = "1.11"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.13", default-features = false, features = [
+# naga_oil = { version = "0.13", default-features = false, features = [
+naga_oil = { git = "https://github.com/Elabajaba/naga_oil.git", branch = "wgpu-0.20", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.13"
+# naga_oil = "0.13"
+naga_oil = { git = "https://github.com/Elabajaba/naga_oil.git", branch = "wgpu-0.20" }
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
