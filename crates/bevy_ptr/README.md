@@ -9,17 +9,16 @@
 Pointers in computer programming, according to Wikipedia, are "objects in many programming languages that stores a memory address". 
 They're a fundamental building block for constructing more complex data structures.
 
-They're also *the* definitive source of memory safety bugs. You can dereference a null pointer. Access a pointer after the underlying 
-memory has been freed. Ignore type safety and misread or mutate the underlying memory improperly.
+They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying 
+memory has been freed, and even ignore type safety and misread or mutate the underlying memory improperly.
 
 Rust is a programming language that heavily relies on its types to enforce correctness, and by proxy, memory safety. As a result, 
-Rust has an entire zoo of types for working with pointers, and a graph of safe and unsafe conversions to among them to make working 
-with them safer.
+Rust has an entire zoo of types for working with pointers, and a graph of safe and unsafe conversions that make working with them safer.
 
 `bevy_ptr` is a crate that attempts to bridge the gap between the full blown unsafety of `*mut ()` and the safe `&'a T`, allowing users 
 to build progressively to choose what invariants to uphold.
 
-## How to build a Borrow (from scratch)
+## How to Build a Borrow (From Scratch)
 Correctly and safety converting a pointer into a valid borrow is at the core of all `unsafe` code in Rust. Looking at the documentation for
 [`(*const T)::as_ref`], a pointer must satisfy *all* of the following conditions:
 
@@ -29,7 +28,7 @@ Correctly and safety converting a pointer into a valid borrow is at the core of 
   * The pointer must point to an initialized instance of `T`.
   * The newly assigned lifetime should be valid for the value that the pointer is targeting.
   * The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
-    in time, and converting from `&T` to `&mut T` is always not allowed.
+    in time, and converting from `&T` to `&mut T` is never allowed.
 
 Note these rules aren't final and are still in flux as the Rust Project hashes out what exactly are the pointer aliasing rules, but the expectation is that the
 final set of constraints are going to be a superset of this list, not a subset.
@@ -59,7 +58,7 @@ base primitive for all interior mutability in the language: `Cell<T>`, `RefCell<
 `UnsafeCell<T>`. To safety convert `&UnsafeCell<T>` into a `&T` or `&mut T`, the caller must guarantee that all simultaneous access follow Rust's aliasing rules.
 
 `NonNull<T>` takes quite a step down from the aforementioned types. In addition to allowing aliasing, it's the first pointer type on this list to drop both
-lifetimes and the alignment guarantees of borrows. The only guarantees it provides are that the pointer is not null, and that it points to a valid instance
+lifetimes and the alignment guarantees of borrows. Its only guarantees are that the pointer is not null and that it points to a valid instance
 of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++ reference (`T&`).
 
 `*const T` and `*mut T` are what most developers with a background in C or C++ would consider pointers.
@@ -86,7 +85,7 @@ etc.
 `Shared<T>` is currently available in `core::ptr` on nightly Rust builds. It's the pointer that backs both `Rc<T>` and `Arc<T>`. It's semantics allow for
 multiple instances to collectively own the data it points to, and as a result, forbids getting a mutable borrow.
 
-`bevy_ptr` does not support these types right now, but may support [polyfills] for these pointer types upon request.
+`bevy_ptr` does not support these types right now, but may support [polyfills] for these pointer types if the need arises.
 
 [polyfills]: https://en.wikipedia.org/wiki/Polyfill_(programming)
 
@@ -106,6 +105,6 @@ multiple instances to collectively own the data it points to, and as a result, f
 `ThinSlicePtr<'a, T>` is a `&'a [T]` without the slice length. This means it's smaller on the stack, but it means bounds checking is impossible locally, so
 accessing elements in the slice is `unsafe`. In debug builds, the length is included and will be checked.
 
-`OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<"a>` act like `NonNull<()>`, but attempts to restore much of the safety guarantees of `Unique<T>`, `&T`, and `&mut T`.
+`OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<'a>` act like `NonNull<()>`, but attempts to restore much of the safety guarantees of `Unique<T>`, `&T`, and `&mut T`.
 They allow working with heterogenous type erased storage (i.e. ECS tables, typemaps) without the overhead of dynamic dispatch in a manner that progressively
 translates back to safe borrows. These types also support optional alignment requirements at a type level, and will verify it on dereference in debug builds.
