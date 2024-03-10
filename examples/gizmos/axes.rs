@@ -1,8 +1,10 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
-use rand::random;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
+
+const TRANSITION_DURATION: f32 = 2.0;
 
 fn main() {
     App::new()
@@ -27,15 +29,20 @@ struct TransformTracking {
     /// The target transform of the cube during the move
     target_transform: Transform,
 
-    /// The progress of the cube during the move in percentage points
-    progress: u16,
+    /// The progress of the cube during the move in seconds
+    progress: f32,
 }
+
+#[derive(Resource)]
+struct SeededRng(StdRng);
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let mut rng = StdRng::seed_from_u64(19878367467713);
+
     // Lights...
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -62,8 +69,8 @@ fn setup(
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
-            target_transform: random_transform(),
-            progress: 0,
+            target_transform: random_transform(&mut rng),
+            progress: 0.0,
         },
     ));
 
@@ -76,8 +83,8 @@ fn setup(
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
-            target_transform: random_transform(),
-            progress: 0,
+            target_transform: random_transform(&mut rng),
+            progress: 0.0,
         },
     ));
 
@@ -88,6 +95,8 @@ fn setup(
         transform: Transform::from_xyz(0., -2., 0.),
         ..default()
     });
+
+    commands.insert_resource(SeededRng(rng));
 }
 
 // This system draws the axes based on the cube's transform, with length based on the size of
@@ -100,19 +109,24 @@ fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes
 }
 
 // This system changes the cubes' transforms to interpolate between random transforms
-fn move_cubes(mut query: Query<(&mut Transform, &mut TransformTracking)>) {
+fn move_cubes(
+    mut query: Query<(&mut Transform, &mut TransformTracking)>,
+    time: Res<Time>,
+    mut rng: ResMut<SeededRng>,
+) {
     for (mut transform, mut tracking) in &mut query {
-        let t = tracking.progress as f32 / 100.;
+        *transform = interpolate_transforms(
+            tracking.initial_transform,
+            tracking.target_transform,
+            tracking.progress / TRANSITION_DURATION,
+        );
 
-        *transform =
-            interpolate_transforms(tracking.initial_transform, tracking.target_transform, t);
-
-        if tracking.progress < 100 {
-            tracking.progress += 1;
+        if tracking.progress < TRANSITION_DURATION {
+            tracking.progress += time.delta_seconds();
         } else {
             tracking.initial_transform = *transform;
-            tracking.target_transform = random_transform();
-            tracking.progress = 0;
+            tracking.target_transform = random_transform(&mut rng.0);
+            tracking.progress = 0.0;
         }
     }
 }
@@ -129,31 +143,31 @@ const TRANSLATION_BOUND_UPPER_Z: f32 = 6.;
 const SCALING_BOUND_LOWER_LOG: f32 = -1.2;
 const SCALING_BOUND_UPPER_LOG: f32 = 1.2;
 
-fn random_transform() -> Transform {
+fn random_transform(rng: &mut impl Rng) -> Transform {
     Transform {
-        translation: random_translation(),
-        rotation: random_rotation(),
-        scale: random_scale(),
+        translation: random_translation(rng),
+        rotation: random_rotation(rng),
+        scale: random_scale(rng),
     }
 }
 
-fn random_translation() -> Vec3 {
-    let x = random::<f32>() * (TRANSLATION_BOUND_UPPER_X - TRANSLATION_BOUND_LOWER_X)
+fn random_translation(rng: &mut impl Rng) -> Vec3 {
+    let x = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_X - TRANSLATION_BOUND_LOWER_X)
         + TRANSLATION_BOUND_LOWER_X;
-    let y = random::<f32>() * (TRANSLATION_BOUND_UPPER_Y - TRANSLATION_BOUND_LOWER_Y)
+    let y = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_Y - TRANSLATION_BOUND_LOWER_Y)
         + TRANSLATION_BOUND_LOWER_Y;
-    let z = random::<f32>() * (TRANSLATION_BOUND_UPPER_Z - TRANSLATION_BOUND_LOWER_Z)
+    let z = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_Z - TRANSLATION_BOUND_LOWER_Z)
         + TRANSLATION_BOUND_LOWER_Z;
 
     Vec3::new(x, y, z)
 }
 
-fn random_scale() -> Vec3 {
-    let x_factor_log = random::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+fn random_scale(rng: &mut impl Rng) -> Vec3 {
+    let x_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
-    let y_factor_log = random::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+    let y_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
-    let z_factor_log = random::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+    let z_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
 
     Vec3::new(
@@ -175,16 +189,16 @@ fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
     )
 }
 
-fn random_rotation() -> Quat {
-    let dir = random_direction();
-    let angle = random::<f32>() * 2. * PI;
+fn random_rotation(rng: &mut impl Rng) -> Quat {
+    let dir = random_direction(rng);
+    let angle = rng.gen::<f32>() * 2. * PI;
 
     Quat::from_axis_angle(dir, angle)
 }
 
-fn random_direction() -> Vec3 {
-    let height = random::<f32>() * 2. - 1.;
-    let theta = random::<f32>() * 2. * PI;
+fn random_direction(rng: &mut impl Rng) -> Vec3 {
+    let height = rng.gen::<f32>() * 2. - 1.;
+    let theta = rng.gen::<f32>() * 2. * PI;
 
     build_direction(height, theta)
 }
