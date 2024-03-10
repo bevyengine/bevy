@@ -10,7 +10,7 @@ use bevy_gizmos::{config::GizmoConfigStore, prelude::Gizmos, AppGizmoBuilder};
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_render::{
-    camera::{ClearColorConfig, RenderTarget},
+    camera::RenderTarget,
     prelude::*,
     view::{RenderLayers, VisibilitySystems},
 };
