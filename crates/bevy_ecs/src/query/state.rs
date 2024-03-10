@@ -411,6 +411,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// safe methods on `QueryState` call [`QueryState::update_archetypes`] internally, so
     /// this is best used through a `Query`.
     ///
+    /// ## Performance
+    ///
+    /// This will have similar performance as constructing a new `QueryState` since much of internal state
+    /// needs to be reconstructed. But it will be a little faster as it only needs to compare the intersection
+    /// of matching archetypes rather than iterating over all archetypes.
+    ///
     /// ## Panics
     ///
     /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
