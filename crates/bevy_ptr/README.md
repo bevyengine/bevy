@@ -39,7 +39,7 @@ build these safety guarantees...
 ## Standard Pointers
 
 |Pointer Type       |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|:------------------|:----------|:------|:-------------|:------|:-------|:---------------|:-----------------|
+|-------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
 |`Box<T>`           |Owned      |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
 |`&'a mut T`        |Yes        |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
 |`&'a T`            |Yes        |No     |Yes           |Yes    |Yes     |No              |Yes               |
@@ -74,7 +74,7 @@ all usage patterns. `*mut ()` should only be used to carry the mutability of the
 ## Available in Nightly
 
 |Pointer Type       |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|:------------------|:----------|:------|:-------------|:------|:-------|:---------------|:-----------------|
+|-------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
 |`Unique<T>`        |Owned      |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
 |`Shared<T>`        |Owned*     |Yes    |Yes           |Yes    |Yes     |No              |Yes               |
 
@@ -92,7 +92,7 @@ multiple instances to collectively own the data it points to, and as a result, f
 ## Available in `bevy_ptr`
 
 |Pointer Type         |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|:--------------------|:----------|:------|:-------------|:------|:-------|:---------------|:-----------------|
+|---------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
 |`ConstNonNull<T>`    |No         |No     |Yes           |No     |Yes     |No              |Yes               |
 |`ThinSlicePtr<'a, T>`|Yes        |No     |Yes           |Yes    |Yes     |Yes             |Yes               |
 |`OwningPtr<'a>`      |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
