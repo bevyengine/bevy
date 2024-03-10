@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     change_detection::{Ticks, TicksMut},
     component::{Component, ComponentId, StorageType, Tick},
-    entity::Entity,
+    entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -27,6 +27,12 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   but nesting of tuples allows infinite `WorldQuery`s.
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
+/// - **[`EntityLocation`].**
+///   Gets the location metadata of the queried entity.
+/// - **[`EntityRef`].**
+///   Read-only access to arbitrary components on the queried entity.
+/// - **[`EntityMut`].**
+///   Mutable access to arbitrary components on the queried entity.
 /// - **[`Option`].**
 ///   By default, a world query only tests entities that have the matching component types.
 ///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
@@ -344,6 +350,75 @@ unsafe impl QueryData for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
+unsafe impl WorldQuery for EntityLocation {
+    type Item<'w> = EntityLocation;
+    type Fetch<'w> = &'w Entities;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        world.entities()
+    }
+
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        fetch.get(entity).debug_checked_unwrap()
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl QueryData for EntityLocation {
+    type ReadOnly = Self;
+}
+
+/// SAFETY: access is read only
+unsafe impl ReadOnlyQueryData for EntityLocation {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
@@ -708,6 +783,77 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
 unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
 }
+
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
+unsafe impl WorldQuery for &Archetype {
+    type Item<'w> = &'w Archetype;
+    type Fetch<'w> = Option<&'w Archetype>;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    unsafe fn init_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        None
+    }
+
+    const IS_DENSE: bool = false;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+        fetch.replace(archetype);
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+        unreachable!();
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        fetch.debug_checked_unwrap()
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl QueryData for &Archetype {
+    type ReadOnly = Self;
+}
+
+/// SAFETY: access is read only
+unsafe impl ReadOnlyQueryData for &Archetype {}
 
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
