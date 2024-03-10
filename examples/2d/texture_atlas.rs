@@ -40,7 +40,6 @@ fn check_textures(
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
-    // and that the the font has been loaded by the `FontSystem`.
     for event in events.read() {
         if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
             next_state.set(AppState::Finished);
@@ -52,15 +51,15 @@ fn setup(
     mut commands: Commands,
     rpg_sprite_handles: Res<RpgSpriteFolder>,
     asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     loaded_folders: Res<Assets<LoadedFolder>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Image>>,
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
 
     // create texture atlases with different padding and sampling
 
-    let texture_atlas_linear = create_texture_atlas(
+    let (texture_atlas_linear, linear_texture) = create_texture_atlas(
         loaded_folder,
         None,
         Some(ImageSampler::linear()),
@@ -68,7 +67,7 @@ fn setup(
     );
     let atlas_linear_handle = texture_atlases.add(texture_atlas_linear.clone());
 
-    let texture_atlas_nearest = create_texture_atlas(
+    let (texture_atlas_nearest, nearest_texture) = create_texture_atlas(
         loaded_folder,
         None,
         Some(ImageSampler::nearest()),
@@ -76,7 +75,7 @@ fn setup(
     );
     let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest);
 
-    let texture_atlas_linear_padded = create_texture_atlas(
+    let (texture_atlas_linear_padded, linear_padded_texture) = create_texture_atlas(
         loaded_folder,
         Some(UVec2::new(6, 6)),
         Some(ImageSampler::linear()),
@@ -84,7 +83,7 @@ fn setup(
     );
     let atlas_linear_padded_handle = texture_atlases.add(texture_atlas_linear_padded.clone());
 
-    let texture_atlas_nearest_padded = create_texture_atlas(
+    let (texture_atlas_nearest_padded, nearest_padded_texture) = create_texture_atlas(
         loaded_folder,
         Some(UVec2::new(6, 6)),
         Some(ImageSampler::nearest()),
@@ -99,7 +98,7 @@ fn setup(
 
     // draw unpadded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.texture.clone(),
+        texture: linear_texture.clone(),
         transform: Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
@@ -110,7 +109,7 @@ fn setup(
 
     // draw padded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.texture,
+        texture: linear_padded_texture.clone(),
         transform: Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
@@ -153,11 +152,21 @@ fn setup(
         .unwrap();
 
     // configuration array to render sprites through iteration
-    let configurations: [(&str, Handle<TextureAtlas>, f32); 4] = [
-        ("Linear", atlas_linear_handle, -350.0),
-        ("Nearest", atlas_nearest_handle, -150.0),
-        ("Linear", atlas_linear_padded_handle, 150.0),
-        ("Nearest", atlas_nearest_padded_handle, 350.0),
+    let configurations: [(&str, Handle<TextureAtlasLayout>, Handle<Image>, f32); 4] = [
+        ("Linear", atlas_linear_handle, linear_texture, -350.0),
+        ("Nearest", atlas_nearest_handle, nearest_texture, -150.0),
+        (
+            "Linear",
+            atlas_linear_padded_handle,
+            linear_padded_texture,
+            150.0,
+        ),
+        (
+            "Nearest",
+            atlas_nearest_padded_handle,
+            nearest_padded_texture,
+            350.0,
+        ),
     ];
 
     // label text style
@@ -169,9 +178,15 @@ fn setup(
 
     let base_y = 170.0; // y position of the sprites
 
-    for (sampling, atlas_handle, x) in configurations {
+    for (sampling, atlas_handle, image_handle, x) in configurations {
         // render a sprite from the texture_atlas
-        create_sprite_from_atlas(&mut commands, (x, base_y, 0.0), vendor_index, atlas_handle);
+        create_sprite_from_atlas(
+            &mut commands,
+            (x, base_y, 0.0),
+            vendor_index,
+            atlas_handle,
+            image_handle,
+        );
 
         // render a label to indicate the sampling setting
         create_label(
@@ -190,8 +205,8 @@ fn create_texture_atlas(
     padding: Option<UVec2>,
     sampling: Option<ImageSampler>,
     textures: &mut ResMut<Assets<Image>>,
-) -> TextureAtlas {
-    // Build a `TextureAtlas` using the individual sprites
+) -> (TextureAtlasLayout, Handle<Image>) {
+    // Build a texture atlas using the individual sprites
     let mut texture_atlas_builder =
         TextureAtlasBuilder::default().padding(padding.unwrap_or_default());
     for handle in folder.handles.iter() {
@@ -204,16 +219,17 @@ fn create_texture_atlas(
             continue;
         };
 
-        texture_atlas_builder.add_texture(id, texture);
+        texture_atlas_builder.add_texture(Some(id), texture);
     }
 
-    let texture_atlas = texture_atlas_builder.finish(textures).unwrap();
+    let (texture_atlas_layout, texture) = texture_atlas_builder.finish().unwrap();
+    let texture = textures.add(texture);
 
     // Update the sampling settings of the texture atlas
-    let image = textures.get_mut(&texture_atlas.texture).unwrap();
+    let image = textures.get_mut(&texture).unwrap();
     image.sampler = sampling.unwrap_or_default();
 
-    texture_atlas
+    (texture_atlas_layout, texture)
 }
 
 /// Create and spawn a sprite from a texture atlas
@@ -221,18 +237,24 @@ fn create_sprite_from_atlas(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     sprite_index: usize,
-    atlas_handle: Handle<TextureAtlas>,
+    atlas_handle: Handle<TextureAtlasLayout>,
+    texture: Handle<Image>,
 ) {
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(translation.0, translation.1, translation.2),
-            scale: Vec3::splat(3.0),
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(translation.0, translation.1, translation.2),
+                scale: Vec3::splat(3.0),
+                ..default()
+            },
+            texture,
             ..default()
         },
-        sprite: TextureAtlasSprite::new(sprite_index),
-        texture_atlas: atlas_handle,
-        ..default()
-    });
+        TextureAtlas {
+            layout: atlas_handle,
+            index: sprite_index,
+        },
+    ));
 }
 
 /// Create and spawn a label (text)

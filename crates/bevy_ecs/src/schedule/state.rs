@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
+use crate::event::Event;
 use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
@@ -73,8 +74,33 @@ pub struct OnTransition<S: States> {
 /// [`apply_state_transition::<S>`] system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
+/// }
+///
+/// fn game_logic(game_state: Res<State<GameState>>) {
+///     match game_state.get() {
+///         GameState::InGame => {
+///             // Run game logic here...
+///         },
+///         _ => {},
+///     }
+/// }
+/// ```
 #[derive(Resource, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource)
+)]
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {
@@ -116,6 +142,22 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum GameState {
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
+/// }
+///
+/// fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
+///     next_game_state.set(GameState::InGame);
+/// }
+/// ```
 #[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -137,37 +179,62 @@ impl<S: States> NextState<S> {
     }
 }
 
+/// Event sent when any state transition of `S` happens.
+///
+/// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
+pub struct StateTransitionEvent<S: States> {
+    /// the state we were in before
+    pub before: S,
+    /// the state we're in now
+    pub after: S,
+}
+
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
-        .ok();
+    let Some(state) = world.get_resource::<State<S>>() else {
+        return;
+    };
+    world.try_run_schedule(OnEnter(state.0.clone())).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
+/// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
-    let mut next_state_resource = world.resource_mut::<NextState<S>>();
+    let Some(mut next_state_resource) = world.get_resource_mut::<NextState<S>>() else {
+        return;
+    };
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
-
-        let mut state_resource = world.resource_mut::<State<S>>();
-        if *state_resource != entered {
-            let exited = mem::replace(&mut state_resource.0, entered.clone());
-            // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
-            world
-                .try_run_schedule(OnTransition {
-                    from: exited,
-                    to: entered.clone(),
-                })
-                .ok();
-            world.try_run_schedule(OnEnter(entered)).ok();
-        }
+        match world.get_resource_mut::<State<S>>() {
+            Some(mut state_resource) => {
+                if *state_resource != entered {
+                    let exited = mem::replace(&mut state_resource.0, entered.clone());
+                    world.send_event(StateTransitionEvent {
+                        before: exited.clone(),
+                        after: entered.clone(),
+                    });
+                    // Try to run the schedules if they exist.
+                    world.try_run_schedule(OnExit(exited.clone())).ok();
+                    world
+                        .try_run_schedule(OnTransition {
+                            from: exited,
+                            to: entered.clone(),
+                        })
+                        .ok();
+                    world.try_run_schedule(OnEnter(entered)).ok();
+                }
+            }
+            None => {
+                world.insert_resource(State(entered.clone()));
+                world.try_run_schedule(OnEnter(entered)).ok();
+            }
+        };
     }
 }

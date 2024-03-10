@@ -58,6 +58,15 @@ use bevy_ecs::schedule::State;
 /// | [`ButtonInput::reset_all`]              | *O*(n)                       |
 /// | [`ButtonInput::clear`]                  | *O*(n)                       |
 ///
+/// ## Window focus
+///
+/// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
+/// while the window loses focus, [`ButtonInput::just_released`] will be triggered. Similarly if the window
+/// regains focus, [`ButtonInput::just_pressed`] will be triggered. Currently this happens even if the
+/// focus switches from one Bevy window to another (for example because a new window was just spawned).
+///
+/// `ButtonInput<GamepadButton>` is independent of window focus.
+///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:

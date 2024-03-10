@@ -1,8 +1,12 @@
+use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
+    camera::{
+        Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
+        OrthographicProjection,
+    },
     extract_component::ExtractComponent,
     primitives::Frustum,
     view::VisibleEntities,
@@ -26,6 +30,7 @@ pub struct Camera2dBundle {
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
+    pub main_texture_usages: CameraMainTextureUsages,
 }
 
 impl Default for Camera2dBundle {
@@ -36,16 +41,9 @@ impl Default for Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::default();
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -55,6 +53,7 @@ impl Default for Camera2dBundle {
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }
@@ -74,16 +73,9 @@ impl Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -93,6 +85,7 @@ impl Camera2dBundle {
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
+            main_texture_usages: Default::default(),
         }
     }
 }

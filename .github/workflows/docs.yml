@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - 'main'
-
   # Allows running the action manually.
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
+  NIGHTLY_TOOLCHAIN: nightly
 
 # Sets the permissions to allow deploying to Github pages.
 permissions:
@@ -33,8 +33,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
@@ -48,7 +49,7 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        run: cargo doc --all-features --no-deps -p bevy
+        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
@@ -59,12 +60,13 @@ jobs:
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
           echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
+          rm target/doc/.lock
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: target/doc
 
       - name: Deploy to Github Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4

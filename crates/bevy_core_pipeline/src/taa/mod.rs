@@ -1,5 +1,5 @@
 use crate::{
-    core_3d::{self, CORE_3D},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -35,13 +35,6 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the TAA render node.
-        pub const TAA: &str = "taa";
-    }
-}
-
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
@@ -71,18 +64,15 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
-                CORE_3D,
-                draw_3d_graph::node::TAA,
-            )
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    core_3d::graph::node::END_MAIN_PASS,
-                    draw_3d_graph::node::TAA,
-                    core_3d::graph::node::BLOOM,
-                    core_3d::graph::node::TONEMAPPING,
-                ],
+                Core3d,
+                (
+                    Node3d::EndMainPass,
+                    Node3d::Taa,
+                    Node3d::Bloom,
+                    Node3d::Tonemapping,
+                ),
             );
     }
 
@@ -168,7 +158,7 @@ impl Default for TemporalAntiAliasSettings {
 pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
@@ -181,7 +171,7 @@ impl ViewNode for TemporalAntiAliasNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {

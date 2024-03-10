@@ -1,7 +1,7 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
-use bevy_log::error;
+use bevy_utils::tracing::error;
 use bevy_utils::BoxedFuture;
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
@@ -53,10 +53,7 @@ impl HttpWasmAssetReader {
                 Ok(reader)
             }
             404 => Err(AssetReaderError::NotFound(path)),
-            status => Err(AssetReaderError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Encountered unexpected HTTP status {status}"),
-            ))),
+            status => Err(AssetReaderError::HttpError(status as u16)),
         }
     }
 }

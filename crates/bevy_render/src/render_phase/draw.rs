@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, HashMap};
+use bevy_utils::{all_tuples, TypeIdMap};
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -47,7 +47,7 @@ pub struct DrawFunctionId(u32);
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
-    pub indices: HashMap<TypeId, DrawFunctionId>,
+    pub indices: TypeIdMap<DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
@@ -111,7 +111,7 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
         Self {
             internal: RwLock::new(DrawFunctionsInternal {
                 draw_functions: Vec::new(),
-                indices: HashMap::default(),
+                indices: Default::default(),
             }),
         }
     }
@@ -142,8 +142,8 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// Compared to the draw function the required ECS data is fetched automatically
 /// (by the [`RenderCommandState`]) from the render world.
 /// Therefore the three types [`Param`](RenderCommand::Param),
-/// [`ViewData`](RenderCommand::ViewData) and
-/// [`ItemData`](RenderCommand::ItemData) are used.
+/// [`ViewQuery`](RenderCommand::ViewQuery) and
+/// [`ItemQuery`](RenderCommand::ItemQuery) are used.
 /// They specify which information is required to execute the render command.
 ///
 /// Multiple render commands can be combined together by wrapping them in a tuple.
@@ -185,19 +185,24 @@ pub trait RenderCommand<P: PhaseItem> {
     /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase
     /// item will be rendered from.
     /// All components have to be accessed read only.
-    type ViewData: ReadOnlyQueryData;
+    type ViewQuery: ReadOnlyQueryData;
     /// Specifies the ECS data of the item entity required by [`RenderCommand::render`].
     ///
     /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
-    type ItemData: ReadOnlyQueryData;
+    ///
+    /// For efficiency reasons, Bevy doesn't always extract entities to the
+    /// render world; for instance, entities that simply consist of meshes are
+    /// often not extracted. If the entity doesn't exist in the render world,
+    /// the supplied query data will be `None`.
+    type ItemQuery: ReadOnlyQueryData;
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'w, Self::ViewData>,
-        entity: ROQueryItem<'w, Self::ItemData>,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -213,20 +218,29 @@ macro_rules! render_command_tuple_impl {
     ($(($name: ident, $view: ident, $entity: ident)),*) => {
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
-            type ViewData = ($($name::ViewData,)*);
-            type ItemData = ($($name::ItemData,)*);
+            type ViewQuery = ($($name::ViewQuery,)*);
+            type ItemQuery = ($($name::ItemQuery,)*);
 
             #[allow(non_snake_case)]
             fn render<'w>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'w, Self::ViewData>,
-                ($($entity,)*): ROQueryItem<'w, Self::ItemData>,
+                ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
+                maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
-                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
-                    return RenderCommandResult::Failure;
-                })*
+                match maybe_entities {
+                    None => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                    Some(($($entity,)*)) => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                }
                 RenderCommandResult::Success
             }
         }
@@ -237,12 +251,12 @@ all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 ///
-/// The [`RenderCommand::Param`], [`RenderCommand::ViewData`] and
-/// [`RenderCommand::ItemData`] are fetched from the ECS and passed to the command.
+/// The [`RenderCommand::Param`], [`RenderCommand::ViewQuery`] and
+/// [`RenderCommand::ItemQuery`] are fetched from the ECS and passed to the command.
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
-    view: QueryState<C::ViewData>,
-    entity: QueryState<C::ItemData>,
+    view: QueryState<C::ViewQuery>,
+    entity: QueryState<C::ItemQuery>,
 }
 
 impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
@@ -278,7 +292,7 @@ where
     ) {
         let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
-        let entity = self.entity.get_manual(world, item.entity()).unwrap();
+        let entity = self.entity.get_manual(world, item.entity()).ok();
         // TODO: handle/log `RenderCommand` failure
         C::render(item, view, entity, param, pass);
     }

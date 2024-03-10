@@ -6,12 +6,12 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
+    color::palettes::basic::YELLOW,
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
-        render_asset::RenderAssetPersistencePolicy,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -48,12 +48,12 @@ fn star(
     // We will specify here what kind of topology is used to define the mesh,
     // that is, how triangles are built from the vertices. We will use a
     // triangle list, meaning that each vertex of the triangle has to be
-    // specified. We set `cpu_persistent_access` to unload, meaning this mesh
+    // specified. We set `RenderAssetUsages::RENDER_WORLD`, meaning this mesh
     // will not be accessible in future frames from the `meshes` resource, in
     // order to save on memory once it has been uploaded to the GPU.
     let mut star = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     );
 
     // Vertices need to have a position attribute. We will use the following
@@ -80,8 +80,8 @@ fn star(
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
-    v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
+    let mut v_color: Vec<u32> = vec![LinearRgba::BLACK.as_u32()];
+    v_color.extend_from_slice(&[LinearRgba::from(YELLOW).as_u32(); 10]);
     star.insert_attribute(
         MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
         v_color,
@@ -100,7 +100,7 @@ fn star(
     for i in 2..=10 {
         indices.extend_from_slice(&[0, i, i - 1]);
     }
-    star.set_indices(Some(Indices::U32(indices)));
+    star.insert_indices(Indices::U32(indices));
 
     // We can now spawn the entities for the star and the camera
     commands.spawn((

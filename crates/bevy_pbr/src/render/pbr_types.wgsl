@@ -1,8 +1,12 @@
 #define_import_path bevy_pbr::pbr_types
 
+// Since this is a hot path, try to keep the alignment and size of the struct members in mind.
+// You can find the alignment and sizes at <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 struct StandardMaterial {
     base_color: vec4<f32>,
     emissive: vec4<f32>,
+    attenuation_color: vec4<f32>,
+    uv_transform: mat3x3<f32>,
     perceptual_roughness: f32,
     metallic: f32,
     reflectance: f32,
@@ -11,7 +15,6 @@ struct StandardMaterial {
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
-    attenuation_color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -24,7 +27,7 @@ struct StandardMaterial {
 };
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// NOTE: if these flags are updated or changed. Be sure to also update 
+// NOTE: if these flags are updated or changed. Be sure to also update
 // deferred_flags_from_mesh_material_flags and mesh_material_flags_from_deferred_flags
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
@@ -74,13 +77,18 @@ fn standard_material_new() -> StandardMaterial {
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
     material.deferred_lighting_pass_id = 1u;
-    
+    // scale 1, translation 0, rotation 0
+    material.uv_transform = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
+
     return material;
 }
 
 struct PbrInput {
     material: StandardMaterial,
-    occlusion: vec3<f32>,
+    // Note: this gets monochromized upon deferred PbrInput reconstruction.
+    diffuse_occlusion: vec3<f32>,
+    // Note: this is 1.0 (entirely unoccluded) when SSAO is off.
+    specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -101,7 +109,9 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.occlusion = vec3<f32>(1.0);
+    pbr_input.diffuse_occlusion = vec3<f32>(1.0);
+    // If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get specular environment map unoccluded (we have no data with which to occlude it with).
+    pbr_input.specular_occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);

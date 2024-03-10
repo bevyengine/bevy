@@ -1,13 +1,17 @@
 [package]
 name = "build-templated-pages"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "handle templated pages in Bevy repository"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
-toml_edit = "0.20"
+toml_edit = { version = "0.22", default-features = false, features = ["parse"] }
 tera = "1.15"
 serde = { version = "1.0", features = ["derive"] }
 bitflags = "2.3"
+hashbrown = { version = "0.14", features = ["serde"] }

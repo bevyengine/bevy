@@ -1,20 +1,33 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_color::Color;
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    texture::Image,
+};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::smallvec::SmallVec;
+use bevy_utils::warn_once;
+use bevy_window::{PrimaryWindow, WindowRef};
+use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
-/// Describes the size of a UI node
+/// Base component for a UI node, which also provides the computed size of the node.
+///
+/// # See also
+///
+/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
+///   to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
     ///
@@ -42,7 +55,7 @@ impl Node {
     }
 
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
@@ -1577,7 +1590,6 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-/// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
@@ -1597,22 +1609,10 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
-}
-
-/// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct UiTextureAtlasImage {
-    /// Texture index in the TextureAtlas
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
 }
 
 /// The border color of the UI node.
@@ -1625,9 +1625,9 @@ pub struct UiTextureAtlasImage {
 )]
 pub struct BorderColor(pub Color);
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BorderColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
@@ -1655,7 +1655,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1664,10 +1664,10 @@ impl Default for BorderColor {
 ///                 height: Val::Px(100.),
 ///                 ..Default::default()
 ///             },
-///             background_color: Color::BLUE.into(),
+///             background_color: BLUE.into(),
 ///             ..Default::default()
 ///         },
-///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
 /// ```
@@ -1676,7 +1676,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
@@ -1697,7 +1697,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
-/// set `Outline::color` to `Color::NONE` to hide an outline.
+/// set `Outline::color` to [`Color::NONE`] to hide an outline.
 pub struct Outline {
     /// The width of the outline.
     ///
@@ -1709,7 +1709,7 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`Color::NONE`] to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
     pub color: Color,
 }
@@ -1729,6 +1729,8 @@ impl Outline {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
+    /// The tint color used to draw the image
+    pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1743,6 +1745,13 @@ impl UiImage {
             texture,
             ..Default::default()
         }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
     }
 
     /// Flip the image along its x-axis
@@ -1831,5 +1840,89 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+}
+
+/// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+/// UI then will be laid out respecting the camera's viewport and scale factor, and
+/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+///
+/// Setting this component on a non-root node will have no effect. It will be overridden
+/// by the root node's component.
+///
+/// Optional if there is only one camera in the world. Required otherwise.
+#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+pub struct TargetCamera(pub Entity);
+
+impl TargetCamera {
+    pub fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component)]
+/// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
+///
+/// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
+/// just for debug purposes and the user wants a way to choose the default [`Camera`]
+/// without having to add a [`TargetCamera`] to the root node.
+///
+/// Another use is when the user wants the Ui to be in another window by default,
+/// all that is needed is to place this component on the camera
+///
+/// ```
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_window::{Window, WindowRef};
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     let another_window = commands.spawn(Window {
+///         title: String::from("Another window"),
+///         ..Default::default()
+///     }).id();
+///     commands.spawn((
+///         Camera2dBundle {
+///             camera: Camera {
+///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
+///                 ..Default::default()
+///             },
+///             ..Default::default()
+///         },
+///         // We add the Marker here so all Ui will spawn in
+///         // another window if no TargetCamera is specified
+///         IsDefaultUiCamera
+///     ));
+/// }
+/// ```
+pub struct IsDefaultUiCamera;
+
+#[derive(SystemParam)]
+pub struct DefaultUiCamera<'w, 's> {
+    cameras: Query<'w, 's, (Entity, &'static Camera)>,
+    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
+    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+}
+
+impl<'w, 's> DefaultUiCamera<'w, 's> {
+    pub fn get(&self) -> Option<Entity> {
+        self.default_cameras.get_single().ok().or_else(|| {
+            // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
+            if !self.default_cameras.is_empty() {
+                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+            }
+            self.cameras
+                .iter()
+                .filter(|(_, c)| match c.target {
+                    RenderTarget::Window(WindowRef::Primary) => true,
+                    RenderTarget::Window(WindowRef::Entity(w)) => {
+                        self.primary_window.get(w).is_ok()
+                    }
+                    _ => false,
+                })
+                .max_by_key(|(e, c)| (c.order, *e))
+                .map(|(e, _)| e)
+        })
     }
 }

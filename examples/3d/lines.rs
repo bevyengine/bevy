@@ -5,8 +5,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
-        render_asset::RenderAssetPersistencePolicy,
+        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -28,30 +28,32 @@ fn setup(
 ) {
     // Spawn a list of lines with start and end points for each lines
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineList {
+        mesh: meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
         material: materials.add(LineMaterial {
-            color: Color::GREEN,
+            color: LinearRgba::GREEN,
         }),
         ..default()
     });
 
     // Spawn a line strip that goes from point to point
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineStrip {
+        mesh: meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        })),
+        }),
         transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial { color: Color::BLUE }),
+        material: materials.add(LineMaterial {
+            color: LinearRgba::BLUE,
+        }),
         ..default()
     });
 
@@ -65,7 +67,7 @@ fn setup(
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for LineMaterial {
@@ -76,7 +78,7 @@ impl Material for LineMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // This is the important part to tell bevy to render this material as a line between vertices
@@ -87,8 +89,8 @@ impl Material for LineMaterial {
 
 /// A list of lines with a start and end position
 #[derive(Debug, Clone)]
-pub struct LineList {
-    pub lines: Vec<(Vec3, Vec3)>,
+struct LineList {
+    lines: Vec<(Vec3, Vec3)>,
 }
 
 impl From<LineList> for Mesh {
@@ -99,7 +101,7 @@ impl From<LineList> for Mesh {
             // This tells wgpu that the positions are list of lines
             // where every pair is a start and end point
             PrimitiveTopology::LineList,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )
         // Add the vertices positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -108,8 +110,8 @@ impl From<LineList> for Mesh {
 
 /// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
-pub struct LineStrip {
-    pub points: Vec<Vec3>,
+struct LineStrip {
+    points: Vec<Vec3>,
 }
 
 impl From<LineStrip> for Mesh {
@@ -118,7 +120,7 @@ impl From<LineStrip> for Mesh {
             // This tells wgpu that the positions are a list of points
             // where a line will be drawn between each consecutive point
             PrimitiveTopology::LineStrip,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)

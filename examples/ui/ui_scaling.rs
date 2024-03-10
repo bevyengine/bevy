@@ -1,6 +1,6 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{prelude::*, text::TextSettings, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: Color::RED.into(),
+                    background_color: RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: Color::BLUE.into(),
+                background_color: BLUE.into(),
                 ..default()
             });
             parent.spawn(ImageBundle {
@@ -113,8 +113,8 @@ impl TargetScale {
 
     fn current_scale(&self) -> f32 {
         let completion = self.target_time.fraction();
-        let multiplier = ease_in_expo(completion);
-        self.start_scale + (self.target_scale - self.start_scale) * multiplier
+        let t = ease_in_expo(completion);
+        self.start_scale.lerp(self.target_scale, t)
     }
 
     fn tick(&mut self, delta: Duration) -> &Self {

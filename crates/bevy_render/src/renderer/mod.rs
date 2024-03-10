@@ -2,6 +2,7 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -13,7 +14,7 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
@@ -22,18 +23,20 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World) {
+pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    let render_adapter = world.resource::<RenderAdapter>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
+        &render_adapter.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
@@ -59,10 +62,7 @@ pub fn render_system(world: &mut World) {
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = world
-            .query_filtered::<Entity, With<ViewTarget>>()
-            .iter(world)
-            .collect::<Vec<_>>();
+        let view_entities = state.get(world).iter().collect::<Vec<_>>();
         for view_entity in view_entities {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }
@@ -133,7 +133,7 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_>,
+    request_adapter_options: &RequestAdapterOptions<'_, '_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
@@ -280,8 +280,8 @@ pub async fn initialize_renderer(
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features,
-                limits,
+                required_features: features,
+                required_limits: limits,
             },
             trace_path,
         )
@@ -301,19 +301,31 @@ pub async fn initialize_renderer(
 ///
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext {
+pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
-    command_buffers: Vec<CommandBuffer>,
+    command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
+    force_serial: bool,
 }
 
-impl RenderContext {
+impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    pub fn new(render_device: RenderDevice, adapter_info: AdapterInfo) -> Self {
+        // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
+        #[cfg(target_os = "windows")]
+        let force_serial =
+            adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
+        #[cfg(not(target_os = "windows"))]
+        let force_serial = {
+            drop(adapter_info);
+            false
+        };
+
         Self {
             render_device,
             command_encoder: None,
-            command_buffers: Vec::new(),
+            command_buffer_queue: Vec::new(),
+            force_serial,
         }
     }
 
@@ -345,25 +357,76 @@ impl RenderContext {
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
-    /// Append a [`CommandBuffer`] to the queue.
+    /// Append a [`CommandBuffer`] to the command buffer queue.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before append the provided
+    /// into a [`CommandBuffer`] into the queue before appending the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.flush_encoder();
-        self.command_buffers.push(command_buffer);
+
+        self.command_buffer_queue
+            .push(QueuedCommandBuffer::Ready(command_buffer));
     }
 
-    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    /// Append a function that will generate a [`CommandBuffer`] to the
+    /// command buffer queue, to be ran later.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before appending the provided
+    /// buffer.
+    pub fn add_command_buffer_generation_task(
+        &mut self,
+        task: impl FnOnce(RenderDevice) -> CommandBuffer + 'w + Send,
+    ) {
+        self.flush_encoder();
+
+        self.command_buffer_queue
+            .push(QueuedCommandBuffer::Task(Box::new(task)));
+    }
+
+    /// Finalizes and returns the queue of [`CommandBuffer`]s.
+    ///
+    /// This function will wait until all command buffer generation tasks are complete
+    /// by running them in parallel (where supported).
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
-        self.command_buffers
+
+        let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
+        let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
+            for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate() {
+                match queued_command_buffer {
+                    QueuedCommandBuffer::Ready(command_buffer) => {
+                        command_buffers.push((i, command_buffer));
+                    }
+                    QueuedCommandBuffer::Task(command_buffer_generation_task) => {
+                        let render_device = self.render_device.clone();
+                        if self.force_serial {
+                            command_buffers
+                                .push((i, command_buffer_generation_task(render_device)));
+                        } else {
+                            task_pool.spawn(async move {
+                                (i, command_buffer_generation_task(render_device))
+                            });
+                        }
+                    }
+                }
+            }
+        });
+        command_buffers.append(&mut task_based_command_buffers);
+        command_buffers.sort_unstable_by_key(|(i, _)| *i);
+        command_buffers.into_iter().map(|(_, cb)| cb).collect()
     }
 
     fn flush_encoder(&mut self) {
         if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
+            self.command_buffer_queue
+                .push(QueuedCommandBuffer::Ready(encoder.finish()));
         }
     }
+}
+
+enum QueuedCommandBuffer<'w> {
+    Ready(CommandBuffer),
+    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w + Send>),
 }

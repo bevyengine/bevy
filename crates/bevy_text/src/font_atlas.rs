@@ -1,12 +1,12 @@
 use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
+use bevy_math::UVec2;
 use bevy_render::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
-use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
+use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;
 
 #[cfg(feature = "subpixel_glyph_atlas")]
@@ -43,32 +43,34 @@ impl From<Point> for SubpixelOffset {
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     pub glyph_to_atlas_index: HashMap<(GlyphId, SubpixelOffset), usize>,
-    pub texture_atlas: Handle<TextureAtlas>,
+    pub texture_atlas: Handle<TextureAtlasLayout>,
+    pub texture: Handle<Image>,
 }
 
 impl FontAtlas {
     pub fn new(
         textures: &mut Assets<Image>,
-        texture_atlases: &mut Assets<TextureAtlas>,
-        size: Vec2,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
+        size: UVec2,
     ) -> FontAtlas {
-        let atlas_texture = textures.add(Image::new_fill(
+        let texture = textures.add(Image::new_fill(
             Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
+                width: size.x,
+                height: size.y,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
             // Need to keep this image CPU persistent in order to add additional glyphs later on
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         ));
-        let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
+        let texture_atlas = TextureAtlasLayout::new_empty(size);
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),
             glyph_to_atlas_index: HashMap::default(),
             dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 0),
+            texture,
         }
     }
 
@@ -90,16 +92,18 @@ impl FontAtlas {
     pub fn add_glyph(
         &mut self,
         textures: &mut Assets<Image>,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         glyph_id: GlyphId,
         subpixel_offset: SubpixelOffset,
         texture: &Image,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        if let Some(index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(texture_atlas, textures, texture)
-        {
+        if let Some(index) = self.dynamic_texture_atlas_builder.add_texture(
+            texture_atlas,
+            textures,
+            texture,
+            &self.texture,
+        ) {
             self.glyph_to_atlas_index
                 .insert((glyph_id, subpixel_offset), index);
             true

@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     render::camera::Camera,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use rand::Rng;
@@ -33,6 +34,10 @@ fn main() {
                 ..default()
             }),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -48,7 +53,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -61,8 +66,7 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
@@ -80,19 +84,20 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
-                SpriteSheetBundle {
-                    texture_atlas: texture_atlas_handle.clone(),
+                SpriteBundle {
+                    texture: texture_handle.clone(),
                     transform: Transform {
                         translation,
                         rotation,
                         scale,
                     },
-                    sprite: TextureAtlasSprite {
+                    sprite: Sprite {
                         custom_size: Some(tile_size),
                         ..default()
                     },
                     ..default()
                 },
+                TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),
             ));
         }
@@ -112,18 +117,14 @@ struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
+    texture_atlases: Res<Assets<TextureAtlasLayout>>,
+    mut query: Query<(&mut AnimationTimer, &mut TextureAtlas)>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
+    for (mut timer, mut sheet) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
+            let texture_atlas = texture_atlases.get(&sheet.layout).unwrap();
+            sheet.index = (sheet.index + 1) % texture_atlas.textures.len();
         }
     }
 }
@@ -138,11 +139,7 @@ impl Default for PrintingTimer {
 }
 
 // System for printing the number of sprites on every tick of the timer
-fn print_sprite_count(
-    time: Res<Time>,
-    mut timer: Local<PrintingTimer>,
-    sprites: Query<&TextureAtlasSprite>,
-) {
+fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&Sprite>) {
     timer.tick(time.delta());
 
     if timer.just_finished() {

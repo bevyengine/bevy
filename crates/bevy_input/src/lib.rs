@@ -1,10 +1,9 @@
-#![warn(missing_docs)]
-
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).
 //!
 //! # Supported input devices
 //!
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod axis;
 mod button_input;
@@ -37,18 +36,14 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{
-    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
-    MouseWheel,
-};
-use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
+use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use touch::{touch_screen_input_system, TouchInput, Touches};
 use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonInput, GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
+    gamepad_event_system, GamepadAxis, GamepadAxisChangedEvent, GamepadButton,
+    GamepadButtonChangedEvent, GamepadButtonInput, GamepadConnectionEvent, GamepadEvent,
     GamepadRumbleRequest, GamepadSettings, Gamepads,
 };
 
@@ -110,40 +105,15 @@ impl Plugin for InputPlugin {
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
 
         // Register common types
-        app.register_type::<ButtonState>();
-
-        // Register keyboard types
-        app.register_type::<KeyboardInput>()
-            .register_type::<KeyCode>();
-
-        // Register mouse types
-        app.register_type::<MouseButtonInput>()
-            .register_type::<MouseButton>()
-            .register_type::<MouseMotion>()
-            .register_type::<MouseScrollUnit>()
-            .register_type::<MouseWheel>();
-
-        // Register touchpad types
-        app.register_type::<TouchpadMagnify>()
-            .register_type::<TouchpadRotate>();
-
-        // Register touch types
-        app.register_type::<TouchInput>()
-            .register_type::<ForceTouch>()
-            .register_type::<TouchPhase>();
-
-        // Register gamepad types
-        app.register_type::<Gamepad>()
-            .register_type::<GamepadConnection>()
-            .register_type::<GamepadButtonType>()
-            .register_type::<GamepadButton>()
+        app.register_type::<ButtonState>()
+            .register_type::<KeyboardInput>()
+            .register_type::<MouseButtonInput>()
+            .register_type::<TouchpadMagnify>()
+            .register_type::<TouchpadRotate>()
+            .register_type::<TouchInput>()
+            .register_type::<GamepadEvent>()
             .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadAxisType>()
-            .register_type::<GamepadAxis>()
-            .register_type::<GamepadSettings>()
-            .register_type::<ButtonSettings>()
-            .register_type::<AxisSettings>()
-            .register_type::<ButtonAxisSettings>();
+            .register_type::<GamepadSettings>();
     }
 }
 

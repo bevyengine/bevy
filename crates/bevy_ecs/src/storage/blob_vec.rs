@@ -124,6 +124,23 @@ impl BlobVec {
         }
     }
 
+    /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        /// Similar to `reserve_exact`. This method ensures that the capacity will grow at least `self.capacity()` if there is no
+        /// enough space to hold `additional` more elements.
+        #[cold]
+        fn do_reserve(slf: &mut BlobVec, additional: usize) {
+            let increment = slf.capacity.max(additional - (slf.capacity - slf.len));
+            let increment = NonZeroUsize::new(increment).unwrap();
+            slf.grow_exact(increment);
+        }
+
+        if self.capacity - self.len < additional {
+            do_reserve(self, additional);
+        }
+    }
+
     /// Grows the capacity by `increment` elements.
     ///
     /// # Panics
@@ -191,7 +208,7 @@ impl BlobVec {
 
         // Pointer to the value in the vector that will get replaced.
         // SAFETY: The caller ensures that `index` fits in this vector.
-        let destination = NonNull::from(self.get_unchecked_mut(index));
+        let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
         if let Some(drop) = self.drop {
@@ -209,7 +226,7 @@ impl BlobVec {
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
             //   does not occur. Instead, all elements will be forgotten.
-            let old_value = OwningPtr::new(destination);
+            let old_value = unsafe { OwningPtr::new(destination) };
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
@@ -232,7 +249,13 @@ impl BlobVec {
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
+        unsafe {
+            std::ptr::copy_nonoverlapping::<u8>(
+                source,
+                destination.as_ptr(),
+                self.item_layout.size(),
+            );
+        }
     }
 
     /// Appends an element to the back of the vector.
@@ -241,7 +264,7 @@ impl BlobVec {
     /// The `value` must match the [`layout`](`BlobVec::layout`) of the elements in the [`BlobVec`].
     #[inline]
     pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
-        self.reserve_exact(1);
+        self.reserve(1);
         let index = self.len;
         self.len += 1;
         self.initialize_unchecked(index, value);
@@ -287,7 +310,8 @@ impl BlobVec {
         // - `new_len` is less than the old len, so it must fit in this vector's allocation.
         // - `size` is a multiple of the erased type's alignment,
         //   so adding a multiple of `size` will preserve alignment.
-        self.get_ptr_mut().byte_add(new_len * size).promote()
+        let p = unsafe { self.get_ptr_mut().byte_add(new_len * size) };
+        p.promote()
     }
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
@@ -341,7 +365,7 @@ impl BlobVec {
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
         //  so adding a multiple of `size` will preserve alignment.
-        self.get_ptr().byte_add(index * size)
+        unsafe { self.get_ptr().byte_add(index * size) }
     }
 
     /// Returns a mutable reference to the element at `index`, without doing bounds checking.
@@ -357,7 +381,7 @@ impl BlobVec {
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
         //  so adding a multiple of `size` will preserve alignment.
-        self.get_ptr_mut().byte_add(index * size)
+        unsafe { self.get_ptr_mut().byte_add(index * size) }
     }
 
     /// Gets a [`Ptr`] to the start of the vec
@@ -380,7 +404,7 @@ impl BlobVec {
     /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFETY: the inner data will remain valid for as long as 'self.
-        std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
     /// Clears the vector, removing (and dropping) all values.
@@ -485,9 +509,11 @@ mod tests {
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
 
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// # Safety
@@ -530,7 +556,7 @@ mod tests {
         }
 
         assert_eq!(blob_vec.len(), 1_000);
-        assert_eq!(blob_vec.capacity(), 1_000);
+        assert_eq!(blob_vec.capacity(), 1_024);
     }
 
     #[derive(Debug, Eq, PartialEq, Clone)]
@@ -590,19 +616,19 @@ mod tests {
 
                 push(&mut blob_vec, foo3.clone());
                 assert_eq!(blob_vec.len(), 3);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 let last_index = blob_vec.len() - 1;
                 let value = swap_remove::<Foo>(&mut blob_vec, last_index);
                 assert_eq!(foo3, value);
 
                 assert_eq!(blob_vec.len(), 2);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 let value = swap_remove::<Foo>(&mut blob_vec, 0);
                 assert_eq!(foo1, value);
                 assert_eq!(blob_vec.len(), 1);
-                assert_eq!(blob_vec.capacity(), 3);
+                assert_eq!(blob_vec.capacity(), 4);
 
                 foo2.a = 8;
                 assert_eq!(get_mut::<Foo>(&mut blob_vec, 0), &foo2);

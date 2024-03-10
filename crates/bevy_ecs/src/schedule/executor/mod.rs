@@ -18,7 +18,12 @@ use crate::{
 pub(super) trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        skip_systems: Option<&FixedBitSet>,
+    );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
 
@@ -88,9 +93,20 @@ impl SystemSchedule {
 }
 
 /// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
-/// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) or other system buffers.
+/// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters
+/// (like [`Commands`](crate::prelude::Commands)) or other system buffers.
 ///
-/// **Notes**
+/// ## Scheduling
+///
+/// `apply_deferred` systems are scheduled *by default*
+/// - later in the same schedule run (for example, if a system with `Commands` param
+///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
+/// - between systems with dependencies if the dependency
+///   [has deferred buffers](crate::system::System::has_deferred)
+///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses `Commands` param,
+///   changes to the world in `foo` will be visible in `bar`)
+///
+/// ## Notes
 /// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
 /// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
 #[doc(alias = "apply_system_buffers")]
@@ -99,7 +115,7 @@ pub fn apply_deferred(world: &mut World) {}
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use std::any::Any;
+    use crate::system::IntoSystem;
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.type_id()
+    system.as_ref().type_id() == apply_deferred.system_type_id()
 }

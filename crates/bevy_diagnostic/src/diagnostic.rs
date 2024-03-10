@@ -1,24 +1,108 @@
-use bevy_app::App;
-use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
-use bevy_log::warn;
-use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use std::hash::{Hash, Hasher};
 use std::{borrow::Cow, collections::VecDeque};
 
-use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
+use bevy_app::App;
+use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
+use bevy_utils::{hashbrown::HashMap, Duration, Instant, PassHash};
+use const_fnv1a_hash::fnv1a_hash_str_64;
 
-/// Unique identifier for a [`Diagnostic`].
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct DiagnosticId(pub Uuid);
+use crate::DEFAULT_MAX_HISTORY_LENGTH;
 
-impl DiagnosticId {
-    pub const fn from_u128(value: u128) -> Self {
-        DiagnosticId(Uuid::from_u128(value))
+/// Unique diagnostic path, separated by `/`.
+///
+/// Requirements:
+/// - Can't be empty
+/// - Can't have leading or trailing `/`
+/// - Can't have empty components.
+#[derive(Debug, Clone)]
+pub struct DiagnosticPath {
+    path: Cow<'static, str>,
+    hash: u64,
+}
+
+impl DiagnosticPath {
+    /// Create a new `DiagnosticPath`. Usable in const contexts.
+    ///
+    /// **Note**: path is not validated, so make sure it follows all the requirements.
+    pub const fn const_new(path: &'static str) -> DiagnosticPath {
+        DiagnosticPath {
+            path: Cow::Borrowed(path),
+            hash: fnv1a_hash_str_64(path),
+        }
+    }
+
+    /// Create a new `DiagnosticPath` from the specified string.
+    pub fn new(path: impl Into<Cow<'static, str>>) -> DiagnosticPath {
+        let path = path.into();
+
+        debug_assert!(!path.is_empty(), "diagnostic path can't be empty");
+        debug_assert!(
+            !path.starts_with('/'),
+            "diagnostic path can't be start with `/`"
+        );
+        debug_assert!(
+            !path.ends_with('/'),
+            "diagnostic path can't be end with `/`"
+        );
+        debug_assert!(
+            !path.contains("//"),
+            "diagnostic path can't contain empty components"
+        );
+
+        DiagnosticPath {
+            hash: fnv1a_hash_str_64(&path),
+            path,
+        }
+    }
+
+    /// Create a new `DiagnosticPath` from an iterator over components.
+    pub fn from_components<'a>(components: impl IntoIterator<Item = &'a str>) -> DiagnosticPath {
+        let mut buf = String::new();
+
+        for (i, component) in components.into_iter().enumerate() {
+            if i > 0 {
+                buf.push('/');
+            }
+            buf.push_str(component);
+        }
+
+        DiagnosticPath::new(buf)
+    }
+
+    /// Returns full path, joined by `/`
+    pub fn as_str(&self) -> &str {
+        &self.path
+    }
+
+    /// Returns an iterator over path components.
+    pub fn components(&self) -> impl Iterator<Item = &str> + '_ {
+        self.path.split('/')
     }
 }
 
-impl Default for DiagnosticId {
-    fn default() -> Self {
-        DiagnosticId(Uuid::new_v4())
+impl From<DiagnosticPath> for String {
+    fn from(path: DiagnosticPath) -> Self {
+        path.path.into()
+    }
+}
+
+impl Eq for DiagnosticPath {}
+
+impl PartialEq for DiagnosticPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash && self.path == other.path
+    }
+}
+
+impl Hash for DiagnosticPath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl std::fmt::Display for DiagnosticPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.path.fmt(f)
     }
 }
 
@@ -33,8 +117,7 @@ pub struct DiagnosticMeasurement {
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
 pub struct Diagnostic {
-    pub id: DiagnosticId,
-    pub name: Cow<'static, str>,
+    path: DiagnosticPath,
     pub suffix: Cow<'static, str>,
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
@@ -71,32 +154,27 @@ impl Diagnostic {
         self.history.push_back(measurement);
     }
 
-    /// Create a new diagnostic with the given ID, name and maximum history.
-    pub fn new(
-        id: DiagnosticId,
-        name: impl Into<Cow<'static, str>>,
-        max_history_length: usize,
-    ) -> Diagnostic {
-        let name = name.into();
-        if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
-            // This could be a false positive due to a unicode width being shorter
-            warn!(
-                "Diagnostic {:?} has name longer than {} characters, and so might overflow in the LogDiagnosticsPlugin\
-                Consider using a shorter name.",
-                name, MAX_DIAGNOSTIC_NAME_WIDTH
-            );
-        }
+    /// Create a new diagnostic with the given path.
+    pub fn new(path: DiagnosticPath) -> Diagnostic {
         Diagnostic {
-            id,
-            name,
+            path,
             suffix: Cow::Borrowed(""),
-            history: VecDeque::with_capacity(max_history_length),
-            max_history_length,
+            history: VecDeque::with_capacity(DEFAULT_MAX_HISTORY_LENGTH),
+            max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
             sum: 0.0,
             ema: 0.0,
             ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
         }
+    }
+
+    /// Set the maximum history length.
+    #[must_use]
+    pub fn with_max_history_length(mut self, max_history_length: usize) -> Self {
+        self.max_history_length = max_history_length;
+        self.history.reserve(self.max_history_length);
+        self.history.shrink_to(self.max_history_length);
+        self
     }
 
     /// Add a suffix to use when logging the value, can be used to show a unit.
@@ -120,6 +198,10 @@ impl Diagnostic {
     pub fn with_smoothing_factor(mut self, smoothing_factor: f64) -> Self {
         self.ema_smoothing_factor = smoothing_factor;
         self
+    }
+
+    pub fn path(&self) -> &DiagnosticPath {
+        &self.path
     }
 
     /// Get the latest measurement from this diagnostic.
@@ -198,9 +280,7 @@ impl Diagnostic {
 /// A collection of [`Diagnostic`]s.
 #[derive(Debug, Default, Resource)]
 pub struct DiagnosticsStore {
-    // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
-    // runs when all diagnostics are inserted in the same order.
-    diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
+    diagnostics: HashMap<DiagnosticPath, Diagnostic, PassHash>,
 }
 
 impl DiagnosticsStore {
@@ -208,21 +288,21 @@ impl DiagnosticsStore {
     ///
     /// If possible, prefer calling [`App::register_diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
-        self.diagnostics.insert(diagnostic.id, diagnostic);
+        self.diagnostics.insert(diagnostic.path.clone(), diagnostic);
     }
 
-    pub fn get(&self, id: DiagnosticId) -> Option<&Diagnostic> {
-        self.diagnostics.get(&id)
+    pub fn get(&self, path: &DiagnosticPath) -> Option<&Diagnostic> {
+        self.diagnostics.get(path)
     }
 
-    pub fn get_mut(&mut self, id: DiagnosticId) -> Option<&mut Diagnostic> {
-        self.diagnostics.get_mut(&id)
+    pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
+        self.diagnostics.get_mut(path)
     }
 
     /// Get the latest [`DiagnosticMeasurement`] from an enabled [`Diagnostic`].
-    pub fn get_measurement(&self, id: DiagnosticId) -> Option<&DiagnosticMeasurement> {
+    pub fn get_measurement(&self, path: &DiagnosticPath) -> Option<&DiagnosticMeasurement> {
         self.diagnostics
-            .get(&id)
+            .get(path)
             .filter(|diagnostic| diagnostic.is_enabled)
             .and_then(|diagnostic| diagnostic.measurement())
     }
@@ -249,13 +329,13 @@ impl<'w, 's> Diagnostics<'w, 's> {
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
     /// costly to calculate.
-    pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
+    pub fn add_measurement<F>(&mut self, path: &DiagnosticPath, value: F)
     where
         F: FnOnce() -> f64,
     {
         if self
             .store
-            .get(id)
+            .get(path)
             .filter(|diagnostic| diagnostic.is_enabled)
             .is_some()
         {
@@ -263,13 +343,13 @@ impl<'w, 's> Diagnostics<'w, 's> {
                 time: Instant::now(),
                 value: value(),
             };
-            self.queue.0.insert(id, measurement);
+            self.queue.0.insert(path.clone(), measurement);
         }
     }
 }
 
 #[derive(Default)]
-struct DiagnosticsBuffer(StableHashMap<DiagnosticId, DiagnosticMeasurement>);
+struct DiagnosticsBuffer(HashMap<DiagnosticPath, DiagnosticMeasurement, PassHash>);
 
 impl SystemBuffer for DiagnosticsBuffer {
     fn apply(
@@ -278,8 +358,8 @@ impl SystemBuffer for DiagnosticsBuffer {
         world: &mut bevy_ecs::world::World,
     ) {
         let mut diagnostics = world.resource_mut::<DiagnosticsStore>();
-        for (id, measurement) in self.0.drain() {
-            if let Some(diagnostic) = diagnostics.get_mut(id) {
+        for (path, measurement) in self.0.drain() {
+            if let Some(diagnostic) = diagnostics.get_mut(&path) {
                 diagnostic.add_measurement(measurement);
             }
         }
@@ -298,12 +378,12 @@ impl RegisterDiagnostic for App {
     ///
     /// ```
     /// use bevy_app::App;
-    /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticId, RegisterDiagnostic};
+    /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticPath, RegisterDiagnostic};
     ///
-    /// const UNIQUE_DIAG_ID: DiagnosticId = DiagnosticId::from_u128(42);
+    /// const UNIQUE_DIAG_PATH: DiagnosticPath = DiagnosticPath::const_new("foo/bar");
     ///
     /// App::new()
-    ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
+    ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_PATH))
     ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```

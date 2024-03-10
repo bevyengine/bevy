@@ -1,9 +1,12 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const SYSTEM_COUNT: u32 = 10;
@@ -22,6 +25,10 @@ fn main() {
         }),
         FrameTimeDiagnosticsPlugin,
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
@@ -64,8 +71,8 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
+            let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
             draw.line_gradient(vector, -vector, start_color, end_color);
         }
@@ -93,7 +100,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
     let mut text = query.single_mut();
 
     let Some(fps) = diag
-        .get(FrameTimeDiagnosticsPlugin::FPS)
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
     else {
         return;

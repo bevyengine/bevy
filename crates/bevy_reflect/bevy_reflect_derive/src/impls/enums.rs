@@ -1,7 +1,6 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::extend_where_clause;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -36,7 +35,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let hash_fn = reflect_enum
         .meta()
-        .traits()
+        .attrs()
         .get_hash_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -45,10 +44,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
         });
-    let debug_fn = reflect_enum.meta().traits().get_debug_impl();
+    let debug_fn = reflect_enum.meta().attrs().get_debug_impl();
     let partial_eq_fn = reflect_enum
         .meta()
-        .traits()
+        .attrs()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
@@ -85,14 +84,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
 
-    let get_type_registration_impl = reflect_enum
-        .meta()
-        .get_type_registration(&where_clause_options);
+    let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().type_path().generics().split_for_impl();
 
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
         #get_type_registration_impl
@@ -263,6 +260,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 } else {
                     panic!("`{}` is not an enum", #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ref_value));
                 }
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::Enum
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
