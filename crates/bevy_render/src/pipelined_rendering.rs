@@ -194,7 +194,7 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
                 render_channels.send_blocking(render_app);
             } else {
                 // Renderer thread panicked
-                world.resource_mut::<Events<AppExit>>().send(AppExit);
+                world.send_event(AppExit);
             }
         });
     });
