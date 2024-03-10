@@ -18,7 +18,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// There are many types that natively implement this trait:
 ///
-/// - **Component references.**
+/// - **Component references. (&T and &mut T)**
 ///   Fetches a component by reference (immutably or mutably).
 /// - **`QueryData` tuples.**
 ///   If every element of a tuple implements `QueryData`, then the tuple itself also implements the same trait.
@@ -33,6 +33,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   Read-only access to arbitrary components on the queried entity.
 /// - **[`EntityMut`].**
 ///   Mutable access to arbitrary components on the queried entity.
+/// - **[`&Archetype`].**
+///   Read-only access to the archetype-level metadata of the queried entity.
 /// - **[`Option`].**
 ///   By default, a world query only tests entities that have the matching component types.
 ///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
