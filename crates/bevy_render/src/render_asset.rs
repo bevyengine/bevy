@@ -78,6 +78,7 @@ bitflags::bitflags! {
     /// details.
     #[repr(transparent)]
     #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[reflect(Serialize, Deserialize, Hash, PartialEq, Debug, Reflect)]
     #[reflect_value]
     pub struct RenderAssetUsages: u8 {
         const MAIN_WORLD = 1 << 0;
