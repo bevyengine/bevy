@@ -7,14 +7,9 @@ use bevy_utils::HashMap;
 
 use super::{CameraQuery, LayoutRect};
 
-trait ApproxF32 {
-    fn is(self, other: f32) -> bool;
-}
-impl ApproxF32 for f32 {
-    fn is(self, other: f32) -> bool {
-        let diff = (self - other).abs();
-        diff < 0.001
-    }
+// Function used here so we don't need to redraw lines that are fairly close to each other.
+fn approx_eq(compared: f32, other: f32) -> bool {
+    (compared - other).abs() < 0.001
 }
 
 fn rect_border_axis(rect: LayoutRect) -> (f32, f32, f32, f32) {
@@ -148,10 +143,10 @@ impl<'w, 's> InsetGizmo<'w, 's> {
         position.xy()
     }
     fn line_2d(&mut self, mut start: Vec2, mut end: Vec2, color: Color) {
-        if start.x.is(end.x) {
+        if approx_eq(start.x, end.x) {
             start.x = self.known_x.inset(start.x);
             end.x = start.x;
-        } else if start.y.is(end.y) {
+        } else if approx_eq(start.y, end.y) {
             start.y = self.known_y.inset(start.y);
             end.y = start.y;
         }
@@ -174,9 +169,9 @@ impl<'w, 's> InsetGizmo<'w, 's> {
     }
     pub(super) fn rect_2d(&mut self, rect: LayoutRect, color: Color) {
         let (left, right, top, bottom) = rect_border_axis(rect);
-        if left.is(right) {
+        if approx_eq(left, right) {
             self.line_2d(Vec2::new(left, top), Vec2::new(left, bottom), color);
-        } else if top.is(bottom) {
+        } else if approx_eq(top, bottom) {
             self.line_2d(Vec2::new(left, top), Vec2::new(right, top), color);
         } else {
             let inset_x = |v| self.known_x.inset(v);
