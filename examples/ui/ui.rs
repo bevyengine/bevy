@@ -19,8 +19,11 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, mouse_scroll);
 
-    #[cfg(feature = "bevy_ui_debug")]
-    app.add_systems(Update, toggle_overlay);
+    #[cfg(feature = "bevy_dev_tools")]
+    {
+        app.add_plugins(bevy::dev_tools::debug_overlay::DebugUiPlugin)
+            .add_systems(Update, toggle_overlay);
+    }
 
     app.run();
 }
@@ -85,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(feature = "bevy_ui_debug")]
+                            #[cfg(feature = "bevy_dev_tools")]
                             // Debug overlay text
                             parent.spawn((
                                 TextBundle::from_section(
@@ -99,10 +102,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(not(feature = "bevy_ui_debug"))]
+                            #[cfg(not(feature = "bevy_dev_tools"))]
                             parent.spawn((
                                 TextBundle::from_section(
-                                    "Try enabling feature \"bevy_ui_debug\".",
+                                    "Try enabling feature \"bevy_dev_tools\".",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 20.,
@@ -367,7 +370,7 @@ fn mouse_scroll(
     }
 }
 
-#[cfg(feature = "bevy_ui_debug")]
+#[cfg(feature = "bevy_dev_tools")]
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_overlay(
     input: Res<ButtonInput<KeyCode>>,

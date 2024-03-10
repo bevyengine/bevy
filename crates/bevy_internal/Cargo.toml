@@ -152,9 +152,6 @@ file_watcher = ["bevy_asset?/file_watcher"]
 # Enables watching embedded files for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
-# Enable the bevy_ui debug overlay
-bevy_ui_debug = ["bevy_dev_tools?/bevy_ui_debug", "bevy_dev_tools"]
-
 # Enable system stepping support
 bevy_debug_stepping = [
   "bevy_ecs/bevy_debug_stepping",

@@ -44,8 +44,5 @@ impl Plugin for DevToolsPlugin {
         {
             ci_testing::setup_app(_app);
         }
-
-        #[cfg(feature = "bevy_ui_debug")]
-        _app.add_plugins(debug_overlay::DebugUiPlugin);
     }
 }

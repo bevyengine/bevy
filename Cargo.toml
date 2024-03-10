@@ -149,9 +149,6 @@ bevy_ui = [
   "bevy_color",
 ]
 
-# Enable the bevy_ui debug overlay
-bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
-
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 

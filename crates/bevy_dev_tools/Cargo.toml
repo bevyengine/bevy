@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["bevy_ui_debug"]
 bevy_ci_testing = ["serde", "ron"]
 bevy_ui_debug = []
 
