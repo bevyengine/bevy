@@ -30,7 +30,7 @@ pub trait RenderFeature<G: RenderSubGraph>: 'static {
     type PrepareBindGroups: RenderFeatureSignature;
     type Dispatch: RenderFeatureSignature<Out = Result<(), RenderGraphError>>;
 
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, _app: &mut App) {} // for adding systems not associated with the main View
 
     fn additional_sub_features(&self) -> impl RenderSubFeatures<G, stages::Dispatch>;
 
@@ -40,6 +40,7 @@ pub trait RenderFeature<G: RenderSubGraph>: 'static {
         &self,
     ) -> impl RenderSubFeature<G, Stage = stages::SpecializePipelines, Sig = Self::SpecializePipelines>;
 
+    //todo: this wouldn't allow parallelizing resource creation with separate systems
     fn prepare_resources(
         &self,
     ) -> impl RenderSubFeature<G, Stage = stages::PrepareResources, Sig = Self::PrepareResources>;

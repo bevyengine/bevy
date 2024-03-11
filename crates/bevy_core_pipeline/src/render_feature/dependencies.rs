@@ -74,7 +74,7 @@ where
 {
 }
 
-// a "hole" or unfilled dependency. If left unfilled, will panic! at build time.
+// a "hole" or unfilled dependency. If left unfilled, will panic! at .build() time.
 pub struct EmptyDependency;
 
 pub fn empty() -> EmptyDependency {
