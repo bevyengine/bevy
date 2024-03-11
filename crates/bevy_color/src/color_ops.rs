@@ -62,7 +62,7 @@ pub trait Alpha: Sized {
     }
 }
 
-/// Method for manipulating the hue of a color.
+/// Trait for manipulating the hue of a color.
 pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.
     fn with_hue(&self, hue: f32) -> Self;
