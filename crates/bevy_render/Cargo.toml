@@ -58,7 +58,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # rendering
-image = { version = "0.24", default-features = false }
+image = { version = "0.25", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
