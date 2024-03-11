@@ -20,6 +20,17 @@ pub struct StackingContextCache {
     inner: Vec<StackingContext>,
 }
 
+impl StackingContextCache {
+    fn pop(&mut self) -> StackingContext {
+        self.inner.pop().unwrap_or_default()
+    }
+
+    fn push(&mut self, mut context: StackingContext) {
+        context.entries.clear();
+        self.inner.push(context);
+    }
+}
+
 #[derive(Default)]
 struct StackingContext {
     pub entries: Vec<StackingContextEntry>,
@@ -44,8 +55,7 @@ pub fn ui_stack_system(
     mut update_query: Query<&mut Node>,
 ) {
     // Generate `StackingContext` tree
-    let mut global_context = cache.inner.pop().unwrap_or_default();
-    global_context.entries.clear();
+    let mut global_context = cache.pop();
     let mut total_entry_count: usize = 0;
 
     for entity in &root_node_query {
@@ -82,8 +92,7 @@ fn insert_context_hierarchy(
     parent_context: Option<&mut StackingContext>,
     total_entry_count: &mut usize,
 ) {
-    let mut new_context = cache.inner.pop().unwrap_or_default();
-    new_context.entries.clear();
+    let mut new_context = cache.pop();
 
     if let Ok(children) = children_query.get(entity) {
         // Reserve space for all children. In practice, some may not get pushed since
@@ -133,7 +142,7 @@ fn fill_stack_recursively(
         // Parent node renders before/behind child nodes
         result.push(entry.entity);
         fill_stack_recursively(cache, result, &mut entry.stack);
-        cache.inner.push(entry.stack);
+        cache.push(entry.stack);
     }
 }
 
