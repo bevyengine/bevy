@@ -31,6 +31,7 @@ struct StackingContextEntry {
 /// First generate a UI node tree (`StackingContext`) based on z-index.
 /// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
+    mut cache: Local<Vec<StackingContext>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
@@ -38,11 +39,13 @@ pub fn ui_stack_system(
     mut update_query: Query<&mut Node>,
 ) {
     // Generate `StackingContext` tree
-    let mut global_context = StackingContext::default();
+    let mut global_context = cache.pop().unwrap_or_default();
+    global_context.clear();
     let mut total_entry_count: usize = 0;
 
     for entity in &root_node_query {
         insert_context_hierarchy(
+            &mut cache,
             &zindex_query,
             &children_query,
             entity,
@@ -55,7 +58,7 @@ pub fn ui_stack_system(
     // Flatten `StackingContext` into `UiStack`
     ui_stack.uinodes.clear();
     ui_stack.uinodes.reserve(total_entry_count);
-    fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
+    fill_stack_recursively(&mut cache, &mut ui_stack.uinodes, &mut global_context);
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut node) = update_query.get_mut(*entity) {
@@ -66,6 +69,7 @@ pub fn ui_stack_system(
 
 /// Generate z-index based UI node tree
 fn insert_context_hierarchy(
+    cache: &mut Vec<StackingContext>,
     zindex_query: &Query<&ZIndex, With<Node>>,
     children_query: &Query<&Children>,
     entity: Entity,
@@ -73,7 +77,8 @@ fn insert_context_hierarchy(
     parent_context: Option<&mut StackingContext>,
     total_entry_count: &mut usize,
 ) {
-    let mut new_context = StackingContext::default();
+    let mut new_context = cache.pop().unwrap_or_default();
+    new_context.entries.clear();
 
     if let Ok(children) = children_query.get(entity) {
         // Reserve space for all children. In practice, some may not get pushed since
@@ -82,6 +87,7 @@ fn insert_context_hierarchy(
 
         for entity in children {
             insert_context_hierarchy(
+                cache,
                 zindex_query,
                 children_query,
                 *entity,
@@ -108,16 +114,17 @@ fn insert_context_hierarchy(
 }
 
 /// Flatten `StackingContext` (z-index based UI node tree) into back-to-front entities list
-fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext) {
+fn fill_stack_recursively(cache: &mut Vec<StackingContext>, result: &mut Vec<Entity>, stack: &mut StackingContext) {
     // Sort entries by ascending z_index, while ensuring that siblings
     // with the same local z_index will keep their ordering. This results
     // in `back-to-front` ordering, low z_index = back; high z_index = front.
     stack.entries.sort_by_key(|e| e.z_index);
 
-    for entry in &mut stack.entries {
+    for entry in stack.entries.drain(..) {
         // Parent node renders before/behind child nodes
         result.push(entry.entity);
-        fill_stack_recursively(result, &mut entry.stack);
+        fill_stack_recursively(cache, result, &mut entry.stack);
+        cache.push(entry);
     }
 }
 
