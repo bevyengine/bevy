@@ -1,64 +1,88 @@
-use bevy_ecs::system::SystemParam;
-use bevy_render::render_graph::RenderSubGraph;
 use std::marker::PhantomData;
 
+use crate::core_3d::graph::SubGraph3d;
+use bevy_ecs::{
+    entity::Entity,
+    system::{SystemParam, SystemParamItem},
+    world::World,
+};
+use bevy_render::render_graph::RenderSubGraph;
+
 use crate::render_feature::{
-    RenderComponent, RenderFeatureDependencies, RenderFeatureStageMarker, RenderSubFeature,
+    stages, FeatureSig, RenderFeatureDependencies, RenderFeatureStageMarker, RenderSubFeature,
 };
 
-pub struct SimpleFeature<G, S, I, O, P, F>
-where
-    G: RenderSubGraph,
-    S: RenderFeatureStageMarker,
-    I: 'static,
-    O: RenderComponent,
+use super::RenderFeatureSignature;
+
+pub trait SimpleFeatureFunction<
+    Stage: RenderFeatureStageMarker,
+    Sig: RenderFeatureSignature,
     P: SystemParam + 'static,
-    F: Fn(I) -> O + 'static,
+>: Fn(Entity, Sig::In, SystemParamItem<P>) -> Sig::Out + Send + Sync + 'static
 {
-    deps: Box<dyn RenderFeatureDependencies<G, S, I>>,
-    fun: F,
-    data: PhantomData<(fn(I) -> O, P)>,
 }
 
-impl<G, S, I, O, P, F> SimpleFeature<G, S, I, O, P, F>
+impl<
+        Stage: RenderFeatureStageMarker,
+        Sig: RenderFeatureSignature,
+        P: SystemParam + 'static,
+        F: Fn(Entity, Sig::In, SystemParamItem<P>) -> Sig::Out + Send + Sync + 'static,
+    > SimpleFeatureFunction<Stage, Sig, P> for F
+{
+}
+
+pub struct SimpleFeature<G, Stage, Sig, P, F>
 where
     G: RenderSubGraph,
-    S: RenderFeatureStageMarker,
-    I: 'static,
-    O: RenderComponent,
+    Stage: RenderFeatureStageMarker,
+    Sig: RenderFeatureSignature,
     P: SystemParam + 'static,
-    F: Fn(I) -> O + 'static,
+    F: SimpleFeatureFunction<Stage, Sig, P>,
 {
-    pub fn new(deps: impl RenderFeatureDependencies<G, S, I> + 'static, fun: F) -> Self {
-        SimpleFeature {
+    deps: Box<dyn RenderFeatureDependencies<G, Stage, Sig::In>>,
+    run: F,
+    data: PhantomData<fn(P)>,
+}
+
+impl<G, Stage, Sig, P, F> SimpleFeature<G, Stage, Sig, P, F>
+where
+    G: RenderSubGraph,
+    Stage: RenderFeatureStageMarker,
+    Sig: RenderFeatureSignature,
+    P: SystemParam + 'static,
+    F: SimpleFeatureFunction<Stage, Sig, P>,
+{
+    pub fn new(deps: impl RenderFeatureDependencies<G, Stage, Sig::In> + 'static, run: F) -> Self {
+        Self {
             deps: Box::new(deps),
-            fun,
+            run,
             data: PhantomData,
         }
     }
 }
 
-impl<G, S, I, O, P, F> RenderSubFeature<G> for SimpleFeature<G, S, I, O, P, F>
+impl<G, Stage, Sig, P, F> RenderSubFeature<G> for SimpleFeature<G, Stage, Sig, P, F>
 where
     G: RenderSubGraph,
-    S: RenderFeatureStageMarker,
-    I: 'static,
-    O: RenderComponent,
+    Stage: RenderFeatureStageMarker,
+    Sig: RenderFeatureSignature,
     P: SystemParam + 'static,
-    F: Fn(I) -> O + 'static,
+    F: SimpleFeatureFunction<Stage, Sig, P>,
 {
-    type Stage = S;
-    type In = I;
-    type Out = O;
+    type Stage = Stage;
+    type Sig = Sig;
     type Param = P;
 
-    fn default_dependencies(
-        &self,
-    ) -> &(impl RenderFeatureDependencies<G, Self::Stage, Self::In> + ?Sized) {
+    fn default_dependencies(&self) -> impl RenderFeatureDependencies<G, Self::Stage, Sig::In> {
         &*self.deps
     }
 
-    fn run(&self, deps: Self::In) -> Self::Out {
-        (self.fun)(deps)
+    fn run(
+        &self,
+        view_entity: Entity,
+        input: super::FeatureInput<G, Self>,
+        param: SystemParamItem<Self::Param>,
+    ) -> super::FeatureOutput<G, Self> {
+        (self.run)(view_entity, input, param)
     }
 }
