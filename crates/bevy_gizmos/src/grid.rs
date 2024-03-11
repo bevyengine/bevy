@@ -8,8 +8,12 @@ use bevy_color::LinearRgba;
 use bevy_math::{Quat, UVec2, Vec2, Vec3};
 
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
-pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct GridBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     spacing: Vec2,
@@ -19,7 +23,11 @@ pub struct GridBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     color: LinearRgba,
 }
 
-impl<T: GizmoConfigGroup> GridBuilder<'_, '_, '_, T> {
+impl<Config, Clear> GridBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Skews the grid by `tan(skew)` in the x direction.
     /// `skew` is in radians
     pub fn skew_x(mut self, skew: f32) -> Self {
@@ -47,7 +55,11 @@ impl<T: GizmoConfigGroup> GridBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for GridBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for GridBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draws a grid, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
         if !self.gizmos.enabled {
@@ -103,7 +115,11 @@ impl<T: GizmoConfigGroup> Drop for GridBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw a 2D grid in 3D.
     ///
     /// This should be called for each frame the grid needs to be rendered.
@@ -147,7 +163,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<LinearRgba>,
-    ) -> GridBuilder<'_, 'w, 's, T> {
+    ) -> GridBuilder<'_, 'w, 's, Config, Clear> {
         GridBuilder {
             gizmos: self,
             position,
@@ -203,7 +219,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<LinearRgba>,
-    ) -> GridBuilder<'_, 'w, 's, T> {
+    ) -> GridBuilder<'_, 'w, 's, Config, Clear> {
         GridBuilder {
             gizmos: self,
             position: position.extend(0.),
