@@ -290,33 +290,27 @@ where
 /// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
 ///
 /// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
-pub fn end_gizmo_context<Config, Clear>(world: &mut World)
-where
+pub fn end_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    world.resource_scope(
-        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap<Clear>>>| {
-            let mut default = world.resource_mut::<GizmoStorage<Config, ()>>();
-            default.clear();
-            default.swap(&mut *swap);
-        },
-    );
+    default.clear();
+    default.swap(&mut *swap);
 }
 
 /// Collect the requested gizmos into a specific clear context.
-pub fn collect_requested_gizmos<Config, Clear>(world: &mut World)
-where
+pub fn collect_requested_gizmos<Config, Clear>(
+    mut update: ResMut<GizmoStorage<Config, ()>>,
+    mut context: ResMut<GizmoStorage<Config, Clear>>,
+) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    world.resource_scope(
-        |world: &mut World, mut update: Mut<GizmoStorage<Config, ()>>| {
-            let mut context = world.resource_mut::<GizmoStorage<Config, Clear>>();
-            context.append_storage(&update);
-            update.clear();
-        },
-    );
+    context.append_storage(&update);
+    update.clear();
 }
 
 /// Clear out the contextual gizmos.
