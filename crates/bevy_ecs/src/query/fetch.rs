@@ -808,7 +808,7 @@ unsafe impl WorldQuery for &Archetype {
         (world.entities(), world.archetypes())
     }
 
-    // This could probably be a non-dense query and just get set a Option<&Archetype> fetch value in
+    // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
 
