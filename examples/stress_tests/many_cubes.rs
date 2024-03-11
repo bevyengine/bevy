@@ -281,103 +281,98 @@ fn init_materials(
 fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
-    let mut meshes = Vec::with_capacity(capacity);
-
     let mut radius_rng = StdRng::seed_from_u64(42);
     let mut variant = 0;
-    meshes.extend(
-        std::iter::repeat_with(|| {
-            let radius = radius_rng.gen_range(0.25f32..=0.75f32);
-            let (handle, transform) = match variant % 15 {
-                0 => (
-                    assets.add(Cuboid {
-                        half_size: Vec3::splat(radius),
-                    }),
-                    Transform::IDENTITY,
-                ),
-                1 => (
-                    assets.add(Capsule3d {
-                        radius,
-                        half_length: radius,
-                    }),
-                    Transform::IDENTITY,
-                ),
-                2 => (
-                    assets.add(Circle { radius }),
-                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
-                ),
-                3 => {
-                    let mut vertices = [Vec2::ZERO; 3];
-                    let dtheta = std::f32::consts::TAU / 3.0;
-                    for i in 0..3 {
-                        let (s, c) = (i as f32 * dtheta).sin_cos();
-                        vertices[i] = Vec2::new(c, s) * radius;
-                    }
-                    (
-                        assets.add(Triangle2d { vertices }),
-                        Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
-                    )
+    std::iter::repeat_with(|| {
+        let radius = radius_rng.gen_range(0.25f32..=0.75f32);
+        let (handle, transform) = match variant % 15 {
+            0 => (
+                assets.add(Cuboid {
+                    half_size: Vec3::splat(radius),
+                }),
+                Transform::IDENTITY,
+            ),
+            1 => (
+                assets.add(Capsule3d {
+                    radius,
+                    half_length: radius,
+                }),
+                Transform::IDENTITY,
+            ),
+            2 => (
+                assets.add(Circle { radius }),
+                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+            ),
+            3 => {
+                let mut vertices = [Vec2::ZERO; 3];
+                let dtheta = std::f32::consts::TAU / 3.0;
+                for (i, vertex) in vertices.iter_mut().enumerate() {
+                    let (s, c) = (i as f32 * dtheta).sin_cos();
+                    *vertex = Vec2::new(c, s) * radius;
                 }
-                4 => (
-                    assets.add(Rectangle {
-                        half_size: Vec2::splat(radius),
-                    }),
+                (
+                    assets.add(Triangle2d { vertices }),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                )
+            }
+            4 => (
+                assets.add(Rectangle {
+                    half_size: Vec2::splat(radius),
+                }),
+                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+            ),
+            v if (5..=8).contains(&v) => (
+                assets.add(RegularPolygon {
+                    circumcircle: Circle { radius },
+                    sides: v,
+                }),
+                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+            ),
+            9 => (
+                assets.add(Cylinder {
+                    radius,
+                    half_height: radius,
+                }),
+                Transform::IDENTITY,
+            ),
+            10 => (
+                assets.add(Ellipse {
+                    half_size: Vec2::new(radius, 0.5 * radius),
+                }),
+                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+            ),
+            11 => (
+                assets.add(
+                    Plane3d {
+                        normal: Dir3::NEG_Z,
+                    }
+                    .mesh()
+                    .size(radius, radius),
                 ),
-                v if v >= 5 && v <= 8 => (
-                    assets.add(RegularPolygon {
-                        circumcircle: Circle { radius },
-                        sides: v,
-                    }),
-                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
-                ),
-                9 => (
-                    assets.add(Cylinder {
-                        radius,
-                        half_height: radius,
-                    }),
-                    Transform::IDENTITY,
-                ),
-                10 => (
-                    assets.add(Ellipse {
-                        half_size: Vec2::new(radius, 0.5 * radius),
-                    }),
-                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
-                ),
-                11 => (
-                    assets.add(
-                        Plane3d {
-                            normal: Dir3::NEG_Z,
-                        }
-                        .mesh()
-                        .size(radius, radius),
-                    ),
-                    Transform::IDENTITY,
-                ),
-                12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
-                13 => (
-                    assets.add(Torus {
-                        minor_radius: 0.5 * radius,
-                        major_radius: radius,
-                    }),
-                    Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
-                ),
-                14 => (
-                    assets.add(Capsule2d {
-                        radius,
-                        half_length: radius,
-                    }),
-                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
-                ),
-                _ => unreachable!(),
-            };
-            variant += 1;
-            (handle, transform)
-        })
-        .take(capacity - meshes.len()),
-    );
-
-    meshes
+                Transform::IDENTITY,
+            ),
+            12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
+            13 => (
+                assets.add(Torus {
+                    minor_radius: 0.5 * radius,
+                    major_radius: radius,
+                }),
+                Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
+            ),
+            14 => (
+                assets.add(Capsule2d {
+                    radius,
+                    half_length: radius,
+                }),
+                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+            ),
+            _ => unreachable!(),
+        };
+        variant += 1;
+        (handle, transform)
+    })
+    .take(capacity)
+    .collect()
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
