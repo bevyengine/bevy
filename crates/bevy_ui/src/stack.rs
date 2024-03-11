@@ -26,7 +26,9 @@ impl StackingContextCache {
     }
 
     fn push(&mut self, mut context: StackingContext) {
-        context.entries.clear();
+        for entry in context.entries.drain(..) {
+            self.push(entry.stack);
+        }
         self.inner.push(context);
     }
 }
