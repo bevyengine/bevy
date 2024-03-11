@@ -4,6 +4,7 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
+    color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
@@ -67,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::from_style(if cfg!(feature = "default_font") {
                 TextStyle {
                     font_size: 60.0,
-                    color: Color::GOLD,
+                    color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
                     ..default()
                 }
@@ -76,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 60.0,
-                    color: Color::GOLD,
+                    color: GOLD.into(),
                 }
             }),
         ]),
@@ -120,12 +121,11 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
         let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
-        text.sections[0].style.color = Color::Rgba {
-            red: (1.25 * seconds).sin() / 2.0 + 0.5,
-            green: (0.75 * seconds).sin() / 2.0 + 0.5,
-            blue: (0.50 * seconds).sin() / 2.0 + 0.5,
-            alpha: 1.0,
-        };
+        text.sections[0].style.color = Color::srgb(
+            (1.25 * seconds).sin() / 2.0 + 0.5,
+            (0.75 * seconds).sin() / 2.0 + 0.5,
+            (0.50 * seconds).sin() / 2.0 + 0.5,
+        );
     }
 }
 
@@ -134,7 +134,7 @@ fn text_update_system(
     mut query: Query<&mut Text, With<FpsText>>,
 ) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
                 text.sections[1].value = format!("{value:.2}");

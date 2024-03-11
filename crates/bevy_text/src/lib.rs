@@ -1,3 +1,7 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 mod error;
 mod font;
 mod font_atlas;
@@ -28,7 +32,9 @@ use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
+use bevy_render::{
+    camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
+};
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
 
@@ -43,8 +49,7 @@ pub struct TextPlugin;
 #[derive(Resource)]
 pub struct TextSettings {
     /// Soft maximum number of font atlases supported in a [`FontAtlasSet`]. When this is exceeded,
-    /// a warning will be emitted a single time. The [`FontAtlasWarning`] resource ensures that
-    /// this only happens once.
+    /// a warning will be emitted a single time.
     pub soft_max_font_atlases: NonZeroUsize,
     /// Allows font size to be set dynamically exceeding the amount set in `soft_max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
@@ -60,13 +65,6 @@ impl Default for TextSettings {
     }
 }
 
-/// This resource tracks whether or not a warning has been emitted due to the number
-/// of font atlases exceeding the [`TextSettings::soft_max_font_atlases`] setting.
-#[derive(Resource, Default)]
-pub struct FontAtlasWarning {
-    warned: bool,
-}
-
 /// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
 /// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
 /// the glyph positioning is different in either layout.
@@ -80,20 +78,18 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
-            .register_type::<TextSection>()
-            .register_type::<Vec<TextSection>>()
-            .register_type::<TextStyle>()
-            .register_type::<JustifyText>()
-            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
-            .init_resource::<FontAtlasWarning>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
             .add_systems(
                 PostUpdate,
                 (
+                    calculate_bounds_text2d
+                        .in_set(VisibilitySystems::CalculateBounds)
+                        .after(update_text2d_layout),
                     update_text2d_layout
+                        .after(font_atlas_set::remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`

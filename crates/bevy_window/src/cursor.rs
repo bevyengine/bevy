@@ -9,7 +9,7 @@
 // license as well as the W3C short notice apply to the `CursorIcon` enum's
 // variants and documentation attached to them.
 
-// --------- BEGGINING OF W3C LICENSE
+// --------- BEGINNING OF W3C LICENSE
 // --------------------------------------------------------------
 //
 // License
@@ -51,7 +51,7 @@
 // --------- END OF W3C LICENSE
 // --------------------------------------------------------------------
 
-// --------- BEGGINING OF W3C SHORT NOTICE
+// --------- BEGINNING OF W3C SHORT NOTICE
 // ---------------------------------------------------------
 //
 // winit: https://github.com/rust-windowing/cursor-icon

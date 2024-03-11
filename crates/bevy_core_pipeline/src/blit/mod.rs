@@ -20,6 +20,10 @@ pub struct BlitPlugin;
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
+        }
     }
 
     fn finish(&self, app: &mut App) {

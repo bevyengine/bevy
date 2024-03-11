@@ -1,11 +1,16 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
+pub mod deterministic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -13,6 +18,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod mesh;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
@@ -27,9 +33,12 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
-        color::Color,
-        mesh::{morph::MorphWeights, shape, Mesh},
+        alpha::AlphaMode,
+        camera::{
+            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+            Projection,
+        },
+        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
@@ -38,6 +47,8 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -45,6 +56,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -64,9 +76,19 @@ use std::{
 };
 
 /// Contains the default Bevy rendering backend based on wgpu.
+///
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
+/// between main schedule iterations.
+///
+/// Rendering can be executed between iterations of the main schedule,
+/// or it can be executed in parallel with main schedule when
+/// [`PipelinedRenderingPlugin`](pipelined_rendering::PipelinedRenderingPlugin) is enabled.
 #[derive(Default)]
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    pub synchronous_pipeline_compilation: bool,
 }
 
 /// The labels of the default App rendering sets.
@@ -174,10 +196,11 @@ impl DerefMut for MainWorld {
     }
 }
 
-pub mod main_graph {
-    pub mod node {
-        pub const CAMERA_DRIVER: &str = "camera_driver";
-    }
+pub mod graph {
+    use crate::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub struct CameraDriverLabel;
 }
 
 #[derive(Resource)]
@@ -206,6 +229,8 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(106653563
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
+        app.init_resource::<DeterministicRenderingConfig>();
+
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
@@ -244,11 +269,12 @@ impl Plugin for RenderPlugin {
                             flags: settings.instance_flags,
                             gles_minor_version: settings.gles3_minor_version,
                         });
+
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.map(|wrapper| unsafe {
                             let handle = wrapper.get_handle();
                             instance
-                                .create_surface(&handle)
+                                .create_surface(handle)
                                 .expect("Failed to create wgpu surface")
                         });
 
@@ -302,7 +328,9 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
-        app.register_type::<color::Color>()
+        app.register_type::<alpha::AlphaMode>()
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -317,16 +345,6 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            INSTANCE_INDEX_SHADER_HANDLE,
-            "instance_index.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-                "BASE_INSTANCE_WORKAROUND".into()
-            ]
-        );
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
@@ -343,7 +361,11 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(instance)
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(
+                    device.clone(),
+                    render_adapter.clone(),
+                    self.synchronous_pipeline_compilation,
+                ))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
@@ -381,6 +403,12 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
+    // We skip applying any commands during the ExtractSchedule
+    // so commands can be applied on the render thread.
+    extract_schedule.set_build_settings(ScheduleBuildSettings {
+        auto_insert_apply_deferred: false,
+        ..default()
+    });
     extract_schedule.set_apply_final_deferred(false);
 
     render_app

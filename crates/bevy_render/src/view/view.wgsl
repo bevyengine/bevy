@@ -16,6 +16,7 @@ struct View {
     projection: mat4x4<f32>,
     inverse_projection: mat4x4<f32>,
     world_position: vec3<f32>,
+    exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
     frustum: array<vec4<f32>, 6>,

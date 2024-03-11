@@ -14,7 +14,7 @@ index b91e25d34..48f19b708 100644
 -                wait: Duration::from_secs(60),
 -            },
 -        }
-+        Self::game()
++        Self::default()
      }
  
      /// Returns the current [`UpdateMode`].

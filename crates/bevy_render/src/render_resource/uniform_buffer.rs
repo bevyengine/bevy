@@ -227,8 +227,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     #[inline]
-    pub fn push(&mut self, value: T) -> u32 {
-        self.scratch.write(&value).unwrap() as u32
+    pub fn push(&mut self, value: &T) -> u32 {
+        self.scratch.write(value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -277,7 +277,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment = if cfg!(ios_simulator) {
+        let alignment = if cfg!(feature = "ios_simulator") {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
             // is respected, but the device reports the correct value for iOS, which is smaller.
             // Use the larger value.

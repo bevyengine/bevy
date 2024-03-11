@@ -17,8 +17,8 @@ use crate::{
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{debug, error, trace, warn};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{debug, error, trace, warn};
 use bevy_utils::{BoxedFuture, HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -56,7 +56,7 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
-    default_processors: RwLock<HashMap<String, &'static str>>,
+    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
     initialized_sender: async_broadcast::Sender<()>,
@@ -293,6 +293,13 @@ impl AssetProcessor {
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
                             }
+                            AssetReaderError::HttpError(status) => {
+                                error!(
+                                    "Path '{}' was removed, but the destination reader could not determine if it \
+                                    was a folder or a file due to receiving an unexpected HTTP Status {status}",
+                                    AssetPath::from_path(&path).with_source(source.id())
+                                );
+                            }
                         }
                     }
                 }
@@ -343,6 +350,13 @@ impl AssetProcessor {
             Err(err) => match err {
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
+                }
+                AssetReaderError::HttpError(status) => {
+                    self.log_unrecoverable().await;
+                    error!(
+                        "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
+                        in the source directory. Restart the asset processor to fully reprocess assets. HTTP Status Code {status}"
+                    );
                 }
                 AssetReaderError::Io(err) => {
                     self.log_unrecoverable().await;
@@ -468,7 +482,7 @@ impl AssetProcessor {
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.to_string(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), std::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -752,7 +766,7 @@ impl AssetProcessor {
             .await
             .map_err(|e| ProcessError::AssetReaderError {
                 path: asset_path.clone(),
-                err: AssetReaderError::Io(e),
+                err: AssetReaderError::Io(e.into()),
             })?;
 
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.

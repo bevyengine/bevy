@@ -1,6 +1,7 @@
 use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
-use crate::system::{Command, EntityCommands, Resource};
+use crate::system::{EntityCommands, Resource};
+use crate::world::Command;
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
 use std::borrow::Cow;
@@ -27,7 +28,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components
@@ -97,7 +98,7 @@ pub trait ReflectCommandExt {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```
     /// // Note that you need to register the component type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
     /// // or write to the TypeRegistry directly to register all your components
@@ -140,7 +141,7 @@ pub trait ReflectCommandExt {
     ) -> &mut Self;
 }
 
-impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
+impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self {
         self.commands.add(InsertReflect {
             entity: self.entity,
@@ -194,7 +195,7 @@ fn insert_reflect(
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
     let Some(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World.");
+        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003");
     };
     let Some(type_registration) = type_registry.get_with_type_path(type_path) else {
         panic!("Could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
@@ -202,7 +203,7 @@ fn insert_reflect(
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
         panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
     };
-    reflect_component.insert(&mut entity, &*component);
+    reflect_component.insert(&mut entity, &*component, type_registry);
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in

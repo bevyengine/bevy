@@ -20,6 +20,10 @@ pub use crate::audio::prelude::*;
 pub use crate::animation::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_color")]
+pub use crate::color::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]
 pub use crate::core_pipeline::prelude::*;
 

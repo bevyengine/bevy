@@ -1,14 +1,16 @@
 pub mod copy_lighting_id;
 pub mod node;
 
-use std::{cmp::Reverse, ops::Range};
+use std::ops::Range;
 
+use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    mesh::Mesh,
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use nonmax::NonMaxU32;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
@@ -16,12 +18,12 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 
 /// Opaque phase of the 3D Deferred pass.
 ///
-/// Sorted front-to-back by the z-distance in front of the camera.
+/// Sorted by pipeline, then by mesh to improve batching.
 ///
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dDeferred {
-    pub distance: f32,
     pub entity: Entity,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -29,8 +31,7 @@ pub struct Opaque3dDeferred {
 }
 
 impl PhaseItem for Opaque3dDeferred {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -39,7 +40,8 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline_id.id(), self.asset_id)
     }
 
     #[inline]
@@ -49,8 +51,7 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -83,11 +84,11 @@ impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
 
 /// Alpha mask phase of the 3D Deferred pass.
 ///
-/// Sorted front-to-back by the z-distance in front of the camera.
+/// Sorted by pipeline, then by mesh to improve batching.
 ///
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dDeferred {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -96,8 +97,7 @@ pub struct AlphaMask3dDeferred {
 }
 
 impl PhaseItem for AlphaMask3dDeferred {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -106,7 +106,8 @@ impl PhaseItem for AlphaMask3dDeferred {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline_id.id(), self.asset_id)
     }
 
     #[inline]
@@ -116,8 +117,7 @@ impl PhaseItem for AlphaMask3dDeferred {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]

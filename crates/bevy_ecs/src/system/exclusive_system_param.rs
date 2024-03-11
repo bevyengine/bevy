@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_utils::all_tuples;
 use bevy_utils::synccell::SyncCell;
+use std::marker::PhantomData;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.
@@ -70,6 +71,17 @@ impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> 
     }
 }
 
+impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
+    type State = ();
+    type Item<'s> = PhantomData<S>;
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    fn get_param<'s>(_state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
+        PhantomData
+    }
+}
+
 macro_rules! impl_exclusive_system_param_tuple {
     ($($param: ident),*) => {
         #[allow(unused_variables)]
@@ -98,3 +110,38 @@ macro_rules! impl_exclusive_system_param_tuple {
 }
 
 all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::schedule::Schedule;
+    use crate::system::Local;
+    use crate::world::World;
+    use bevy_ecs_macros::Resource;
+    use std::marker::PhantomData;
+
+    #[test]
+    fn test_exclusive_system_params() {
+        #[derive(Resource, Default)]
+        struct Res {
+            test_value: u32,
+        }
+
+        fn my_system(world: &mut World, mut local: Local<u32>, _phantom: PhantomData<Vec<u32>>) {
+            assert_eq!(world.resource::<Res>().test_value, *local);
+            *local += 1;
+            world.resource_mut::<Res>().test_value += 1;
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_system);
+
+        let mut world = World::default();
+        world.init_resource::<Res>();
+
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(2, world.get_resource::<Res>().unwrap().test_value);
+    }
+}

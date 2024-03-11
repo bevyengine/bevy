@@ -1,6 +1,7 @@
 //! Shows various text layout options.
 
 use bevy::{
+    color::palettes::{basic::RED, css::*},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
@@ -67,7 +68,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: Color::YELLOW,
+                    color: YELLOW.into(),
                 },
             )
             .with_text_justify(JustifyText::Right)
@@ -82,7 +83,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    color: WHITE.into(),
                 },
             )
             .with_style(Style {
@@ -109,7 +110,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 40.0,
-                    color: Color::rgb(0.8, 0.2, 0.7),
+                    color: Color::srgb(0.8, 0.2, 0.7),
                 },
             )
             .with_text_justify(JustifyText::Center)
@@ -125,7 +126,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 35.0,
-                    color: Color::YELLOW,
+                    color: YELLOW.into(),
                 },
             )
             .with_text_justify(JustifyText::Left)
@@ -150,33 +151,33 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: Color::RED,
+                        color: RED.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    color: Color::ORANGE_RED,
+                    color: ORANGE_RED.into(),
                 }),
                 TextSection::new(
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: Color::YELLOW,
+                        color: YELLOW.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    color: Color::GREEN,
+                    color: LIME.into(),
                 }),
                 TextSection::new(
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: Color::BLUE,
+                        color: BLUE.into(),
                     },
                 ),
             ]),
@@ -197,14 +198,15 @@ fn change_text_system(
 ) {
     for mut text in &mut query {
         let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
                 fps = fps_smoothed;
             }
         }
 
         let mut frame_time = time.delta_seconds_f64();
-        if let Some(frame_time_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
+        if let Some(frame_time_diagnostic) =
+            diagnostics.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
         {
             if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
                 frame_time = frame_time_smoothed;

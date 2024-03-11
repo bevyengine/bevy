@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -47,13 +47,23 @@ pub enum ImageFormat {
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
+            "image/avif" => ImageFormat::Avif,
             "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
             "image/vnd-ms.dds" => ImageFormat::Dds,
+            "image/vnd.radiance" => ImageFormat::Hdr,
+            "image/gif" => ImageFormat::Gif,
+            "image/x-icon" => ImageFormat::Ico,
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
             "image/x-exr" => ImageFormat::OpenExr,
+            "image/x-portable-bitmap"
+            | "image/x-portable-graymap"
+            | "image/x-portable-pixmap"
+            | "image/x-portable-anymap" => ImageFormat::Pnm,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
+            "image/tiff" => ImageFormat::Tiff,
+            "image/webp" => ImageFormat::WebP,
             _ => return None,
         })
     }
@@ -110,6 +120,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -147,6 +158,8 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
+///
+/// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`wgpu::AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -464,6 +477,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
@@ -479,6 +493,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -492,6 +507,7 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
+        image.asset_usage = asset_usage;
         image
     }
 
@@ -505,10 +521,12 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
+        value.asset_usage = asset_usage;
         value.resize(size);
 
         debug_assert_eq!(
@@ -629,17 +647,19 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -655,7 +675,13 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
+            ImageFormat::Dds => dds_buffer_to_image(
+                #[cfg(debug_assertions)]
+                name,
+                buffer,
+                supported_compressed_formats,
+                is_srgb,
+            )?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
@@ -668,7 +694,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb)
+                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -782,7 +808,7 @@ impl TextureFormatPixelInfo for TextureFormat {
     fn pixel_size(&self) -> usize {
         let info = self;
         match info.block_dimensions() {
-            (1, 1) => info.block_size(None).unwrap() as usize,
+            (1, 1) => info.block_copy_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
@@ -796,12 +822,11 @@ pub struct GpuImage {
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
-    pub size: Vec2,
+    pub size: UVec2,
     pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
-    type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
     type Param = (
         SRes<RenderDevice>,
@@ -809,34 +834,31 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::ExtractedAsset,
+        self,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &image.texture_descriptor,
-            &image.data,
+            &self.texture_descriptor,
+            // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
+            wgpu::util::TextureDataOrder::default(),
+            &self.data,
         );
 
+        let size = self.size();
         let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
+            self.texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
-        let size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
-        );
-        let sampler = match image.sampler {
+        let sampler = match self.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
@@ -846,10 +868,10 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: image.texture_descriptor.format,
+            texture_format: self.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
+            mip_level_count: self.texture_descriptor.mip_level_count,
         })
     }
 }
@@ -914,8 +936,8 @@ impl CompressedImageFormats {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
+    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn image_size() {
@@ -929,15 +951,18 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
             image.size_f32()
         );
     }
+
     #[test]
     fn image_default_size() {
         let image = Image::default();
+        assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

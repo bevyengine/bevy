@@ -8,7 +8,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, StoreOp, TextureViewId,
+        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
     texture::Image,
@@ -24,7 +24,7 @@ pub struct TonemappingNode {
 }
 
 impl ViewNode for TonemappingNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewTarget,
         &'static ViewTonemappingPipeline,
@@ -36,7 +36,7 @@ impl ViewNode for TonemappingNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -80,10 +80,6 @@ impl ViewNode for TonemappingNode {
                 bind_group
             }
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
-
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
                 let lut_bindings = get_lut_bindings(gpu_images, tonemapping_luts, tonemapping);
@@ -94,7 +90,7 @@ impl ViewNode for TonemappingNode {
                     &BindGroupEntries::sequential((
                         view_uniforms,
                         source,
-                        &sampler,
+                        &tonemapping_pipeline.sampler,
                         lut_bindings.0,
                         lut_bindings.1,
                     )),

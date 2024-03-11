@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod builder;
 mod error;
 mod fetch;
 mod filter;
@@ -11,6 +12,7 @@ mod world_query;
 
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
+pub use builder::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
@@ -768,7 +770,6 @@ mod tests {
         q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
-        let _: Option<&Foo> = q.get_component(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
         let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);

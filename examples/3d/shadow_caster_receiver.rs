@@ -3,7 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
+    color::palettes::basic::{BLUE, LIME, RED},
+    pbr::{light_consts, CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -36,18 +37,12 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(Color::RED.into()),
+        material: materials.add(Color::from(RED)),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -56,7 +51,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(Color::BLUE.into()),
+            material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -66,8 +61,8 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
-            material: materials.add(Color::GREEN.into()),
+            mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
+            material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },
@@ -77,7 +72,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
         material: white_handle,
         ..default()
     });
@@ -98,7 +93,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 100000.0,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
@@ -134,7 +129,7 @@ fn toggle_light(
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
-                100000000.0
+                1_000_000.0 // Mini-sun point light
             } else {
                 0.0
             };
@@ -142,7 +137,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                100000.0
+                light_consts::lux::OVERCAST_DAY
             } else {
                 0.0
             };

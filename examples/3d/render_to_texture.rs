@@ -5,7 +5,6 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -63,9 +62,9 @@ fn setup(
 
     let image_handle = images.add(image);
 
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 4.0 }));
+    let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
         ..default()
@@ -100,14 +99,11 @@ fn setup(
 
     commands.spawn((
         Camera3dBundle {
-            camera_3d: Camera3d {
-                clear_color: Color::WHITE.into(),
-                ..default()
-            },
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+                target: image_handle.clone().into(),
+                clear_color: Color::WHITE.into(),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
@@ -118,7 +114,7 @@ fn setup(
     ));
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
+    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
