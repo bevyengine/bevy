@@ -14,6 +14,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
+    pbr::NotShadowCaster,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -56,6 +57,10 @@ struct Args {
     /// whether to disable automatic batching. Skips batching resulting in heavy stress on render pass draw command encoding.
     #[argh(switch)]
     no_automatic_batching: bool,
+
+    /// whether to enable directional light cascaded shadow mapping.
+    #[argh(switch)]
+    shadows: bool,
 }
 
 #[derive(Default, Clone)]
@@ -165,10 +170,21 @@ fn setup(
 
             // camera
             commands.spawn(Camera3dBundle::default());
+            // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
+            commands.spawn((
+                PbrBundle {
+                    mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
+                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
+                    transform: Transform::from_scale(-Vec3::ONE),
+                    ..default()
+                },
+                NotShadowCaster,
+            ));
         }
         _ => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
+            let scale = 2.5;
             for x in 0..WIDTH {
                 for y in 0..HEIGHT {
                     // introduce spaces to break any kind of moiré pattern
@@ -179,42 +195,60 @@ fn setup(
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * 2.5, (y as f32) * 2.5, 0.0),
+                        transform: Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
                         ..default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz(
-                            (x as f32) * 2.5,
-                            HEIGHT as f32 * 2.5,
-                            (y as f32) * 2.5,
+                            (x as f32) * scale,
+                            HEIGHT as f32 * scale,
+                            (y as f32) * scale,
                         ),
                         ..default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * 2.5, 0.0, (y as f32) * 2.5),
+                        transform: Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
                         ..default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(0.0, (x as f32) * 2.5, (y as f32) * 2.5),
+                        transform: Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
                         ..default()
                     });
                 }
             }
             // camera
+            let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
             commands.spawn(Camera3dBundle {
-                transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
+                transform: Transform::from_translation(center),
                 ..default()
             });
+            // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
+            commands.spawn((
+                PbrBundle {
+                    mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),
+                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
+                    transform: Transform::from_scale(-Vec3::ONE).with_translation(center),
+                    ..default()
+                },
+                NotShadowCaster,
+            ));
         }
     }
 
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: args.shadows,
+            ..default()
+        },
+        transform: Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
+        ..default()
+    });
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
