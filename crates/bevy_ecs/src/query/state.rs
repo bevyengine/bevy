@@ -10,6 +10,7 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
@@ -374,7 +375,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
-        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>() );
+        assert!(
+            component_access.is_subset(&self.component_access),
+            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+        );
 
         QueryState {
             world_id: self.world_id,
@@ -386,6 +391,114 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
+            archetype_component_access: self.archetype_component_access.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<NewD>(),
+                filter = std::any::type_name::<NewF>(),
+            ),
+        }
+    }
+
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries. This can be useful for accessing a
+    /// subset of the entities between two queries.
+    ///
+    /// You should not call `update_archetypes` on the returned `QueryState` as the result
+    /// could be unpredictable. You might end up with a mix of archetypes that only matched
+    /// the original query + archetypes that only match the new `QueryState`. Most of the
+    /// safe methods on `QueryState` call [`QueryState::update_archetypes`] internally, so
+    /// this is best used through a `Query`.
+    ///
+    /// ## Performance
+    ///
+    /// This will have similar performance as constructing a new `QueryState` since much of internal state
+    /// needs to be reconstructed. But it will be a little faster as it only needs to compare the intersection
+    /// of matching archetypes rather than iterating over all archetypes.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD>,
+    ) -> QueryState<NewD, ()> {
+        self.join_filtered::<_, (), NewD, ()>(world, other)
+    }
+
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` or `NewF` requires accesses not in `Q` or `OtherQ`.
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD, OtherF>,
+    ) -> QueryState<NewD, NewF> {
+        if self.world_id != other.world_id {
+            panic!("Joining queries initialized on different worlds is not allowed.");
+        }
+
+        let mut component_access = FilteredAccess::default();
+        let mut new_fetch_state = NewD::get_state(world)
+            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let new_filter_state = NewF::get_state(world)
+            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+
+        NewD::set_access(&mut new_fetch_state, &self.component_access);
+        NewD::update_component_access(&new_fetch_state, &mut component_access);
+
+        let mut new_filter_component_access = FilteredAccess::default();
+        NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
+
+        component_access.extend(&new_filter_component_access);
+
+        let mut joined_component_access = self.component_access.clone();
+        joined_component_access.extend(&other.component_access);
+
+        assert!(
+            component_access.is_subset(&joined_component_access),
+            "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>(), std::any::type_name::<(OtherD, OtherF)>()
+        );
+
+        if self.archetype_generation != other.archetype_generation {
+            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
+        }
+
+        // take the intersection of the matched ids
+        let matched_tables: FixedBitSet = self
+            .matched_tables
+            .intersection(&other.matched_tables)
+            .collect();
+        let matched_table_ids: Vec<TableId> =
+            matched_tables.ones().map(TableId::from_usize).collect();
+        let matched_archetypes: FixedBitSet = self
+            .matched_archetypes
+            .intersection(&other.matched_archetypes)
+            .collect();
+        let matched_archetype_ids: Vec<ArchetypeId> =
+            matched_archetypes.ones().map(ArchetypeId::new).collect();
+
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_table_ids,
+            matched_archetype_ids,
+            fetch_state: new_fetch_state,
+            filter_state: new_filter_state,
+            component_access: joined_component_access,
+            matched_tables,
+            matched_archetypes,
             archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
@@ -1657,5 +1770,75 @@ mod tests {
         change_query.single_mut(&mut world).0 = 1;
 
         assert_eq!(entity_a, detection_query.single(&world));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::B>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+    )]
+    fn cannot_transmute_changed_without_access() {
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        let query = QueryState::<&A>::new(&mut world);
+        let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
+    }
+
+    #[test]
+    fn join() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+        world.spawn((A(4), B(5), C(6)));
+
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+
+        assert_eq!(new_query.single(&world), entity_ab);
+    }
+
+    #[test]
+    fn join_with_get() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+        let entity_abc = world.spawn((A(4), B(5), C(6))).id();
+
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+
+        assert!(new_query.get(&world, entity_ab).is_ok());
+        // should not be able to get entity with c.
+        assert!(new_query.get(&world, entity_abc).is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "Joined state for (&bevy_ecs::query::state::tests::C, ()) \
+            attempts to access terms that are not allowed by state \
+            (&bevy_ecs::query::state::tests::A, ()) joined with (&bevy_ecs::query::state::tests::B, ()).")]
+    fn cannot_join_wrong_fetch() {
+        let mut world = World::new();
+        world.init_component::<C>();
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B>::new(&mut world);
+        let _query: QueryState<&C> = query_1.join(&world, &query_2);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Joined state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) \
+            attempts to access terms that are not allowed by state \
+            (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>) \
+            joined with (&bevy_ecs::query::state::tests::B, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
+    )]
+    fn cannot_join_wrong_filter() {
+        let mut world = World::new();
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
     }
 }

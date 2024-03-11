@@ -1344,7 +1344,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY: There are no other active borrows of data from world
+        // SAFETY:
+        // - We have exclusive access to the query
+        // - `self` has correctly captured it's access
+        // - Access is checked to be a subset of the query's access when the state is created.
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewD, NewF>(world);
         QueryLens {
@@ -1358,6 +1361,99 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Gets a [`QueryLens`] with the same accesses as the existing query
     pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
         self.transmute_lens()
+    }
+
+    /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
+    ///
+    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filter
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// To maintain or change filter terms see `Self::join_filtered`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Transform;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Enemy;
+    /// #
+    /// # let mut world = World::default();
+    /// # world.spawn((Transform, Player));
+    /// # world.spawn((Transform, Enemy));
+    ///
+    /// fn system(
+    ///     mut transforms: Query<&Transform>,
+    ///     mut players: Query<&Player>,
+    ///     mut enemies: Query<&Enemy>
+    /// ) {
+    ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
+    ///     for (transform, player) in &players_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    ///
+    ///     let mut enemies_transforms: QueryLens<(&Transform, &Enemy)> = transforms.join(&mut enemies);
+    ///     for (transform, enemy) in &enemies_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(system);
+    /// # schedule.run(&mut world);
+    /// ```
+    /// ## Panics
+    ///
+    /// This will panic if `NewD` is not a subset of the union of the original fetch `Q` and `OtherD`.
+    ///
+    /// ## Allowed Transmutes
+    ///
+    /// Like `transmute_lens` the query terms can be changed with some restrictions.
+    /// See [`Self::transmute_lens`] for more details.
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &mut self,
+        other: &mut Query<OtherD>,
+    ) -> QueryLens<'_, NewD> {
+        self.join_filtered(other)
+    }
+
+    /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
+    ///
+    /// Note that the lens with iterate a subset of the original queries tables
+    /// and archetypes. This means that additional archetypal query terms like
+    /// `With` and `Without` will not necessarily be respected and non-archetypal
+    /// terms like `Added` and `Changed` will only be respected if they are in
+    /// the type signature.
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &mut self,
+        other: &mut Query<OtherD, OtherF>,
+    ) -> QueryLens<'_, NewD, NewF> {
+        // SAFETY:
+        // - The queries have correctly captured their access.
+        // - We have exclusive access to both queries.
+        // - Access for QueryLens is checked when state is created.
+        let world = unsafe { self.world.world() };
+        let state = self
+            .state
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
+        QueryLens {
+            world: self.world,
+            state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
     }
 }
 
