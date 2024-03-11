@@ -730,6 +730,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
         self.update_archetypes(world);
@@ -743,6 +746,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
     /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries.
     #[inline]
@@ -776,6 +782,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
     /// The `iter_combinations` method does not guarantee order of iteration.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
@@ -923,6 +932,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -939,6 +951,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -960,6 +975,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] for the given [`World`], where the last change and
     /// the current change tick are given.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -978,6 +996,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
     /// the current change tick are given.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -1003,6 +1024,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///

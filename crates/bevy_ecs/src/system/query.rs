@@ -407,6 +407,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the read-only query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
@@ -442,6 +445,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
@@ -473,6 +479,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Example
     ///
@@ -509,6 +518,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` query items without repetition.
     ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// ```
@@ -539,8 +551,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
-    /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Example
     ///
@@ -596,8 +608,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
-    /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///
@@ -648,6 +660,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
@@ -668,6 +683,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates over all possible combinations of `K` query items without repetition.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -691,6 +709,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Safety
     ///
@@ -723,6 +744,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
+    /// This parallel iterator is always guaranteed to return results from each matching entity once and
+    /// only once.  Iteration order and thread assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
+    /// on [`QueryIter`].
+    ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
     /// Note that you must use the `for_each` method to iterate over the
@@ -742,6 +769,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This parallel iterator is always guaranteed to return results from each matching entity once and
+    /// only once.  Iteration order and thread assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
+    /// on [`QueryIter`].
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
