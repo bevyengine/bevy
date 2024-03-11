@@ -67,7 +67,7 @@ pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.
     fn with_hue(&self, hue: f32) -> Self;
 
-    /// Return the hue of this color (0.0 - 360.0).
+    /// Return the hue of this color.
     fn hue(&self) -> f32;
 
     /// Sets the hue of this color.
