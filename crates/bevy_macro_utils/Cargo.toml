@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 toml_edit = { version = "0.22.7", default-features = false, features = [
-    "parse",
+  "parse",
 ] }
 syn = "2.0"
 quote = "1.0"

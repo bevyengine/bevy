@@ -14,6 +14,6 @@ xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
 ron = "0.8"
 toml_edit = { version = "0.22.7", default-features = false, features = [
-    "parse",
+  "parse",
 ] }
 pbr = "1.1"
