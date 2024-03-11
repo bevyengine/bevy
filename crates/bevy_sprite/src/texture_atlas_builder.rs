@@ -1,12 +1,11 @@
-use bevy_asset::Handle;
-use bevy_asset::{AssetId, Assets};
-use bevy_log::{debug, error, warn};
-use bevy_math::{Rect, UVec2, Vec2};
+use bevy_asset::AssetId;
+use bevy_math::{URect, UVec2};
 use bevy_render::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
+use bevy_utils::tracing::{debug, error, warn};
 use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
@@ -28,13 +27,13 @@ pub enum TextureAtlasBuilderError {
 #[must_use]
 /// A builder which is used to create a texture atlas from many individual
 /// sprites.
-pub struct TextureAtlasBuilder {
-    /// Collection of textures and their size to be packed into an atlas
-    textures_to_place: Vec<(AssetId<Image>, Extent3d)>,
+pub struct TextureAtlasBuilder<'a> {
+    /// Collection of texture's asset id (optional) and image data to be packed into an atlas
+    textures_to_place: Vec<(Option<AssetId<Image>>, &'a Image)>,
     /// The initial atlas size in pixels.
-    initial_size: Vec2,
+    initial_size: UVec2,
     /// The absolute maximum size of the texture atlas in pixels.
-    max_size: Vec2,
+    max_size: UVec2,
     /// The texture format for the textures that will be loaded in the atlas.
     format: TextureFormat,
     /// Enable automatic format conversion for textures if they are not in the atlas format.
@@ -43,12 +42,12 @@ pub struct TextureAtlasBuilder {
     padding: UVec2,
 }
 
-impl Default for TextureAtlasBuilder {
+impl Default for TextureAtlasBuilder<'_> {
     fn default() -> Self {
         Self {
             textures_to_place: Vec::new(),
-            initial_size: Vec2::new(256., 256.),
-            max_size: Vec2::new(2048., 2048.),
+            initial_size: UVec2::splat(256),
+            max_size: UVec2::splat(2048),
             format: TextureFormat::Rgba8UnormSrgb,
             auto_format_conversion: true,
             padding: UVec2::ZERO,
@@ -58,15 +57,15 @@ impl Default for TextureAtlasBuilder {
 
 pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
-impl TextureAtlasBuilder {
+impl<'a> TextureAtlasBuilder<'a> {
     /// Sets the initial size of the atlas in pixels.
-    pub fn initial_size(mut self, size: Vec2) -> Self {
+    pub fn initial_size(mut self, size: UVec2) -> Self {
         self.initial_size = size;
         self
     }
 
     /// Sets the max size of the atlas in pixels.
-    pub fn max_size(mut self, size: Vec2) -> Self {
+    pub fn max_size(mut self, size: UVec2) -> Self {
         self.max_size = size;
         self
     }
@@ -84,9 +83,11 @@ impl TextureAtlasBuilder {
     }
 
     /// Adds a texture to be copied to the texture atlas.
-    pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
-        self.textures_to_place
-            .push((image_id, texture.texture_descriptor.size));
+    ///
+    /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
+    /// The insertion order will reflect the index of the added texture in the finished texture atlas.
+    pub fn add_texture(&mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) {
+        self.textures_to_place.push((image_id, texture));
     }
 
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
@@ -147,13 +148,12 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder, and returns the newly created texture handle and
-    /// the assciated atlas layout.
+    /// Consumes the builder, and returns the newly created texture atlas and
+    /// the associated atlas layout.
     ///
+    /// Assigns indices to the textures based on the insertion order.
     /// Internally it copies all rectangles from the textures and copies them
     /// into a new texture.
-    /// It is not useful to hold a strong handle to the texture afterwards else
-    /// it will exist twice in memory.
     ///
     /// # Usage
     ///
@@ -169,17 +169,14 @@ impl TextureAtlasBuilder {
     ///     // Customize it
     ///     // ...
     ///     // Build your texture and the atlas layout
-    ///     let (atlas_layout, texture) = builder.finish(&mut textures).unwrap();
+    ///     let (atlas_layout, texture) = builder.finish().unwrap();
+    ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
-    ///     commands.spawn(SpriteSheetBundle {
-    ///        texture,
-    ///        atlas: TextureAtlas {
-    ///             layout,
-    ///             index: 0
-    ///         },
-    ///       ..Default::default()
-    ///     });
+    ///     commands.spawn((
+    ///         SpriteBundle { texture, ..Default::default() },
+    ///         TextureAtlas::from(layout),
+    ///     ));
     /// }
     /// ```
     ///
@@ -187,27 +184,26 @@ impl TextureAtlasBuilder {
     ///
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
-    pub fn finish(
-        self,
-        textures: &mut Assets<Image>,
-    ) -> Result<(TextureAtlasLayout, Handle<Image>), TextureAtlasBuilderError> {
-        let initial_width = self.initial_size.x as u32;
-        let initial_height = self.initial_size.y as u32;
-        let max_width = self.max_size.x as u32;
-        let max_height = self.max_size.y as u32;
+    pub fn finish(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+        let max_width = self.max_size.x;
+        let max_height = self.max_size.y;
 
-        let mut current_width = initial_width;
-        let mut current_height = initial_height;
+        let mut current_width = self.initial_size.x;
+        let mut current_height = self.initial_size.y;
         let mut rect_placements = None;
         let mut atlas_texture = Image::default();
-        let mut rects_to_place = GroupedRectsToPlace::<AssetId<Image>>::new();
+        let mut rects_to_place = GroupedRectsToPlace::<usize>::new();
 
         // Adds textures to rectangle group packer
-        for (image_id, size) in &self.textures_to_place {
+        for (index, (_, texture)) in self.textures_to_place.iter().enumerate() {
             rects_to_place.push_rect(
-                *image_id,
+                index,
                 None,
-                RectToInsert::new(size.width + self.padding.x, size.height + self.padding.y, 1),
+                RectToInsert::new(
+                    texture.width() + self.padding.x,
+                    texture.height() + self.padding.y,
+                    1,
+                ),
             );
         }
 
@@ -239,7 +235,7 @@ impl TextureAtlasBuilder {
                             self.format.pixel_size() * (current_width * current_height) as usize
                         ],
                         self.format,
-                        RenderAssetPersistencePolicy::Keep,
+                        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
                     );
                     Some(rect_placements)
                 }
@@ -259,16 +255,17 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_ids = HashMap::default();
-        for (image_id, (_, packed_location)) in rect_placements.packed_locations() {
-            let texture = textures.get(*image_id).unwrap();
-            let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
-            let max = min
-                + Vec2::new(
-                    (packed_location.width() - self.padding.x) as f32,
-                    (packed_location.height() - self.padding.y) as f32,
-                );
-            texture_ids.insert(*image_id, texture_rects.len());
-            texture_rects.push(Rect { min, max });
+        // We iterate through the textures to place to respect the insertion order for the texture indices
+        for (index, (image_id, texture)) in self.textures_to_place.iter().enumerate() {
+            let (_, packed_location) = rect_placements.packed_locations().get(&index).unwrap();
+
+            let min = UVec2::new(packed_location.x(), packed_location.y());
+            let max =
+                min + UVec2::new(packed_location.width(), packed_location.height()) - self.padding;
+            if let Some(image_id) = image_id {
+                texture_ids.insert(*image_id, index);
+            }
+            texture_rects.push(URect { min, max });
             if texture.texture_descriptor.format != self.format && !self.auto_format_conversion {
                 warn!(
                     "Loading a texture of format '{:?}' in an atlas with format '{:?}'",
@@ -281,11 +278,11 @@ impl TextureAtlasBuilder {
 
         Ok((
             TextureAtlasLayout {
-                size: atlas_texture.size_f32(),
+                size: atlas_texture.size(),
                 textures: texture_rects,
                 texture_handles: Some(texture_ids),
             },
-            textures.add(atlas_texture),
+            atlas_texture,
         ))
     }
 }

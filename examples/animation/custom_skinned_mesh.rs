@@ -11,7 +11,7 @@ use bevy::{
             skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
             Indices, PrimitiveTopology, VertexAttributeValues,
         },
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
     },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 150.0,
+            brightness: 3000.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -56,7 +56,7 @@ fn setup(
     // Create a mesh
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     )
     // Set mesh vertex positions
     .with_inserted_attribute(
@@ -116,9 +116,9 @@ fn setup(
     )
     // Tell bevy to construct triangles from a list of vertex indices,
     //  where each 3 vertex indices form an triangle.
-    .with_indices(Some(Indices::U16(vec![
+    .with_inserted_indices(Indices::U16(vec![
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ])));
+    ]));
 
     let mesh = meshes.add(mesh);
 
@@ -147,7 +147,7 @@ fn setup(
         commands.spawn((
             PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(Color::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),

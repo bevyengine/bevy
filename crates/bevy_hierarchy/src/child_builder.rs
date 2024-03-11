@@ -3,10 +3,10 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     prelude::Events,
-    system::{Command, Commands, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::{Commands, EntityCommands},
+    world::{Command, EntityWorldMut, World},
 };
-use bevy_utils::smallvec::{smallvec, SmallVec};
+use smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -274,15 +274,15 @@ impl Command for RemoveParent {
 /// });
 /// # }
 /// ```
-pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
+pub struct ChildBuilder<'a> {
+    commands: Commands<'a, 'a>,
     push_children: PushChildren,
 }
 
-impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
+impl ChildBuilder<'_> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
@@ -290,7 +290,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
@@ -302,7 +302,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     }
 
     /// Adds a command to be executed, like [`Commands::add`].
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+    pub fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
     }
@@ -374,7 +374,7 @@ pub trait BuildChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+impl BuildChildren for EntityCommands<'_> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {
@@ -696,14 +696,14 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
-    use bevy_utils::smallvec::{smallvec, SmallVec};
+    use smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,
         entity::Entity,
         event::Events,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.

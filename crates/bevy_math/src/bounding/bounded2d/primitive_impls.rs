@@ -1,20 +1,18 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::{Mat2, Vec2};
-
-use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d,
-    Rectangle, RegularPolygon, Segment2d, Triangle2d,
+use crate::{
+    primitives::{
+        BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+        Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    },
+    Dir2, Mat2, Vec2,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
 impl Bounded2d for Circle {
     fn aabb_2d(&self, translation: Vec2, _rotation: f32) -> Aabb2d {
-        Aabb2d {
-            min: translation - Vec2::splat(self.radius),
-            max: translation + Vec2::splat(self.radius),
-        }
+        Aabb2d::new(translation, Vec2::splat(self.radius))
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -33,7 +31,7 @@ impl Bounded2d for Ellipse {
         //   ###           ###
         //      ###########
 
-        let (hw, hh) = (self.half_width, self.half_height);
+        let (hw, hh) = (self.half_size.x, self.half_size.y);
 
         // Sine and cosine of rotation angle alpha.
         let (alpha_sin, alpha_cos) = rotation.sin_cos();
@@ -47,16 +45,13 @@ impl Bounded2d for Ellipse {
         let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
         let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
-        let half_extents = Vec2::new(ux.hypot(vx), uy.hypot(vy));
+        let half_size = Vec2::new(ux.hypot(vx), uy.hypot(vy));
 
-        Aabb2d {
-            min: translation - half_extents,
-            max: translation + half_extents,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
-        BoundingCircle::new(translation, self.half_width.max(self.half_height))
+        BoundingCircle::new(translation, self.semi_major())
     }
 }
 
@@ -72,10 +67,7 @@ impl Bounded2d for Plane2d {
         let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
         let half_size = Vec2::new(half_width, half_height);
 
-        Aabb2d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -94,10 +86,7 @@ impl Bounded2d for Line2d {
         let half_height = if direction.y == 0.0 { 0.0 } else { max };
         let half_size = Vec2::new(half_width, half_height);
 
-        Aabb2d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -109,12 +98,9 @@ impl Bounded2d for Segment2d {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
         // Rotate the segment by `rotation`
         let direction = Mat2::from_angle(rotation) * *self.direction;
-        let half_extent = (self.half_length * direction).abs();
+        let half_size = (self.half_length * direction).abs();
 
-        Aabb2d {
-            min: translation - half_extent,
-            max: translation + half_extent,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
@@ -189,22 +175,17 @@ impl Bounded2d for Triangle2d {
 
 impl Bounded2d for Rectangle {
     fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let half_size = Vec2::new(self.half_width, self.half_height);
-
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = rotation.sin_cos();
         let abs_rot_mat = Mat2::from_cols_array(&[cos.abs(), sin.abs(), sin.abs(), cos.abs()]);
-        let half_extents = abs_rot_mat * half_size;
+        let half_size = abs_rot_mat * self.half_size;
 
-        Aabb2d {
-            min: translation - half_extents,
-            max: translation + half_extents,
-        }
+        Aabb2d::new(translation, half_size)
     }
 
     fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
-        let radius = self.half_width.hypot(self.half_height);
+        let radius = self.half_size.length();
         BoundingCircle::new(translation, radius)
     }
 }
@@ -250,6 +231,31 @@ impl Bounded2d for RegularPolygon {
     }
 }
 
+impl Bounded2d for Capsule2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+        // Get the line segment between the hemicircles of the rotated capsule
+        let segment = Segment2d {
+            // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
+            direction: Dir2::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
+            half_length: self.half_length,
+        };
+        let (a, b) = (segment.point1(), segment.point2());
+
+        // Expand the line segment by the capsule radius to get the capsule half-extents
+        let min = a.min(b) - Vec2::splat(self.radius);
+        let max = a.max(b) + Vec2::splat(self.radius);
+
+        Aabb2d {
+            min: min + translation,
+            max: max + translation,
+        }
+    }
+
+    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+        BoundingCircle::new(translation, self.radius + self.half_length)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use glam::Vec2;
@@ -257,9 +263,10 @@ mod tests {
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Circle, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
+            Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
         },
+        Dir2,
     };
 
     #[test]
@@ -278,10 +285,7 @@ mod tests {
 
     #[test]
     fn ellipse() {
-        let ellipse = Ellipse {
-            half_width: 1.0,
-            half_height: 0.5,
-        };
+        let ellipse = Ellipse::new(1.0, 0.5);
         let translation = Vec2::new(2.0, 1.0);
 
         let aabb = ellipse.aabb_2d(translation, 0.0);
@@ -318,31 +322,22 @@ mod tests {
     fn line() {
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb1 = Line2d {
-            direction: Direction2d::Y,
-        }
-        .aabb_2d(translation, 0.0);
+        let aabb1 = Line2d { direction: Dir2::Y }.aabb_2d(translation, 0.0);
         assert_eq!(aabb1.min, Vec2::new(2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec2::new(2.0, f32::MAX / 2.0));
 
-        let aabb2 = Line2d {
-            direction: Direction2d::X,
-        }
-        .aabb_2d(translation, 0.0);
+        let aabb2 = Line2d { direction: Dir2::X }.aabb_2d(translation, 0.0);
         assert_eq!(aabb2.min, Vec2::new(-f32::MAX / 2.0, 1.0));
         assert_eq!(aabb2.max, Vec2::new(f32::MAX / 2.0, 1.0));
 
         let aabb3 = Line2d {
-            direction: Direction2d::from_xy(1.0, 1.0).unwrap(),
+            direction: Dir2::from_xy(1.0, 1.0).unwrap(),
         }
         .aabb_2d(translation, 0.0);
         assert_eq!(aabb3.min, Vec2::new(-f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb3.max, Vec2::new(f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let bounding_circle = Line2d {
-            direction: Direction2d::Y,
-        }
-        .bounding_circle(translation, 0.0);
+        let bounding_circle = Line2d { direction: Dir2::Y }.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), f32::MAX / 2.0);
     }
@@ -462,5 +457,19 @@ mod tests {
         let bounding_circle = regular_polygon.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn capsule() {
+        let capsule = Capsule2d::new(0.5, 2.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = capsule.aabb_2d(translation, 0.0);
+        assert_eq!(aabb.min, translation - Vec2::new(0.5, 1.5));
+        assert_eq!(aabb.max, translation + Vec2::new(0.5, 1.5));
+
+        let bounding_circle = capsule.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.5);
     }
 }

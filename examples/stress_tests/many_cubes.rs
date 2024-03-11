@@ -16,10 +16,12 @@ use bevy::{
     math::{DVec2, DVec3},
     prelude::*,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::NoFrustumCulling,
     },
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
@@ -41,6 +43,10 @@ struct Args {
     /// the number of different textures from which to randomly select the material base color. 0 means no textures.
     #[argh(option, default = "0")]
     material_texture_count: usize,
+
+    /// whether to disable frustum culling, for stress testing purposes
+    #[argh(switch)]
+    no_frustum_culling: bool,
 }
 
 #[derive(Default, Clone)]
@@ -66,7 +72,11 @@ impl FromStr for Layout {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -82,6 +92,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_mesh_count))
@@ -104,7 +118,7 @@ fn setup(
     let images = images.into_inner();
     let material_assets = material_assets.into_inner();
 
-    let mesh = meshes.add(shape::Cube { size: 1.0 });
+    let mesh = meshes.add(Cuboid::default());
 
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
@@ -122,12 +136,15 @@ fn setup(
                 let spherical_polar_theta_phi =
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-                commands.spawn(PbrBundle {
+                let mut cube = commands.spawn(PbrBundle {
                     mesh: mesh.clone(),
                     material: materials.choose(&mut material_rng).unwrap().clone(),
                     transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
                     ..default()
                 });
+                if args.no_frustum_culling {
+                    cube.insert(NoFrustumCulling);
+                }
             }
 
             // camera
@@ -181,7 +198,7 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle { ..default() });
+    commands.spawn(DirectionalLightBundle::default());
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
@@ -201,7 +218,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 TextureDimension::D2,
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
-                RenderAssetPersistencePolicy::Unload,
+                RenderAssetUsages::RENDER_WORLD,
             ))
         })
         .collect()
@@ -234,7 +251,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

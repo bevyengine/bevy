@@ -3,16 +3,16 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        common_conditions::run_once as run_once_condition, run_enter_schedule,
+        InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel,
     },
 };
-use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
+use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -79,7 +79,7 @@ pub struct App {
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
-    plugin_name_added: HashSet<String>,
+    plugin_name_added: HashSet<Box<str>>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
     plugins_state: PluginsState,
@@ -189,11 +189,6 @@ impl Default for App {
 
         app.add_event::<AppExit>();
 
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
-
         app
     }
 }
@@ -213,6 +208,7 @@ pub enum PluginsState {
 
 // Dummy plugin used to temporary hold the place in the plugin registry
 struct PlaceholderPlugin;
+
 impl Plugin for PlaceholderPlugin {
     fn build(&self, _app: &mut App) {}
 }
@@ -505,6 +501,7 @@ impl App {
             self.init_resource::<Events<T>>().add_systems(
                 First,
                 bevy_ecs::event::event_update_system::<T>
+                    .in_set(bevy_ecs::event::EventUpdates)
                     .run_if(bevy_ecs::event::event_update_condition::<T>),
             );
         }
@@ -641,7 +638,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().into()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -669,9 +666,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_registry.iter().any(|p| p.is::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -853,10 +848,10 @@ impl App {
             .ok_or(label)
     }
 
-    /// Adds a new `schedule` to the [`App`] under the provided `label`.
+    /// Adds a new `schedule` to the [`App`].
     ///
     /// # Warning
-    /// This method will overwrite any existing schedule at that label.
+    /// This method will overwrite any existing schedule with the same label.
     /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
@@ -1005,8 +1000,8 @@ impl App {
     /// (conflicting access but indeterminate order) with systems in `set`.
     ///
     /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
-    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
-    /// can only supress as the consumer of both.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
     #[track_caller]
     pub fn ignore_ambiguity<M1, M2, S1, S2>(
         &mut self,

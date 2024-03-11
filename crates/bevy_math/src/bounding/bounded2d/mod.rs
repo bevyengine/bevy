@@ -2,7 +2,7 @@ mod primitive_impls;
 
 use glam::Mat2;
 
-use super::BoundingVolume;
+use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::Vec2;
 
 /// Computes the geometric center of the given set of points.
@@ -29,7 +29,7 @@ pub trait Bounded2d {
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -38,6 +38,16 @@ pub struct Aabb2d {
 }
 
 impl Aabb2d {
+    /// Constructs an AABB from its center and half-size.
+    #[inline(always)]
+    pub fn new(center: Vec2, half_size: Vec2) -> Self {
+        debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
+        Self {
+            min: center - half_size,
+            max: center + half_size,
+        }
+    }
+
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
     /// transformed by `translation` and `rotation`.
     ///
@@ -70,14 +80,25 @@ impl Aabb2d {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingCircle::new(self.center(), radius)
     }
+
+    /// Finds the point on the AABB that is closest to the given `point`.
+    ///
+    /// If the point is outside the AABB, the returned point will be on the perimeter of the AABB.
+    /// Otherwise, it will be inside the AABB and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Clamp point coordinates to the AABB
+        point.clamp(self.min, self.max)
+    }
 }
 
 impl BoundingVolume for Aabb2d {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = Vec2;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
@@ -127,12 +148,94 @@ impl BoundingVolume for Aabb2d {
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
     }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+        self.transform_by(translation, rotation);
+        self
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+        self.rotate_by(rotation);
+        self.translate_by(translation);
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Self::Translation) {
+        self.min += translation;
+        self.max += translation;
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: Self::Rotation) {
+        let rot_mat = Mat2::from_angle(rotation);
+        let abs_rot_mat = Mat2::from_cols(rot_mat.x_axis.abs(), rot_mat.y_axis.abs());
+        let half_size = abs_rot_mat * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
+    }
+}
+
+impl IntersectsVolume<Self> for Aabb2d {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
+        let y_overlaps = self.min.y <= other.max.y && self.max.y >= other.min.y;
+        x_overlaps && y_overlaps
+    }
+}
+
+impl IntersectsVolume<BoundingCircle> for Aabb2d {
+    #[inline(always)]
+    fn intersects(&self, circle: &BoundingCircle) -> bool {
+        let closest_point = self.closest_point(circle.center);
+        let distance_squared = circle.center.distance_squared(closest_point);
+        let radius_squared = circle.radius().powi(2);
+        distance_squared <= radius_squared
+    }
 }
 
 #[cfg(test)]
 mod aabb2d_tests {
     use super::Aabb2d;
-    use crate::{bounding::BoundingVolume, Vec2};
+    use crate::{
+        bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
+        Vec2,
+    };
 
     #[test]
     fn center() {
@@ -234,12 +337,77 @@ mod aabb2d_tests {
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
+
+    #[test]
+    fn transform() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let half_length = 2_f32.hypot(2.0);
+        assert_eq!(
+            transformed.min,
+            Vec2::new(2.0 - half_length, -half_length - 2.0)
+        );
+        assert_eq!(
+            transformed.max,
+            Vec2::new(2.0 + half_length, half_length - 2.0)
+        );
+    }
+
+    #[test]
+    fn closest_point() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert_eq!(aabb.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(aabb.closest_point(Vec2::NEG_ONE * 10.0), Vec2::NEG_ONE);
+        assert_eq!(
+            aabb.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn intersect_aabb() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert!(aabb.intersects(&aabb));
+        assert!(aabb.intersects(&Aabb2d {
+            min: Vec2::new(0.5, 0.5),
+            max: Vec2::new(2.0, 2.0),
+        }));
+        assert!(aabb.intersects(&Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(-0.5, -0.5),
+        }));
+        assert!(!aabb.intersects(&Aabb2d {
+            min: Vec2::new(1.1, 0.0),
+            max: Vec2::new(2.0, 0.5),
+        }));
+    }
+
+    #[test]
+    fn intersect_bounding_circle() {
+        let aabb = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::ZERO, 1.0)));
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::ONE * 1.5, 1.0)));
+        assert!(aabb.intersects(&BoundingCircle::new(Vec2::NEG_ONE * 1.5, 1.0)));
+        assert!(!aabb.intersects(&BoundingCircle::new(Vec2::ONE * 1.75, 1.0)));
+    }
 }
 
 use crate::primitives::Circle;
 
 /// A bounding circle
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
@@ -248,7 +416,7 @@ pub struct BoundingCircle {
 }
 
 impl BoundingCircle {
-    /// Construct a bounding circle from its center and radius
+    /// Constructs a bounding circle from its center and radius.
     #[inline(always)]
     pub fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
@@ -295,14 +463,24 @@ impl BoundingCircle {
             max: self.center + Vec2::splat(self.radius()),
         }
     }
+
+    /// Finds the point on the bounding circle that is closest to the given `point`.
+    ///
+    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
+    /// Otherwise, it will be inside the circle and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        self.circle.closest_point(point - self.center) + self.center
+    }
 }
 
 impl BoundingVolume for BoundingCircle {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = f32;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         self.center
     }
 
@@ -327,10 +505,10 @@ impl BoundingVolume for BoundingCircle {
         let diff = other.center - self.center;
         let length = diff.length();
         if self.radius() >= length + other.radius() {
-            return self.clone();
+            return *self;
         }
         if other.radius() >= length + self.radius() {
-            return other.clone();
+            return *other;
         }
         let dir = diff / length;
         Self::new(
@@ -351,12 +529,41 @@ impl BoundingVolume for BoundingCircle {
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
     }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec2) {
+        self.center += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: f32) {
+        self.center = Mat2::from_angle(rotation) * self.center;
+    }
+}
+
+impl IntersectsVolume<Self> for BoundingCircle {
+    #[inline(always)]
+    fn intersects(&self, other: &Self) -> bool {
+        let center_distance_squared = self.center.distance_squared(other.center);
+        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        center_distance_squared <= radius_sum_squared
+    }
+}
+
+impl IntersectsVolume<Aabb2d> for BoundingCircle {
+    #[inline(always)]
+    fn intersects(&self, aabb: &Aabb2d) -> bool {
+        aabb.intersects(self)
+    }
 }
 
 #[cfg(test)]
 mod bounding_circle_tests {
     use super::BoundingCircle;
-    use crate::{bounding::BoundingVolume, Vec2};
+    use crate::{
+        bounding::{BoundingVolume, IntersectsVolume},
+        Vec2,
+    };
 
     #[test]
     fn area() {
@@ -432,5 +639,39 @@ mod bounding_circle_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.0);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        assert_eq!(
+            transformed.center,
+            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+        );
+        assert_eq!(transformed.radius(), 5.0);
+    }
+
+    #[test]
+    fn closest_point() {
+        let circle = BoundingCircle::new(Vec2::ZERO, 1.0);
+        assert_eq!(circle.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            circle.closest_point(Vec2::NEG_ONE * 10.0),
+            Vec2::NEG_ONE.normalize()
+        );
+        assert_eq!(
+            circle.closest_point(Vec2::new(0.25, 0.1)),
+            Vec2::new(0.25, 0.1)
+        );
+    }
+
+    #[test]
+    fn intersect_bounding_circle() {
+        let circle = BoundingCircle::new(Vec2::ZERO, 1.0);
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::ZERO, 1.0)));
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::ONE * 1.25, 1.0)));
+        assert!(circle.intersects(&BoundingCircle::new(Vec2::NEG_ONE * 1.25, 1.0)));
+        assert!(!circle.intersects(&BoundingCircle::new(Vec2::ONE * 1.5, 1.0)));
     }
 }

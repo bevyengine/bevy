@@ -2,11 +2,12 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+use bevy_color::LinearRgba;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -17,7 +18,6 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -72,30 +72,16 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
-                CORE_3D,
-                core_3d::graph::node::BLOOM,
-            )
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    core_3d::graph::node::END_MAIN_PASS,
-                    core_3d::graph::node::BLOOM,
-                    core_3d::graph::node::TONEMAPPING,
-                ],
+                Core3d,
+                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
-                CORE_2D,
-                core_2d::graph::node::BLOOM,
-            )
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
-                CORE_2D,
-                &[
-                    core_2d::graph::node::MAIN_PASS,
-                    core_2d::graph::node::BLOOM,
-                    core_2d::graph::node::TONEMAPPING,
-                ],
+                Core2d,
+                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 
@@ -113,7 +99,7 @@ impl Plugin for BloomPlugin {
 #[derive(Default)]
 struct BloomNode;
 impl ViewNode for BloomNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
@@ -140,9 +126,13 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if bloom_settings.intensity == 0.0 {
+            return Ok(());
+        }
+
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
@@ -254,7 +244,7 @@ impl ViewNode for BloomNode {
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -281,7 +271,7 @@ impl ViewNode for BloomNode {
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
@@ -294,16 +284,24 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     texture: CachedTexture,
     // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
@@ -311,7 +309,7 @@ impl BloomTexture {
             ..Default::default()
         })
     }
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture[base_mip_level as usize]
             .texture
@@ -354,9 +352,13 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+            #[cfg(any(
+                not(feature = "webgl"),
+                not(target_arch = "wasm32"),
+                feature = "webgpu"
+            ))]
             let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             let texture: Vec<CachedTexture> = (0..mip_count)
                 .map(|mip| {
                     texture_cache.get(

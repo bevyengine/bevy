@@ -10,7 +10,7 @@ use bevy::{
         query::{QueryBuilder, QueryData},
         world::FilteredEntityMut,
     },
-    ptr::OwningPtr,
+    ptr::{Aligned, OwningPtr},
     utils::HashMap,
 };
 
@@ -23,12 +23,12 @@ Enter a command with no parameters for usage.";
 
 const COMPONENT_PROMPT: &str = "
 comp, c   Create new components
-    Enter a comma seperated list of type names optionally followed by a size in u64s.
+    Enter a comma separated list of type names optionally followed by a size in u64s.
     e.g. CompA 3, CompB, CompC 2";
 
 const ENTITY_PROMPT: &str = "
 spawn, s  Spawn entities
-    Enter a comma seperated list of components optionally followed by values.
+    Enter a comma separated list of components optionally followed by values.
     e.g. CompA 0 1 0, CompB, CompC 1";
 
 const QUERY_PROMPT: &str = "
@@ -81,6 +81,7 @@ fn main() {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
+                    // Register our new component to the world with a layout specified by it's size
                     // SAFETY: [u64] is Send + Sync
                     let id = world.init_component_with_descriptor(unsafe {
                         ComponentDescriptor::new_with_layout(
@@ -100,44 +101,45 @@ fn main() {
             }
             "s" => {
                 let mut to_insert_ids = Vec::new();
-                let mut to_insert_ptr = Vec::new();
+                let mut to_insert_data = Vec::new();
                 rest.split(',').for_each(|component| {
                     let mut component = component.split_whitespace();
                     let Some(name) = component.next() else {
                         return;
                     };
+
+                    // Get the id for the component with the given name
                     let Some(&id) = component_names.get(name) else {
                         println!("Component {} does not exist", name);
                         return;
                     };
+
+                    // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
                     let len = info.layout().size() / std::mem::size_of::<u64>();
                     let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
                         .collect();
+                    values.resize(len, 0);
 
-                    // SAFETY:
-                    // - All components will be interpreted as [u64]
-                    // - len and layout are taken directly from the component descriptor
-                    let ptr = unsafe {
-                        let data = std::alloc::alloc_zeroed(info.layout()).cast::<u64>();
-                        data.copy_from(values.as_mut_ptr(), values.len());
-                        let non_null = NonNull::new_unchecked(data.cast());
-                        OwningPtr::new(non_null)
-                    };
-
+                    // Collect the id and array to be inserted onto our entity
                     to_insert_ids.push(id);
-                    to_insert_ptr.push(ptr);
+                    to_insert_data.push(values);
                 });
 
                 let mut entity = world.spawn_empty();
+
+                // Construct an `OwningPtr` for each component in `to_insert_data`
+                let to_insert_ptr = to_owning_ptrs(&mut to_insert_data);
+
                 // SAFETY:
                 // - Component ids have been taken from the same world
-                // - The pointer with the correct layout
+                // - Each array is created to the layout specified in the world
                 unsafe {
                     entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
+
                 println!("Entity spawned with id: {:?}", entity.id());
             }
             "q" => {
@@ -162,6 +164,8 @@ fn main() {
                                     len,
                                 )
                             };
+
+                            // If we have write access, increment each value once
                             if filtered_entity.access().has_write(id) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
@@ -181,6 +185,24 @@ fn main() {
     }
 }
 
+// Constructs `OwningPtr` for each item in `components`
+// By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+    components
+        .iter_mut()
+        .map(|data| {
+            let ptr = data.as_mut_ptr();
+            // SAFETY:
+            // - Pointers are guaranteed to be non-null
+            // - Memory pointed to won't be dropped until `components` is dropped
+            unsafe {
+                let non_null = NonNull::new_unchecked(ptr.cast());
+                OwningPtr::new(non_null)
+            }
+        })
+        .collect()
+}
+
 fn parse_term<Q: QueryData>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
@@ -189,10 +211,12 @@ fn parse_term<Q: QueryData>(
     let mut matched = false;
     let str = str.trim();
     match str.chars().next() {
+        // Optional term
         Some('?') => {
             builder.optional(|b| parse_term(&str[1..], b, components));
             matched = true;
         }
+        // Reference term
         Some('&') => {
             let mut parts = str.split_whitespace();
             let first = parts.next().unwrap();
@@ -208,6 +232,7 @@ fn parse_term<Q: QueryData>(
                 matched = true;
             }
         }
+        // With term
         Some(_) => {
             if let Some(&id) = components.get(str) {
                 builder.with_id(id);

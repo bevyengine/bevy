@@ -72,7 +72,7 @@ impl TextureSlicer {
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(base_rect.max.x - right, base_rect.min.y),
-                    max: vec2(base_rect.max.x, top),
+                    max: vec2(base_rect.max.x, base_rect.min.y + top),
                 },
                 draw_size: vec2(right, top) * min_coef,
                 offset: vec2(
@@ -198,13 +198,27 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
+    //
+    // TODO: Support `URect` and `UVec2` instead (See `https://github.com/bevyengine/bevy/pull/11698`)
+    //
     #[must_use]
-    pub(crate) fn compute_slices(
-        &self,
-        rect: Rect,
-        render_size: Option<Vec2>,
-    ) -> Vec<TextureSlice> {
+    pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
         let render_size = render_size.unwrap_or_else(|| rect.size());
+        let rect_size = rect.size() / 2.0;
+        if self.border.left >= rect_size.x
+            || self.border.right >= rect_size.x
+            || self.border.top >= rect_size.y
+            || self.border.bottom >= rect_size.y
+        {
+            bevy_utils::tracing::error!(
+                "TextureSlicer::border has out of bounds values. No slicing will be applied"
+            );
+            return vec![TextureSlice {
+                texture_rect: rect,
+                draw_size: render_size,
+                offset: Vec2::ZERO,
+            }];
+        }
         let mut slices = Vec::with_capacity(9);
         // Corners
         let corners = self.corner_slices(rect, render_size);

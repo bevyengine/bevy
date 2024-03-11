@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
@@ -13,7 +13,7 @@ pub struct HdrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 #[non_exhaustive]
@@ -68,7 +68,7 @@ impl AssetLoader for HdrTextureLoader {
                 TextureDimension::D2,
                 rgba_data,
                 format,
-                settings.cpu_persistent_access,
+                settings.asset_usage,
             ))
         })
     }

@@ -69,7 +69,7 @@ impl Node for MainPass2dNode {
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();

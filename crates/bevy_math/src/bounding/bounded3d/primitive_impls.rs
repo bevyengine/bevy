@@ -1,23 +1,19 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::{Mat3, Quat, Vec2, Vec3};
-
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
-        BoxedPolyline3d, Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-        Plane3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
     },
+    Dir3, Mat3, Quat, Vec2, Vec3,
 };
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
 impl Bounded3d for Sphere {
     fn aabb_3d(&self, translation: Vec3, _rotation: Quat) -> Aabb3d {
-        Aabb3d {
-            min: translation - Vec3::splat(self.radius),
-            max: translation + Vec3::splat(self.radius),
-        }
+        Aabb3d::new(translation, Vec3::splat(self.radius))
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -39,10 +35,7 @@ impl Bounded3d for Plane3d {
         let half_depth = if facing_z { 0.0 } else { f32::MAX / 2.0 };
         let half_size = Vec3::new(half_width, half_height, half_depth);
 
-        Aabb3d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -62,10 +55,7 @@ impl Bounded3d for Line3d {
         let half_depth = if direction.z == 0.0 { 0.0 } else { max };
         let half_size = Vec3::new(half_width, half_height, half_depth);
 
-        Aabb3d {
-            min: translation - half_size,
-            max: translation + half_size,
-        }
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -77,12 +67,9 @@ impl Bounded3d for Segment3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Rotate the segment by `rotation`
         let direction = rotation * *self.direction;
-        let half_extent = (self.half_length * direction).abs();
+        let half_size = (self.half_length * direction).abs();
 
-        Aabb3d {
-            min: translation - half_extent,
-            max: translation + half_extent,
-        }
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -112,7 +99,7 @@ impl Bounded3d for BoxedPolyline3d {
 
 impl Bounded3d for Cuboid {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        // Compute the AABB of the rotated cuboid by transforming the half-extents
+        // Compute the AABB of the rotated cuboid by transforming the half-size
         // by an absolute rotation matrix.
         let rot_mat = Mat3::from_quat(rotation);
         let abs_rot_mat = Mat3::from_cols(
@@ -120,20 +107,16 @@ impl Bounded3d for Cuboid {
             rot_mat.y_axis.abs(),
             rot_mat.z_axis.abs(),
         );
+        let half_size = abs_rot_mat * self.half_size;
 
-        let half_extents = abs_rot_mat * self.half_extents;
-
-        Aabb3d {
-            min: translation - half_extents,
-            max: translation + half_extents,
-        }
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
         BoundingSphere {
             center: translation,
             sphere: Sphere {
-                radius: self.half_extents.length(),
+                radius: self.half_size.length(),
             },
         }
     }
@@ -148,11 +131,11 @@ impl Bounded3d for Cylinder {
         let bottom = -top;
 
         let e = Vec3::ONE - segment_dir * segment_dir;
-        let half_extents = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let half_size = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
-            min: translation + (top - half_extents).min(bottom - half_extents),
-            max: translation + (top + half_extents).max(bottom + half_extents),
+            min: translation + (top - half_size).min(bottom - half_size),
+            max: translation + (top + half_size).max(bottom + half_size),
         }
     }
 
@@ -162,11 +145,12 @@ impl Bounded3d for Cylinder {
     }
 }
 
-impl Bounded3d for Capsule {
+impl Bounded3d for Capsule3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Get the line segment between the hemispheres of the rotated capsule
         let segment = Segment3d {
-            direction: Direction3d::from_normalized(rotation * Vec3::Y),
+            // Multiplying a normalized vector (Vec3::Y) with a rotation returns a normalized vector.
+            direction: Dir3::new_unchecked(rotation * Vec3::Y),
             half_length: self.half_length,
         };
         let (a, b) = (segment.point1(), segment.point2());
@@ -306,15 +290,12 @@ impl Bounded3d for Torus {
         // Reference: http://iquilezles.org/articles/diskbbox/
         let normal = rotation * Vec3::Y;
         let e = 1.0 - normal * normal;
-        let disc_half_extents = self.major_radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let disc_half_size = self.major_radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
-        // Expand the disc by the minor radius to get the torus half extents
-        let half_extents = disc_half_extents + Vec3::splat(self.minor_radius);
+        // Expand the disc by the minor radius to get the torus half-size
+        let half_size = disc_half_size + Vec3::splat(self.minor_radius);
 
-        Aabb3d {
-            min: translation - half_extents,
-            max: translation + half_extents,
-        }
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -329,9 +310,10 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-            Polyline3d, Segment3d, Sphere, Torus,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
+            Segment3d, Sphere, Torus,
         },
+        Dir3,
     };
 
     #[test]
@@ -377,38 +359,27 @@ mod tests {
     fn line() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
-        let aabb1 = Line3d {
-            direction: Direction3d::Y,
-        }
-        .aabb_3d(translation, Quat::IDENTITY);
+        let aabb1 = Line3d { direction: Dir3::Y }.aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb1.min, Vec3::new(2.0, -f32::MAX / 2.0, 0.0));
         assert_eq!(aabb1.max, Vec3::new(2.0, f32::MAX / 2.0, 0.0));
 
-        let aabb2 = Line3d {
-            direction: Direction3d::X,
-        }
-        .aabb_3d(translation, Quat::IDENTITY);
+        let aabb2 = Line3d { direction: Dir3::X }.aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb2.min, Vec3::new(-f32::MAX / 2.0, 1.0, 0.0));
         assert_eq!(aabb2.max, Vec3::new(f32::MAX / 2.0, 1.0, 0.0));
 
-        let aabb3 = Line3d {
-            direction: Direction3d::Z,
-        }
-        .aabb_3d(translation, Quat::IDENTITY);
+        let aabb3 = Line3d { direction: Dir3::Z }.aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb3.min, Vec3::new(2.0, 1.0, -f32::MAX / 2.0));
         assert_eq!(aabb3.max, Vec3::new(2.0, 1.0, f32::MAX / 2.0));
 
         let aabb4 = Line3d {
-            direction: Direction3d::from_xyz(1.0, 1.0, 1.0).unwrap(),
+            direction: Dir3::from_xyz(1.0, 1.0, 1.0).unwrap(),
         }
         .aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb4.min, Vec3::splat(-f32::MAX / 2.0));
         assert_eq!(aabb4.max, Vec3::splat(f32::MAX / 2.0));
 
-        let bounding_sphere = Line3d {
-            direction: Direction3d::Y,
-        }
-        .bounding_sphere(translation, Quat::IDENTITY);
+        let bounding_sphere =
+            Line3d { direction: Dir3::Y }.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation);
         assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
     }
@@ -481,7 +452,7 @@ mod tests {
 
     #[test]
     fn capsule() {
-        let capsule = Capsule::new(0.5, 2.0);
+        let capsule = Capsule3d::new(0.5, 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
         let aabb = capsule.aabb_3d(translation, Quat::IDENTITY);

@@ -48,7 +48,9 @@ git checkout v0.4.0
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
+  - [Gizmos](#gizmos)
   - [Input](#input)
+  - [Math](#math)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -93,9 +95,9 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
+[2D Bounding Volume Intersections](../examples/2d/bounding_2d.rs) | Showcases bounding volumes and intersection tests
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
-[2D Shapes](../examples/2d/2d_shapes.rs) | Renders a rectangle, circle, and hexagon
+[2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
 [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
@@ -117,10 +119,10 @@ Example | Description
 Example | Description
 --- | ---
 [3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials
-[3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
+[Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
@@ -128,6 +130,7 @@ Example | Description
 [Deterministic rendering](../examples/3d/deterministic.rs) | Stop flickering from z-fighting at a performance cost
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
+[Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
@@ -160,6 +163,7 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
@@ -169,6 +173,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS
 [Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
@@ -192,6 +197,8 @@ Example | Description
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
+[Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
+[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks
@@ -224,7 +231,9 @@ Example | Description
 Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
+[Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
+[Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
@@ -237,11 +246,13 @@ Example | Description
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
+[Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
+[System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution
 
 ## Games
 
@@ -250,7 +261,17 @@ Example | Description
 [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
+
+## Gizmos
+
+Example | Description
+--- | ---
+[2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
+[3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
+[Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
 
 ## Input
 
@@ -269,6 +290,12 @@ Example | Description
 [Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
+
+## Math
+
+Example | Description
+--- | ---
+[Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 
 ## Reflection
 
@@ -381,6 +408,8 @@ Example | Description
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
+[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
+[UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
@@ -497,7 +526,7 @@ make run
 ```
 
 In an ideal world, this will boot up, install and run the app for the first
-iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
 ```sh
@@ -560,15 +589,7 @@ ruby -run -ehttpd examples/wasm
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
-To build for WebGPU, you'll need to disable default features and add all those you need, making sure to omit the `webgl2` feature.
-
-WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
-
-```sh
-RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
-```
-
-Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
+To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
 Bevy has an helper to build its examples:
 

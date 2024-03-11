@@ -1,17 +1,23 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
 pub mod saver;
+pub mod transformer;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
-        UntypedHandle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
+        DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
 mod assets;
+mod direct_access_ext;
 mod event;
 mod folder;
 mod handle;
@@ -23,6 +29,7 @@ mod server;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
+pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
 pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -42,16 +49,15 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate};
+use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     system::Resource,
     world::FromWorld,
 };
-use bevy_log::error;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::HashSet;
+use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
@@ -142,7 +148,6 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_schedule(UpdateAssets).init_schedule(AssetEvents);
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
@@ -214,15 +219,9 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(
-                UpdateAssets,
-                TrackAssets.after(handle_internal_asset_events),
-            )
-            .add_systems(UpdateAssets, handle_internal_asset_events);
-
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
-        order.insert_after(First, UpdateAssets);
-        order.insert_after(PostUpdate, AssetEvents);
+            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
+            .add_systems(PreUpdate, handle_internal_asset_events)
+            .register_type::<AssetPath>();
     }
 }
 
@@ -380,9 +379,13 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
-            .register_type::<AssetId<A>>()
-            .add_systems(AssetEvents, Assets::<A>::asset_events)
-            .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                Last,
+                Assets::<A>::asset_events
+                    .run_if(Assets::<A>::asset_events_condition)
+                    .in_set(AssetEvents),
+            )
+            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -414,14 +417,10 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
 
-/// Schedule where [`Assets`] resources are updated.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
-pub struct UpdateAssets;
-
-/// Schedule where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
-#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct AssetEvents;
 
 #[cfg(test)]
@@ -452,13 +451,10 @@ mod tests {
     use bevy_utils::{BoxedFuture, Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{
-        path::{Path, PathBuf},
-        sync::Arc,
-    };
+    use std::{path::Path, sync::Arc};
     use thiserror::Error;
 
-    #[derive(Asset, TypePath, Debug)]
+    #[derive(Asset, TypePath, Debug, Default)]
     pub struct CoolText {
         pub text: String,
         pub embedded: String,
@@ -546,7 +542,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<PathBuf, usize>>>,
+        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -590,13 +586,12 @@ mod tests {
             Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
         > {
             let attempt_number = {
-                let key = PathBuf::from(path);
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
-                if let Some(existing) = attempt_counters.get_mut(&key) {
+                if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(key, 1);
+                    attempt_counters.insert(path.into(), 1);
                     1
                 }
             };
@@ -1106,6 +1101,48 @@ mod tests {
         });
     }
 
+    const SIMPLE_TEXT: &str = r#"
+(
+    text: "dep",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+    #[test]
+    fn keep_gotten_strong_handles() {
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        let (mut app, _) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        let id = {
+            let handle = {
+                let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+                let handle = texts.add(CoolText::default());
+                texts.get_strong_handle(handle.id()).unwrap()
+            };
+
+            app.update();
+
+            {
+                let text = app.world.resource::<Assets<CoolText>>().get(&handle);
+                assert!(text.is_some());
+            }
+            handle.id()
+        };
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world.resource::<Assets<CoolText>>().get(id).is_none(),
+            "asset has no handles, so it should have been dropped last update"
+        );
+    }
+
     #[test]
     fn manual_asset_management() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
@@ -1113,17 +1150,9 @@ mod tests {
         panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
 
         let dir = Dir::default();
-
         let dep_path = "dep.cool.ron";
-        let dep_ron = r#"
-(
-    text: "dep",
-    dependencies: [],
-    embedded_dependencies: [],
-    sub_texts: [],
-)"#;
 
-        dir.insert_asset_text(Path::new(dep_path), dep_ron);
+        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
         let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()

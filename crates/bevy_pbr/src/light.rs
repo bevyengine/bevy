@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{
     AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
@@ -7,7 +8,6 @@ use bevy_math::{
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
-    color::Color,
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
@@ -16,9 +16,66 @@ use bevy_render::{
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, EntityHashMap};
+use bevy_utils::tracing::warn;
 
 use crate::*;
+
+/// Constants for operating with the light units: lumens, and lux.
+pub mod light_consts {
+    /// Approximations for converting the wattage of lamps to lumens.
+    ///
+    /// The **lumen** (symbol: **lm**) is the unit of [luminous flux], a measure
+    /// of the total quantity of [visible light] emitted by a source per unit of
+    /// time, in the [International System of Units] (SI).
+    ///
+    /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit))
+    ///
+    /// [luminous flux]: https://en.wikipedia.org/wiki/Luminous_flux
+    /// [visible light]: https://en.wikipedia.org/wiki/Visible_light
+    /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
+    pub mod lumens {
+        pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
+        pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
+        pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+    }
+
+    /// Predefined for lux values in several locations.
+    ///
+    /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
+    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
+    ///
+    /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
+    ///
+    /// [illuminance]: https://en.wikipedia.org/wiki/Illuminance
+    /// [luminous flux]: https://en.wikipedia.org/wiki/Luminous_flux
+    /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
+    pub mod lux {
+        /// The amount of light (lux) in a moonless, overcast night sky. (starlight)
+        pub const MOONLESS_NIGHT: f32 = 0.0001;
+        /// The amount of light (lux) during a full moon on a clear night.
+        pub const FULL_MOON_NIGHT: f32 = 0.05;
+        /// The amount of light (lux) during the dark limit of civil twilight under a clear sky.
+        pub const CIVIL_TWILIGHT: f32 = 3.4;
+        /// The amount of light (lux) in family living room lights.
+        pub const LIVING_ROOM: f32 = 50.;
+        /// The amount of light (lux) in an office building's hallway/toilet lighting.
+        pub const HALLWAY: f32 = 80.;
+        /// The amount of light (lux) in very dark overcast day
+        pub const DARK_OVERCAST_DAY: f32 = 100.;
+        /// The amount of light (lux) in an office.
+        pub const OFFICE: f32 = 320.;
+        /// The amount of light (lux) during sunrise or sunset on a clear day.
+        pub const CLEAR_SUNRISE: f32 = 400.;
+        /// The amount of light (lux) on a overcast day; typical TV studio lighting
+        pub const OVERCAST_DAY: f32 = 1000.;
+        /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
+        /// The amount of light (lux) in full daylight (not direct sun).
+        pub const FULL_DAYLIGHT: f32 = 20_000.;
+        /// The amount of light (lux) in direct sunlight.
+        pub const DIRECT_SUNLIGHT: f32 = 100_000.;
+    }
+}
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -41,7 +98,7 @@ use crate::*;
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
-    /// Luminous power in lumens
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -56,8 +113,11 @@ pub struct PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         PointLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
+            color: Color::WHITE,
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -92,7 +152,7 @@ impl Default for PointLightShadowMap {
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
-    /// Luminous power in lumens
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -124,8 +184,11 @@ impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the center
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
+            color: Color::WHITE,
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+            // this would be way too bright.
+            intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
@@ -188,7 +251,12 @@ impl Default for SpotLight {
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
-    /// Illuminance in lux
+    /// Illuminance in lux (lumens per square meter), representing the amount of
+    /// light projected onto surfaces by this light source. Lux is used here
+    /// instead of lumens because a directional light illuminates all surfaces
+    /// more-or-less the same way (depending on the angle of incidence). Lumens
+    /// can only be specified for light sources which emit light from a specific
+    /// area.
     pub illuminance: f32,
     pub shadows_enabled: bool,
     pub shadow_depth_bias: f32,
@@ -200,8 +268,8 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            illuminance: 100000.0,
+            color: Color::WHITE,
+            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -241,7 +309,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -350,7 +418,11 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -381,7 +453,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: EntityHashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
@@ -517,7 +589,7 @@ fn calculate_cascade(
 
     // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
     // and inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascde` as the reference material suggests.
+    // `world_to_cascade` as the reference material suggests.
     let light_to_world_transpose = light_to_world.transpose();
     let world_to_cascade = Mat4::from_cols(
         light_to_world_transpose.x_axis,
@@ -557,7 +629,7 @@ fn calculate_cascade(
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 20.0;
+///    ambient_light.brightness = 100.0;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
@@ -571,10 +643,16 @@ pub struct AmbientLight {
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 8.0,
+            color: Color::WHITE,
+            brightness: 80.0,
         }
     }
+}
+impl AmbientLight {
+    pub const NONE: AmbientLight = AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.0,
+    };
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.

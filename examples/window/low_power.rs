@@ -92,7 +92,11 @@ fn update_winit(
 /// demonstrated features.
 pub(crate) mod test_setup {
     use crate::ExampleMode;
-    use bevy::{prelude::*, window::RequestRedraw};
+    use bevy::{
+        color::palettes::basic::{LIME, YELLOW},
+        prelude::*,
+        window::RequestRedraw,
+    };
 
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
@@ -150,19 +154,15 @@ pub(crate) mod test_setup {
     ) {
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(shape::Cube { size: 0.5 }),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             Rotator,
         ));
-        commands.spawn(PointLightBundle {
-            point_light: PointLight {
-                intensity: 1_000_000.0,
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+
+        commands.spawn(DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
         commands.spawn(Camera3dBundle {
@@ -181,20 +181,20 @@ pub(crate) mod test_setup {
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::GREEN,
+                    color: LIME.into(),
                     ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
                         font_size: 50.0,
-                        color: Color::YELLOW,
+                        color: YELLOW.into(),
                         ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font_size: 50.0,
-                    color: Color::YELLOW,
+                    color: YELLOW.into(),
                     ..default()
                 }),
             ])

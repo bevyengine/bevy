@@ -40,7 +40,6 @@ fn check_textures(
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
-    // and that the the font has been loaded by the `FontSystem`.
     for event in events.read() {
         if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
             next_state.set(AppState::Finished);
@@ -207,7 +206,7 @@ fn create_texture_atlas(
     sampling: Option<ImageSampler>,
     textures: &mut ResMut<Assets<Image>>,
 ) -> (TextureAtlasLayout, Handle<Image>) {
-    // Build a `TextureAtlas` using the individual sprites
+    // Build a texture atlas using the individual sprites
     let mut texture_atlas_builder =
         TextureAtlasBuilder::default().padding(padding.unwrap_or_default());
     for handle in folder.handles.iter() {
@@ -220,16 +219,17 @@ fn create_texture_atlas(
             continue;
         };
 
-        texture_atlas_builder.add_texture(id, texture);
+        texture_atlas_builder.add_texture(Some(id), texture);
     }
 
-    let (texture_atlas, texture) = texture_atlas_builder.finish(textures).unwrap();
+    let (texture_atlas_layout, texture) = texture_atlas_builder.finish().unwrap();
+    let texture = textures.add(texture);
 
     // Update the sampling settings of the texture atlas
     let image = textures.get_mut(&texture).unwrap();
     image.sampler = sampling.unwrap_or_default();
 
-    (texture_atlas, texture)
+    (texture_atlas_layout, texture)
 }
 
 /// Create and spawn a sprite from a texture atlas
@@ -240,19 +240,21 @@ fn create_sprite_from_atlas(
     atlas_handle: Handle<TextureAtlasLayout>,
     texture: Handle<Image>,
 ) {
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(translation.0, translation.1, translation.2),
-            scale: Vec3::splat(3.0),
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(translation.0, translation.1, translation.2),
+                scale: Vec3::splat(3.0),
+                ..default()
+            },
+            texture,
             ..default()
         },
-        texture,
-        atlas: TextureAtlas {
-            index: sprite_index,
+        TextureAtlas {
             layout: atlas_handle,
+            index: sprite_index,
         },
-        ..default()
-    });
+    ));
 }
 
 /// Create and spawn a label (text)

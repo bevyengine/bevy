@@ -1,13 +1,11 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    color::Color,
-    extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::*,
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
 };
 
@@ -45,8 +43,9 @@ impl Plugin for WireframePlugin {
                 (
                     global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
-                    apply_wireframe_material,
-                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>),
+                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
+                    // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                    (apply_wireframe_material, apply_global_wireframe_material).chain(),
                 ),
             );
     }
@@ -105,7 +104,7 @@ fn setup_global_wireframe_material(
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {
-            color: config.default_color,
+            color: config.default_color.into(),
         }),
     });
 }
@@ -117,7 +116,7 @@ fn global_color_changed(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
-        global_material.color = config.default_color;
+        global_material.color = config.default_color.into();
     }
 }
 
@@ -132,12 +131,13 @@ fn wireframe_color_changed(
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
         *handle = materials.add(WireframeMaterial {
-            color: wireframe_color.color,
+            color: wireframe_color.color.into(),
         });
     }
 }
 
-/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component.
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
+/// for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -145,10 +145,11 @@ fn apply_wireframe_material(
         (Entity, Option<&WireframeColor>),
         (With<Wireframe>, Without<Handle<WireframeMaterial>>),
     >,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<Handle<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    for e in removed_wireframes.read() {
+    for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
@@ -158,7 +159,7 @@ fn apply_wireframe_material(
     for (e, wireframe_color) in &wireframes {
         let material = if let Some(wireframe_color) = wireframe_color {
             materials.add(WireframeMaterial {
-                color: wireframe_color.color,
+                color: wireframe_color.color.into(),
             })
         } else {
             // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -171,7 +172,7 @@ fn apply_wireframe_material(
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
@@ -194,11 +195,10 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
-#[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
+#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
-    pub color: Color,
+    pub color: LinearRgba,
 }
 
 impl Material for WireframeMaterial {
@@ -209,7 +209,7 @@ impl Material for WireframeMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;

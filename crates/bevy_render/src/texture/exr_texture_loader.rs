@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_asset::{
@@ -18,7 +18,7 @@ pub struct ExrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ExrTextureLoaderSettings {
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
@@ -72,7 +72,7 @@ impl AssetLoader for ExrTextureLoader {
                 TextureDimension::D2,
                 buf,
                 format,
-                settings.cpu_persistent_access,
+                settings.asset_usage,
             ))
         })
     }

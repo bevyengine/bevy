@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_render::{
-    camera::ExposureSettings,
+    camera::Exposure,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -80,21 +80,25 @@ pub struct Skybox {
 }
 
 impl ExtractComponent for Skybox {
-    type Data = (&'static Self, Option<&'static ExposureSettings>);
-    type Filter = ();
+    type QueryData = (&'static Self, Option<&'static Exposure>);
+    type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component(
-        (skybox, exposure_settings): QueryItem<'_, Self::Data>,
-    ) -> Option<Self::Out> {
-        let exposure = exposure_settings
+    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        let exposure = exposure
             .map(|e| e.exposure())
-            .unwrap_or_else(|| ExposureSettings::default().exposure());
+            .unwrap_or_else(|| Exposure::default().exposure());
 
         Some((
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_8b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_12b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_16b: 0,
             },
         ))
     }
@@ -104,6 +108,12 @@ impl ExtractComponent for Skybox {
 #[derive(Component, ShaderType, Clone)]
 pub struct SkyboxUniforms {
     brightness: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_8b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_12b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_16b: u32,
 }
 
 #[derive(Resource)]

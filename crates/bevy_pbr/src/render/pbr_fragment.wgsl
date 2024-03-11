@@ -73,7 +73,8 @@ fn pbr_input_from_standard_material(
     let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
 
 #ifdef VERTEX_UVS
-    var uv = in.uv;
+    let uv_transform = pbr_bindings::material.uv_transform;
+    var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -190,7 +191,7 @@ fn pbr_input_from_standard_material(
             double_sided,
             is_front,
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
             in.world_tangent,
 #endif
 #endif

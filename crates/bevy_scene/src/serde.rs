@@ -499,13 +499,13 @@ mod tests {
     use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
+    use bevy_ecs::entity::EntityHashMap;
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
-    use bevy_utils::EntityHashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -550,8 +550,8 @@ mod tests {
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {
-        fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-            self.0 = entity_mapper.get_or_reserve(self.0);
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.0 = entity_mapper.map_entity(self.0);
         }
     }
 

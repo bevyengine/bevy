@@ -12,9 +12,10 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
-
-use bevy_utils::{smallvec::SmallVec, HashMap};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
+
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -33,6 +34,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
+///
+/// # See also
+///
+/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 #[cfg_attr(
@@ -63,9 +69,10 @@ impl Default for Interaction {
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
-
 ///
-/// It can be used alongside interaction to get the position of the press.
+/// It can be used alongside [`Interaction`] to get the position of the press.
+///
+/// The component is updated when it is in the same entity with [`Node`].
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 #[cfg_attr(
@@ -156,7 +163,11 @@ pub fn ui_focus_system(
 
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
+        if let Ok(NodeQueryItem {
+            interaction: Some(mut interaction),
+            ..
+        }) = node_query.get_mut(entity)
+        {
             *interaction = Interaction::None;
         }
     }
@@ -215,9 +226,7 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let Some(view_visibility) = node.view_visibility else {
-                return None;
-            };
+            let view_visibility = node.view_visibility?;
             // Nodes that are not rendered should not be interactable
             if !view_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
@@ -227,13 +236,10 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let Some(camera_entity) = node
+            let camera_entity = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
-            else {
-                return None;
-            };
+                .or(default_ui_camera.get())?;
 
             let node_rect = node.node.logical_rect(node.global_transform);
 
@@ -246,9 +252,16 @@ pub fn ui_focus_system(
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position = camera_cursor_positions
-                .get(&camera_entity)
-                .map(|cursor_position| (*cursor_position - node_rect.min) / node_rect.size());
+            let relative_cursor_position =
+                camera_cursor_positions
+                    .get(&camera_entity)
+                    .and_then(|cursor_position| {
+                        // ensure node size is non-zero in all dimensions, otherwise relative position will be
+                        // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
+                        // false positives for mouse_over (#12395)
+                        (node_rect.size().cmpgt(Vec2::ZERO).all())
+                            .then_some((*cursor_position - node_rect.min) / node_rect.size())
+                    });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking

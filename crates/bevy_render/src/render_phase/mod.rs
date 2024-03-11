@@ -29,9 +29,9 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::nonmax::NonMaxU32;
 pub use draw::*;
 pub use draw_state::*;
+use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
@@ -196,13 +196,13 @@ pub struct SetItemPipeline;
 
 impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
-    type ViewData = ();
-    type ItemData = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _entity: (),
+        _entity: Option<()>,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
