@@ -3,6 +3,9 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_app::prelude::*;
+use bevy_ecs::system::Resource;
+use bevy_utils::HashMap;
+use uuid::Uuid;
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
@@ -43,5 +46,91 @@ impl Plugin for DevToolsPlugin {
         {
             ci_testing::setup_app(_app);
         }
+    }
+}
+
+/// Unique identifier for [`DevTool`].
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+pub struct DevToolId(pub Uuid);
+
+impl DevToolId {
+    /// Creates a [`DevToolId`] from u128.
+    pub const fn from_u128(value: u128) -> DevToolId {
+        DevToolId(Uuid::from_u128(value))
+    }
+}
+
+/// Information about dev tool.
+#[derive(Debug)]
+pub struct DevTool {
+    /// Identifier of a dev tool.
+    pub id: DevToolId,
+    /// State of the dev tool.
+    pub is_enabled: bool,
+}
+
+impl DevTool {
+    /// Creates a new [`DevTool`] from a specified [`DevToolId`].
+    /// New tool is enabled by default.
+    pub fn new(id: DevToolId) -> DevTool {
+        DevTool {
+            id,
+            is_enabled: true,
+        }
+    }
+}
+
+/// A collection of [`DevTool`]s.
+#[derive(Resource, Default)]
+pub struct DevToolsStore {
+    dev_tools: HashMap<DevToolId, DevTool>,
+}
+
+impl DevToolsStore {
+    /// Adds a new [`DevTool`].
+    ///
+    /// If possible, prefer calling [`App::register_dev_tool`].
+    pub fn add(&mut self, dev_tool: DevTool) {
+        self.dev_tools.insert(dev_tool.id.clone(), dev_tool);
+    }
+
+    /// Removes a [`DevTool`].
+    pub fn remove(&mut self, id: &DevToolId) {
+        self.dev_tools.remove(id);
+    }
+
+    /// Returns a [`DevTool`].
+    pub fn get(&self, id: &DevToolId) -> Option<&DevTool> {
+        self.dev_tools.get(id)
+    }
+
+    /// Returns a mutable [`DevTool`].
+    pub fn get_mut(&mut self, id: &DevToolId) -> Option<&mut DevTool> {
+        self.dev_tools.get_mut(id)
+    }
+
+    /// Returns an iterator over all [`DevTool`]s.
+    pub fn iter(&self) -> impl Iterator<Item = &DevTool> {
+        self.dev_tools.values()
+    }
+
+    /// Returns an iterator over all [`DevTool`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut DevTool> {
+        self.dev_tools.values_mut()
+    }
+}
+
+/// Extend [`App`] with new `register_dev_tool` function.
+pub trait RegisterDevTool {
+    /// Registers a new [`DevTool`].
+    fn register_dev_tool(&mut self, dev_tool: DevTool) -> &mut Self;
+}
+
+impl RegisterDevTool for App {
+    fn register_dev_tool(&mut self, dev_tool: DevTool) -> &mut Self {
+        self.init_resource::<DevToolsStore>();
+        let mut dev_tools = self.world.resource_mut::<DevToolsStore>();
+        dev_tools.add(dev_tool);
+        self
     }
 }
