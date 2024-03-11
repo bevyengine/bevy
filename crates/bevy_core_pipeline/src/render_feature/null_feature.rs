@@ -4,12 +4,9 @@ use bevy_render::render_graph::RenderSubGraph;
 use std::marker::PhantomData;
 
 use crate::render_feature::{
-    FeatureInput, FeatureOutput, RenderComponent, RenderFeatureDependencies,
+    FeatureInput, FeatureOutput, FeatureSig, RenderComponent, RenderFeatureDependencies,
     RenderFeatureStageMarker, RenderSubFeature,
 };
-
-use super::FeatureSig;
-
 pub struct NullFeature<S: RenderFeatureStageMarker, O: RenderComponent = ()>(PhantomData<(S, O)>);
 
 impl<S: RenderFeatureStageMarker, O: RenderComponent> Default for NullFeature<S, O> {

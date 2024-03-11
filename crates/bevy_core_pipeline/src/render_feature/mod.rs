@@ -20,7 +20,7 @@ pub use dependencies::*;
 use stages::RenderFeatureStageMarker;
 mod null_feature;
 
-//todo: WGPU limits, etc, in
+//todo: WGPU limits, etc,
 pub trait RenderFeature<G: RenderSubGraph>: 'static {
     //todo: type conflicts when selecting features for dependencies? must be clear that type
     //equality is used to decide dependencies
@@ -61,13 +61,14 @@ impl<I: 'static, O: RenderComponent + 'static> RenderFeatureSignature for (I, O)
     type Out = O;
 }
 
-macro_rules! FeatureSig {
+#[macro_export]
+macro_rules! FeatureSig_Macro {
     [$i: ty => $o: ty] => {
         ($i, $o)
     };
 }
 
-pub(crate) use FeatureSig;
+pub use FeatureSig_Macro as FeatureSig;
 
 type SubFeatureSig<G, F, S> = <S as RenderFeatureStageMarker>::SubFeatureSig<G, F>;
 
