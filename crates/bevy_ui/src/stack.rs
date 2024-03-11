@@ -76,6 +76,7 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     ui_stack.uinodes.reserve(total_entry_count);
     fill_stack_recursively(&mut cache, &mut ui_stack.uinodes, &mut global_context);
+    cache.push(global_context);
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut node) = update_query.get_mut(*entity) {
