@@ -272,17 +272,15 @@ struct LineGizmoHandles {
 /// Internally this pushes the parent default context into a swap buffer.
 /// Gizmo contexts should be handled like a stack, so if you push a new context,
 /// you must pop the context before the parent context ends.
-pub fn start_gizmo_context<Config, Clear>(world: &mut World)
+pub fn start_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+)
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    world.resource_scope(
-        |world: &mut World, mut swap: Mut<GizmoStorage<Config, Swap<Clear>>>| {
-            let mut default = world.resource_mut::<GizmoStorage<Config, ()>>();
-            default.swap(&mut *swap);
-        },
-    );
+    default.swap(&mut *swap);
 }
 
 /// End this gizmo clearing context.
