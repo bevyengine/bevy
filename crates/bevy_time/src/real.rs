@@ -25,7 +25,7 @@ use crate::time::Time;
 /// zero must be handled without errors in application logic, as it may
 /// theoretically also happen at other times.
 ///
-/// [`Instant`](std::time::Instant)s for [`startup()`](Time::startup),
+/// [`Instant`]s for [`startup()`](Time::startup),
 /// [`first_update()`](Time::first_update) and
 /// [`last_update()`](Time::last_update) are recorded and accessible.
 #[derive(Debug, Copy, Clone, Reflect)]
@@ -47,7 +47,7 @@ impl Default for Real {
 
 impl Time<Real> {
     /// Constructs a new `Time<Real>` instance with a specific startup
-    /// [`Instant`](std::time::Instant).
+    /// [`Instant`].
     pub fn new(startup: Instant) -> Self {
         Self::new_with(Real {
             startup,
@@ -77,7 +77,7 @@ impl Time<Real> {
         self.update_with_instant(last_update + duration);
     }
 
-    /// Updates time with a specified [`Instant`](std::time::Instant).
+    /// Updates time with a specified [`Instant`].
     ///
     /// This method is provided for use in tests.
     ///
@@ -95,7 +95,7 @@ impl Time<Real> {
         self.context_mut().last_update = Some(instant);
     }
 
-    /// Returns the [`Instant`](std::time::Instant) the clock was created.
+    /// Returns the [`Instant`] the clock was created.
     ///
     /// This usually represents when the app was started.
     #[inline]
@@ -103,7 +103,7 @@ impl Time<Real> {
         self.context().startup
     }
 
-    /// Returns the [`Instant`](std::time::Instant) when [`Self::update`] was first called, if it
+    /// Returns the [`Instant`] when [`Self::update`] was first called, if it
     /// exists.
     ///
     /// This usually represents when the first app update started.
@@ -112,7 +112,7 @@ impl Time<Real> {
         self.context().first_update
     }
 
-    /// Returns the [`Instant`](std::time::Instant) when [`Self::update`] was last called, if it
+    /// Returns the [`Instant`] when [`Self::update`] was last called, if it
     /// exists.
     ///
     /// This usually represents when the current app update started.

@@ -1,6 +1,6 @@
 //! The gamepad input functionality.
 
-use crate::{Axis, ButtonState, Input};
+use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -165,9 +165,9 @@ impl Gamepads {
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
-/// which in turn is used to create the [`Input<GamepadButton>`] or
+/// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -226,7 +226,7 @@ pub enum GamepadButtonType {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`] and [`Axis`] to create `bevy` resources. These
+/// It is used as the generic `T` value of an [`ButtonInput`] and [`Axis`] to create `bevy` resources. These
 /// resources store the data of the buttons of a gamepad and can be accessed inside of a system.
 ///
 /// ## Updating
@@ -1011,7 +1011,7 @@ impl ButtonAxisSettings {
 /// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
 ///
 /// Updates the [`Gamepads`] resource and resets and/or initializes
-/// the [`Axis<GamepadButton>`] and [`Input<GamepadButton>`] resources.
+/// the [`Axis<GamepadButton>`] and [`ButtonInput<GamepadButton>`] resources.
 ///
 /// ## Note
 ///
@@ -1021,7 +1021,7 @@ pub fn gamepad_connection_system(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
@@ -1163,7 +1163,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
@@ -1174,10 +1174,10 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
@@ -1255,7 +1255,7 @@ pub fn gamepad_event_system(
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
     for gamepad_event in gamepad_events.read() {

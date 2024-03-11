@@ -41,8 +41,6 @@ pub trait DynHash: DynEq {
     fn as_dyn_eq(&self) -> &dyn DynEq;
 
     /// Feeds this value into the given [`Hasher`].
-    ///
-    /// [`Hasher`]: std::hash::Hasher
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
@@ -125,8 +123,6 @@ macro_rules! define_label {
             fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
-            ///
-            /// [`Hasher`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
 
             /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.

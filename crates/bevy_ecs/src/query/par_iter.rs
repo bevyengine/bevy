@@ -1,7 +1,7 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
-use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryData, QueryFilter, QueryItem, QueryState};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -82,15 +82,15 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<Q, F>,
+    pub(crate) state: &'s QueryState<D, F>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -108,8 +108,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
+    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         {
             // SAFETY:
             // This method can only be called once per instance of QueryParIter,
@@ -118,26 +118,20 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                self.state.for_each_unchecked_manual(
-                    self.world,
-                    func,
-                    self.last_run,
-                    self.this_run,
-                );
+                self.state
+                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .for_each(func);
             }
         }
-        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.for_each_unchecked_manual(
-                        self.world,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.state
+                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .for_each(func);
                 }
             } else {
                 // Need a batch size of at least 1.
@@ -156,7 +150,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         }
     }
 
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
@@ -166,7 +160,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
-        let max_size = if Q::IS_DENSE && F::IS_DENSE {
+        let max_size = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state

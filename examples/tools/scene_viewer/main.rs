@@ -14,23 +14,21 @@ use bevy::{
     window::WindowPlugin,
 };
 
+#[path = "../../helpers/camera_controller.rs"]
+mod camera_controller;
+
 #[cfg(feature = "animation")]
 mod animation_plugin;
-mod camera_controller_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
-use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 1.0 / 5.0f32,
-    })
-    .add_plugins((
+    app.add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -118,7 +116,12 @@ fn setup_scene_after_load(
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
 
-        let camera_controller = CameraController::default();
+        let walk_speed = size * 3.0;
+        let camera_controller = CameraController {
+            walk_speed,
+            run_speed: 3.0 * walk_speed,
+            ..default()
+        };
 
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
@@ -142,6 +145,7 @@ fn setup_scene_after_load(
                     .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+                intensity: 150.0,
             },
             camera_controller,
         ));
@@ -150,10 +154,7 @@ fn setup_scene_after_load(
         if !scene_handle.has_light {
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    ..default()
-                },
+                transform: Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
                 ..default()
             });
 

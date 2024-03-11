@@ -1,9 +1,9 @@
-use bevy_asset::{Asset, Handle};
-use bevy_math::Vec4;
+use bevy_asset::Asset;
+use bevy_color::Alpha;
+use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
-    texture::Image,
+    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
@@ -57,9 +57,18 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is black, which doesn't add anything to the material color.
+    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
     ///
-    /// Note that **an emissive material won't light up surrounding areas like a light source**,
+    /// To increase emissive strength, channel values for `emissive`
+    /// colors can exceed `1.0`. For instance, a `base_color` of
+    /// `Color::linear_rgb(1.0, 0.0, 0.0)` represents the brightest
+    /// red for objects that reflect light, but an emissive color
+    /// like `Color::linear_rgb(1000.0, 0.0, 0.0)` can be used to create
+    /// intensely bright red emissive effects.
+    ///
+    /// Increasing the emissive strength of the color will impact visual effects
+    /// like bloom, but it's important to note that **an emissive material won't
+    /// light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
@@ -248,7 +257,7 @@ pub struct StandardMaterial {
     /// | Flint Glass     | 1.69                 |
     /// | Ruby            | 1.71                 |
     /// | Glycerine       | 1.74                 |
-    /// | Saphire         | 1.77                 |
+    /// | Sapphire        | 1.77                 |
     /// | Cubic Zirconia  | 2.15                 |
     /// | Diamond         | 2.42                 |
     /// | Moissanite      | 2.65                 |
@@ -462,6 +471,9 @@ pub struct StandardMaterial {
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
 
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
+
     /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
     pub opaque_render_method: OpaqueRendererMethod,
 
@@ -469,6 +481,9 @@ pub struct StandardMaterial {
     /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID`] for default
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
     pub deferred_lighting_pass_id: u8,
+
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
+    pub uv_transform: Affine2,
 }
 
 impl Default for StandardMaterial {
@@ -476,7 +491,7 @@ impl Default for StandardMaterial {
         StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
-            base_color: Color::rgb(1.0, 1.0, 1.0),
+            base_color: Color::WHITE,
             base_color_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
@@ -513,9 +528,11 @@ impl Default for StandardMaterial {
             depth_map: None,
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
+            lightmap_exposure: 1.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
+            uv_transform: Affine2::IDENTITY,
         }
     }
 }
@@ -524,7 +541,7 @@ impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
         StandardMaterial {
             base_color: color,
-            alpha_mode: if color.a() < 1.0 {
+            alpha_mode: if color.alpha() < 1.0 {
                 AlphaMode::Blend
             } else {
                 AlphaMode::Opaque
@@ -549,27 +566,27 @@ bitflags::bitflags! {
     /// This is accessible in the shader in the [`StandardMaterialUniform`]
     #[repr(transparent)]
     pub struct StandardMaterialFlags: u32 {
-        const BASE_COLOR_TEXTURE         = (1 << 0);
-        const EMISSIVE_TEXTURE           = (1 << 1);
-        const METALLIC_ROUGHNESS_TEXTURE = (1 << 2);
-        const OCCLUSION_TEXTURE          = (1 << 3);
-        const DOUBLE_SIDED               = (1 << 4);
-        const UNLIT                      = (1 << 5);
-        const TWO_COMPONENT_NORMAL_MAP   = (1 << 6);
-        const FLIP_NORMAL_MAP_Y          = (1 << 7);
-        const FOG_ENABLED                = (1 << 8);
-        const DEPTH_MAP                  = (1 << 9); // Used for parallax mapping
-        const SPECULAR_TRANSMISSION_TEXTURE = (1 << 10);
-        const THICKNESS_TEXTURE          = (1 << 11);
-        const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
-        const ATTENUATION_ENABLED        = (1 << 13);
-        const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
-        const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
-        const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
-        const ALPHA_MODE_BLEND           = (2 << Self::ALPHA_MODE_SHIFT_BITS);                          //
-        const ALPHA_MODE_PREMULTIPLIED   = (3 << Self::ALPHA_MODE_SHIFT_BITS);                          //
-        const ALPHA_MODE_ADD             = (4 << Self::ALPHA_MODE_SHIFT_BITS);                          //   Right now only values 0–5 are used, which still gives
-        const ALPHA_MODE_MULTIPLY        = (5 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← us "room" for two more modes without adding more bits
+        const BASE_COLOR_TEXTURE         = 1 << 0;
+        const EMISSIVE_TEXTURE           = 1 << 1;
+        const METALLIC_ROUGHNESS_TEXTURE = 1 << 2;
+        const OCCLUSION_TEXTURE          = 1 << 3;
+        const DOUBLE_SIDED               = 1 << 4;
+        const UNLIT                      = 1 << 5;
+        const TWO_COMPONENT_NORMAL_MAP   = 1 << 6;
+        const FLIP_NORMAL_MAP_Y          = 1 << 7;
+        const FOG_ENABLED                = 1 << 8;
+        const DEPTH_MAP                  = 1 << 9; // Used for parallax mapping
+        const SPECULAR_TRANSMISSION_TEXTURE = 1 << 10;
+        const THICKNESS_TEXTURE          = 1 << 11;
+        const DIFFUSE_TRANSMISSION_TEXTURE = 1 << 12;
+        const ATTENUATION_ENABLED        = 1 << 13;
+        const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
+        const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
+        const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
+        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;                          //
+        const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;                          //
+        const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;                          //   Right now only values 0–5 are used, which still gives
+        const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← us "room" for two more modes without adding more bits
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -586,9 +603,13 @@ pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
-    // Use a color for user friendliness even though we technically don't use the alpha channel
+    // Use a color for user-friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
+    /// Color white light takes after travelling through the attenuation distance underneath the material surface
+    pub attenuation_color: Vec4,
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
+    pub uv_transform: Mat3,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
     pub roughness: f32,
@@ -607,8 +628,6 @@ pub struct StandardMaterialUniform {
     pub ior: f32,
     /// How far light travels through the volume underneath the material surface before being absorbed
     pub attenuation_distance: f32,
-    /// Color white light takes after travelling through the attenuation distance underneath the material surface
-    pub attenuation_color: Vec4,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -621,6 +640,8 @@ pub struct StandardMaterialUniform {
     /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
     /// increase this value. However, this incurs a performance cost.
     pub max_parallax_layer_count: f32,
+    /// The exposure (brightness) level of the lightmap, if present.
+    pub lightmap_exposure: f32,
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
@@ -705,8 +726,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
 
         StandardMaterialUniform {
-            base_color: self.base_color.as_linear_rgba_f32().into(),
-            emissive: self.emissive.as_linear_rgba_f32().into(),
+            base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
+            emissive: LinearRgba::from(self.emissive).to_f32_array().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
@@ -715,13 +736,17 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
-            attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
+            attenuation_color: LinearRgba::from(self.attenuation_color)
+                .to_f32_array()
+                .into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
+            lightmap_exposure: self.lightmap_exposure,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
+            uv_transform: self.uv_transform.into(),
         }
     }
 }
@@ -733,6 +758,8 @@ pub struct StandardMaterialKey {
     cull_mode: Option<Face>,
     depth_bias: i32,
     relief_mapping: bool,
+    diffuse_transmission: bool,
+    specular_transmission: bool,
 }
 
 impl From<&StandardMaterial> for StandardMaterialKey {
@@ -745,45 +772,13 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 material.parallax_mapping_method,
                 ParallaxMappingMethod::Relief { .. }
             ),
+            diffuse_transmission: material.diffuse_transmission > 0.0,
+            specular_transmission: material.specular_transmission > 0.0,
         }
     }
 }
 
 impl Material for StandardMaterial {
-    fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        if let Some(fragment) = descriptor.fragment.as_mut() {
-            let shader_defs = &mut fragment.shader_defs;
-
-            if key.bind_group_data.normal_map {
-                shader_defs.push("STANDARDMATERIAL_NORMAL_MAP".into());
-            }
-            if key.bind_group_data.relief_mapping {
-                shader_defs.push("RELIEF_MAPPING".into());
-            }
-        }
-        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
-        if let Some(label) = &mut descriptor.label {
-            *label = format!("pbr_{}", *label).into();
-        }
-        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
-            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
-        }
-        Ok(())
-    }
-
-    fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.into()
-    }
-
-    fn deferred_fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.into()
-    }
-
     fn fragment_shader() -> ShaderRef {
         PBR_SHADER_HANDLE.into()
     }
@@ -791,16 +786,6 @@ impl Material for StandardMaterial {
     #[inline]
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode
-    }
-
-    #[inline]
-    fn depth_bias(&self) -> f32 {
-        self.depth_bias
-    }
-
-    #[inline]
-    fn reads_view_transmission_texture(&self) -> bool {
-        self.specular_transmission > 0.0
     }
 
     #[inline]
@@ -818,5 +803,62 @@ impl Material for StandardMaterial {
             }
             other => other,
         }
+    }
+
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        self.depth_bias
+    }
+
+    #[inline]
+    fn reads_view_transmission_texture(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
+    fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        key: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        if let Some(fragment) = descriptor.fragment.as_mut() {
+            let shader_defs = &mut fragment.shader_defs;
+
+            if key.bind_group_data.normal_map {
+                shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
+            }
+            if key.bind_group_data.relief_mapping {
+                shader_defs.push("RELIEF_MAPPING".into());
+            }
+
+            if key.bind_group_data.diffuse_transmission {
+                shader_defs.push("STANDARD_MATERIAL_DIFFUSE_TRANSMISSION".into());
+            }
+
+            if key.bind_group_data.specular_transmission {
+                shader_defs.push("STANDARD_MATERIAL_SPECULAR_TRANSMISSION".into());
+            }
+
+            if key.bind_group_data.diffuse_transmission || key.bind_group_data.specular_transmission
+            {
+                shader_defs.push("STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION".into());
+            }
+        }
+        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
+        if let Some(label) = &mut descriptor.label {
+            *label = format!("pbr_{}", *label).into();
+        }
+        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
+            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
+        }
+        Ok(())
     }
 }

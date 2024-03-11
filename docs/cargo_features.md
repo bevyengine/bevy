@@ -16,7 +16,9 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_animation|Provides animation functionality|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
+|bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -32,9 +34,10 @@ The default feature set enables most of the expected features of a game engine, 
 |ktx2|KTX2 compressed texture support|
 |multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
+|sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
 |vorbis|OGG/VORBIS audio format support|
-|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
+|webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
@@ -47,6 +50,7 @@ The default feature set enables most of the expected features of a game engine, 
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
+|bevy_dev_tools|Provides a collection of developer tools|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
@@ -58,6 +62,7 @@ The default feature set enables most of the expected features of a game engine, 
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
@@ -80,6 +85,7 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
+|webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|

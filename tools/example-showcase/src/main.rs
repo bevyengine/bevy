@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
@@ -12,7 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -224,6 +226,15 @@ fn main() {
                 cmd!(
                     sh,
                     "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Don't try to get an audio output stream in CI as there isn't one
+                // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/disable-audio.patch"
                 )
                 .run()
                 .unwrap();
@@ -649,8 +660,8 @@ header_message = \"Examples ({})\"
 }
 
 fn parse_examples() -> Vec<Example> {
-    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()

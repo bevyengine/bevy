@@ -1,10 +1,10 @@
-#![warn(missing_docs)]
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_a11y::Focus;
 
@@ -32,7 +32,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -93,6 +92,7 @@ impl Plugin for WindowPlugin {
             .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
+            .add_event::<WindowOccluded>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
@@ -137,6 +137,7 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorLeft>()
             .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
+            .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
@@ -146,24 +147,7 @@ impl Plugin for WindowPlugin {
 
         // Register window descriptor and related types
         app.register_type::<Window>()
-            .register_type::<PrimaryWindow>()
-            .register_type::<Cursor>()
-            .register_type::<CursorIcon>()
-            .register_type::<CursorGrabMode>()
-            .register_type::<CompositeAlphaMode>()
-            .register_type::<WindowResolution>()
-            .register_type::<WindowPosition>()
-            .register_type::<WindowMode>()
-            .register_type::<WindowLevel>()
-            .register_type::<PresentMode>()
-            .register_type::<InternalWindowState>()
-            .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowTheme>()
-            .register_type::<EnabledButtons>();
-
-        // Register `PathBuf` as it's used by `FileDragAndDrop`
-        app.register_type::<PathBuf>();
+            .register_type::<PrimaryWindow>();
     }
 }
 

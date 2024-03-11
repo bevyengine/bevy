@@ -1,10 +1,10 @@
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     prelude::Res,
-    query::{QueryItem, ReadOnlyWorldQuery},
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
-use bevy_utils::nonmax::NonMaxU32;
+use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
@@ -57,8 +57,6 @@ impl<T: PartialEq> BatchMeta<T> {
 /// items.
 pub trait GetBatchData {
     type Param: SystemParam + 'static;
-    type Query: ReadOnlyWorldQuery;
-    type QueryFilter: ReadOnlyWorldQuery;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
     /// matches, the draws can be batched.
@@ -72,8 +70,8 @@ pub trait GetBatchData {
     /// for the `CompareData`.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: &QueryItem<Self::Query>,
-    ) -> (Self::BufferData, Option<Self::CompareData>);
+        query_item: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
@@ -81,19 +79,16 @@ pub trait GetBatchData {
 pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
-    query: Query<F::Query, F::QueryFilter>,
     param: StaticSystemParam<F::Param>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
     let mut process_item = |item: &mut I| {
-        let batch_query_item = query.get(item.entity()).ok()?;
-
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, &batch_query_item);
+        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
         let buffer_index = gpu_array_buffer.push(buffer_data);
 
-        let index = buffer_index.index.get();
+        let index = buffer_index.index;
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 

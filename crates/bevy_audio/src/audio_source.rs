@@ -97,8 +97,8 @@ pub trait Decodable: Send + Sync + 'static {
 }
 
 impl Decodable for AudioSource {
-    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
     type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
+    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
         rodio::Decoder::new(Cursor::new(self.clone())).unwrap()

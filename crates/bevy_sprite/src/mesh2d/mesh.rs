@@ -3,23 +3,25 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
-    query::{QueryItem, ROQueryItem},
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -30,7 +32,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::EntityHashMap;
 
 use crate::Material2dBindGroupId;
 
@@ -38,7 +39,7 @@ use crate::Material2dBindGroupId;
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
@@ -192,7 +193,7 @@ pub struct RenderMesh2dInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2d;
@@ -256,41 +257,25 @@ impl FromWorld for Mesh2dPipeline {
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(GlobalsUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("mesh2d_view_layout"),
-        });
-
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[GpuArrayBuffer::<Mesh2dUniform>::binding_layout(
-                0,
+        let view_layout = render_device.create_bind_group_layout(
+            "mesh2d_view_layout",
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
-                render_device,
-            )],
-            label: Some("mesh2d_layout"),
-        });
+                (
+                    // View
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                ),
+            ),
+        );
+
+        let mesh_layout = render_device.create_bind_group_layout(
+            "mesh2d_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
+            ),
+        );
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
@@ -304,12 +289,7 @@ impl FromWorld for Mesh2dPipeline {
 
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
+                texture.as_image_copy(),
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
@@ -325,7 +305,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size_f32(),
+                size: image.size(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -360,25 +340,21 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type Query = Entity;
-    type QueryFilter = With<Mesh2d>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: &QueryItem<Self::Query>,
-    ) -> (Self::BufferData, Option<Self::CompareData>) {
-        let mesh_instance = mesh_instances
-            .get(entity)
-            .expect("Failed to find render mesh2d instance");
-        (
+        entity: Entity,
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
             )),
-        )
+        ))
     }
 }
 
@@ -390,9 +366,9 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -461,32 +437,32 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+        if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+        if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+        if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+        if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+        if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
@@ -529,14 +505,18 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             }
         }
 
-        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+        let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let format = match key.contains(Mesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -638,14 +618,14 @@ pub fn prepare_mesh2d_view_bind_groups(
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
     type Param = ();
-    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
-    type ItemWorldQuery = ();
+    type ViewQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
-        _view: (),
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        _view: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -658,14 +638,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
 pub struct SetMesh2dBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     type Param = SRes<Mesh2dBindGroup>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -687,14 +667,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -713,7 +693,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         pass.set_push_constants(
             ShaderStages::VERTEX,
             0,

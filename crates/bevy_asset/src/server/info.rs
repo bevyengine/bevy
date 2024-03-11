@@ -1,12 +1,12 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, Handle,
-    InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
+    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
+    UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::warn;
-use bevy_utils::{Entry, HashMap, HashSet};
+use bevy_utils::tracing::warn;
+use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
     any::TypeId,
@@ -61,7 +61,7 @@ impl AssetInfo {
 
 #[derive(Default)]
 pub(crate) struct AssetInfos {
-    path_to_id: HashMap<AssetPath<'static>, UntypedAssetId>,
+    path_to_id: HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
     /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
     /// This should only be set at startup.
@@ -71,9 +71,11 @@ pub(crate) struct AssetInfos {
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
-    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
-    pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
-    pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
+    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<Box<str>>>,
+    pub(crate) handle_providers: TypeIdMap<AssetHandleProvider>,
+    pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
+    pub(crate) dependency_failed_event_sender:
+        TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -110,8 +112,8 @@ impl AssetInfos {
     #[allow(clippy::too_many_arguments)]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
-        handle_providers: &HashMap<TypeId, AssetHandleProvider>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        handle_providers: &TypeIdMap<AssetHandleProvider>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
@@ -127,7 +129,7 @@ impl AssetInfos {
                 let mut without_label = path.to_owned();
                 if let Some(label) = without_label.take_label() {
                     let labels = living_labeled_assets.entry(without_label).or_default();
-                    labels.insert(label.to_string());
+                    labels.insert(label.as_ref().into());
                 }
             }
         }
@@ -189,7 +191,20 @@ impl AssetInfos {
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> Result<(UntypedHandle, bool), GetOrCreateHandleInternalError> {
-        match self.path_to_id.entry(path.clone()) {
+        let handles = self.path_to_id.entry(path.clone()).or_default();
+
+        let type_id = type_id
+            .or_else(|| {
+                // If a TypeId is not provided, we may be able to infer it if only a single entry exists
+                if handles.len() == 1 {
+                    Some(*handles.keys().next().unwrap())
+                } else {
+                    None
+                }
+            })
+            .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
+
+        match handles.entry(type_id) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
@@ -197,7 +212,8 @@ impl AssetInfos {
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && info.load_state == LoadState::NotLoaded)
+                        && (info.load_state == LoadState::NotLoaded
+                            || info.load_state == LoadState::Failed))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -219,9 +235,6 @@ impl AssetInfos {
                     // We must create a new strong handle for the existing id and ensure that the drop of the old
                     // strong handle doesn't remove the asset from the Assets collection
                     info.handle_drops_to_skip += 1;
-                    let type_id = type_id.ok_or(
-                        GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified,
-                    )?;
                     let provider = self
                         .handle_providers
                         .get(&type_id)
@@ -238,8 +251,6 @@ impl AssetInfos {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
                 };
-                let type_id = type_id
-                    .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
                     &self.handle_providers,
@@ -260,13 +271,60 @@ impl AssetInfos {
         self.infos.get(&id)
     }
 
+    pub(crate) fn contains_key(&self, id: UntypedAssetId) -> bool {
+        self.infos.contains_key(&id)
+    }
+
     pub(crate) fn get_mut(&mut self, id: UntypedAssetId) -> Option<&mut AssetInfo> {
         self.infos.get_mut(&id)
     }
 
-    pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
-        let id = *self.path_to_id.get(&path)?;
-        self.get_id_handle(id)
+    pub(crate) fn get_path_and_type_id_handle(
+        &self,
+        path: &AssetPath,
+        type_id: TypeId,
+    ) -> Option<UntypedHandle> {
+        let id = self.path_to_id.get(path)?.get(&type_id)?;
+        self.get_id_handle(*id)
+    }
+
+    pub(crate) fn get_path_ids<'a>(
+        &'a self,
+        path: &'a AssetPath<'a>,
+    ) -> impl Iterator<Item = UntypedAssetId> + 'a {
+        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
+        enum HandlesByPathIterator<T> {
+            None,
+            Some(T),
+        }
+
+        impl<T> Iterator for HandlesByPathIterator<T>
+        where
+            T: Iterator<Item = UntypedAssetId>,
+        {
+            type Item = UntypedAssetId;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    HandlesByPathIterator::None => None,
+                    HandlesByPathIterator::Some(iter) => iter.next(),
+                }
+            }
+        }
+
+        if let Some(type_id_to_id) = self.path_to_id.get(path) {
+            HandlesByPathIterator::Some(type_id_to_id.values().copied())
+        } else {
+            HandlesByPathIterator::None
+        }
+    }
+
+    pub(crate) fn get_path_handles<'a>(
+        &'a self,
+        path: &'a AssetPath<'a>,
+    ) -> impl Iterator<Item = UntypedHandle> + 'a {
+        self.get_path_ids(path)
+            .filter_map(|id| self.get_id_handle(id))
     }
 
     pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
@@ -278,12 +336,13 @@ impl AssetInfos {
     /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         let path = path.into();
-        if let Some(id) = self.path_to_id.get(&path) {
-            if let Some(info) = self.infos.get(id) {
-                return info.weak_handle.strong_count() > 0;
-            }
-        }
-        false
+
+        let result = self
+            .get_path_ids(&path)
+            .filter_map(|id| self.infos.get(&id))
+            .any(|info| info.weak_handle.strong_count() > 0);
+
+        result
     }
 
     /// Returns `true` if the asset at this path should be reloaded
@@ -299,7 +358,7 @@ impl AssetInfos {
         }
     }
 
-    // Returns `true` if the asset should be removed from the collection
+    /// Returns `true` if the asset should be removed from the collection.
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
         Self::process_handle_drop_internal(
             &mut self.infos,
@@ -550,52 +609,79 @@ impl AssetInfos {
         }
     }
 
+    fn remove_dependants_and_labels(
+        info: &AssetInfo,
+        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        path: &AssetPath<'static>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
+    ) {
+        for loader_dependency in info.loader_dependencies.keys() {
+            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
+                dependants.remove(path);
+            }
+        }
+
+        let Some(label) = path.label() else {
+            return;
+        };
+
+        let mut without_label = path.to_owned();
+        without_label.remove_label();
+
+        let Entry::Occupied(mut entry) = living_labeled_assets.entry(without_label) else {
+            return;
+        };
+
+        entry.get_mut().remove(label);
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+    }
+
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
-        path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
+        path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
-        match infos.entry(id) {
-            Entry::Occupied(mut entry) => {
-                if entry.get_mut().handle_drops_to_skip > 0 {
-                    entry.get_mut().handle_drops_to_skip -= 1;
-                    false
-                } else {
-                    let info = entry.remove();
-                    if let Some(path) = info.path {
-                        if watching_for_changes {
-                            for loader_dependency in info.loader_dependencies.keys() {
-                                if let Some(dependants) =
-                                    loader_dependants.get_mut(loader_dependency)
-                                {
-                                    dependants.remove(&path);
-                                }
-                            }
-                            if let Some(label) = path.label() {
-                                let mut without_label = path.to_owned();
-                                without_label.remove_label();
-                                if let Entry::Occupied(mut entry) =
-                                    living_labeled_assets.entry(without_label)
-                                {
-                                    entry.get_mut().remove(label);
-                                    if entry.get().is_empty() {
-                                        entry.remove();
-                                    }
-                                };
-                            }
-                        }
-                        path_to_id.remove(&path);
-                    }
-                    true
-                }
-            }
+        let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            Entry::Vacant(_) => false,
+            return false;
+        };
+
+        if entry.get_mut().handle_drops_to_skip > 0 {
+            entry.get_mut().handle_drops_to_skip -= 1;
+            return false;
         }
+
+        let type_id = entry.key().type_id();
+
+        let info = entry.remove();
+        let Some(path) = &info.path else {
+            return true;
+        };
+
+        if watching_for_changes {
+            Self::remove_dependants_and_labels(
+                &info,
+                loader_dependants,
+                path,
+                living_labeled_assets,
+            );
+        }
+
+        if let Some(map) = path_to_id.get_mut(path) {
+            map.remove(&type_id);
+
+            if map.is_empty() {
+                path_to_id.remove(path);
+            }
+        };
+
+        true
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -621,7 +707,6 @@ impl AssetInfos {
         }
     }
 }
-
 /// Determines how a handle should be initialized
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum HandleLoadingMode {

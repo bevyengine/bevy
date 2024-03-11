@@ -58,11 +58,9 @@ pub fn ui_stack_system(
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        update_query
-            .get_mut(*entity)
-            .unwrap()
-            .bypass_change_detection()
-            .stack_index = i as u32;
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
+        }
     }
 }
 
@@ -128,8 +126,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         schedule::Schedule,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
     use bevy_hierarchy::BuildChildren;
 
@@ -216,24 +214,24 @@ mod tests {
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
-            (Label("1-2-1")), // ZIndex::Global(-3)
-            (Label("3")),     // ZIndex::Global(-2)
-            (Label("1-2")),   // ZIndex::Global(-1)
-            (Label("1-2-0")),
-            (Label("1-2-2")),
-            (Label("1-2-3")),
-            (Label("2")),
-            (Label("2-0")),
-            (Label("2-1")),
-            (Label("2-1-0")),
-            (Label("1")), // ZIndex::Local(1)
-            (Label("1-0")),
-            (Label("1-0-2")), // ZIndex::Local(-1)
-            (Label("1-0-0")),
-            (Label("1-0-1")),
-            (Label("1-1")),
-            (Label("1-3")),
-            (Label("0")), // ZIndex::Global(2)
+            Label("1-2-1"), // ZIndex::Global(-3)
+            Label("3"),     // ZIndex::Global(-2)
+            Label("1-2"),   // ZIndex::Global(-1)
+            Label("1-2-0"),
+            Label("1-2-2"),
+            Label("1-2-3"),
+            Label("2"),
+            Label("2-0"),
+            Label("2-1"),
+            Label("2-1-0"),
+            Label("1"), // ZIndex::Local(1)
+            Label("1-0"),
+            Label("1-0-2"), // ZIndex::Local(-1)
+            Label("1-0-0"),
+            Label("1-0-1"),
+            Label("1-1"),
+            Label("1-3"),
+            Label("0"), // ZIndex::Global(2)
         ];
         assert_eq!(actual_result, expected_result);
     }

@@ -53,14 +53,13 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     let text_style = TextStyle {
         font_size: 20.0,
-        color: Color::WHITE,
         ..default()
     };
 
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn(Text2dBundle {
             text: Text::from_section(event.0.to_string(), text_style.clone())
-                .with_alignment(TextAlignment::Center),
+                .with_justify(JustifyText::Center),
             transform: Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
             ..default()
         });

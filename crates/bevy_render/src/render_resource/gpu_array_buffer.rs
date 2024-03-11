@@ -1,13 +1,16 @@
-use super::StorageBuffer;
+use super::{
+    binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    BindGroupLayoutEntryBuilder, StorageBuffer,
+};
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{prelude::Component, system::Resource};
-use bevy_utils::nonmax::NonMaxU32;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
-use std::{marker::PhantomData, mem};
-use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
+use nonmax::NonMaxU32;
+use std::marker::PhantomData;
+use wgpu::BindingResource;
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
@@ -29,7 +32,7 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 #[derive(Resource)]
 pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
     Uniform(BatchedUniformBuffer<T>),
-    Storage((StorageBuffer<Vec<T>>, Vec<T>)),
+    Storage(StorageBuffer<Vec<T>>),
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
@@ -38,22 +41,23 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
-            GpuArrayBuffer::Storage((StorageBuffer::default(), Vec::new()))
+            GpuArrayBuffer::Storage(StorageBuffer::default())
         }
     }
 
     pub fn clear(&mut self) {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.clear(),
-            GpuArrayBuffer::Storage((_, buffer)) => buffer.clear(),
+            GpuArrayBuffer::Storage(buffer) => buffer.get_mut().clear(),
         }
     }
 
     pub fn push(&mut self, value: T) -> GpuArrayBufferIndex<T> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
-            GpuArrayBuffer::Storage((_, buffer)) => {
-                let index = NonMaxU32::new(buffer.len() as u32).unwrap();
+            GpuArrayBuffer::Storage(buffer) => {
+                let buffer = buffer.get_mut();
+                let index = buffer.len() as u32;
                 buffer.push(value);
                 GpuArrayBufferIndex {
                     index,
@@ -67,44 +71,27 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.write_buffer(device, queue),
-            GpuArrayBuffer::Storage((buffer, vec)) => {
-                buffer.set(mem::take(vec));
-                buffer.write_buffer(device, queue);
-            }
+            GpuArrayBuffer::Storage(buffer) => buffer.write_buffer(device, queue),
         }
     }
 
-    pub fn binding_layout(
-        binding: u32,
-        visibility: ShaderStages,
-        device: &RenderDevice,
-    ) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility,
-            ty: if device.limits().max_storage_buffers_per_shader_stage == 0 {
-                BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
-                    // None here and let wgpu figure out the size.
-                    min_binding_size: None,
-                }
-            } else {
-                BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(T::min_size()),
-                }
-            },
-            count: None,
+    pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        if device.limits().max_storage_buffers_per_shader_stage == 0 {
+            uniform_buffer_sized(
+                true,
+                // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
+                // None here and let wgpu figure out the size.
+                None,
+            )
+        } else {
+            storage_buffer_read_only::<T>(false)
         }
     }
 
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding(),
+            GpuArrayBuffer::Storage(buffer) => buffer.binding(),
         }
     }
 
@@ -122,7 +109,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 #[derive(Component, Clone)]
 pub struct GpuArrayBufferIndex<T: GpuArrayBufferable> {
     /// The index to use in a shader into the array.
-    pub index: NonMaxU32,
+    pub index: u32,
     /// The dynamic offset to use when setting the bind group in a pass.
     /// Only used on platforms that don't support storage buffers.
     pub dynamic_offset: Option<NonMaxU32>,

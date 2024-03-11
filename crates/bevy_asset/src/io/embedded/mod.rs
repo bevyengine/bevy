@@ -22,9 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<
-        parking_lot::RwLock<bevy_utils::HashMap<std::path::PathBuf, std::path::PathBuf>>,
-    >,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -37,7 +35,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -50,7 +48,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
 
@@ -66,7 +64,12 @@ impl EmbeddedAssetRegistry {
                 Box::new(MemoryAssetReader {
                     root: processed_dir.clone(),
                 })
-            });
+            })
+            // Note that we only add a processed watch warning because we don't want to warn
+            // noisily about embedded watching (which is niche) when users enable file watching.
+            .with_processed_watch_warning(
+                "Consider enabling the `embedded_watcher` cargo feature.",
+            );
 
         #[cfg(feature = "embedded_watcher")]
         {
@@ -104,18 +107,46 @@ impl EmbeddedAssetRegistry {
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
-        embedded_path!("/src/", $path_str)
+        embedded_path!("src", $path_str)
     }};
 
     ($source_path: expr, $path_str: expr) => {{
         let crate_name = module_path!().split(':').next().unwrap();
-        let after_src = file!().split($source_path).nth(1).unwrap();
-        let file_path = std::path::Path::new(after_src)
-            .parent()
-            .unwrap()
-            .join($path_str);
-        std::path::Path::new(crate_name).join(file_path)
+        $crate::io::embedded::_embedded_asset_path(
+            crate_name,
+            $source_path.as_ref(),
+            file!().as_ref(),
+            $path_str.as_ref(),
+        )
     }};
+}
+
+/// Implementation detail of `embedded_path`, do not use this!
+///
+/// Returns an embedded asset path, given:
+///   - `crate_name`: name of the crate where the asset is embedded
+///   - `src_prefix`: path prefix of the crate's source directory, relative to the workspace root
+///   - `file_path`: `std::file!()` path of the source file where `embedded_path!` is called
+///   - `asset_path`: path of the embedded asset relative to `file_path`
+#[doc(hidden)]
+pub fn _embedded_asset_path(
+    crate_name: &str,
+    src_prefix: &Path,
+    file_path: &Path,
+    asset_path: &Path,
+) -> PathBuf {
+    let mut maybe_parent = file_path.parent();
+    let after_src = loop {
+        let Some(parent) = maybe_parent else {
+            panic!("Failed to find src_prefix {src_prefix:?} in {file_path:?}")
+        };
+        if parent.ends_with(src_prefix) {
+            break file_path.strip_prefix(parent).unwrap();
+        }
+        maybe_parent = parent.parent();
+    };
+    let asset_path = after_src.parent().unwrap().join(asset_path);
+    Path::new(crate_name).join(asset_path)
 }
 
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
@@ -152,7 +183,7 @@ macro_rules! embedded_path {
 /// # use bevy_asset::{Asset, AssetServer};
 /// # use bevy_reflect::TypePath;
 /// # let asset_server: AssetServer = panic!();
-/// #[derive(Asset, TypePath)]
+/// # #[derive(Asset, TypePath)]
 /// # struct Shader;
 /// let shader = asset_server.load::<Shader>("embedded://bevy_rock/render/rock.wgsl");
 /// ```
@@ -188,7 +219,7 @@ macro_rules! embedded_path {
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: ident, $path: expr) => {{
-        embedded_asset!($app, "/src/", $path)
+        $crate::embedded_asset!($app, "src", $path)
     }};
 
     ($app: ident, $source_path: expr, $path: expr) => {{
@@ -196,12 +227,26 @@ macro_rules! embedded_asset {
             .world
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
-        #[cfg(feature = "embedded_watcher")]
-        let full_path = std::path::Path::new(file!()).parent().unwrap().join($path);
-        #[cfg(not(feature = "embedded_watcher"))]
-        let full_path = std::path::PathBuf::new();
-        embedded.insert_asset(full_path, &path, include_bytes!($path));
+        let watched_path = $crate::io::embedded::watched_path(file!(), $path);
+        embedded.insert_asset(watched_path, &path, include_bytes!($path));
     }};
+}
+
+/// Returns the path used by the watcher.
+#[doc(hidden)]
+#[cfg(feature = "embedded_watcher")]
+pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
+    PathBuf::from(source_file_path)
+        .parent()
+        .unwrap()
+        .join(asset_path)
+}
+
+/// Returns an empty PathBuf.
+#[doc(hidden)]
+#[cfg(not(feature = "embedded_watcher"))]
+pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) -> PathBuf {
+    PathBuf::from("")
 }
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
@@ -251,4 +296,112 @@ macro_rules! load_internal_binary_asset {
             ),
         );
     }};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::_embedded_asset_path;
+    use std::path::Path;
+
+    // Relative paths show up if this macro is being invoked by a local crate.
+    // In this case we know the relative path is a sub- path of the workspace
+    // root.
+
+    #[test]
+    fn embedded_asset_path_from_local_crate() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    // A blank src_path removes the embedded's file path altogether only the
+    // asset path remains.
+    #[test]
+    fn embedded_asset_path_from_local_crate_blank_src_path_questionable() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "".as_ref(),
+            "src/foo/some/deep/path/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to find src_prefix \"NOT-THERE\" in \"src")]
+    fn embedded_asset_path_from_local_crate_bad_src() {
+        let _asset_path = _embedded_asset_path(
+            "my_crate",
+            "NOT-THERE".as_ref(),
+            "src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+    }
+
+    #[test]
+    fn embedded_asset_path_from_local_example_crate() {
+        let asset_path = _embedded_asset_path(
+            "example_name",
+            "examples/foo".as_ref(),
+            "examples/foo/example.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("example_name/the/asset.png"));
+    }
+
+    // Absolute paths show up if this macro is being invoked by an external
+    // dependency, e.g. one that's being checked out from a crates repo or git.
+    #[test]
+    fn embedded_asset_path_from_external_crate() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "/path/to/crate/src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    #[test]
+    fn embedded_asset_path_from_external_crate_root_src_path() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "/path/to/crate/src".as_ref(),
+            "/path/to/crate/src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    // Although extraneous slashes are permitted at the end, e.g., "src////",
+    // one or more slashes at the beginning are not.
+    #[test]
+    #[should_panic(expected = "Failed to find src_prefix \"////src\" in")]
+    fn embedded_asset_path_from_external_crate_extraneous_beginning_slashes() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "////src".as_ref(),
+            "/path/to/crate/src/foo/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        assert_eq!(asset_path, Path::new("my_crate/foo/the/asset.png"));
+    }
+
+    // We don't handle this edge case because it is ambiguous with the
+    // information currently available to the embedded_path macro.
+    #[test]
+    fn embedded_asset_path_from_external_crate_is_ambiguous() {
+        let asset_path = _embedded_asset_path(
+            "my_crate",
+            "src".as_ref(),
+            "/path/to/.cargo/registry/src/crate/src/src/plugin.rs".as_ref(),
+            "the/asset.png".as_ref(),
+        );
+        // Really, should be "my_crate/src/the/asset.png"
+        assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
 }

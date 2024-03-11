@@ -2,22 +2,27 @@ mod camera_2d;
 mod main_pass_2d_node;
 
 pub mod graph {
-    pub const NAME: &str = "core_2d";
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct Core2d;
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
-    pub mod node {
-        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
-        pub const MAIN_PASS: &str = "main_pass";
-        pub const BLOOM: &str = "bloom";
-        pub const TONEMAPPING: &str = "tonemapping";
-        pub const FXAA: &str = "fxaa";
-        pub const UPSCALING: &str = "upscaling";
-        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
-        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Node2d {
+        MsaaWriteback,
+        MainPass,
+        Bloom,
+        Tonemapping,
+        Fxaa,
+        Upscaling,
+        ContrastAdaptiveSharpening,
+        EndMainPassPostProcessing,
     }
 }
-pub const CORE_2D: &str = graph::NAME;
 
 use std::ops::Range;
 
@@ -37,9 +42,12 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use bevy_utils::FloatOrd;
+use nonmax::NonMaxU32;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+
+use self::graph::{Core2d, Node2d};
 
 pub struct Core2dPlugin;
 
@@ -48,9 +56,8 @@ impl Plugin for Core2dPlugin {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app
@@ -61,21 +68,20 @@ impl Plugin for Core2dPlugin {
                 sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
             );
 
-        use graph::node::*;
         render_app
-            .add_render_sub_graph(CORE_2D)
-            .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_2D, TONEMAPPING)
-            .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, UPSCALING)
+            .add_render_sub_graph(Core2d)
+            .add_render_graph_node::<MainPass2dNode>(Core2d, Node2d::MainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
             .add_render_graph_edges(
-                CORE_2D,
-                &[
-                    MAIN_PASS,
-                    TONEMAPPING,
-                    END_MAIN_PASS_POST_PROCESSING,
-                    UPSCALING,
-                ],
+                Core2d,
+                (
+                    Node2d::MainPass,
+                    Node2d::Tonemapping,
+                    Node2d::EndMainPassPostProcessing,
+                    Node2d::Upscaling,
+                ),
             );
     }
 }
