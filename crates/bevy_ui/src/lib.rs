@@ -5,6 +5,7 @@
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod measurement;
 pub mod node_bundles;

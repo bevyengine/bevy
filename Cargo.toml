@@ -2763,6 +2763,18 @@ description = "A scene showcasing light gizmos"
 category = "Gizmos"
 wasm = true
 
+[[example]]
+name = "fps_overlay"
+path = "examples/dev_tools/fps_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -2776,3 +2788,4 @@ panic = "abort"
 
 [package.metadata.docs.rs]
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+all-features = true
