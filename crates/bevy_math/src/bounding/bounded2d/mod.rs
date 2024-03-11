@@ -152,6 +152,16 @@ impl BoundingVolume for Aabb2d {
         b
     }
 
+    #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        let b = Self {
+            min: self.center() - (self.half_size() * scale),
+            max: self.center() + (self.half_size() * scale),
+        };
+        debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
+        b
+    }
+
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
@@ -353,6 +363,19 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn scale_around_center() {
+        let a = Aabb2d {
+            min: Vec2::NEG_ONE,
+            max: Vec2::ONE,
+        };
+        let scaled = a.scale_around_center(Vec2::splat(2.));
+        assert!((scaled.min - Vec2::splat(-2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec2::splat(2.)).length() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
+    }
+
+    #[test]
     fn transform() {
         let a = Aabb2d {
             min: Vec2::new(-2.0, -2.0),
@@ -547,6 +570,12 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        debug_assert!(scale >= 0.);
+        Self::new(self.center, self.radius() * scale)
+    }
+
+    #[inline(always)]
     fn translate_by(&mut self, translation: Self::Translation) {
         self.center += translation;
     }
@@ -656,6 +685,15 @@ mod bounding_circle_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.);
+        let scaled = a.scale_around_center(2.);
+        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
     }
 
     #[test]
