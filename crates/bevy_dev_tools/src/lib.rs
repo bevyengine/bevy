@@ -65,8 +65,29 @@ impl DevToolId {
 pub struct DevTool {
     /// Identifier of a dev tool.
     pub id: DevToolId,
-    /// State of the dev tool.
-    pub is_enabled: bool,
+    is_enabled: bool,
+}
+
+impl DevTool {
+    /// Returns true if [`DevTool`] is enabled.
+    pub fn is_enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    /// Enables [`DevTool`].
+    pub fn enable(&mut self) {
+        self.is_enabled = true;
+    }
+
+    /// Disables
+    pub fn disable(&mut self) {
+        self.is_enabled = false;
+    }
+
+    /// Toggles [`DevTool`].
+    pub fn toggle(&mut self) {
+        self.is_enabled = !self.is_enabled;
+    }
 }
 
 impl DevTool {
