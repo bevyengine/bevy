@@ -13,6 +13,7 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
@@ -49,3 +50,6 @@ android_shared_stdcxx = ["cpal/oboe-shared-stdcxx"]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

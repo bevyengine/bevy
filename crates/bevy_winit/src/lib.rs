@@ -4,6 +4,7 @@
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod accessibility;
 mod converters;
