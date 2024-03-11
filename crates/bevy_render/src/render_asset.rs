@@ -7,14 +7,17 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    Typed, ValueInfo,
+    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
+    TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -66,6 +69,13 @@ bitflags::bitflags! {
     ///
     /// If you have an asset that doesn't actually need to end up in the render world, like an Image
     /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
+    ///
+    /// ## Platform-specific
+    ///
+    /// On Wasm, it is not possible for now to free reserved memory. To control memory usage, load assets
+    /// in sequence and unload one before loading the next. See this
+    /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
+    /// details.
     #[repr(transparent)]
     #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
     pub struct RenderAssetUsages: u8 {
@@ -152,6 +162,18 @@ impl Reflect for RenderAssetUsages {
         } else {
             Some(false)
         }
+    }
+}
+
+impl GetTypeRegistration for RenderAssetUsages {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
     }
 }
 

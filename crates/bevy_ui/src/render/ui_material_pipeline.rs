@@ -74,7 +74,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
                     ),
                 )
                 .add_systems(
@@ -339,6 +339,10 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub border: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
+    // Camera to render this UI node to. By the time it is extracted,
+    // it is defaulted to a single camera if only one exists.
+    // Nodes with ambiguous camera will be ignored.
+    pub camera_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -358,6 +362,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
             (
@@ -368,6 +373,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 &Handle<M>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
+                Option<&TargetCamera>,
             ),
             Without<BackgroundColor>,
         >,
@@ -377,15 +383,24 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
+
+    // If there is only one camera, we use it as default
+    let default_single_camera = default_ui_camera.get();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip)) =
+        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip, camera)) =
             uinode_query.get(*entity)
         {
+            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
+            else {
+                continue;
+            };
+
             // skip invisible nodes
             if !view_visibility.get() {
                 continue;
@@ -428,6 +443,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     },
                     border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
+                    camera_entity,
                 },
             );
         };
@@ -747,29 +763,32 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(&extracted_uinode.material) else {
             continue;
         };
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                UiMaterialKey {
-                    hdr: view.hdr,
-                    bind_group_data: material.key.clone(),
-                },
-            );
-            transparent_phase
-                .items
-                .reserve(extracted_uinodes.uinodes.len());
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: *entity,
-                sort_key: (
-                    FloatOrd(extracted_uinode.stack_index as f32),
-                    entity.index(),
-                ),
-                batch_range: 0..0,
-                dynamic_offset: None,
-            });
-        }
+        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
+            continue;
+        };
+
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_material_pipeline,
+            UiMaterialKey {
+                hdr: view.hdr,
+                bind_group_data: material.key.clone(),
+            },
+        );
+        transparent_phase
+            .items
+            .reserve(extracted_uinodes.uinodes.len());
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: *entity,
+            sort_key: (
+                FloatOrd(extracted_uinode.stack_index as f32),
+                entity.index(),
+            ),
+            batch_range: 0..0,
+            dynamic_offset: None,
+        });
     }
 }

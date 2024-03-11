@@ -1,6 +1,6 @@
 //! Example demonstrating bordered UI nodes
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -23,7 +23,7 @@ fn setup(mut commands: Commands) {
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(LegacyColor::DARK_GRAY),
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
             ..Default::default()
         })
         .id();
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                background_color: LegacyColor::YELLOW.into(),
+                background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
@@ -108,14 +108,14 @@ fn setup(mut commands: Commands) {
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    background_color: LegacyColor::MAROON.into(),
-                    border_color: LegacyColor::RED.into(),
+                    background_color: MAROON.into(),
+                    border_color: RED.into(),
                     ..Default::default()
                 },
                 Outline {
                     width: Val::Px(6.),
                     offset: Val::Px(6.),
-                    color: LegacyColor::WHITE,
+                    color: Color::WHITE,
                 },
             ))
             .add_child(inner_spot)

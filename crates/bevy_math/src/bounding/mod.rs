@@ -10,16 +10,20 @@
 /// overlapping elements or finding intersections.
 ///
 /// This trait supports both 2D and 3D bounding shapes.
-pub trait BoundingVolume {
+pub trait BoundingVolume: Sized {
     /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
-    type Position: Clone + Copy + PartialEq;
+    type Translation: Clone + Copy + PartialEq;
+
+    /// The rotation type used for the volume. This should be `f32` for 2D and `Quat` for 3D.
+    type Rotation: Clone + Copy + PartialEq;
+
     /// The type used for the size of the bounding volume. Usually a half size. For example an
     /// `f32` radius for a circle, or a `Vec3` with half sizes for x, y and z for a 3D axis-aligned
     /// bounding box
     type HalfSize;
 
     /// Returns the center of the bounding volume.
-    fn center(&self) -> Self::Position;
+    fn center(&self) -> Self::Translation;
 
     /// Returns the half size of the bounding volume.
     fn half_size(&self) -> Self::HalfSize;
@@ -38,14 +42,50 @@ pub trait BoundingVolume {
     /// Computes the smallest bounding volume that contains both `self` and `other`.
     fn merge(&self, other: &Self) -> Self;
 
-    /// Increase the size of the bounding volume in each direction by the given amount
+    /// Increases the size of the bounding volume in each direction by the given amount.
     fn grow(&self, amount: Self::HalfSize) -> Self;
 
-    /// Decrease the size of the bounding volume in each direction by the given amount
+    /// Decreases the size of the bounding volume in each direction by the given amount.
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
     /// Scale the size of the bounding volume around its center by the given amount
     fn scale_around_center(&self, scale: Self::HalfSize) -> Self;
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+        self.transform_by(translation, rotation);
+        self
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+        self.rotate_by(rotation);
+        self.translate_by(translation);
+    }
+
+    /// Translates the bounding volume by the given translation.
+    fn translated_by(mut self, translation: Self::Translation) -> Self {
+        self.translate_by(translation);
+        self
+    }
+
+    /// Translates the bounding volume by the given translation.
+    fn translate_by(&mut self, translation: Self::Translation);
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is a combination of the original volume and the rotated volume,
+    /// so it is guaranteed to be either the same size or larger than the original.
+    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is a combination of the original volume and the rotated volume,
+    /// so it is guaranteed to be either the same size or larger than the original.
+    fn rotate_by(&mut self, rotation: Self::Rotation);
 }
 
 /// A trait that generalizes intersection tests against a volume.

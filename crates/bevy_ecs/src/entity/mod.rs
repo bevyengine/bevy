@@ -81,6 +81,17 @@ type IdCursor = isize;
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
+/// # Stability warning
+/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
+/// representation is liable to change from release to release as are the behaviors or performance
+/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in
+/// `Entity`'s representation, though made readable through various functions on the type, are not considered
+/// breaking changes under [SemVer].
+///
+/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarantee of long
+/// term wire format compatibility. Changes in behavior will cause serialized `Entity` values persisted
+/// to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being updated.
+///
 /// # Usage
 ///
 /// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
@@ -127,6 +138,7 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
+/// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(

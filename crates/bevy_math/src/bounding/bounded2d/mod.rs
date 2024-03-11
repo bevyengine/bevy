@@ -93,11 +93,12 @@ impl Aabb2d {
 }
 
 impl BoundingVolume for Aabb2d {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = Vec2;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
@@ -156,6 +157,66 @@ impl BoundingVolume for Aabb2d {
         };
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
         b
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+        self.transform_by(translation, rotation);
+        self
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+        self.rotate_by(rotation);
+        self.translate_by(translation);
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Self::Translation) {
+        self.min += translation;
+        self.max += translation;
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: Self::Rotation) {
+        let rot_mat = Mat2::from_angle(rotation);
+        let abs_rot_mat = Mat2::from_cols(rot_mat.x_axis.abs(), rot_mat.y_axis.abs());
+        let half_size = abs_rot_mat * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
@@ -301,6 +362,24 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn transform() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let half_length = 2_f32.hypot(2.0);
+        assert_eq!(
+            transformed.min,
+            Vec2::new(2.0 - half_length, -half_length - 2.0)
+        );
+        assert_eq!(
+            transformed.max,
+            Vec2::new(2.0 + half_length, half_length - 2.0)
+        );
+    }
+
+    #[test]
     fn closest_point() {
         let aabb = Aabb2d {
             min: Vec2::NEG_ONE,
@@ -419,11 +498,12 @@ impl BoundingCircle {
 }
 
 impl BoundingVolume for BoundingCircle {
-    type Position = Vec2;
+    type Translation = Vec2;
+    type Rotation = f32;
     type HalfSize = f32;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         self.center
     }
 
@@ -477,6 +557,16 @@ impl BoundingVolume for BoundingCircle {
     fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
         debug_assert!(scale >= 0.);
         Self::new(self.center, self.radius() * scale)
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Vec2) {
+        self.center += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: f32) {
+        self.center = Mat2::from_angle(rotation) * self.center;
     }
 }
 
@@ -587,6 +677,17 @@ mod bounding_circle_tests {
         assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = BoundingCircle::new(Vec2::ONE, 5.0);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        assert_eq!(
+            transformed.center,
+            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+        );
+        assert_eq!(transformed.radius(), 5.0);
     }
 
     #[test]

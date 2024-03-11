@@ -18,8 +18,9 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::NoFrustumCulling,
     },
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -42,6 +43,10 @@ struct Args {
     /// the number of different textures from which to randomly select the material base color. 0 means no textures.
     #[argh(option, default = "0")]
     material_texture_count: usize,
+
+    /// whether to disable frustum culling, for stress testing purposes
+    #[argh(switch)]
+    no_frustum_culling: bool,
 }
 
 #[derive(Default, Clone)]
@@ -131,12 +136,15 @@ fn setup(
                 let spherical_polar_theta_phi =
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-                commands.spawn(PbrBundle {
+                let mut cube = commands.spawn(PbrBundle {
                     mesh: mesh.clone(),
                     material: materials.choose(&mut material_rng).unwrap().clone(),
                     transform: Transform::from_translation((radius * unit_sphere_p).as_vec3()),
                     ..default()
                 });
+                if args.no_frustum_culling {
+                    cube.insert(NoFrustumCulling);
+                }
             }
 
             // camera
@@ -233,7 +241,7 @@ fn init_materials(
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
         ..default()
     }));
@@ -243,7 +251,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: LegacyColor::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

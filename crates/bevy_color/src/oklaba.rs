@@ -1,11 +1,15 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Lcha, LinearRgba, Luminance, Mix, Srgba,
-    StandardColor,
+    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
+    Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
-/// Color in Oklaba color space, with alpha
+/// Color in Oklab color space, with alpha
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Oklaba {
@@ -95,6 +99,11 @@ impl Alpha for Oklaba {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl Luminance for Oklaba {
@@ -146,9 +155,68 @@ impl From<LinearRgba> for Oklaba {
     }
 }
 
-impl From<Srgba> for Oklaba {
-    fn from(value: Srgba) -> Self {
-        Oklaba::from(LinearRgba::from(value))
+#[allow(clippy::excessive_precision)]
+impl From<Oklaba> for LinearRgba {
+    fn from(value: Oklaba) -> Self {
+        let Oklaba { l, a, b, alpha } = value;
+
+        // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
+        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
+
+        let l = l_ * l_ * l_;
+        let m = m_ * m_ * m_;
+        let s = s_ * s_ * s_;
+
+        let red = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        let green = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        let blue = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+        Self {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+// Derived Conversions
+
+impl From<Hsla> for Oklaba {
+    fn from(value: Hsla) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hsla {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Hsva> for Oklaba {
+    fn from(value: Hsva) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hsva {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Hwba> for Oklaba {
+    fn from(value: Hwba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Hwba {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
     }
 }
 
@@ -158,8 +226,32 @@ impl From<Lcha> for Oklaba {
     }
 }
 
-impl From<Hsla> for Oklaba {
-    fn from(value: Hsla) -> Self {
+impl From<Oklaba> for Lcha {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Srgba> for Oklaba {
+    fn from(value: Srgba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Srgba {
+    fn from(value: Oklaba) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Xyza> for Oklaba {
+    fn from(value: Xyza) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Oklaba> for Xyza {
+    fn from(value: Oklaba) -> Self {
         LinearRgba::from(value).into()
     }
 }

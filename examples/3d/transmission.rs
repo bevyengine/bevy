@@ -21,14 +21,17 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::*,
     core_pipeline::{
         bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
-    render::camera::{Exposure, TemporalJitter},
-    render::view::ColorGrading,
+    render::{
+        camera::{Exposure, TemporalJitter},
+        view::ColorGrading,
+    },
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -41,7 +44,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(LegacyColor::BLACK))
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
         .insert_resource(AmbientLight {
             brightness: 0.0,
@@ -117,7 +120,7 @@ fn setup(
         PbrBundle {
             mesh: cylinder_mesh,
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::rgba(0.9, 0.2, 0.3, 1.0),
+                base_color: Color::srgb(0.9, 0.2, 0.3),
                 diffuse_transmission: 0.7,
                 perceptual_roughness: 0.32,
                 thickness: 0.2,
@@ -134,11 +137,21 @@ fn setup(
     ));
 
     // Candle Flame
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
+    let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let emissive = LinearRgba {
+        red: scaled_white.red + scaled_orange.red,
+        green: scaled_white.green + scaled_orange.green,
+        blue: scaled_white.blue + scaled_orange.blue,
+        alpha: 1.0,
+    }
+    .into();
+
     commands.spawn((
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                emissive: LegacyColor::ANTIQUE_WHITE * 80.0 + LegacyColor::ORANGE_RED * 16.0,
+                emissive,
                 diffuse_transmission: 1.0,
                 ..default()
             }),
@@ -154,7 +167,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::WHITE,
+                base_color: Color::WHITE,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -177,7 +190,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::RED,
+                base_color: RED.into(),
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -200,7 +213,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::GREEN,
+                base_color: LIME.into(),
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -223,7 +236,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh,
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::BLUE,
+                base_color: BLUE.into(),
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -243,14 +256,14 @@ fn setup(
 
     // Chessboard Plane
     let black_material = materials.add(StandardMaterial {
-        base_color: LegacyColor::BLACK,
+        base_color: Color::BLACK,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
     });
 
     let white_material = materials.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
@@ -283,7 +296,7 @@ fn setup(
         PbrBundle {
             mesh: plane_mesh,
             material: materials.add(StandardMaterial {
-                base_color: LegacyColor::WHITE,
+                base_color: Color::WHITE,
                 diffuse_transmission: 0.6,
                 perceptual_roughness: 0.8,
                 reflectance: 1.0,
@@ -309,7 +322,9 @@ fn setup(
         PointLightBundle {
             transform: Transform::from_xyz(-1.0, 1.7, 0.0),
             point_light: PointLight {
-                color: LegacyColor::ANTIQUE_WHITE * 0.8 + LegacyColor::ORANGE_RED * 0.2,
+                color: Color::from(
+                    LinearRgba::from(ANTIQUE_WHITE).mix(&LinearRgba::from(ORANGE_RED), 0.2),
+                ),
                 intensity: 4_000.0,
                 radius: 0.2,
                 range: 5.0,
@@ -350,8 +365,7 @@ fn setup(
     // Controls Text
     let text_style = TextStyle {
         font_size: 18.0,
-        color: LegacyColor::WHITE,
-        ..Default::default()
+        ..default()
     };
 
     commands.spawn((
@@ -476,9 +490,8 @@ fn example_control_system(
         }
 
         if controls.color && randomize_colors {
-            material.base_color.set_r(random());
-            material.base_color.set_g(random());
-            material.base_color.set_b(random());
+            material.base_color =
+                Color::srgba(random(), random(), random(), material.base_color.alpha());
         }
     }
 

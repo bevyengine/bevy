@@ -115,7 +115,9 @@ impl GlyphBrush {
                 if !text_settings.allow_dynamic_font_size
                     && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn_once!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
+                    warn_once!(
+                        "warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer. See: https://bevyengine.org/learn/errors/#b0005",
+                        text_settings.soft_max_font_atlases.get());
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
