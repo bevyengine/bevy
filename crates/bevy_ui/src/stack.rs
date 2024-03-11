@@ -114,7 +114,11 @@ fn insert_context_hierarchy(
 }
 
 /// Flatten `StackingContext` (z-index based UI node tree) into back-to-front entities list
-fn fill_stack_recursively(cache: &mut Vec<StackingContext>, result: &mut Vec<Entity>, stack: &mut StackingContext) {
+fn fill_stack_recursively(
+    cache: &mut Vec<StackingContext>,
+    result: &mut Vec<Entity>,
+    stack: &mut StackingContext,
+) {
     // Sort entries by ascending z_index, while ensuring that siblings
     // with the same local z_index will keep their ordering. This results
     // in `back-to-front` ordering, low z_index = back; high z_index = front.
