@@ -1,9 +1,7 @@
 mod primitive_impls;
 
-use glam::Mat2;
-
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::Vec2;
+use crate::prelude::{Mat2, Rotation2d, Vec2};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -21,10 +19,11 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d;
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d;
     /// Get a bounding circle for the shape
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle;
+    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rotation2d>)
+        -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -55,10 +54,14 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+        points: &[Vec2],
+    ) -> Aabb2d {
         // Transform all points by rotation
-        let rotation_mat = Mat2::from_angle(rotation);
-        let mut iter = points.iter().map(|point| rotation_mat * *point);
+        let rotation: Rotation2d = rotation.into();
+        let mut iter = points.iter().map(|point| rotation * *point);
 
         let first = iter
             .next()
@@ -94,7 +97,7 @@ impl Aabb2d {
 
 impl BoundingVolume for Aabb2d {
     type Translation = Vec2;
-    type Rotation = f32;
+    type Rotation = Rotation2d;
     type HalfSize = Vec2;
 
     #[inline(always)]
@@ -157,7 +160,11 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+    fn transformed_by(
+        mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
         self.transform_by(translation, rotation);
         self
     }
@@ -170,7 +177,11 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+    fn transform_by(
+        &mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) {
         self.rotate_by(rotation);
         self.translate_by(translation);
     }
@@ -189,7 +200,7 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
     }
@@ -202,11 +213,14 @@ impl BoundingVolume for Aabb2d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: Self::Rotation) {
-        let rot_mat = Mat2::from_angle(rotation);
-        let abs_rot_mat = Mat2::from_cols(rot_mat.x_axis.abs(), rot_mat.y_axis.abs());
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Rotation2d = rotation.into();
+        let abs_rot_mat = Mat2::from_cols(
+            Vec2::new(rotation.cos, rotation.sin),
+            Vec2::new(rotation.sin, rotation.cos),
+        );
         let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(rot_mat * self.center(), half_size);
+        *self = Self::new(rotation * self.center(), half_size);
     }
 }
 
@@ -431,7 +445,12 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(translation: Vec2, rotation: f32, points: &[Vec2]) -> BoundingCircle {
+    pub fn from_point_cloud(
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+        points: &[Vec2],
+    ) -> BoundingCircle {
+        let rotation: Rotation2d = rotation.into();
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -443,10 +462,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(
-            Mat2::from_angle(rotation) * center + translation,
-            radius_squared.sqrt(),
-        )
+        BoundingCircle::new(rotation * center + translation, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding circle
@@ -476,7 +492,7 @@ impl BoundingCircle {
 
 impl BoundingVolume for BoundingCircle {
     type Translation = Vec2;
-    type Rotation = f32;
+    type Rotation = Rotation2d;
     type HalfSize = f32;
 
     #[inline(always)]
@@ -531,13 +547,14 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Vec2) {
+    fn translate_by(&mut self, translation: Self::Translation) {
         self.center += translation;
     }
 
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: f32) {
-        self.center = Mat2::from_angle(rotation) * self.center;
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Rotation2d = rotation.into();
+        self.center = rotation * self.center;
     }
 }
 

@@ -155,7 +155,11 @@ impl BoundingVolume for Aabb3d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+    fn transformed_by(
+        mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
         self.transform_by(translation, rotation);
         self
     }
@@ -168,7 +172,11 @@ impl BoundingVolume for Aabb3d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+    fn transform_by(
+        &mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) {
         self.rotate_by(rotation);
         self.translate_by(translation);
     }
@@ -187,7 +195,7 @@ impl BoundingVolume for Aabb3d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
     }
@@ -200,8 +208,8 @@ impl BoundingVolume for Aabb3d {
     /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: Self::Rotation) {
-        let rot_mat = Mat3::from_quat(rotation);
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rot_mat = Mat3::from_quat(rotation.into());
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
             rot_mat.y_axis.abs(),
@@ -542,12 +550,13 @@ impl BoundingVolume for BoundingSphere {
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Vec3) {
+    fn translate_by(&mut self, translation: Self::Translation) {
         self.center += translation;
     }
 
     #[inline(always)]
-    fn rotate_by(&mut self, rotation: Quat) {
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Quat = rotation.into();
         self.center = rotation * self.center;
     }
 }
