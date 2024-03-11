@@ -70,6 +70,7 @@ use bevy_ecs::{
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
 };
+use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -344,7 +345,7 @@ struct LineGizmoUniform {
 
 #[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
-    positions: Vec<[f32; 3]>,
+    positions: Vec<Vec3>,
     colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
