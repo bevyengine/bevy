@@ -15,8 +15,9 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
+/// Caches stacking context buffers for use in [`ui_stack_system`].
 #[derive(Default)]
-pub struct StackingContextCache {
+pub(crate) struct StackingContextCache {
     inner: Vec<StackingContext>,
 }
 
@@ -35,20 +36,20 @@ impl StackingContextCache {
 
 #[derive(Default)]
 struct StackingContext {
-    pub entries: Vec<StackingContextEntry>,
+    entries: Vec<StackingContextEntry>,
 }
 
 struct StackingContextEntry {
-    pub z_index: i32,
-    pub entity: Entity,
-    pub stack: StackingContext,
+    z_index: i32,
+    entity: Entity,
+    stack: StackingContext,
 }
 
 /// Generates the render stack for UI nodes.
 ///
 /// First generate a UI node tree (`StackingContext`) based on z-index.
 /// Then flatten that tree into back-to-front ordered `UiStack`.
-pub fn ui_stack_system(
+pub(crate) fn ui_stack_system(
     mut cache: Local<StackingContextCache>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
