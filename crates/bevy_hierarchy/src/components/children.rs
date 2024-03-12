@@ -6,8 +6,8 @@ use bevy_ecs::{
     prelude::FromWorld,
     world::World,
 };
-use bevy_utils::smallvec::SmallVec;
 use core::slice;
+use smallvec::SmallVec;
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
