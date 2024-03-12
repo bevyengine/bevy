@@ -38,8 +38,10 @@ impl<I, O> RemovedSystem<I, O> {
 ///
 /// These are opaque identifiers, keyed to a specific [`World`],
 /// and are created via [`World::register_system`].
-#[derive(Eq)]
 pub struct SystemId<I = (), O = ()>(Entity, std::marker::PhantomData<fn(I) -> O>);
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I, O> Eq for SystemId<I, O> {}
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I, O> Copy for SystemId<I, O> {}
