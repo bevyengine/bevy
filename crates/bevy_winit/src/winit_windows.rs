@@ -12,6 +12,7 @@ use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowReso
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     monitor::MonitorHandle,
+    platform::windows::WindowBuilderExtWindows,
 };
 
 use crate::{
@@ -103,6 +104,11 @@ impl WinitWindows {
             .with_decorations(window.decorations)
             .with_transparent(window.transparent)
             .with_visible(window.visible);
+
+        #[cfg(target_os = "windows")]
+        {
+            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar)
+        }
 
         #[cfg(any(
             target_os = "linux",
