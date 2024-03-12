@@ -6,29 +6,30 @@
 [![Docs](https://docs.rs/bevy_ptr/badge.svg)](https://docs.rs/bevy_ptr/latest/bevy_ptr/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
-Pointers in computer programming are objects that store a memory address. They're a fundamental building block for constructing more 
+Pointers in computer programming are objects that store a memory address. They're a fundamental building block for constructing more
 complex data structures.
 
-They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying 
+They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying
 memory has been freed, and even ignore type safety and misread or mutate the underlying memory improperly.
 
-Rust is a programming language that heavily relies on its types to enforce correctness, and by proxy, memory safety. As a result, 
+Rust is a programming language that heavily relies on its types to enforce correctness, and by proxy, memory safety. As a result,
 Rust has an entire zoo of types for working with pointers, and a graph of safe and unsafe conversions that make working with them safer.
 
-`bevy_ptr` is a crate that attempts to bridge the gap between the full blown unsafety of `*mut ()` and the safe `&'a T`, allowing users 
+`bevy_ptr` is a crate that attempts to bridge the gap between the full blown unsafety of `*mut ()` and the safe `&'a T`, allowing users
 to choose what invariants to uphold for their pointer, with the intent to enable building progressively safer abstractions.
 
 ## How to Build a Borrow (From Scratch)
+
 Correctly and safety converting a pointer into a valid borrow is at the core of all `unsafe` code in Rust. Looking at the documentation for
 [`(*const T)::as_ref`], a pointer must satisfy *all* of the following conditions:
 
-  * The pointer must be properly aligned.
-  * The pointer cannot be null, even for zero sized types.
-  * The pointer must be within bounds of a valid allocated object (on the stack or the heap).
-  * The pointer must point to an initialized instance of `T`.
-  * The newly assigned lifetime should be valid for the value that the pointer is targeting.
-  * The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
-    in time, and converting from `&T` to `&mut T` is never allowed.
+* The pointer must be properly aligned.
+* The pointer cannot be null, even for zero sized types.
+* The pointer must be within bounds of a valid allocated object (on the stack or the heap).
+* The pointer must point to an initialized instance of `T`.
+* The newly assigned lifetime should be valid for the value that the pointer is targeting.
+* The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
+  in time, and converting from `&T` to `&mut T` is never allowed.
 
 Note these rules aren't final and are still in flux as the Rust Project hashes out what exactly are the pointer aliasing rules, but the expectation is that the
 final set of constraints are going to be a superset of this list, not a subset.
@@ -65,8 +66,8 @@ of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++
 
 `*const ()` is the bottom of this list. They're the Rust equivalent to C's `void*`.  Note that Rust doesn't formally have a concept of type that holds an arbitrary
 untyped memory address. Pointing at the unit type (or some other zero-sized type) just happens to be the convention. The only way to reasonably use them is to
-cast back to a typed pointer. They show up occasionally when dealing with FFI and the rare occasion where dynamic dispatch is required, but a trait is too 
-constraining of an interface to work with. A great example of this are the [RawWaker] APIs, where a singular trait (or set of traits) may be insufficient to capture 
+cast back to a typed pointer. They show up occasionally when dealing with FFI and the rare occasion where dynamic dispatch is required, but a trait is too
+constraining of an interface to work with. A great example of this are the [RawWaker] APIs, where a singular trait (or set of traits) may be insufficient to capture
 all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to to mutate an unknown type.
 
 [RawWaker]: https://doc.rust-lang.org/std/task/struct.RawWaker.html
