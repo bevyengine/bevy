@@ -381,7 +381,7 @@ impl<'a> AssetPath<'a> {
 
     /// Resolves an embedded asset path via concatenation. The result will be an `AssetPath` which
     /// is resolved relative to this path. This is similar in operation to `resolve`, except that
-    /// the the 'file' portion of the base path (that is, any characters after the last '/')
+    /// the 'file' portion of the base path (that is, any characters after the last '/')
     /// is removed before concatenation, in accordance with the behavior specified in
     /// IETF RFC 1808 "Relative URIs".
     ///

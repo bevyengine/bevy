@@ -60,7 +60,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            type Storage = #storage;
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
         }
     })
 }
@@ -110,10 +110,10 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 }
 
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
-    let typename = match ty {
-        StorageTy::Table => Ident::new("TableStorage", Span::call_site()),
-        StorageTy::SparseSet => Ident::new("SparseStorage", Span::call_site()),
+    let storage_type = match ty {
+        StorageTy::Table => Ident::new("Table", Span::call_site()),
+        StorageTy::SparseSet => Ident::new("SparseSet", Span::call_site()),
     };
 
-    quote! { #bevy_ecs_path::component::#typename }
+    quote! { #bevy_ecs_path::component::StorageType::#storage_type }
 }

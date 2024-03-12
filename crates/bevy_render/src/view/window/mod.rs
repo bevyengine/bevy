@@ -276,7 +276,7 @@ pub fn prepare_windows(
                 format!("MSAA {}x", fallback.samples())
             };
 
-            bevy_log::warn!(
+            bevy_utils::tracing::warn!(
                 "MSAA {}x is not supported on this device. Falling back to {}.",
                 msaa.samples(),
                 fallback_str,

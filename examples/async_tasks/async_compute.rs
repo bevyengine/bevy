@@ -2,7 +2,8 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
-    ecs::system::{CommandQueue, SystemState},
+    ecs::system::SystemState,
+    ecs::world::CommandQueue,
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };

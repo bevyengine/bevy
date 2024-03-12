@@ -40,7 +40,7 @@ impl SystemInformationDiagnosticsPlugin {
 ))]
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_log::info;
+    use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
@@ -136,7 +136,7 @@ pub mod internal {
 )))]
 pub mod internal {
     pub(crate) fn setup_system() {
-        bevy_log::warn!("This platform and/or configuration is not supported!");
+        bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
     }
 
     pub(crate) fn diagnostic_system() {

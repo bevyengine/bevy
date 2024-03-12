@@ -1,10 +1,11 @@
+use crate::system::{SystemBuffer, SystemMeta};
+
 use std::{fmt::Debug, mem::MaybeUninit};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
 
-use super::Command;
-use crate::world::World;
+use crate::world::{Command, World};
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -231,6 +232,15 @@ impl Drop for CommandQueue {
             warn!("CommandQueue has un-applied commands being dropped.");
         }
         self.apply_or_drop_queued(None);
+    }
+}
+
+impl SystemBuffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span_guard = _system_meta.commands_span.enter();
+        self.apply(world);
     }
 }
 

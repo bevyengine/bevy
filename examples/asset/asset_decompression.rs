@@ -1,6 +1,5 @@
 //! Implements loader for a Gzip compressed asset.
 
-use bevy::utils::thiserror;
 use bevy::{
     asset::{
         io::{Reader, VecReader},

@@ -18,8 +18,8 @@ use crate::{
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
