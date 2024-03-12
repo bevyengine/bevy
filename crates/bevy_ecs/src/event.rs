@@ -3,6 +3,7 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 pub use bevy_ecs_macros::Event;
+use bevy_ecs_macros::SystemSet;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -13,6 +14,7 @@ use std::{
     marker::PhantomData,
     slice::Iter,
 };
+
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -33,6 +35,7 @@ pub struct EventId<E: Event> {
 }
 
 impl<E: Event> Copy for EventId<E> {}
+
 impl<E: Event> Clone for EventId<E> {
     fn clone(&self) -> Self {
         *self
@@ -346,7 +349,7 @@ impl<E: Event> Events<E> {
     }
 }
 
-impl<E: Event> std::iter::Extend<E> for Events<E> {
+impl<E: Event> Extend<E> for Events<E> {
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
@@ -407,6 +410,11 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
+///
+/// # Concurrency
+///
+/// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
+/// (but not concurrently with `EventWriter<T>` systems for the same event type).
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
@@ -484,7 +492,12 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// # Limitations
+/// # Concurrency
+///
+/// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
+/// for the same event type won't be executed concurrently.
+///
+/// # Untyped events
 ///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
@@ -546,7 +559,46 @@ impl<'w, E: Event> EventWriter<'w, E> {
 }
 
 /// Stores the state for an [`EventReader`].
+///
 /// Access to the [`Events<E>`] resource is required to read any incoming events.
+///
+/// In almost all cases, you should just use an [`EventReader`],
+/// which will automatically manage the state for you.
+///
+/// However, this type can be useful if you need to manually track events,
+/// such as when you're attempting to send and receive events of the same type in the same system.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::{Event, Events, ManualEventReader};
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct MyEvent;
+///
+/// /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
+/// fn send_and_receive_manual_event_reader(
+///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
+///     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+///     mut local_event_reader: Local<ManualEventReader<MyEvent>>,
+///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
+///     mut events: ResMut<Events<MyEvent>>,
+/// ) {
+///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
+///     let mut events_to_resend = Vec::new();
+///
+///     for event in local_event_reader.read(&events) {
+///          events_to_resend.push(event.clone());
+///     }
+///
+///     for event in events_to_resend {
+///         events.send(MyEvent);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_reader);
+/// ```
 #[derive(Debug)]
 pub struct ManualEventReader<E: Event> {
     last_event_count: usize,
@@ -616,8 +668,12 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
         self.iter.next().map(|(event, _)| event)
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.iter.nth(n).map(|(event, _)| event)
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
     }
 
     fn last(self) -> Option<Self::Item>
@@ -627,12 +683,8 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
         self.iter.last().map(|(event, _)| event)
     }
 
-    fn count(self) -> usize {
-        self.iter.count()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n).map(|(event, _)| event)
     }
 }
 
@@ -653,8 +705,12 @@ pub struct EventIteratorWithId<'a, E: Event> {
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
-        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
-        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a_index = reader
+            .last_event_count
+            .saturating_sub(events.events_a.start_event_count);
+        let b_index = reader
+            .last_event_count
+            .saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
 
@@ -696,16 +752,13 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         }
     }
 
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
-            self.reader.last_event_count += n + 1;
-            self.unread -= n + 1;
-            Some((event, *event_id))
-        } else {
-            self.reader.last_event_count += self.unread;
-            self.unread = 0;
-            None
-        }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chain.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.reader.last_event_count += self.unread;
+        self.unread
     }
 
     fn last(self) -> Option<Self::Item>
@@ -717,13 +770,16 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
         Some((event, *event_id))
     }
 
-    fn count(self) -> usize {
-        self.reader.last_event_count += self.unread;
-        self.unread
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chain.size_hint()
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if let Some(EventInstance { event_id, event }) = self.chain.nth(n) {
+            self.reader.last_event_count += n + 1;
+            self.unread -= n + 1;
+            Some((event, *event_id))
+        } else {
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
+            None
+        }
     }
 }
 
@@ -737,22 +793,33 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 #[derive(Resource, Default)]
 pub struct EventUpdateSignal(bool);
 
-/// A system that queues a call to [`Events::update`].
-pub fn event_queue_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
+#[doc(hidden)]
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EventUpdates;
+
+/// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
+pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
     if let Some(mut s) = signal {
         s.0 = true;
     }
 }
 
+/// Resets the `EventUpdateSignal`
+pub fn reset_event_update_signal_system(signal: Option<ResMut<EventUpdateSignal>>) {
+    if let Some(mut s) = signal {
+        s.0 = false;
+    }
+}
+
 /// A system that calls [`Events::update`].
 pub fn event_update_system<T: Event>(
-    signal: Option<ResMut<EventUpdateSignal>>,
+    update_signal: Option<Res<EventUpdateSignal>>,
     mut events: ResMut<Events<T>>,
 ) {
-    if let Some(mut s) = signal {
+    if let Some(signal) = update_signal {
         // If we haven't got a signal to update the events, but we *could* get such a signal
         // return early and update the events later.
-        if !std::mem::replace(&mut s.0, false) {
+        if !signal.0 {
             return;
         }
     }

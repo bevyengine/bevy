@@ -7,9 +7,9 @@ use crate::{
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::thiserror::Error;
 use encase::ShaderType;
 use std::ops::Deref;
+use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
@@ -20,7 +20,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
 /// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
-/// Can be created via [`RenderDevice::create_bind_group`](crate::renderer::RenderDevice::create_bind_group).
+/// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
@@ -74,12 +74,13 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{color::Color, render_resource::*, texture::Image};
+/// # use bevy_render::{render_resource::*, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
@@ -87,26 +88,29 @@ impl Deref for BindGroup {
 ///     values: Vec<f32>,
 ///     #[storage(4, read_only, buffer)]
 ///     buffer: Buffer,
+///     #[storage_texture(5)]
+///     storage_texture: Handle<Image>,
 /// }
 /// ```
 ///
 /// In WGSL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2) var color_sampler: sampler;
-/// @group(1) @binding(3) var<storage> values: array<f32>;
+/// @group(2) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
+/// @group(2) @binding(3) var<storage> values: array<f32>;
+/// @group(2) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
-/// are generally bound to group 1.
+/// are generally bound to group 2.
 ///
 /// The following field-level attributes are supported:
 ///
 /// * `uniform(BINDING_INDEX)`
 ///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
 ///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///   [`Color`](crate::color::Color). It can also be derived for custom structs.
+///   [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
@@ -122,6 +126,19 @@ impl Deref for BindGroup {
 /// | `filterable` = ...    | `true`, `false`                                                         | `true`               |
 /// | `multisampled` = ...  | `true`, `false`                                                         | `false`              |
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
+///
+/// * `storage_texture(BINDING_INDEX, arguments)`
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///     GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///     [`None`], the [`FallbackImage`] resource will be used instead.
+///
+/// | Arguments              | Values                                                                                     | Default       |
+/// |------------------------|--------------------------------------------------------------------------------------------|---------------|
+/// | `dimension` = "..."    | `"1d"`, `"2d"`, `"2d_array"`, `"3d"`, `"cube"`, `"cube_array"`                             | `"2d"`        |
+/// | `image_format` = ...   | any member of [`TextureFormat`](crate::render_resource::TextureFormat)                     | `Rgba8Unorm`  |
+/// | `access` = ...         | any member of [`StorageTextureAccess`](crate::render_resource::StorageTextureAccess)       | `ReadWrite`   |
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute`                    | `compute`     |
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
@@ -146,24 +163,26 @@ impl Deref for BindGroup {
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     this_field_is_ignored: String,
 /// }
 /// ```
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup, texture::Image};
+/// # use bevy_render::{render_resource::AsBindGroup, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Option<Handle<Image>>,
@@ -174,11 +193,12 @@ impl Deref for BindGroup {
 ///
 /// Field uniforms with the same index will be combined into a single binding:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[uniform(0)]
 ///     roughness: f32,
 /// }
@@ -191,7 +211,7 @@ impl Deref for BindGroup {
 ///     roughness: f32,
 /// };
 ///
-/// @group(1) @binding(0) var<uniform> material: CoolMaterial;
+/// @group(2) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
@@ -211,17 +231,18 @@ impl Deref for BindGroup {
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// #[uniform(0, CoolMaterialUniform)]
 /// struct CoolMaterial {
-///     color: Color,
+///     color: LinearRgba,
 ///     roughness: f32,
 /// }
 ///
 /// #[derive(ShaderType)]
 /// struct CoolMaterialUniform {
-///     color: Color,
+///     color: LinearRgba,
 ///     roughness: f32,
 /// }
 ///
@@ -237,12 +258,13 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     is_shaded: bool,
 /// }
 ///

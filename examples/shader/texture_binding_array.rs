@@ -63,7 +63,7 @@ fn setup(
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // load 16 textures
@@ -74,9 +74,9 @@ fn setup(
 
     // a cube with multiple textures
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(BindlessMaterial { textures }),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -146,7 +146,7 @@ impl AsBindGroup for BindlessMaterial {
         Self: Sized,
     {
         vec![
-            // @group(1) @binding(0) var textures: binding_array<texture_2d<f32>>;
+            // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
             BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
@@ -157,7 +157,7 @@ impl AsBindGroup for BindlessMaterial {
                 },
                 count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
             },
-            // @group(1) @binding(1) var nearest_sampler: sampler;
+            // @group(2) @binding(1) var nearest_sampler: sampler;
             BindGroupLayoutEntry {
                 binding: 1,
                 visibility: ShaderStages::FRAGMENT,

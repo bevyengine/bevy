@@ -6,10 +6,12 @@
 //! To recompute all text each frame run
 //! `cargo run --example many_glyphs --release recompute-text`
 use bevy::{
+    color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 fn main() {
@@ -26,6 +28,10 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .add_systems(Startup, setup);
 
     if std::env::args().any(|arg| arg == "recompute-text") {
@@ -47,7 +53,7 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
         }],
-        alignment: TextAlignment::Left,
+        justify: JustifyText::Left,
         linebreak_behavior: BreakLineOn::AnyCharacter,
     };
 
@@ -72,7 +78,7 @@ fn setup(mut commands: Commands) {
             });
         });
 
-    text.sections[0].style.color = Color::RED;
+    text.sections[0].style.color = RED.into();
 
     commands.spawn(Text2dBundle {
         text,

@@ -24,7 +24,7 @@ impl AssetSaver for CompressedImageSaver {
         writer: &'a mut bevy_asset::io::Writer,
         image: SavedAsset<'a, Self::Asset>,
         _settings: &'a Self::Settings,
-    ) -> bevy_utils::BoxedFuture<'a, std::result::Result<ImageLoaderSettings, Self::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<ImageLoaderSettings, Self::Error>> {
         // PERF: this should live inside the future, but CompressorParams and Compressor are not Send / can't be owned by the BoxedFuture (which _is_ Send)
         let mut compressor_params = basis_universal::CompressorParams::new();
         compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
@@ -56,6 +56,7 @@ impl AssetSaver for CompressedImageSaver {
                 format: ImageFormatSetting::Format(ImageFormat::Basis),
                 is_srgb,
                 sampler: image.sampler.clone(),
+                asset_usage: image.asset_usage,
             })
         }
         .boxed()

@@ -84,8 +84,8 @@ use std::slice::Iter;
 ///
 /// [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
 /// [reflection]: crate
-/// [`None`]: core::option::Option<T>::None
-/// [`Some`]: core::option::Option<T>::Some
+/// [`None`]: Option<T>::None
+/// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
 pub trait Enum: Reflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.

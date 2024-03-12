@@ -4,32 +4,6 @@ use bevy_utils::Duration;
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
 #[derive(Debug, Resource)]
 pub struct WinitSettings {
-    /// Controls how the [`EventLoop`](winit::event_loop::EventLoop) is deployed.
-    ///
-    /// - If this value is set to `false` (default), [`run`] is called, and exiting the loop will
-    /// terminate the program.
-    /// - If this value is set to `true`, [`run_return`] is called, and exiting the loop will
-    /// return control to the caller.
-    ///
-    /// **Note:** This cannot be changed while the loop is running. `winit` also discourages use of
-    /// `run_return`.
-    ///
-    /// # Supported platforms
-    ///
-    /// `run_return` is only available on the following `target_os` environments:
-    /// - `windows`
-    /// - `macos`
-    /// - `linux`
-    /// - `freebsd`
-    /// - `openbsd`
-    /// - `netbsd`
-    /// - `dragonfly`
-    ///
-    /// The runner will panic if this is set to `true` on other platforms.
-    ///
-    /// [`run`]: https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run
-    /// [`run_return`]: https://docs.rs/winit/latest/winit/platform/run_return/trait.EventLoopExtRunReturn.html#tymethod.run_return
-    pub return_from_run: bool,
     /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
     /// Determines how frequently the application can update when it's out of focus.
@@ -47,7 +21,6 @@ impl WinitSettings {
             unfocused_mode: UpdateMode::ReactiveLowPower {
                 wait: Duration::from_secs_f64(1.0 / 60.0), // 60Hz
             },
-            ..Default::default()
         }
     }
 
@@ -55,6 +28,8 @@ impl WinitSettings {
     ///
     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
     /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
@@ -63,7 +38,6 @@ impl WinitSettings {
             unfocused_mode: UpdateMode::ReactiveLowPower {
                 wait: Duration::from_secs(60),
             },
-            ..Default::default()
         }
     }
 
@@ -80,11 +54,7 @@ impl WinitSettings {
 
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
-            return_from_run: false,
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        }
+        WinitSettings::game()
     }
 }
 
@@ -104,8 +74,9 @@ pub enum UpdateMode {
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
     /// events have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
@@ -116,13 +87,14 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window events](`winit::event::WindowEvent`) have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     ///
     /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
     /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
     /// Use this mode if, for example, you only want your app to update when the mouse cursor is
     /// moving over a window, not just moving in general. This can greatly reduce power consumption.
     ReactiveLowPower {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].

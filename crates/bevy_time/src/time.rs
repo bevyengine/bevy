@@ -15,7 +15,7 @@ use bevy_utils::Duration;
 ///   virtual time.
 /// - [`Time`] is a generic clock that corresponds to "current" or "default"
 ///   time for systems. It contains [`Time<Virtual>`](crate::virt::Virtual)
-///   except inside the [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it
+///   except inside the [`FixedMain`](bevy_app::FixedMain) schedule when it
 ///   contains [`Time<Fixed>`](crate::fixed::Fixed).
 ///
 /// The time elapsed since the previous time this clock was advanced is saved as
@@ -45,7 +45,7 @@ use bevy_utils::Duration;
 /// [`elapsed()`](Time::elapsed) should use `Res<Time>` to access the default
 /// time configured for the program. By default, this refers to
 /// [`Time<Virtual>`](crate::virt::Virtual) except during the
-/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it refers to
+/// [`FixedMain`](bevy_app::FixedMain) schedule when it refers to
 /// [`Time<Fixed>`](crate::fixed::Fixed). This ensures your system can be used
 /// either in [`Update`](bevy_app::Update) or
 /// [`FixedUpdate`](bevy_app::FixedUpdate) schedule depending on what is needed.

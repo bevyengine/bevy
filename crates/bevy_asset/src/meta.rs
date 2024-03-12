@@ -1,6 +1,6 @@
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
-use bevy_log::error;
+use bevy_utils::tracing::error;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ pub struct AssetMetaMinimal {
     pub asset: AssetActionMinimal,
 }
 
-/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetActionMinimal`]
+/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetAction`]
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
@@ -128,11 +128,6 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
 }
 
 impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
-    fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
-    }
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
             Some(settings)
@@ -146,6 +141,11 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
         } else {
             None
         }
+    }
+    fn serialize(&self) -> Vec<u8> {
+        ron::ser::to_string_pretty(&self, PrettyConfig::default())
+            .expect("type is convertible to ron")
+            .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info

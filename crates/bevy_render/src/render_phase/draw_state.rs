@@ -1,12 +1,12 @@
 use crate::{
     camera::Viewport,
-    prelude::Color,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
     renderer::RenderDevice,
 };
+use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
@@ -269,7 +269,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -292,7 +292,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -320,7 +320,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -358,7 +358,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -401,7 +401,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -441,7 +441,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -598,7 +598,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Sets the blend color as used by some of the blending modes.
     ///
     /// Subsequent blending tests will test against this value.
-    pub fn set_blend_constant(&mut self, color: Color) {
+    pub fn set_blend_constant(&mut self, color: LinearRgba) {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }

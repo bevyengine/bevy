@@ -1,5 +1,5 @@
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::{extend_where_clause, WhereClauseOptions};
+use crate::utility::WhereClauseOptions;
 use crate::ReflectMeta;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use quote::quote;
@@ -9,9 +9,9 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    let hash_fn = meta.traits().get_hash_impl(bevy_reflect_path);
-    let partial_eq_fn = meta.traits().get_partial_eq_impl(bevy_reflect_path);
-    let debug_fn = meta.traits().get_debug_impl();
+    let hash_fn = meta.attrs().get_hash_impl(bevy_reflect_path);
+    let partial_eq_fn = meta.attrs().get_partial_eq_impl(bevy_reflect_path);
+    let debug_fn = meta.attrs().get_debug_impl();
 
     #[cfg(feature = "documentation")]
     let with_docs = {
@@ -21,7 +21,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     #[cfg(not(feature = "documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
-    let where_clause_options = WhereClauseOptions::new_value(meta);
+    let where_clause_options = WhereClauseOptions::new(meta);
     let typed_impl = impl_typed(
         meta,
         &where_clause_options,
@@ -31,10 +31,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         },
     );
 
-    let type_path_impl = impl_type_path(meta, &where_clause_options);
+    let type_path_impl = impl_type_path(meta);
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 
     quote! {
@@ -99,6 +99,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 #FQResult::Ok(())
+            }
+
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::Value
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

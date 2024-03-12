@@ -4,36 +4,44 @@ mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
 pub mod graph {
-    pub const NAME: &str = "core_3d";
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct Core3d;
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
-    pub mod node {
-        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
-        pub const PREPASS: &str = "prepass";
-        pub const DEFERRED_PREPASS: &str = "deferred_prepass";
-        pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
-        pub const END_PREPASSES: &str = "end_prepasses";
-        pub const START_MAIN_PASS: &str = "start_main_pass";
-        pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
-        pub const MAIN_TRANSMISSIVE_PASS: &str = "main_transmissive_pass";
-        pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
-        pub const END_MAIN_PASS: &str = "end_main_pass";
-        pub const BLOOM: &str = "bloom";
-        pub const TONEMAPPING: &str = "tonemapping";
-        pub const FXAA: &str = "fxaa";
-        pub const UPSCALING: &str = "upscaling";
-        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
-        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Node3d {
+        MsaaWriteback,
+        Prepass,
+        DeferredPrepass,
+        CopyDeferredLightingId,
+        EndPrepasses,
+        StartMainPass,
+        MainOpaquePass,
+        MainTransmissivePass,
+        MainTransparentPass,
+        EndMainPass,
+        Taa,
+        Bloom,
+        Tonemapping,
+        Fxaa,
+        Upscaling,
+        ContrastAdaptiveSharpening,
+        EndMainPassPostProcessing,
     }
 }
-pub const CORE_3D: &str = graph::NAME;
 
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-use std::{cmp::Reverse, ops::Range};
+use std::ops::Range;
 
+use bevy_asset::AssetId;
+use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -43,6 +51,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    mesh::Mesh,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -54,11 +63,12 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, TextureCache},
+    texture::{BevyDefault, ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, tracing::warn, FloatOrd, HashMap};
+use bevy_utils::{tracing::warn, FloatOrd, HashMap};
+use nonmax::NonMaxU32;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -77,12 +87,14 @@ use crate::{
     upscaling::UpscalingNode,
 };
 
+use self::graph::{Core3d, Node3d};
+
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
-            .register_type::<Camera3dDepthLoadOp>()
+            .register_type::<ScreenSpaceTransmissionQuality>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
@@ -118,58 +130,57 @@ impl Plugin for Core3dPlugin {
                 ),
             );
 
-        use graph::node::*;
         render_app
-            .add_render_sub_graph(CORE_3D)
-            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
+            .add_render_sub_graph(Core3d)
+            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(Core3d, Node3d::Prepass)
             .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
-                CORE_3D,
-                DEFERRED_PREPASS,
+                Core3d,
+                Node3d::DeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
-                CORE_3D,
-                COPY_DEFERRED_LIGHTING_ID,
+                Core3d,
+                Node3d::CopyDeferredLightingId,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_PREPASSES)
-            .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndPrepasses)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPass)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
-                CORE_3D,
-                MAIN_OPAQUE_PASS,
+                Core3d,
+                Node3d::MainOpaquePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
-                CORE_3D,
-                MAIN_TRANSMISSIVE_PASS,
+                Core3d,
+                Node3d::MainTransmissivePass,
             )
             .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
-                CORE_3D,
-                MAIN_TRANSPARENT_PASS,
+                Core3d,
+                Node3d::MainTransparentPass,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_3D, TONEMAPPING)
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_MAIN_PASS_POST_PROCESSING)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_3D, UPSCALING)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    PREPASS,
-                    DEFERRED_PREPASS,
-                    COPY_DEFERRED_LIGHTING_ID,
-                    END_PREPASSES,
-                    START_MAIN_PASS,
-                    MAIN_OPAQUE_PASS,
-                    MAIN_TRANSMISSIVE_PASS,
-                    MAIN_TRANSPARENT_PASS,
-                    END_MAIN_PASS,
-                    TONEMAPPING,
-                    END_MAIN_PASS_POST_PROCESSING,
-                    UPSCALING,
-                ],
+                Core3d,
+                (
+                    Node3d::Prepass,
+                    Node3d::DeferredPrepass,
+                    Node3d::CopyDeferredLightingId,
+                    Node3d::EndPrepasses,
+                    Node3d::StartMainPass,
+                    Node3d::MainOpaquePass,
+                    Node3d::MainTransmissivePass,
+                    Node3d::MainTransparentPass,
+                    Node3d::EndMainPass,
+                    Node3d::Tonemapping,
+                    Node3d::EndMainPassPostProcessing,
+                    Node3d::Upscaling,
+                ),
             );
     }
 }
 
 pub struct Opaque3d {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -178,8 +189,7 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -188,7 +198,8 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -198,8 +209,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -231,7 +241,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub distance: f32,
+    pub asset_id: AssetId<Mesh>,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
@@ -240,8 +250,7 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (usize, AssetId<Mesh>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -250,7 +259,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline.id(), self.asset_id)
     }
 
     #[inline]
@@ -260,8 +270,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -524,7 +533,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = HashMap::default();
-    for (entity, camera, _, _) in &views_3d {
+    for (entity, camera, _, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -558,10 +567,13 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-        });
+        commands.entity(entity).insert(ViewDepthTexture::new(
+            cached_texture,
+            match camera_3d.depth_load_op {
+                Camera3dDepthLoadOp::Clear(v) => Some(v),
+                Camera3dDepthLoadOp::Load => None,
+            },
+        ));
     }
 }
 
@@ -799,7 +811,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
+        let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -822,11 +834,19 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture,
-            normal: cached_normals_texture,
-            motion_vectors: cached_motion_vectors_texture,
-            deferred: cached_deferred_texture,
-            deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
+            depth: cached_depth_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            normal: cached_normals_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            // Red and Green channels are X and Y components of the motion vectors
+            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+            // https://gpuopen.com/performance/#clears
+            motion_vectors: cached_motion_vectors_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            deferred: cached_deferred_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             size,
         });
     }
