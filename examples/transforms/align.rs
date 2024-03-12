@@ -18,11 +18,19 @@ fn main() {
         .run();
 }
 
+/// This struct stores metadata for a single rotational move of the cube
 #[derive(Component, Default)]
 struct Cube {
+    /// The initial transform of the cube move, the starting point of interpolation
     initial_transform: Transform,
+
+    /// The target transform of the cube move, the endpoint of interpolation
     target_transform: Transform,
+
+    /// The progress of the cube move in percentage points
     progress: u16,
+
+    /// Whether the cube is currently in motion; allows motion to be paused
     in_motion: bool,
 }
 
@@ -85,6 +93,7 @@ fn setup(
         },
     ));
 
+    // Instructions for the example
     commands.spawn((
         TextBundle::from_section(
             "The bright red axis is the primary alignment axis, and it will always be\n\
@@ -114,6 +123,7 @@ fn setup(
 
 // Update systems
 
+// Draw the main and secondary axes on the rotating cube
 fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
     let cube_transform = query.single();
 
@@ -126,12 +136,14 @@ fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
     gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.));
 }
 
+// Draw the randomly generated axes
 fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
     let RandomAxes(v1, v2) = query.single();
     gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
     gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
+// Actually update the cube's transform according to its initial source and target
 fn rotate_cube(mut cube: Query<(&mut Cube, &mut Transform)>) {
     let (mut cube, mut cube_transform) = cube.single_mut();
 
@@ -154,6 +166,7 @@ fn rotate_cube(mut cube: Query<(&mut Cube, &mut Transform)>) {
     }
 }
 
+// Handle user inputs from the keyboard for dynamically altering the scenario
 fn handle_keypress(
     mut cube: Query<(&mut Cube, &Transform)>,
     mut random_axes: Query<&mut RandomAxes>,
@@ -190,6 +203,7 @@ fn handle_keypress(
     }
 }
 
+// Handle user mouse input for panning the camera around
 fn handle_mouse(
     mut button_events: EventReader<MouseButtonInput>,
     mut motion_events: EventReader<MouseMotion>,
@@ -238,6 +252,8 @@ fn build_direction(height: f32, theta: f32) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
+// This is where `Transform::align` is actually used!
+// Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in `draw_cube_axes`.
 fn random_axes_target_alignment(random_axes: &RandomAxes) -> Transform {
     let RandomAxes(first, second) = random_axes;
     Transform::IDENTITY.aligned_by(Vec3::X, *first, Vec3::Y, *second)
