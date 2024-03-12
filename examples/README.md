@@ -45,6 +45,7 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
@@ -218,6 +219,12 @@ Example | Description
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
+
+## Dev tools
+
+Example | Description
+--- | ---
+[FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 
 ## Diagnostics
 

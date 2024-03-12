@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fs::File};
 use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 use crate::Command;
 
@@ -40,7 +40,7 @@ impl PartialOrd for Example {
 
 fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()
@@ -83,7 +83,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
 
 fn parse_categories() -> HashMap<Box<str>, String> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     manifest
         .get("package")
         .unwrap()
