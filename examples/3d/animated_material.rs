@@ -31,7 +31,7 @@ fn setup(
 
     let cube = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
 
-    const GOLDEN_ANGLE: f32 = 137.507764;
+    const GOLDEN_ANGLE: f32 = 137.507_77;
 
     let mut hsla = Hsla::hsl(0.0, 1.0, 0.5);
     for x in -1..2 {
