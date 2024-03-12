@@ -63,7 +63,10 @@ fn update_winit(
         Game => {
             // In the default `WinitSettings::game()` mode:
             //   * When focused: the event loop runs as fast as possible
-            //   * When not focused: the event loop runs as fast as possible
+            //   * When not focused: the app will update when the window is directly interacted with
+            //     (e.g. the mouse hovers over a visible part of the out of focus window), a
+            //     [`RequestRedraw`] event is received, or one sixtieth of a second has passed
+            //     without the app updating (60 Hz refresh rate max).
             WinitSettings::game()
         }
         Application => {
