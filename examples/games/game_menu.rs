@@ -279,7 +279,10 @@ mod game {
 mod menu {
     use bevy::{app::AppExit, prelude::*};
 
-    use super::{default_font, despawn_screen, inner_node, DisplayQuality, GameState, Volume, TEXT_COLOR, RED};
+    use super::{
+        default_font, despawn_screen, inner_node, DisplayQuality, GameState, Volume, RED,
+        TEXT_COLOR,
+    };
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
     // - a settings menu with two submenus and a back button
