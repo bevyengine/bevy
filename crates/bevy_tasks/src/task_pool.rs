@@ -9,8 +9,11 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use event_listener::Event;
+use event_listener::{Event, EventListener};
+use event_listener_strategy::{EventListenerFuture, FutureWrapper, Strategy};
 use futures_lite::FutureExt;
+use std::pin::Pin;
+use std::task::Poll;
 
 use crate::{
     block_on,
@@ -95,6 +98,23 @@ impl TaskPoolBuilder {
     }
 }
 
+#[derive(Debug)]
+struct Shutdown {
+    shutdown: Option<EventListener>,
+}
+
+impl EventListenerFuture for Shutdown {
+    type Output = ();
+
+    fn poll_with_strategy<'a, S: Strategy<'a>>(
+        mut self: Pin<&mut Self>,
+        strategy: &mut S,
+        context: &mut S::Context,
+    ) -> Poll<Self::Output> {
+        strategy.poll(&mut self.shutdown, context)
+    }
+}
+
 /// A thread pool for executing tasks.
 ///
 /// While futures usually need to be polled to be executed, Bevy tasks are being
@@ -116,7 +136,7 @@ pub struct TaskPool {
 
     /// Inner state of the pool
     threads: Vec<JoinHandle<()>>,
-    shutdown: Arc<event_listener::Event>,
+    shutdown: Arc<Event>,
 }
 
 impl TaskPool {
@@ -171,13 +191,16 @@ impl TaskPool {
                             }
                             let _destructor = CallOnDrop(on_thread_destroy);
                             loop {
+                                let shutdown = FutureWrapper::new(Shutdown {
+                                    shutdown: Some(shutdown.listen()),
+                                });
                                 let res = std::panic::catch_unwind(|| {
                                     let tick_forever = async move {
                                         loop {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    block_on(ex.run(tick_forever.or(shutdown.listen())));
+                                    block_on(ex.run(tick_forever.or(shutdown)));
                                 });
                                 if res.is_ok() {
                                     break;
@@ -582,7 +605,7 @@ impl Default for TaskPool {
 
 impl Drop for TaskPool {
     fn drop(&mut self) {
-        self.shutdown.notify(self.threads.len());
+        self.shutdown.notify(usize::MAX);
 
         let panicking = thread::panicking();
         for join_handle in self.threads.drain(..) {
