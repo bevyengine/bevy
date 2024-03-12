@@ -34,12 +34,13 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
         draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.index_count, meshlet.triangle_count * 3u);
     }
     workgroupBarrier();
-    let base_index_id = triangle_id * 3u;
-    let draw_index_buffer_start = draw_index_buffer_start_workgroup + base_index_id;
 
     // Each thread writes one triangle of the meshlet to the index buffer slice
-    let base_index = (cluster_id << 8u) | base_index_id;
     if triangle_id < meshlet.triangle_count {
+        let base_index_id = triangle_id * 3u;
+        let draw_index_buffer_start = draw_index_buffer_start_workgroup + base_index_id;
+        let base_index = (cluster_id << 8u) | base_index_id;
+
         draw_index_buffer[draw_index_buffer_start] = base_index;
         draw_index_buffer[draw_index_buffer_start + 1u] = base_index + 1u;
         draw_index_buffer[draw_index_buffer_start + 2u] = base_index + 2u;
