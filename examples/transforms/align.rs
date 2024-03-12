@@ -1,11 +1,11 @@
 //! This example shows how to use the `Transform::align` API.
 
-use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
-use bevy::prelude::*;
 use bevy::color::{
-    palettes::basic::{RED, WHITE, GRAY},
+    palettes::basic::{GRAY, RED, WHITE},
     Color,
 };
+use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
+use bevy::prelude::*;
 use rand::random;
 use std::f32::consts::PI;
 
