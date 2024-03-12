@@ -5,31 +5,49 @@
 //! STATE DIAGRAM
 //!
 //! ```
-//!       Start
-//!         v
-//! GameState::Splash
-//!         |
-//!   |---------------------------------------------------------------------|
-//!   |     |                       GameState::Menu                         |
-//!   |     |         v------back-------<                                   |
-//!   |     v         v                 |                                   |
-//!   |  MenuState::Main >-settings-> MenuState::Settings <--------------<  |
-//!   |   v    ^                        |       |                        |  |
-//!   |   |    |                      sound  display                     |  |
-//!   |  play  |                        v       v                        |  |
-//!   |   |    |   MenuState::SettingsSound   MenuState::SettingsDisplay |  |
-//!   |   |    |                     |              |                    |  |
-//!   |   |    |                     >-------------->--------------------^  |
-//!   |---+----+------------------------------------------------------------|
-//!       |    |
-//!       |  timer
-//!       v    ^
-//!    GameState::Game
+//!          START                                 
+//!            │                                   
+//! ┌──────────▼──────────┐ ┌─────────────────────┐
+//! │  GameState::Splash  │ │   GameState::Game   │
+//! │ MenuState::Disabled │ │ MenuState::Disabled │
+//! └───┬─────────────────┘ └─▲─────┬─────────────┘
+//!     │                     │     │              
+//! ┌───┼─────────────────────┼─────┼────────┐     
+//! │   │                     │     │        │     
+//! │ (timer)               Play  (timer)    │     
+//! │   │                     │     │        │     
+//! │ ┌─▼─────────────────────┴─────▼─┐      │     
+//! │ │     MenuState::Main           ├─Quit─┼─►END
+//! │ └─┬───────────────────────────▲─┘      │     
+//! │   │                           │        │     
+//! │ Settings           BackToMainMenu      │     
+//! │   │                           │        │     
+//! │ ┌─▼───────────────────────────┴──────┐ │     
+//! │ │     MenuState::Settings            │ │     
+//! │ └─┬───┬─────────────────────────▲──▲─┘ │     
+//! │   │   │                         │  │   │     
+//! │   │ SettingsDisplay     BackToSettings │     
+//! │   │   │                         │  │   │     
+//! │   │ ┌─▼─────────────────────────┴┐ │   │     
+//! │   │ │ MenuState::SettingsDisplay │ │   │     
+//! │   │ └────────────────────────────┘ │   │     
+//! │   │                                │   │     
+//! │ SettingsSound                      │   │     
+//! │   │                                │   │     
+//! │ ┌─▼────────────────────────────────┴─┐ │     
+//! │ │     MenuState::SettingsSound       │ │     
+//! │ └────────────────────────────────────┘ │     
+//! │                                        │     
+//! │            GameState::Menu             │     
+//! │                                        │     
+//! └────────────────────────────────────────┘     
 //! ```
 
 use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+
+const RED: Color = Color::CRIMSON;
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -52,14 +70,6 @@ enum DisplayQuality {
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
-fn default_font(font_size: f32, color: Color) -> TextStyle {
-    TextStyle {
-        font_size,
-        color,
-        ..default()
-    }
-}
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -76,6 +86,14 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
+}
+
+fn default_font(font_size: f32, color: Color) -> TextStyle {
+    TextStyle {
+        font_size,
+        color,
+        ..default()
+    }
 }
 
 // This outermost node encompasses the entire Window (100% width and height)
@@ -261,9 +279,7 @@ mod game {
 mod menu {
     use bevy::{app::AppExit, prelude::*};
 
-    use super::{
-        default_font, despawn_screen, inner_node, DisplayQuality, GameState, Volume, TEXT_COLOR,
-    };
+    use super::{default_font, despawn_screen, inner_node, DisplayQuality, GameState, Volume, TEXT_COLOR, RED};
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
     // - a settings menu with two submenus and a back button
@@ -418,7 +434,7 @@ mod menu {
     }
 
     // In the main menu and in the main settings menu, we create a column of buttons
-    fn column_of_buttons(
+    fn button(
         parent: &mut ChildBuilder,
         action: impl Bundle,
         spawn_children: impl FnOnce(&mut ChildBuilder),
@@ -445,7 +461,7 @@ mod menu {
             ..default()
         };
 
-        inner_node(&mut commands, OnMainMenuScreen, Color::CRIMSON, |parent| {
+        inner_node(&mut commands, OnMainMenuScreen, RED, |parent| {
             // Display the game name
             parent.spawn(
                 TextBundle::from_section("Bevy Game Menu UI", default_font(80., TEXT_COLOR))
@@ -461,7 +477,7 @@ mod menu {
                 (MenuButtonAction::Settings, "wrench", "Settings"),
                 (MenuButtonAction::Quit, "exitRight", "Quit"),
             ] {
-                column_of_buttons(parent, action, |parent| {
+                button(parent, action, |parent| {
                     let icon = asset_server.load(format!("textures/Game Icons/{}.png", icon));
                     parent.spawn(ImageBundle {
                         style: button_icon_style.clone(),
@@ -475,22 +491,21 @@ mod menu {
     }
 
     fn settings_menu_setup(mut commands: Commands) {
-        let red = Color::CRIMSON;
-        inner_node(&mut commands, OnSettingsMenuScreen, red, |parent| {
+        inner_node(&mut commands, OnSettingsMenuScreen, RED, |parent| {
             // Display three buttons for each action available from the main settings menu
             for (action, text) in [
                 (MenuButtonAction::SettingsDisplay, "Display"),
                 (MenuButtonAction::SettingsSound, "Sound"),
                 (MenuButtonAction::BackToMainMenu, "Back"),
             ] {
-                column_of_buttons(parent, action, |parent| {
+                button(parent, action, |parent| {
                     parent.spawn(TextBundle::from_section(text, button_text_style()));
                 });
             }
         });
     }
 
-    // A button go to back to the main settings menu from settings submenus
+    // A button to go back to the main settings menu from settings submenus
     fn back_to_settings(parent: &mut ChildBuilder) {
         // Display the back button to return to the settings screen
         parent
@@ -508,8 +523,7 @@ mod menu {
     }
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
-        let red = Color::CRIMSON;
-        inner_node(&mut commands, OnDisplaySettingsMenuScreen, red, |parent| {
+        inner_node(&mut commands, OnDisplaySettingsMenuScreen, RED, |parent| {
             // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
             // use the default value, `FlexDirection::Row`, from left to right.
             parent
@@ -518,7 +532,7 @@ mod menu {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
+                    background_color: RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -560,15 +574,14 @@ mod menu {
     }
 
     fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
-        let red = Color::CRIMSON;
-        inner_node(&mut commands, OnSoundSettingsMenuScreen, red, |parent| {
+        inner_node(&mut commands, OnSoundSettingsMenuScreen, RED, |parent| {
             parent
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
+                    background_color: RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
