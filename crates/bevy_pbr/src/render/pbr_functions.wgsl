@@ -103,7 +103,7 @@ fn apply_normal_mapping(
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    var Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias, ddx_uv, ddy_uv).rgb;
+    var Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, ddx_uv, ddy_uv).rgb;
 #else
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
 #endif
