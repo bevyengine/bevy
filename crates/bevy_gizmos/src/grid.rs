@@ -233,7 +233,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     gizmos.grid_3d(
     ///         Vec3::ZERO,
     ///         Quat::IDENTITY,
-    ///         UVec3::new(10, 10),
+    ///         UVec3::new(10, 2, 10),
     ///         Vec3::splat(2.),
     ///         GREEN
     ///         )
