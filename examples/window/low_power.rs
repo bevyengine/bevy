@@ -16,7 +16,7 @@ fn main() {
         .insert_resource(WinitSettings::game())
         // Power-saving reactive rendering for applications.
         .insert_resource(WinitSettings::desktop_app())
-        // You can also customize update behavior with the fields of [`WinitConfig`]
+        // You can also customize update behavior with the fields of [`WinitSettings`]
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
@@ -61,13 +61,13 @@ fn update_winit(
     use ExampleMode::*;
     *winit_config = match *mode {
         Game => {
-            // In the default `WinitConfig::game()` mode:
+            // In the default `WinitSettings::game()` mode:
             //   * When focused: the event loop runs as fast as possible
             //   * When not focused: the event loop runs as fast as possible
             WinitSettings::game()
         }
         Application => {
-            // While in `WinitConfig::desktop_app()` mode:
+            // While in `WinitSettings::desktop_app()` mode:
             //   * When focused: the app will update any time a winit event (e.g. the window is
             //     moved/resized, the mouse moves, a button is pressed, etc.), a [`RequestRedraw`]
             //     event is received, or after 5 seconds if the app has not updated.
@@ -80,7 +80,7 @@ fn update_winit(
         ApplicationWithRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
             // frame regardless of any user input. For example, your application might use
-            // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
+            // `WinitSettings::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
             event.send(RequestRedraw);
             WinitSettings::desktop_app()
@@ -101,9 +101,9 @@ pub(crate) mod test_setup {
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<ButtonInput<KeyCode>>,
+        button_input: Res<ButtonInput<KeyCode>>,
     ) {
-        if mouse_button_input.just_pressed(KeyCode::Space) {
+        if button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
                 ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
@@ -173,7 +173,7 @@ pub(crate) mod test_setup {
         commands.spawn((
             TextBundle::from_sections([
                 TextSection::new(
-                    "Press spacebar to cycle modes\n",
+                    "Press space bar to cycle modes\n",
                     TextStyle {
                         font_size: 50.0,
                         ..default()
