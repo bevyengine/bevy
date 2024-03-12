@@ -206,7 +206,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         }
     }
 
-    /// Draw a 3D grid in 3D.
+    /// Draw a 3D grid of voxel-like cells.
     ///
     /// This should be called for each frame the grid needs to be rendered.
     ///
