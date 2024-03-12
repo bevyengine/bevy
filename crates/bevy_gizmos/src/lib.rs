@@ -47,10 +47,8 @@ pub mod prelude {
     pub use crate::{
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{
-            
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineStyle,
-            GizmoLineJoint,
+            GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
         light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
