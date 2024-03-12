@@ -14,7 +14,8 @@ mod winit_windows;
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
-use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
+pub use system::create_windows;
+use system::{changed_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -228,7 +229,8 @@ impl Default for WinitAppRunnerState {
     }
 }
 
-type CreateWindowParams<'w, 's, F = ()> = (
+/// The parameters of the [`create_windows`] system.
+pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
     Query<'w, 's, (Entity, &'static mut Window), F>,
     EventWriter<'w, WindowCreated>,
