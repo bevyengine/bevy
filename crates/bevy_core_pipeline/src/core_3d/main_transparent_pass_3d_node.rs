@@ -3,7 +3,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
+    render_phase::SortedRenderPhase,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -18,7 +18,7 @@ pub struct MainTransparentPass3dNode;
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Transparent3d>,
+        &'static SortedRenderPhase<Transparent3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );

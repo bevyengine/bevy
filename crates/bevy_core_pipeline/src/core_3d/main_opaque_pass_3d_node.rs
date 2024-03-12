@@ -6,7 +6,7 @@ use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{RenderPhase, TrackedRenderPass},
+    render_phase::{BinnedRenderPhase, SortedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -22,8 +22,8 @@ pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3d>,
-        &'static RenderPhase<AlphaMask3d>,
+        &'static BinnedRenderPhase<Opaque3d>,
+        &'static SortedRenderPhase<AlphaMask3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -75,7 +75,8 @@ impl ViewNode for MainOpaquePass3dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.batchable_keys.is_empty() || !opaque_phase.unbatchable_keys.is_empty()
+            {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
                 opaque_phase.render(&mut render_pass, world, view_entity);

@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, DrawFunctions, SortedRenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -245,7 +245,7 @@ fn queue_line_gizmos_2d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
@@ -297,7 +297,7 @@ fn queue_line_joint_gizmos_2d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {

@@ -29,6 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
+use bevy_utils::{hashbrown::hash_map::Entry, prelude::default, HashMap};
 pub use draw::*;
 pub use draw_state::*;
 use nonmax::NonMaxU32;
@@ -39,7 +40,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::{ops::Range, slice::SliceIndex};
+use std::{hash::Hash, ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -51,18 +52,227 @@ use std::{ops::Range, slice::SliceIndex};
 /// the rendered texture of the previous phase (e.g. for screen-space reflections).
 /// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].
 /// The render pass might be reused for multiple phases to reduce GPU overhead.
+///
+/// This flavor of render phase is used for phases in which the ordering is less
+/// critical: for example, `Opaque3d`. It's generally faster than the
+/// alternative [`SortedRenderPhase`].
 #[derive(Component)]
-pub struct RenderPhase<I: PhaseItem> {
+pub struct BinnedRenderPhase<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    /// A list of `BinKey`s for batchable items.
+    ///
+    /// These are accumulated in `queue_material_meshes` and then sorted in
+    /// `batch_and_prepare_binned_render_phase`.
+    pub batchable_keys: Vec<BPI::BinKey>,
+
+    /// The batchable bins themselves.
+    ///
+    /// Each bin corresponds to a single batch. For unbatchable entities, prefer
+    /// `unbatchable_values` instead.
+    pub batchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
+
+    /// A list of `BinKey`s for unbatchable items.
+    ///
+    /// These are accumulated in `queue_material_meshes` and then sorted in
+    /// `batch_and_prepare_binned_render_phase`.
+    pub unbatchable_keys: Vec<BPI::BinKey>,
+
+    /// The unbatchable bins.
+    ///
+    /// Each entity here is rendered in a separate drawcall.
+    pub unbatchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
+
+    /// The index of the first instance for the first batch in the storage
+    /// buffer.
+    pub first_instance_index: u32,
+
+    /// The index of the first dynamic offset for the first batch in the storage
+    /// buffer, if applicable.
+    ///
+    /// This is only used on platforms that don't support storage buffers.
+    pub first_dynamic_offset: Option<NonMaxU32>,
+
+    /// Information on each batch.
+    ///
+    /// The unbatchable entities immediately follow the batches in the storage
+    /// buffers.
+    pub batches: Vec<BinnedRenderPhaseBatch>,
+}
+
+/// Information about a single batch of entities rendered using binned phase
+/// items.
+pub struct BinnedRenderPhaseBatch {
+    /// An entity that's *representative* of this batch.
+    ///
+    /// Bevy uses this to fetch the mesh. It can be any entity in the batch.
+    pub representative_entity: Entity,
+
+    /// The last instance index in this batch.
+    pub last_instance_index: u32,
+}
+
+impl<BPI> BinnedRenderPhase<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    /// Bins a new entity.
+    ///
+    /// `batchable` specifies whether the entity can be batched with other
+    /// entities of the same type.
+    pub fn add(&mut self, key: BPI::BinKey, entity: Entity, batchable: bool) {
+        let (keys, values) = if batchable {
+            (&mut self.batchable_keys, &mut self.batchable_values)
+        } else {
+            (&mut self.unbatchable_keys, &mut self.unbatchable_values)
+        };
+
+        match values.entry(key.clone()) {
+            Entry::Occupied(mut entry) => entry.get_mut().push(entity),
+            Entry::Vacant(entry) => {
+                keys.push(key);
+                entry.insert(vec![entity]);
+            }
+        }
+    }
+
+    /// Executes the GPU commands needed to render all entities in this phase.
+    pub fn render<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<BPI>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
+
+        // Draw batchables. Track instance index and dynamic offset, if
+        // applicable. We assume that all instance indices and dynamic offsets
+        // are consecutive.
+
+        let mut first_instance_index = self.first_instance_index;
+        let mut first_dynamic_offset = self.first_dynamic_offset;
+
+        debug_assert_eq!(self.batchable_keys.len(), self.batches.len());
+
+        for (key, batch) in self.batchable_keys.iter().zip(self.batches.iter()) {
+            let binned_phase_item = BPI::new(
+                key.clone(),
+                batch.representative_entity,
+                first_instance_index..batch.last_instance_index,
+                first_dynamic_offset,
+            );
+
+            let draw_function = draw_functions
+                .get_mut(binned_phase_item.draw_function())
+                .unwrap();
+            draw_function.draw(world, render_pass, view, &binned_phase_item);
+
+            // Advance dynamic offset and instance index.
+            if let Some(dynamic_offset) = first_dynamic_offset {
+                first_dynamic_offset = (u32::from(dynamic_offset) + batch.last_instance_index
+                    - first_instance_index)
+                    .try_into()
+                    .ok();
+            }
+            first_instance_index = batch.last_instance_index;
+        }
+
+        // Draw unbatchables, which immediately follow the batchables in the
+        // storage buffers.
+
+        for key in &self.unbatchable_keys {
+            for &entity in &self.unbatchable_values[key] {
+                let binned_phase_item = BPI::new(
+                    key.clone(),
+                    entity,
+                    first_instance_index..(first_instance_index + 1),
+                    first_dynamic_offset,
+                );
+
+                let draw_function = draw_functions
+                    .get_mut(binned_phase_item.draw_function())
+                    .unwrap();
+                draw_function.draw(world, render_pass, view, &binned_phase_item);
+
+                // Advance dynamic offset and instance index.
+                first_instance_index += 1;
+                if let Some(dynamic_offset) = first_dynamic_offset {
+                    first_dynamic_offset = (u32::from(dynamic_offset) + 1).try_into().ok();
+                }
+            }
+        }
+    }
+}
+
+impl<BPI> Default for BinnedRenderPhase<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn default() -> Self {
+        Self {
+            batchable_keys: default(),
+            batchable_values: default(),
+            unbatchable_keys: default(),
+            unbatchable_values: default(),
+            first_instance_index: 0,
+            first_dynamic_offset: None,
+            batches: default(),
+        }
+    }
+}
+
+impl BinnedRenderPhaseBatch {
+    /// Creates a placeholder [`BinnedRenderPhaseBatch`].
+    ///
+    /// These take up space in the `batches` array when no batch ended up being
+    /// created. They're needed so that the indices in the `batchable_keys`
+    /// array match up with those of the `batches` array.
+    pub(crate) fn placeholder(instance_index: u32) -> Self {
+        Self {
+            representative_entity: Entity::PLACEHOLDER,
+            last_instance_index: instance_index,
+        }
+    }
+}
+
+/// A collection of all rendering instructions, that will be executed by the GPU, for a
+/// single render phase for a single view.
+///
+/// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
+/// They are used to queue entities for rendering.
+/// Multiple phases might be required due to different sorting/batching behaviors
+/// (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
+/// the rendered texture of the previous phase (e.g. for screen-space reflections).
+/// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].
+/// The render pass might be reused for multiple phases to reduce GPU overhead.
+///
+/// This flavor of render phase is used only for meshes that need to be sorted
+/// back-to-front, such as transparent meshes. For items that don't need strict
+/// sorting, [`BinnedRenderPhase`] is preferred, for performance.
+#[derive(Component)]
+pub struct SortedRenderPhase<I>
+where
+    I: SortedPhaseItem,
+{
     pub items: Vec<I>,
 }
 
-impl<I: PhaseItem> Default for RenderPhase<I> {
+impl<I> Default for SortedRenderPhase<I>
+where
+    I: SortedPhaseItem,
+{
     fn default() -> Self {
         Self { items: Vec::new() }
     }
 }
 
-impl<I: PhaseItem> RenderPhase<I> {
+impl<I> SortedRenderPhase<I>
+where
+    I: SortedPhaseItem,
+{
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
@@ -130,15 +340,24 @@ impl<I: PhaseItem> RenderPhase<I> {
 /// Then it has to be queued up for rendering during the
 /// [`RenderSet::Queue`](crate::RenderSet::Queue), by adding a corresponding phase item to
 /// a render phase.
-/// Afterwards it will be sorted and rendered automatically in the
+/// Afterwards it will be possibly sorted and rendered automatically in the
 /// [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort) and
 /// [`RenderSet::Render`](crate::RenderSet::Render), respectively.
+///
+/// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
+/// [`SortedPhaseItem`]s.
+///
+/// * Binned phase items have a `BinKey` which specifies what bin they're to be
+/// placed in. All items in the same bin are eligible to be batched together.
+/// The `BinKey`s are sorted, but the individual bin items aren't. Binned phase
+/// items are good for opaque meshes, in which the order of rendering isn't
+/// important. Generally, binned phase items are faster than sorted phase items.
+///
+/// * Sorted phase items, on the other hand, are placed into one large buffer
+/// and then sorted all at once. This is needed for transparent meshes, which
+/// have to be sorted back-to-front to render with the painter's algorithm.
+/// These types of phase items are generally slower than binned phase items.
 pub trait PhaseItem: Sized + Send + Sync + 'static {
-    /// The type used for ordering the items. The smallest values are drawn first.
-    /// This order can be calculated using the [`ViewRangefinder3d`],
-    /// based on the view-space `Z` value of the corresponding view matrix.
-    type SortKey: Ord;
-
     /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
     const AUTOMATIC_BATCHING: bool = true;
 
@@ -148,11 +367,56 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// from the render world .
     fn entity(&self) -> Entity;
 
-    /// Determines the order in which the items are drawn.
-    fn sort_key(&self) -> Self::SortKey;
-
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
+
+    /// The range of instances that the batch covers. After doing a batched draw, batch range
+    /// length phase items will be skipped. This design is to avoid having to restructure the
+    /// render phase unnecessarily.
+    fn batch_range(&self) -> &Range<u32>;
+    fn batch_range_mut(&mut self) -> &mut Range<u32>;
+
+    fn dynamic_offset(&self) -> Option<NonMaxU32>;
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32>;
+}
+
+/// Represents phase items that are placed into bins. The `BinKey` specifies
+/// which bin they're to be placed in. Bin keys are sorted, and items within the
+/// same bin are eligible to be batched together. The elements within the bins
+/// aren't themselves sorted.
+///
+/// An example of a binned phase item is `Opaque3d`, for which the rendering
+/// order isn't critical.
+pub trait BinnedPhaseItem: PhaseItem {
+    type BinKey: Clone + Send + Sync + Eq + Ord + Hash;
+
+    /// Creates a new binned phase item from the key and per-entity data.
+    ///
+    /// Unlike [`SortedPhaseItem`]s, this is generally called "just in time"
+    /// before rendering. The resulting phase item isn't stored in any data
+    /// structures, resulting in significant memory savings.
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self;
+}
+
+/// Represents phase items that must be sorted. The `SortKey` specifies the
+/// order that these items are drawn in. These are placed into a single array,
+/// and the array as a whole is then sorted.
+///
+/// An example of a sorted phase item is `Transparent3d`, which must be sorted
+/// back to front in order to correctly render with the painter's algorithm.
+pub trait SortedPhaseItem: PhaseItem {
+    /// The type used for ordering the items. The smallest values are drawn first.
+    /// This order can be calculated using the [`ViewRangefinder3d`],
+    /// based on the view-space `Z` value of the corresponding view matrix.
+    type SortKey: Ord;
+
+    /// Determines the order in which the items are drawn.
+    fn sort_key(&self) -> Self::SortKey;
 
     /// Sorts a slice of phase items into render order. Generally if the same type
     /// is batched this should use a stable sort like [`slice::sort_by_key`].
@@ -170,15 +434,6 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     fn sort(items: &mut [Self]) {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
-
-    /// The range of instances that the batch covers. After doing a batched draw, batch range
-    /// length phase items will be skipped. This design is to avoid having to restructure the
-    /// render phase unnecessarily.
-    fn batch_range(&self) -> &Range<u32>;
-    fn batch_range_mut(&mut self) -> &mut Range<u32>;
-
-    fn dynamic_offset(&self) -> Option<NonMaxU32>;
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32>;
 }
 
 /// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
@@ -218,8 +473,12 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     }
 }
 
-/// This system sorts the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
-pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
+/// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
+/// type.
+pub fn sort_phase_system<I>(mut render_phases: Query<&mut SortedRenderPhase<I>>)
+where
+    I: SortedPhaseItem,
+{
     for mut phase in &mut render_phases {
         phase.sort();
     }

@@ -4,7 +4,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
+    render_phase::SortedRenderPhase,
     render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -21,7 +21,7 @@ impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static Camera3d,
-        &'static RenderPhase<Transmissive3d>,
+        &'static SortedRenderPhase<Transmissive3d>,
         &'static ViewTarget,
         Option<&'static ViewTransmissionTexture>,
         &'static ViewDepthTexture,

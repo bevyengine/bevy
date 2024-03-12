@@ -39,7 +39,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
@@ -209,6 +209,7 @@ pub trait RenderCommand<P: PhaseItem> {
 }
 
 /// The result of a [`RenderCommand`].
+#[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
     Failure,

@@ -13,8 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
+        batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+        write_batched_instance_buffer, GetBatchData, GetBinnedBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -125,13 +125,13 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transmissive3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
@@ -467,6 +467,25 @@ impl GetBatchData for MeshPipeline {
                 mesh_instance.mesh_asset_id,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
+        ))
+    }
+}
+
+impl GetBinnedBatchData for MeshPipeline {
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+
+        Some(MeshUniform::new(
+            &mesh_instance.transforms,
+            maybe_lightmap.map(|lightmap| lightmap.uv_rect),
         ))
     }
 }

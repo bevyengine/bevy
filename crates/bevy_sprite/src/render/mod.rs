@@ -19,7 +19,7 @@ use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
+        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SortedRenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
     render_resource::{
@@ -458,7 +458,7 @@ pub fn queue_sprites(
     msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
     mut views: Query<(
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
@@ -561,7 +561,7 @@ pub fn prepare_sprites(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     extracted_sprites: Res<ExtractedSprites>,
-    mut phases: Query<&mut RenderPhase<Transparent2d>>,
+    mut phases: Query<&mut SortedRenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed

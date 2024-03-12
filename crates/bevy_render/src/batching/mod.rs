@@ -7,7 +7,10 @@ use bevy_ecs::{
 use nonmax::NonMaxU32;
 
 use crate::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
+    render_phase::{
+        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
+        DrawFunctionId, SortedPhaseItem, SortedRenderPhase,
+    },
     render_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
 };
@@ -74,13 +77,26 @@ pub trait GetBatchData {
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
-/// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
-/// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+pub trait GetBinnedBatchData {
+    type Param: SystemParam + 'static;
+    type BufferData: GpuArrayBufferable + Sync + Send + 'static;
+
+    fn get_batch_data(
+        param: &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData>;
+}
+
+/// Batch the items in a sorted render phase. This means comparing metadata
+/// needed to draw each phase item and trying to combine the draws into a batch.
+pub fn batch_and_prepare_sorted_render_phase<I, F>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
-    mut views: Query<&mut RenderPhase<I>>,
+    mut views: Query<&mut SortedRenderPhase<I>>,
     param: StaticSystemParam<F::Param>,
-) {
+) where
+    I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
+    F: GetBatchData,
+{
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
@@ -112,6 +128,85 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
                 (range, batch_meta)
             }
         });
+    }
+}
+
+/// Creates batches for a render phase that uses bins.
+pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
+    gpu_array_buffer: ResMut<GpuArrayBuffer<GBBD::BufferData>>,
+    mut views: Query<&mut BinnedRenderPhase<BPI>>,
+    param: StaticSystemParam<GBBD::Param>,
+) where
+    BPI: BinnedPhaseItem,
+    GBBD: GetBinnedBatchData,
+{
+    let gpu_array_buffer = gpu_array_buffer.into_inner();
+    let system_param_item = param.into_inner();
+
+    for mut phase in &mut views {
+        phase.batchable_keys.sort();
+        phase.unbatchable_keys.sort();
+
+        let phase = &mut *phase; // Borrow checker.
+
+        // Prepare batchables.
+
+        let mut is_first_instance = true;
+        for key in &phase.batchable_keys {
+            let mut batch = None;
+            for &entity in &phase.batchable_values[key] {
+                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
+                    let instance_index = match phase.batches.last() {
+                        Some(batch) => batch.last_instance_index,
+                        None => 0,
+                    };
+                    phase
+                        .batches
+                        .push(BinnedRenderPhaseBatch::placeholder(instance_index));
+                    continue;
+                };
+
+                let instance = gpu_array_buffer.push(buffer_data);
+                if is_first_instance {
+                    phase.first_instance_index = instance.index;
+                    is_first_instance = false;
+                }
+
+                match batch {
+                    None => {
+                        batch = Some(BinnedRenderPhaseBatch {
+                            representative_entity: entity,
+                            last_instance_index: instance.index + 1,
+                        });
+                    }
+                    Some(ref mut batch) => batch.last_instance_index += 1,
+                }
+            }
+
+            phase.batches.push(batch.unwrap_or_else(|| {
+                let instance_index = match phase.batches.last() {
+                    Some(batch) => batch.last_instance_index,
+                    None => 0,
+                };
+                BinnedRenderPhaseBatch::placeholder(instance_index)
+            }));
+        }
+
+        // Prepare unbatchables.
+
+        for key in &phase.unbatchable_keys {
+            for &entity in &phase.unbatchable_values[key] {
+                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
+                    continue;
+                };
+
+                let instance = gpu_array_buffer.push(buffer_data);
+                if is_first_instance {
+                    phase.first_instance_index = instance.index;
+                    is_first_instance = false;
+                }
+            }
+        }
     }
 }
 

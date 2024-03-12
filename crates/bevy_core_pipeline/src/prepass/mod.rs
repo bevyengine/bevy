@@ -34,8 +34,10 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
-    render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
+    render_phase::{
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem, SortedPhaseItem,
+    },
+    render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
 };
 use nonmax::NonMaxU32;
@@ -111,36 +113,45 @@ impl ViewPrepassTextures {
 ///
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
-    pub entity: Entity,
-    pub asset_id: AssetId<Mesh>,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    /// Information that separates items into bins.
+    pub key: Opaque3dPrepassBinKey,
+
+    /// An entity from which Bevy fetches data common to all instances in this
+    /// batch, such as the mesh.
+    pub representative_entity: Entity,
+
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
-impl PhaseItem for Opaque3dPrepass {
-    type SortKey = (usize, AssetId<Mesh>);
+// TODO: Try interning these.
+/// The data used to bin each opaque 3D mesh in the prepass.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Opaque3dPrepassBinKey {
+    /// The ID of the GPU pipeline.
+    pub pipeline: CachedRenderPipelineId,
 
+    /// The function used to draw the mesh.
+    pub draw_function: DrawFunctionId,
+
+    /// The ID of the mesh.
+    pub asset_id: AssetId<Mesh>,
+
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupId`.
+    pub material_bind_group_id: Option<BindGroupId>,
+}
+
+impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline_id.id(), self.asset_id)
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+        self.key.draw_function
     }
 
     #[inline]
@@ -164,10 +175,28 @@ impl PhaseItem for Opaque3dPrepass {
     }
 }
 
+impl BinnedPhaseItem for Opaque3dPrepass {
+    type BinKey = Opaque3dPrepassBinKey;
+
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Opaque3dPrepass {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
+        self.key.pipeline
     }
 }
 
@@ -186,27 +215,14 @@ pub struct AlphaMask3dPrepass {
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
-    type SortKey = (usize, AssetId<Mesh>);
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline_id.id(), self.asset_id)
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
     }
 
     #[inline]
@@ -227,6 +243,21 @@ impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl SortedPhaseItem for AlphaMask3dPrepass {
+    type SortKey = (usize, AssetId<Mesh>);
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
+        (self.pipeline_id.id(), self.asset_id)
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_unstable_by_key(Self::sort_key);
     }
 }
 

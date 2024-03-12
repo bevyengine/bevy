@@ -77,7 +77,6 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
-    render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
     view::VisibilitySystems,
@@ -349,7 +348,6 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_assets::<Image>),
-                    sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
@@ -364,7 +362,7 @@ impl Plugin for PbrPlugin {
         render_app.ignore_ambiguity(
             bevy_render::Render,
             bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
-            bevy_render::batching::batch_and_prepare_render_phase::<
+            bevy_render::batching::batch_and_prepare_sorted_render_phase::<
                 bevy_core_pipeline::core_3d::Transmissive3d,
                 MeshPipeline,
             >,
