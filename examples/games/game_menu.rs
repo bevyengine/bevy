@@ -45,9 +45,9 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
-const RED: Color = Color::CRIMSON;
+const RED: Color = Color::srgba(0.863, 0.078, 0.235, 1.0);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -245,12 +245,12 @@ mod game {
                 TextBundle::from_sections([
                     TextSection::new(
                         format!("quality: {:?}", *display_quality),
-                        default_font(60., Color::BLUE),
+                        default_font(60., Color::srgb(0.0, 0.0, 1.0)),
                     ),
                     TextSection::new(" - ", default_font(60., TEXT_COLOR)),
                     TextSection::new(
                         format!("volume: {:?}", *volume),
-                        default_font(60., Color::GREEN),
+                        default_font(60., Color::srgb(0.0, 1.0, 0.0)),
                     ),
                 ])
                 .with_style(Style {
@@ -357,10 +357,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
-    const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+    const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark which setting is currently selected
     #[derive(Component)]
@@ -381,17 +381,19 @@ mod menu {
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         mut interaction_query: Query<
-            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
+            (&Interaction, &mut UiImage, Option<&SelectedOption>),
             (Changed<Interaction>, With<Button>),
         >,
     ) {
         for (interaction, mut color, selected) in &mut interaction_query {
-            *color = match (*interaction, selected) {
-                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
-            }
+            let new_color = match (*interaction, selected) {
+                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON,
+                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON,
+                (Interaction::Hovered, None) => HOVERED_BUTTON,
+                (Interaction::None, None) => NORMAL_BUTTON,
+            };
+
+            *color = UiImage::default().with_color(new_color);
         }
     }
 
@@ -399,14 +401,14 @@ mod menu {
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
+        mut selected_query: Query<(Entity, &mut UiImage), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
-                *previous_color = NORMAL_BUTTON.into();
+                *previous_color = UiImage::default().with_color(NORMAL_BUTTON);
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -443,7 +445,7 @@ mod menu {
             .spawn((
                 ButtonBundle {
                     style: button_style(),
-                    background_color: NORMAL_BUTTON.into(),
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 },
                 action,
@@ -512,7 +514,7 @@ mod menu {
             .spawn((
                 ButtonBundle {
                     style: button_style(),
-                    background_color: NORMAL_BUTTON.into(),
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 },
                 MenuButtonAction::BackToSettings,
@@ -554,7 +556,7 @@ mod menu {
                                     height: Val::Px(65.0),
                                     ..button_style()
                                 },
-                                background_color: NORMAL_BUTTON.into(),
+                                image: UiImage::default().with_color(NORMAL_BUTTON),
                                 ..default()
                             },
                             quality_setting,
@@ -594,7 +596,7 @@ mod menu {
                                     height: Val::Px(65.0),
                                     ..button_style()
                                 },
-                                background_color: NORMAL_BUTTON.into(),
+                                image: UiImage::default().with_color(NORMAL_BUTTON),
                                 ..default()
                             },
                             Volume(volume_setting),
