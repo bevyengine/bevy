@@ -12,7 +12,6 @@ use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowReso
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     monitor::MonitorHandle,
-    platform::windows::WindowBuilderExtWindows,
 };
 
 use crate::{
