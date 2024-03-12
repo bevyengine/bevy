@@ -1,6 +1,6 @@
 use crate::entity::Entity;
-use crate::system::{BoxedSystem, Command, IntoSystem};
-use crate::world::World;
+use crate::system::{BoxedSystem, IntoSystem};
+use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
 use thiserror::Error;
@@ -164,12 +164,9 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Resource, Default)]
-    /// struct Counter(u8);
-    ///
-    /// fn increment(mut counter: Local<Counter>) {
-    ///    counter.0 += 1;
-    ///    println!("{}", counter.0);
+    /// fn increment(mut counter: Local<u8>) {
+    ///    *counter += 1;
+    ///    println!("{}", *counter);
     /// }
     ///
     /// let mut world = World::default();
@@ -255,20 +252,17 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Resource, Default)]
-    /// struct Counter(u8);
-    ///
-    /// fn increment(In(increment_by): In<u8>, mut counter: Local<Counter>) {
-    ///    counter.0 += increment_by;
-    ///    println!("{}", counter.0);
+    /// fn increment(In(increment_by): In<u8>, mut counter: Local<u8>) -> u8 {
+    ///   *counter += increment_by;
+    ///   *counter
     /// }
     ///
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// world.run_system_with_input(counter_one, 1); // -> 1
-    /// world.run_system_with_input(counter_one, 20); // -> 21
-    /// world.run_system_with_input(counter_two, 30); // -> 51
+    /// assert_eq!(world.run_system_with_input(counter_one, 1).unwrap(), 1);
+    /// assert_eq!(world.run_system_with_input(counter_one, 20).unwrap(), 21);
+    /// assert_eq!(world.run_system_with_input(counter_two, 30).unwrap(), 30);
     /// ```
     ///
     /// See [`World::run_system`] for more examples.

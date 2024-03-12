@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -30,13 +30,13 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -59,8 +59,7 @@ fn setup(
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
             Press 'A' to show all AABB boxes\n\
-            Press 'K' or 'J' to cycle through primitives rendered with gizmos\n\
-            Press 'H' or 'L' to decrease/increase the amount of segments in the primitives",
+            Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -86,29 +85,33 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
+    gizmos.grid(
+        Vec3::ZERO,
+        Quat::from_rotation_x(PI / 2.),
+        UVec2::splat(20),
+        Vec2::new(2., 2.),
+        // Light gray
+        LinearRgba::gray(0.65),
+    );
+
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
-        LegacyColor::BLACK,
+        BLACK,
     );
     gizmos.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
-        LegacyColor::GREEN,
+        LIME,
     );
 
-    my_gizmos.sphere(
-        Vec3::new(1., 0.5, 0.),
-        Quat::IDENTITY,
-        0.5,
-        LegacyColor::RED,
-    );
+    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
             Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
-            LegacyColor::BLUE,
+            BLUE,
         );
     }
 
@@ -118,21 +121,21 @@ fn draw_example_collection(
             0.2,
             Vec3::ONE,
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
-            LegacyColor::ORANGE,
+            ORANGE,
         )
         .segments(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Direction3d::Y, 3., LegacyColor::BLACK);
+    my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Direction3d::Y, 3.1, LegacyColor::NAVY)
+        .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
         .segments(64);
     my_gizmos
-        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, LegacyColor::BLACK)
+        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
         .circle_segments(64);
 
-    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, LegacyColor::YELLOW);
+    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 }
 
 fn update_config(
@@ -166,6 +169,14 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        config.line_joints = match config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
+        };
+    }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
@@ -178,6 +189,14 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        my_config.line_joints = match my_config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
+        };
     }
 
     if keyboard.just_pressed(KeyCode::KeyA) {

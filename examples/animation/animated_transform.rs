@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            color: LegacyColor::WHITE,
+            color: Color::WHITE,
             brightness: 150.0,
         })
         .add_systems(Startup, setup)
@@ -21,10 +21,21 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+
+    // Light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 500_000.0,
+            ..default()
+        },
+        transform: Transform::from_xyz(0.0, 2.5, 0.0),
         ..default()
     });
 
@@ -115,9 +126,12 @@ fn setup(
         },
     );
 
+    // Create the animation graph
+    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
-    player.play(animations.add(animation)).repeat();
+    player.play(animation_index).repeat();
 
     // Create the scene that will be animated
     // First entity is the planet
@@ -125,11 +139,12 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
-                material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
+                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
                 ..default()
             },
-            // Add the animation player
+            // Add the animation graph and player
             planet,
+            graphs.add(graph),
             player,
         ))
         .id();
@@ -155,7 +170,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(LegacyColor::rgb(0.3, 0.9, 0.3)),
+                        material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     AnimationTarget {

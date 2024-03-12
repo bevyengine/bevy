@@ -17,8 +17,8 @@ use crate::{
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{debug, error, trace, warn};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{debug, error, trace, warn};
 use bevy_utils::{BoxedFuture, HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -56,7 +56,7 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
-    default_processors: RwLock<HashMap<String, &'static str>>,
+    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
     initialized_sender: async_broadcast::Sender<()>,
@@ -482,7 +482,7 @@ impl AssetProcessor {
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.to_string(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), std::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.

@@ -938,6 +938,15 @@ impl std::fmt::Debug for MutUntyped<'_> {
     }
 }
 
+impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
+    fn from(value: Mut<'w, T>) -> Self {
+        MutUntyped {
+            value: value.value.into(),
+            ticks: value.ticks,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::Resource;
@@ -1253,5 +1262,30 @@ mod tests {
         new.reflect_mut();
 
         assert!(new.is_changed());
+    }
+
+    #[test]
+    fn mut_untyped_from_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run: Tick::new(3),
+            this_run: Tick::new(4),
+        };
+        let mut c = C {};
+        let mut_typed = Mut {
+            value: &mut c,
+            ticks,
+        };
+
+        let into_mut: MutUntyped = mut_typed.into();
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 }

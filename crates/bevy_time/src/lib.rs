@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 /// Common run conditions
 pub mod common_conditions;
@@ -51,7 +52,6 @@ impl Plugin for TimePlugin {
             .register_type::<Time<Virtual>>()
             .register_type::<Time<Fixed>>()
             .register_type::<Timer>()
-            .register_type::<Stopwatch>()
             .add_systems(
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
@@ -65,19 +65,6 @@ impl Plugin for TimePlugin {
                 bevy_ecs::event::reset_event_update_signal_system.after(EventUpdates),
             )
             .add_systems(FixedPostUpdate, signal_event_update_system);
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if let Some(ci_testing_config) = app
-            .world
-            .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            if let Some(frame_time) = ci_testing_config.frame_time {
-                app.world
-                    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                        frame_time,
-                    )));
-            }
-        }
     }
 }
 

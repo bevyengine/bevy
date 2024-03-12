@@ -20,11 +20,11 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_log::warn;
-use bevy_math::{vec2, Direction3d, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -390,7 +390,7 @@ impl Camera {
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+        Dir3::new(world_far_plane - world_near_plane).map_or(None, |direction| {
             Some(Ray3d {
                 origin: world_near_plane,
                 direction,
@@ -628,10 +628,7 @@ impl NormalizedRenderTarget {
                 .into_iter()
                 .find(|(entity, _)| *entity == window_ref.entity())
                 .map(|(_, window)| RenderTargetInfo {
-                    physical_size: UVec2::new(
-                        window.resolution.physical_width(),
-                        window.resolution.physical_height(),
-                    ),
+                    physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
@@ -975,7 +972,8 @@ pub fn sort_cameras(
 /// Do not use with [`OrthographicProjection`].
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Default, Component)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,
@@ -1001,5 +999,6 @@ impl TemporalJitter {
 /// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
-#[derive(Component)]
+#[derive(Default, Component, Reflect)]
+#[reflect(Default, Component)]
 pub struct MipBias(pub f32);
