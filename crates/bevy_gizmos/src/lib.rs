@@ -50,7 +50,6 @@ pub mod prelude {
             
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
             GizmoLineStyle,
-        ,
             GizmoLineJoint,
         },
         gizmos::Gizmos,
