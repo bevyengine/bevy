@@ -611,8 +611,6 @@ pub fn extract_uinode_text(
         )>,
     >,
 ) {
-    use bevy_math::Affine3A;
-
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
@@ -643,8 +641,8 @@ pub fn extract_uinode_text(
 
         let logical_top_left = -0.5 * uinode.size();
 
-        let mut transform =
-            global_transform.affine() * Affine3A::from_translation(logical_top_left.extend(0.));
+        let mut transform = global_transform.affine()
+            * bevy_math::Affine3A::from_translation(logical_top_left.extend(0.));
 
         transform.translation *= scale_factor;
         transform.translation = transform.translation.round();
