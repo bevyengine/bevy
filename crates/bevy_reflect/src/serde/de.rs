@@ -240,23 +240,6 @@ impl<'de> Deserialize<'de> for Ident {
     }
 }
 
-struct U32Visitor;
-
-impl<'de> Visitor<'de> for U32Visitor {
-    type Value = u32;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("u32")
-    }
-
-    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
-    where
-        E: Error,
-    {
-        Ok(v)
-    }
-}
-
 /// A general purpose deserializer for reflected types.
 ///
 /// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
