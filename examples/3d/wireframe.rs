@@ -146,7 +146,7 @@ Color: {:?}
     // Toggle the global wireframe color
     if keyboard_input.just_pressed(KeyCode::KeyX) {
         config.default_color = if config.default_color == WHITE.into() {
-            PINK.into()
+            DEEP_PINK.into()
         } else {
             WHITE.into()
         };

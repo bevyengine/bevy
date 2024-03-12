@@ -4,7 +4,7 @@
 use std::f64::consts::PI;
 
 use bevy::{
-    color::palettes::css::PINK,
+    color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
@@ -62,7 +62,7 @@ fn setup(
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: PINK.into(),
+        base_color: DEEP_PINK.into(),
         ..default()
     });
 
