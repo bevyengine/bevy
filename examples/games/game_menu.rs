@@ -388,15 +388,13 @@ mod menu {
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in &mut interaction_query {
-            let new_color = match (*interaction, selected) {
+        for (interaction, mut image, selected) in &mut interaction_query {
+            image.color = match (*interaction, selected) {
                 (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON,
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON,
                 (Interaction::Hovered, None) => HOVERED_BUTTON,
                 (Interaction::None, None) => NORMAL_BUTTON,
-            };
-
-            *color = UiImage::default().with_color(new_color);
+            }
         }
     }
 
@@ -410,8 +408,8 @@ mod menu {
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
-                let (previous_button, mut previous_color) = selected_query.single_mut();
-                *previous_color = UiImage::default().with_color(NORMAL_BUTTON);
+                let (previous_button, mut previous_image) = selected_query.single_mut();
+                previous_image.color = NORMAL_BUTTON;
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -512,19 +510,9 @@ mod menu {
 
     // A button to go back to the main settings menu from settings submenus
     fn back_to_settings(parent: &mut ChildBuilder) {
-        // Display the back button to return to the settings screen
-        parent
-            .spawn((
-                ButtonBundle {
-                    style: button_style(),
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
-                    ..default()
-                },
-                MenuButtonAction::BackToSettings,
-            ))
-            .with_children(|parent| {
-                parent.spawn(TextBundle::from_section("Back", button_text_style()));
-            });
+        button(parent, MenuButtonAction::BackToSettings, |parent| {
+            parent.spawn(TextBundle::from_section("Back", button_text_style()));
+        });
     }
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
