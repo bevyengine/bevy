@@ -32,6 +32,7 @@ pub enum GizmoLineJoint {
 
 /// An enum used to configure the style of gizmo lines, similar to CSS line-style
 #[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+#[non_exhaustive]
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
     #[default]

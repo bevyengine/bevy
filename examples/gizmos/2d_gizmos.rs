@@ -112,6 +112,7 @@ fn update_config(
         config.line_style = match config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+            _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
@@ -139,6 +140,7 @@ fn update_config(
         my_config.line_style = match my_config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+            _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
