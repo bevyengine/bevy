@@ -126,8 +126,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         schedule::Schedule,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
     use bevy_hierarchy::BuildChildren;
 

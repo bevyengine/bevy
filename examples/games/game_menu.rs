@@ -116,7 +116,7 @@ mod splash {
 
 mod game {
     use bevy::{
-        color::palettes::basic::{BLUE, GREEN},
+        color::palettes::basic::{BLUE, LIME},
         prelude::*,
     };
 
@@ -211,7 +211,7 @@ mod game {
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: GREEN.into(),
+                                        color: LIME.into(),
                                         ..default()
                                     },
                                 ),
@@ -345,16 +345,16 @@ mod menu {
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         mut interaction_query: Query<
-            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
+            (&Interaction, &mut UiImage, Option<&SelectedOption>),
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in &mut interaction_query {
-            *color = match (*interaction, selected) {
-                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
+        for (interaction, mut image, selected) in &mut interaction_query {
+            image.color = match (*interaction, selected) {
+                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON,
+                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON,
+                (Interaction::Hovered, None) => HOVERED_BUTTON,
+                (Interaction::None, None) => NORMAL_BUTTON,
             }
         }
     }
@@ -363,14 +363,14 @@ mod menu {
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
+        mut selected_query: Query<(Entity, &mut UiImage), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
-                let (previous_button, mut previous_color) = selected_query.single_mut();
-                *previous_color = NORMAL_BUTTON.into();
+                let (previous_button, mut previous_image) = selected_query.single_mut();
+                previous_image.color = NORMAL_BUTTON;
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -456,7 +456,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
+                                    image: UiImage::default().with_color(NORMAL_BUTTON),
                                     ..default()
                                 },
                                 MenuButtonAction::Play,
@@ -477,7 +477,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
+                                    image: UiImage::default().with_color(NORMAL_BUTTON),
                                     ..default()
                                 },
                                 MenuButtonAction::Settings,
@@ -498,7 +498,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
+                                    image: UiImage::default().with_color(NORMAL_BUTTON),
                                     ..default()
                                 },
                                 MenuButtonAction::Quit,
@@ -567,7 +567,7 @@ mod menu {
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
+                                        image: UiImage::default().with_color(NORMAL_BUTTON),
                                         ..default()
                                     },
                                     action,
@@ -654,7 +654,7 @@ mod menu {
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            background_color: NORMAL_BUTTON.into(),
+                                            image: UiImage::default().with_color(NORMAL_BUTTON),
                                             ..default()
                                         },
                                         quality_setting,
@@ -675,7 +675,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
+                                    image: UiImage::default().with_color(NORMAL_BUTTON),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
@@ -750,7 +750,7 @@ mod menu {
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            background_color: NORMAL_BUTTON.into(),
+                                            image: UiImage::default().with_color(NORMAL_BUTTON),
                                             ..default()
                                         },
                                         Volume(volume_setting),
@@ -764,7 +764,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
+                                    image: UiImage::default().with_color(NORMAL_BUTTON),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,

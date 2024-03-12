@@ -4,7 +4,7 @@ use crate::{
     AssetPath,
 };
 use async_lock::RwLockReadGuardArc;
-use bevy_log::trace;
+use bevy_utils::tracing::trace;
 use bevy_utils::BoxedFuture;
 use futures_io::AsyncRead;
 use std::{path::Path, pin::Pin, sync::Arc};

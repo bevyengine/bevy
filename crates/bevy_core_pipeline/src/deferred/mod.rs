@@ -10,7 +10,7 @@ use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-use bevy_utils::nonmax::NonMaxU32;
+use nonmax::NonMaxU32;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;

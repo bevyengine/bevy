@@ -2,19 +2,17 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, Ref, World, WorldId};
+use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, Ticks, TicksMut},
-    component::{
-        ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
-    },
+    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
-    system::{CommandQueue, Res, Resource},
+    system::{Res, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
@@ -713,7 +711,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -740,7 +738,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -770,7 +768,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -839,7 +837,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )

@@ -20,11 +20,11 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_log::warn;
 use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,

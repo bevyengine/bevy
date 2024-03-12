@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod error;
 mod font;
@@ -77,11 +78,6 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
-            .register_type::<TextSection>()
-            .register_type::<Vec<TextSection>>()
-            .register_type::<TextStyle>()
-            .register_type::<JustifyText>()
-            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasSets>()

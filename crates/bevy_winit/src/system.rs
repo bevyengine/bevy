@@ -17,6 +17,9 @@ use winit::{
     event_loop::EventLoopWindowTarget,
 };
 
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
+
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
@@ -32,7 +35,7 @@ use crate::{
 /// default values.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn create_windows<F: QueryFilter + 'static>(
-    event_loop: &EventLoopWindowTarget<()>,
+    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
     (
         mut commands,
         mut created_windows,
@@ -80,6 +83,17 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
                 window: window.clone(),
             });
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            if window.fit_canvas_to_parent {
+                let canvas = winit_window
+                    .canvas()
+                    .expect("window.canvas() can only be called in main thread.");
+                let style = canvas.style();
+                style.set_property("width", "100%").unwrap();
+                style.set_property("height", "100%").unwrap();
+            }
+        }
         window_created_events.send(WindowCreated { window: entity });
     }
 }

@@ -23,7 +23,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(TextBundle::from_section(
         "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
-        Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos",
+        Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
+        Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
+        Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
@@ -39,7 +41,7 @@ fn draw_example_collection(
 ) {
     let sin = time.elapsed_seconds().sin() * 50.;
     gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), GREEN);
+    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LIME);
 
     gizmos
         .grid_2d(
@@ -56,7 +58,7 @@ fn draw_example_collection(
     gizmos.linestrip_gradient_2d([
         (Vec2::Y * 300., BLUE),
         (Vec2::new(-255., -155.), RED),
-        (Vec2::new(255., -155.), GREEN),
+        (Vec2::new(255., -155.), LIME),
         (Vec2::Y * 300., BLUE),
     ]);
 
@@ -106,10 +108,18 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
-    if keyboard.just_pressed(KeyCode::KeyJ) {
+    if keyboard.just_pressed(KeyCode::KeyU) {
         config.line_style = match config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+        };
+    }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        config.line_joints = match config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
 
@@ -125,10 +135,18 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
-    if keyboard.just_pressed(KeyCode::KeyK) {
+    if keyboard.just_pressed(KeyCode::KeyI) {
         my_config.line_style = match my_config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+        };
+    }
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        my_config.line_joints = match my_config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
 }
