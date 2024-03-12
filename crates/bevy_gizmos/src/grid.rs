@@ -319,8 +319,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     }
 }
 
-fn draw_grid<'a, 'w, 's, T: GizmoConfigGroup>(
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+#[allow(clippy::too_many_arguments)]
+fn draw_grid<T: GizmoConfigGroup>(
+    gizmos: &mut Gizmos<'_, '_, T>,
     position: Vec3,
     rotation: Quat,
     spacing: Vec3,
