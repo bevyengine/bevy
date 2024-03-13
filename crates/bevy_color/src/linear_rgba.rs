@@ -1,7 +1,10 @@
-use std::ops::{Div, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
-use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
-use bevy_math::Vec4;
+use crate::{
+    add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Luminance, Mix,
+    StandardColor,
+};
+use bevy_math::{cubic_splines::Point, Vec4};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
@@ -296,6 +299,10 @@ impl Mul<f32> for LinearRgba {
     }
 }
 
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
 impl Mul<LinearRgba> for f32 {
     type Output = LinearRgba;
 
@@ -320,6 +327,42 @@ impl Div<f32> for LinearRgba {
         }
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Add<Self> for LinearRgba {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            red: self.red + rhs.red,
+            green: self.green + rhs.green,
+            blue: self.blue + rhs.blue,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Sub<Self> for LinearRgba {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            red: self.red - rhs.red,
+            green: self.green - rhs.green,
+            blue: self.blue - rhs.blue,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+impl Point for LinearRgba {}
 
 // [`LinearRgba`] is intended to be used with shaders
 // So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
