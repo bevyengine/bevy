@@ -2,7 +2,12 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use std::ops::{Add, Div, Mul, Sub};
+
+use crate::{
+    add_alpha_blend, sub_alpha_blend, Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
+};
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +99,90 @@ impl Alpha for Hwba {
         self.alpha = alpha;
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Add<Hwba> for Hwba {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            hue: (self.hue + rhs.hue).rem_euclid(360.),
+            whiteness: self.whiteness + rhs.whiteness,
+            blackness: self.blackness + rhs.blackness,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Sub<Hwba> for Hwba {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            hue: (self.hue - rhs.hue).rem_euclid(360.),
+            whiteness: self.whiteness - rhs.whiteness,
+            blackness: self.blackness - rhs.blackness,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Hwba {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            hue: (self.hue * rhs).rem_euclid(360.),
+            whiteness: self.whiteness * rhs,
+            blackness: self.blackness * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Hwba> for f32 {
+    type Output = Hwba;
+
+    fn mul(self, rhs: Hwba) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Hwba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            hue: (self.hue / rhs).rem_euclid(360.),
+            blackness: self.blackness / rhs,
+            whiteness: self.whiteness / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Point for Hwba {}
 
 impl From<Srgba> for Hwba {
     fn from(
