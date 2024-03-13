@@ -1,4 +1,9 @@
-use crate::{Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use std::ops::{Add, Div, Mul, Sub};
+
+use crate::{
+    add_alpha_blend, sub_alpha_blend, Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
+};
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -90,6 +95,90 @@ impl Alpha for Hsva {
         self.alpha = alpha;
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Add<Hsva> for Hsva {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            hue: (self.hue + rhs.hue).rem_euclid(360.),
+            value: self.value + rhs.value,
+            saturation: self.saturation + rhs.saturation,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Sub<Hsva> for Hsva {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            hue: (self.hue - rhs.hue).rem_euclid(360.),
+            value: self.value - rhs.value,
+            saturation: self.saturation - rhs.saturation,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Hsva {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            hue: (self.hue * rhs).rem_euclid(360.),
+            value: self.value * rhs,
+            saturation: self.saturation * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Hsva> for f32 {
+    type Output = Hsva;
+
+    fn mul(self, rhs: Hsva) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Hsva {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            hue: (self.hue / rhs).rem_euclid(360.),
+            value: self.value / rhs,
+            saturation: self.saturation / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Point for Hsva {}
 
 impl From<Hsva> for Hwba {
     fn from(
