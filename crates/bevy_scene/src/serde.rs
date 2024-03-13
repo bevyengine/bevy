@@ -693,6 +693,7 @@ mod tests {
         assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
     }
 
+    // Regression test regarding [#12462](https://github.com/bevyengine/bevy/issues/12462)
     #[test]
     fn should_reserialize() {
         let mut world = create_world();
