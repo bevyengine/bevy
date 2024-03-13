@@ -1,4 +1,10 @@
-use crate::{Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use std::ops::{Add, Div, Mul, Sub};
+
+use crate::{
+    add_alpha_blend, sub_alpha_blend, Alpha, Laba, LinearRgba, Luminance, Mix, Srgba,
+    StandardColor, Xyza,
+};
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -165,6 +171,90 @@ impl Luminance for Lcha {
         )
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Add<Lcha> for Lcha {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness + rhs.lightness,
+            chroma: self.chroma + rhs.chroma,
+            hue: (self.hue + rhs.hue).rem_euclid(360.),
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl Sub<Lcha> for Lcha {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness - rhs.lightness,
+            chroma: self.chroma - rhs.chroma,
+            hue: (self.hue - rhs.hue).rem_euclid(360.),
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Lcha {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness * rhs,
+            chroma: self.chroma * rhs,
+            hue: (self.hue * rhs).rem_euclid(360.),
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Lcha> for f32 {
+    type Output = Lcha;
+
+    fn mul(self, rhs: Lcha) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Lcha {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness / rhs,
+            chroma: self.chroma / rhs,
+            hue: (self.hue / rhs).rem_euclid(360.),
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Point for Lcha {}
 
 impl From<Lcha> for Laba {
     fn from(
