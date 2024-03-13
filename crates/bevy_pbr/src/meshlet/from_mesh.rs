@@ -66,7 +66,7 @@ impl MeshletMesh {
             .meshlets
             .into_iter()
             .map(|m| {
-                total_meshlet_triangles += m.triangle_count;
+                total_meshlet_triangles += m.triangle_count as u64;
                 Meshlet {
                     start_vertex_id: m.vertex_offset,
                     start_index_id: m.triangle_offset,
