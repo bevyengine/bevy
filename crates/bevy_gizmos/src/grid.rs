@@ -182,7 +182,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .skew_x(0.25)
-    ///         .outer_edges(true);
+    ///         .outer_edges();
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -238,7 +238,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .skew_x(0.25)
-    ///         .outer_edges(true);
+    ///         .outer_edges();
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -294,7 +294,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .skew_x(0.25)
-    ///         .outer_edges(true);
+    ///         .outer_edges();
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
