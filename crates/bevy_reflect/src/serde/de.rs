@@ -1170,12 +1170,11 @@ mod tests {
         registry
     }
 
-    #[test]
-    fn should_deserialize() {
+    fn get_my_struct()->MyStruct{
         let mut map = HashMap::new();
         map.insert(64, 32);
 
-        let expected = MyStruct {
+        MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
@@ -1202,7 +1201,14 @@ mod tests {
                 value: 100,
                 inner_struct: SomeDeserializableStruct { foo: 101 },
             },
-        };
+        }
+    }
+
+    #[test]
+    fn should_deserialize() {
+
+        let expected = get_my_struct();
+        let registry = get_registry();
 
         let input = r#"{
             "bevy_reflect::serde::de::tests::MyStruct": (
@@ -1462,38 +1468,8 @@ mod tests {
 
     #[test]
     fn should_deserialize_non_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
 
-        let expected = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 0 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::default(),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
-            custom_deserialize: CustomDeserialize {
-                value: 100,
-                inner_struct: SomeDeserializableStruct { foo: 101 },
-            },
-        };
-
+        let expected = get_my_struct();
         let registry = get_registry();
 
         let input = vec![
@@ -1525,38 +1501,8 @@ mod tests {
 
     #[test]
     fn should_deserialize_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
 
-        let expected = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 0 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::default(),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
-            custom_deserialize: CustomDeserialize {
-                value: 100,
-                inner_struct: SomeDeserializableStruct { foo: 101 },
-            },
-        };
-
+        let expected = get_my_struct();
         let registry = get_registry();
 
         let input = vec![
