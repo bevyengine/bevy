@@ -310,7 +310,7 @@ jobs:
       - name: Apply patches
         run: |
           for patch in tools/example-showcase/*.patch; do
-            git apply --ignore-whitespace t$patch
+            git apply --ignore-whitespace $patch
           done
       - name: Build with patches
         run: cargo build
