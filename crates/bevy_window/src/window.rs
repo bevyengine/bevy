@@ -264,6 +264,8 @@ pub struct Window {
     /// If `true`, the window will not appear in the taskbar.
     /// If `false`, the window will appear in the taskbar.
     ///
+    /// Note that this will only take effect on window creation.
+    ///
     /// ## Platform-specific
     ///
     /// - Only supported on Windows.
