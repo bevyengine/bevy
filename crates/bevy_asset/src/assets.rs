@@ -549,8 +549,6 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
-            assets.queued_events.push(AssetEvent::Unused { id });
-
             let mut remove_asset = true;
 
             if drop_event.asset_server_managed {
@@ -565,6 +563,7 @@ impl<A: Asset> Assets<A> {
             }
             if remove_asset {
                 assets.remove_dropped(id);
+                assets.queued_events.push(AssetEvent::Unused { id });
             }
         }
 
