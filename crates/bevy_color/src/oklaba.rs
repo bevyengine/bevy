@@ -1,7 +1,10 @@
+use std::ops::{Add, Div, Mul, Sub};
+
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
-    Srgba, StandardColor, Xyza,
+    add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba,
+    Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -131,6 +134,88 @@ impl EuclideanDistance for Oklaba {
         (self.l - other.l).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Add<Oklaba> for Oklaba {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            l: self.l + rhs.l,
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Sub<Oklaba> for Oklaba {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            l: self.l - rhs.l,
+            a: self.a - rhs.a,
+            b: self.b - rhs.b,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Oklaba {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            l: self.l * rhs,
+            a: self.a * rhs,
+            b: self.b * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Oklaba> for f32 {
+    type Output = Oklaba;
+
+    fn mul(self, rhs: Oklaba) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Oklaba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            l: self.l / rhs,
+            a: self.a / rhs,
+            b: self.b / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Point for Oklaba {}
 
 #[allow(clippy::excessive_precision)]
 impl From<LinearRgba> for Oklaba {
