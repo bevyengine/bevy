@@ -1,7 +1,7 @@
 //! The modular rendering abstraction responsible for queuing, preparing, sorting and drawing
 //! entities as part of separate render phases.
 //!
-//! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple [`RenderPhase`]s
+//! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple render phases
 //! (e.g. opaque, transparent, shadow, etc).
 //! They are used to queue entities for rendering.
 //! Multiple phases might be required due to different sorting/batching behaviors
@@ -333,7 +333,7 @@ where
 }
 
 /// An item (entity of the render world) which will be drawn to a texture or the screen,
-/// as part of a [`RenderPhase`].
+/// as part of a render phase.
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).

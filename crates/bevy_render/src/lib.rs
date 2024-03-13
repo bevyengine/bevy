@@ -109,7 +109,7 @@ pub enum RenderSet {
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
-    /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
+    /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.

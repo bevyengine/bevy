@@ -11,7 +11,8 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
+/// [`SortedRenderPhase`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 

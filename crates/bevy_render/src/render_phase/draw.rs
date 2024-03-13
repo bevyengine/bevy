@@ -302,7 +302,7 @@ where
 /// Registers a [`RenderCommand`] as a [`Draw`] function.
 /// They are stored inside the [`DrawFunctions`] resource of the app.
 pub trait AddRenderCommand {
-    /// Adds the [`RenderCommand`] for the specified [`RenderPhase`](super::RenderPhase) to the app.
+    /// Adds the [`RenderCommand`] for the specified render phase to the app.
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self

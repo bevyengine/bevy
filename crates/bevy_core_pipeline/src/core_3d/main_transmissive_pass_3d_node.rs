@@ -13,7 +13,8 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use std::ops::Range;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
+/// [`SortedRenderPhase`].
 #[derive(Default)]
 pub struct MainTransmissivePass3dNode;
 

@@ -16,7 +16,8 @@ use bevy_utils::tracing::info_span;
 
 use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`]
+/// [`BinnedRenderPhase`] and [`AlphaMask3d`] [`SortedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
