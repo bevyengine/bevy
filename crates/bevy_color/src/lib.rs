@@ -113,6 +113,9 @@ pub mod prelude {
     pub use crate::xyza::*;
 }
 
+use std::ops::{Add, Div, Mul, Sub};
+
+use bevy_math::cubic_splines::Point;
 pub use color::*;
 pub use color_ops::*;
 pub use color_range::*;
@@ -149,5 +152,19 @@ where
     Self: From<Oklcha> + Into<Oklcha>,
     Self: From<Xyza> + Into<Xyza>,
     Self: Alpha,
+    Self: Add<Self>,
+    Self: Sub<Self>,
+    Self: Div<f32>,
+    Self: Mul<f32>,
+    f32: Mul<Self>,
+    Self: Point,
 {
+}
+
+pub(crate) fn add_alpha_blend(lhs: f32, rhs: f32) -> f32 {
+    lhs + rhs * (1. - lhs)
+}
+
+pub(crate) fn sub_alpha_blend(lhs: f32, rhs: f32) -> f32 {
+    lhs * (1. - rhs)
 }
