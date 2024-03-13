@@ -53,56 +53,6 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
              i128
            and $N others
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-   |                            expected `TheirOuter<T>`, found `TheirInner<T>`
-   |                            expected due to this
-   |
-   = note: expected struct `TheirOuter<T>`
-              found struct `TheirInner<T>`
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:51:5
-   |
-51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |     |
-   |     expected `&TheirInner<bool>`, found `&TheirInner<T>`
-   |     arguments to this function are incorrect
-52 |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
-   |                    - found this type parameter
-   |
-   = note: expected reference `&TheirInner<bool>`
-              found reference `&TheirInner<T>`
-note: associated function defined here
-  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:59:8
-   |
-59 |     fn as_wrapper(remote: &Self::Remote) -> &Self;
-   |        ^^^^^^^^^^
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: mismatched types
-  --> tests/reflect_remote/nested.fail.rs:51:5
-   |
-51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |     |
-   |     expected `&mut TheirInner<bool>`, found `&mut TheirInner<T>`
-   |     arguments to this function are incorrect
-52 |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
-   |                    - found this type parameter
-   |
-   = note: expected mutable reference `&mut TheirInner<bool>`
-              found mutable reference `&mut TheirInner<T>`
-note: associated function defined here
-  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:61:8
-   |
-61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
-   |        ^^^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0308]: `?` operator has incompatible types
-  --> tests/reflect_remote/nested.fail.rs:51:5
-   |
 51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
 52 |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
