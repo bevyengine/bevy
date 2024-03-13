@@ -79,8 +79,8 @@ use crate::{
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT,
-        NORMAL_PREPASS_FORMAT,
+        NormalPrepass, Opaque3dPrepass, Opaque3dPrepassBinKey, ViewPrepassTextures,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -116,11 +116,8 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<AlphaMask3dDeferred>.in_set(RenderSet::PhaseSort),
                     prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
                     prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSet::PrepareResources),
@@ -267,10 +264,8 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub asset_id: AssetId<Mesh>,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    pub key: Opaque3dPrepassBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
@@ -278,12 +273,12 @@ pub struct AlphaMask3d {
 impl PhaseItem for AlphaMask3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+        self.key.draw_function
     }
 
     #[inline]
@@ -307,25 +302,28 @@ impl PhaseItem for AlphaMask3d {
     }
 }
 
-impl SortedPhaseItem for AlphaMask3d {
-    type SortKey = (usize, AssetId<Mesh>);
+impl BinnedPhaseItem for AlphaMask3d {
+    type BinKey = Opaque3dPrepassBinKey;
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline.id(), self.asset_id)
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
@@ -474,7 +472,7 @@ pub fn extract_core_3d_camera_phases(
         if camera.is_active {
             commands.get_or_spawn(entity).insert((
                 BinnedRenderPhase::<Opaque3d>::default(),
-                SortedRenderPhase::<AlphaMask3d>::default(),
+                BinnedRenderPhase::<AlphaMask3d>::default(),
                 SortedRenderPhase::<Transmissive3d>::default(),
                 SortedRenderPhase::<Transparent3d>::default(),
             ));
@@ -508,14 +506,14 @@ pub fn extract_camera_prepass_phase(
             if depth_prepass || normal_prepass || motion_vector_prepass {
                 entity.insert((
                     BinnedRenderPhase::<Opaque3dPrepass>::default(),
-                    SortedRenderPhase::<AlphaMask3dPrepass>::default(),
+                    BinnedRenderPhase::<AlphaMask3dPrepass>::default(),
                 ));
             }
 
             if deferred_prepass {
                 entity.insert((
                     BinnedRenderPhase::<Opaque3dDeferred>::default(),
-                    SortedRenderPhase::<AlphaMask3dDeferred>::default(),
+                    BinnedRenderPhase::<AlphaMask3dDeferred>::default(),
                 ));
             }
 
@@ -544,7 +542,7 @@ pub fn prepare_core_3d_depth_textures(
         (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
         (
             With<BinnedRenderPhase<Opaque3d>>,
-            With<SortedRenderPhase<AlphaMask3d>>,
+            With<BinnedRenderPhase<AlphaMask3d>>,
             With<SortedRenderPhase<Transmissive3d>>,
             With<SortedRenderPhase<Transparent3d>>,
         ),
@@ -630,7 +628,7 @@ pub fn prepare_core_3d_transmission_textures(
         ),
         (
             With<BinnedRenderPhase<Opaque3d>>,
-            With<SortedRenderPhase<AlphaMask3d>>,
+            With<BinnedRenderPhase<AlphaMask3d>>,
             With<SortedRenderPhase<Transparent3d>>,
         ),
     >,
@@ -732,9 +730,9 @@ pub fn prepare_prepass_textures(
         ),
         Or<(
             With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<SortedRenderPhase<AlphaMask3dPrepass>>,
+            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
             With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<SortedRenderPhase<AlphaMask3dDeferred>>,
+            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
         )>,
     >,
 ) {

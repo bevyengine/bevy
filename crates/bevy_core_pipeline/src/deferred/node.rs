@@ -7,7 +7,6 @@ use bevy_render::render_resource::{CommandEncoderDescriptor, StoreOp};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::SortedRenderPhase,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
@@ -29,7 +28,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static BinnedRenderPhase<Opaque3dDeferred>,
-        &'static SortedRenderPhase<AlphaMask3dDeferred>,
+        &'static BinnedRenderPhase<AlphaMask3dDeferred>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
     );
@@ -147,7 +146,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Alpha masked draws
-            if !alpha_mask_deferred_phase.items.is_empty() {
+            if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
                 alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity);

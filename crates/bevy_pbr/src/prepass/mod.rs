@@ -17,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
-    batching::batch_and_prepare_sorted_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -154,7 +153,7 @@ where
                     (
                         prepare_previous_view_projection_uniforms,
                         batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                        batch_and_prepare_sorted_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                        batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
                     )
                         .in_set(RenderSet::PrepareResources),
                 );
@@ -699,9 +698,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
             &ExtractedView,
             &VisibleEntities,
             Option<&mut BinnedRenderPhase<Opaque3dPrepass>>,
-            Option<&mut SortedRenderPhase<AlphaMask3dPrepass>>,
+            Option<&mut BinnedRenderPhase<AlphaMask3dPrepass>>,
             Option<&mut BinnedRenderPhase<Opaque3dDeferred>>,
-            Option<&mut SortedRenderPhase<AlphaMask3dDeferred>>,
+            Option<&mut BinnedRenderPhase<AlphaMask3dDeferred>>,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
@@ -709,9 +708,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
         ),
         Or<(
             With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<SortedRenderPhase<AlphaMask3dPrepass>>,
+            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
             With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<SortedRenderPhase<AlphaMask3dDeferred>>,
+            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
         )>,
     >,
 ) where
@@ -861,26 +860,29 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if deferred {
-                        alpha_mask_deferred_phase
-                            .as_mut()
-                            .unwrap()
-                            .add(AlphaMask3dDeferred {
-                                entity: *visible_entity,
-                                draw_function: alpha_mask_draw_deferred,
-                                pipeline_id,
-                                asset_id: mesh_instance.mesh_asset_id,
-                                batch_range: 0..1,
-                                dynamic_offset: None,
-                            });
-                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
-                        alpha_mask_phase.add(AlphaMask3dPrepass {
-                            entity: *visible_entity,
-                            draw_function: alpha_mask_draw_prepass,
-                            pipeline_id,
+                        let bin_key = Opaque3dPrepassBinKey {
+                            pipeline: pipeline_id,
+                            draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                        };
+                        alpha_mask_deferred_phase.as_mut().unwrap().add(
+                            bin_key,
+                            *visible_entity,
+                            mesh_instance.should_batch(),
+                        );
+                    } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                        let bin_key = Opaque3dPrepassBinKey {
+                            pipeline: pipeline_id,
+                            draw_function: alpha_mask_draw_prepass,
+                            asset_id: mesh_instance.mesh_asset_id,
+                            material_bind_group_id: material.get_bind_group_id().0,
+                        };
+                        alpha_mask_phase.add(
+                            bin_key,
+                            *visible_entity,
+                            mesh_instance.should_batch(),
+                        );
                     }
                 }
                 AlphaMode::Blend

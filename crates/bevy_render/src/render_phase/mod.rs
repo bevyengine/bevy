@@ -205,6 +205,10 @@ where
             }
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.batchable_keys.is_empty() && self.unbatchable_keys.is_empty()
+    }
 }
 
 impl<BPI> Default for BinnedRenderPhase<BPI>

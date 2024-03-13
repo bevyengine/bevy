@@ -5,7 +5,9 @@ use bevy_core_pipeline::{
         AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
         Transmissive3d, Transparent3d,
     },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, Opaque3dPrepassBinKey,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -484,7 +486,7 @@ pub fn queue_material_meshes<M: Material>(
         Has<TemporalJitter>,
         Option<&Projection>,
         &mut BinnedRenderPhase<Opaque3d>,
-        &mut SortedRenderPhase<AlphaMask3d>,
+        &mut BinnedRenderPhase<AlphaMask3d>,
         &mut SortedRenderPhase<Transmissive3d>,
         &mut SortedRenderPhase<Transparent3d>,
         (
@@ -689,14 +691,17 @@ pub fn queue_material_meshes<M: Material>(
                             dynamic_offset: None,
                         });
                     } else if forward {
-                        alpha_mask_phase.add(AlphaMask3d {
-                            entity: *visible_entity,
+                        let bin_key = Opaque3dPrepassBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                        };
+                        alpha_mask_phase.add(
+                            bin_key,
+                            *visible_entity,
+                            mesh_instance.should_batch(),
+                        );
                     }
                 }
                 AlphaMode::Blend

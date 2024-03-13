@@ -34,9 +34,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
-    render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem, SortedPhaseItem,
-    },
+    render_phase::{BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
 };
@@ -206,10 +204,8 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 ///
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
-    pub asset_id: AssetId<Mesh>,
-    pub entity: Entity,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub key: Opaque3dPrepassBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
@@ -217,12 +213,12 @@ pub struct AlphaMask3dPrepass {
 impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+        self.key.draw_function
     }
 
     #[inline]
@@ -246,24 +242,27 @@ impl PhaseItem for AlphaMask3dPrepass {
     }
 }
 
-impl SortedPhaseItem for AlphaMask3dPrepass {
-    type SortKey = (usize, AssetId<Mesh>);
+impl BinnedPhaseItem for AlphaMask3dPrepass {
+    type BinKey = Opaque3dPrepassBinKey;
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline_id.id(), self.asset_id)
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
+        self.key.pipeline
     }
 }
