@@ -562,8 +562,8 @@ impl<A: Asset> Assets<A> {
                 asset_unused = infos.process_handle_drop(untyped_id);
             }
             if asset_unused {
-                assets.remove_dropped(id);
                 assets.queued_events.push(AssetEvent::Unused { id });
+                assets.remove_dropped(id);
             }
         }
 
