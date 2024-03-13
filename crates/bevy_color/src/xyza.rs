@@ -1,4 +1,7 @@
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use std::ops::{Add, Div, Mul, Sub};
+
+use crate::{add_alpha_blend, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -133,6 +136,88 @@ impl Mix for Xyza {
         }
     }
 }
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Xyza {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Xyza> for f32 {
+    type Output = Xyza;
+
+    fn mul(self, rhs: Xyza) -> Xyza {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Xyza {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Add<Self> for Xyza {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Sub<Self> for Xyza {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+impl Point for Xyza {}
 
 impl From<LinearRgba> for Xyza {
     fn from(
