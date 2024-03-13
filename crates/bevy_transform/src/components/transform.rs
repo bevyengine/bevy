@@ -421,6 +421,24 @@ impl Transform {
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
     /// a rotation is constructed which takes `main_axis` to `main_direction` but ignores the secondary counterparts
     /// (i.e. is otherwise unspecified)
+    ///
+    /// Example
+    /// ```
+    /// # use bevy_math::Vec3;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::components::Transform;
+    /// # #[derive(Component)]
+    /// # struct HasFront {
+    /// #     front_vector: Vec3,
+    /// # }
+    /// fn face_origin(mut query: Query<(&mut Transform, &HasFront)>) {
+    ///     for (mut transform, front) in &mut query {
+    ///         let origin_facing_vector = -transform.translation;
+    ///         transform.align(front.front_vector, origin_facing_vector, Vec3::Y, Vec3::Y);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(face_origin);
+    /// ```
     #[inline]
     pub fn align(
         &mut self,
@@ -435,12 +453,12 @@ impl Transform {
         let secondary_direction = secondary_direction.try_normalize().unwrap_or(Vec3::Y);
 
         // The solution quaternion will be constructed in two steps.
-        // First, we start with a rotation that takes `handle` to `direction`.
+        // First, we start with a rotation that takes `main_axis` to `main_direction`.
         let first_rotation = Quat::from_rotation_arc(main_axis, main_direction);
 
-        // Let's follow by rotating about the `direction` axis so that the image of `weak_handle`
-        // is taken to something that lies in the plane of `direction` and `weak_direction`. Since
-        // `direction` is fixed by this rotation, the first criterion is still satisfied.
+        // Let's follow by rotating about the `main_direction` axis so that the image of `secondary_axis`
+        // is taken to something that lies in the plane of `main_direction` and `secondary_direction`. Since
+        // `main_direction` is fixed by this rotation, the first criterion is still satisfied.
         let secondary_image = first_rotation * secondary_axis;
         let secondary_image_ortho = secondary_image
             .reject_from_normalized(main_direction)
@@ -449,7 +467,7 @@ impl Transform {
             .reject_from_normalized(main_direction)
             .try_normalize();
 
-        // If one of the two weak vectors was parallel to `direction`, then we just do the first part
+        // If one of the two weak vectors was parallel to `main_direction`, then we just do the first part
         self.rotation = match (secondary_image_ortho, secondary_direction_ortho) {
             (Some(secondary_img_ortho), Some(secondary_dir_ortho)) => {
                 let second_rotation =
