@@ -16,7 +16,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            SortedRenderPhase, SetItemPipeline, TrackedRenderPass,
+            SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,

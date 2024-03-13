@@ -19,8 +19,8 @@ use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SortedRenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
+        SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},

@@ -12,7 +12,7 @@ use bevy::{
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, SortedRenderPhase, SetItemPipeline},
+        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,

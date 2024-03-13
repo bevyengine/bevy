@@ -131,7 +131,10 @@ impl Plugin for MeshRenderPlugin {
                             batch_and_prepare_sorted_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
                             batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_sorted_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<
+                                AlphaMask3dDeferred,
+                                MeshPipeline,
+                            >,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
