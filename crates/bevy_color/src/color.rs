@@ -1,9 +1,6 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Div, Mul};
 
-use crate::{
-    Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
-};
-use bevy_math::cubic_splines::Point;
+use crate::{Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -39,9 +36,6 @@ pub enum Color {
     /// A color in the XYZ color space with alpha.
     Xyza(Xyza),
 }
-
-impl StandardColor for Color {}
-impl Point for Color {}
 
 impl Color {
     /// Return the color as a linear RGBA color.
@@ -383,56 +377,6 @@ impl Alpha for Color {
             Color::Oklaba(x) => x.set_alpha(alpha),
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
-        }
-    }
-}
-
-/// The colors are added in the color space of lhs
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue (if present) is in `0..360`
-impl Add<Self> for Color {
-    type Output = Color;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        match self {
-            Color::Srgba(x) => (x + rhs.into()).into(),
-            Color::LinearRgba(x) => (x + rhs.into()).into(),
-            Color::Hsla(x) => (x + rhs.into()).into(),
-            Color::Hsva(x) => (x + rhs.into()).into(),
-            Color::Hwba(x) => (x + rhs.into()).into(),
-            Color::Laba(x) => (x + rhs.into()).into(),
-            Color::Lcha(x) => (x + rhs.into()).into(),
-            Color::Oklaba(x) => (x + rhs.into()).into(),
-            Color::Oklcha(x) => (x + rhs.into()).into(),
-            Color::Xyza(x) => (x + rhs.into()).into(),
-        }
-    }
-}
-
-/// The colors are subtracted in the color space of lhs
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue (if present) is in `0..360`
-impl Sub<Self> for Color {
-    type Output = Color;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match self {
-            Color::Srgba(x) => (x - rhs.into()).into(),
-            Color::LinearRgba(x) => (x - rhs.into()).into(),
-            Color::Hsla(x) => (x - rhs.into()).into(),
-            Color::Hsva(x) => (x - rhs.into()).into(),
-            Color::Hwba(x) => (x - rhs.into()).into(),
-            Color::Laba(x) => (x - rhs.into()).into(),
-            Color::Lcha(x) => (x - rhs.into()).into(),
-            Color::Oklaba(x) => (x - rhs.into()).into(),
-            Color::Oklcha(x) => (x - rhs.into()).into(),
-            Color::Xyza(x) => (x - rhs.into()).into(),
         }
     }
 }
