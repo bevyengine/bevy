@@ -36,7 +36,7 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
     }
     workgroupBarrier();
 
-    // Each thread writes one triangle of the meshlet to the buffer
+    // Each thread writes one triangle of the meshlet to the buffer slice reserved for the meshlet
     if triangle_id < meshlet.triangle_count {
         draw_index_buffer[draw_index_buffer_start_workgroup + base_index_id] = (cluster_id << 8u) | triangle_id;
     }
