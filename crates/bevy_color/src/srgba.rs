@@ -1,7 +1,10 @@
-use std::ops::{Div, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::color_difference::EuclideanDistance;
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
+use crate::{
+    add_alpha_blend, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza,
+};
+use bevy_math::cubic_splines::Point;
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -388,6 +391,10 @@ impl Mul<f32> for Srgba {
     }
 }
 
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
 impl Mul<Srgba> for f32 {
     type Output = Srgba;
 
@@ -412,6 +419,42 @@ impl Div<f32> for Srgba {
         }
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Add<Self> for Srgba {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            red: self.red + rhs.red,
+            green: self.green + rhs.green,
+            blue: self.blue + rhs.blue,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Sub<Self> for Srgba {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            red: self.red - rhs.red,
+            green: self.green - rhs.green,
+            blue: self.blue - rhs.blue,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+impl Point for Srgba {}
 
 #[cfg(test)]
 mod tests {
