@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use crate::color_difference::EuclideanDistance;
 use crate::{
@@ -434,6 +434,16 @@ impl Add<Self> for Srgba {
             blue: self.blue + rhs.blue,
             alpha: add_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl AddAssign<Self> for Srgba {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 

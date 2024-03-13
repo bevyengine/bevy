@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
@@ -111,6 +111,17 @@ impl Add<Hsva> for Hsva {
             saturation: self.saturation + rhs.saturation,
             alpha: add_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl AddAssign<Self> for Hsva {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 

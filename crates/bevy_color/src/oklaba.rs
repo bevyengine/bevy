@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 use crate::{
     add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba,
@@ -149,6 +149,16 @@ impl Add<Oklaba> for Oklaba {
             b: self.b + rhs.b,
             alpha: add_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl AddAssign<Self> for Oklaba {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
