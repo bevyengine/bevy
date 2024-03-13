@@ -7,6 +7,7 @@
         meshlet_thread_instance_ids,
         meshlet_instance_uniforms,
         meshlet_instance_material_ids,
+        draw_index_buffer,
         view,
         get_meshlet_index,
         unpack_meshlet_vertex,
@@ -36,11 +37,13 @@ struct FragmentOutput {
 #endif
 
 @vertex
-fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
-    let cluster_id = cull_output >> 8u;
+fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    let packed_ids = draw_index_buffer[vertex_index / 3u];
+    let cluster_id = packed_ids >> 8u;
+    let triangle_id = extractBits(packed_ids, 0u, 8u);
+    let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
-    let index_id = extractBits(cull_output, 0u, 8u);
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
@@ -58,7 +61,7 @@ fn vertex(@builtin(vertex_index) cull_output: u32) -> VertexOutput {
     return VertexOutput(
         clip_position,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-        (cluster_id << 7u) | (index_id / 3u),
+        packed_ids,
         meshlet_instance_material_ids[instance_id],
 #endif
 #ifdef DEPTH_CLAMP_ORTHO

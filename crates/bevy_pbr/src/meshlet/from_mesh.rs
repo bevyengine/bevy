@@ -61,12 +61,12 @@ impl MeshletMesh {
             .collect();
 
         // Assemble into the final asset
-        let mut total_meshlet_indices = 0;
+        let mut total_meshlet_triangles = 0;
         let meshlets = meshopt_meshlets
             .meshlets
             .into_iter()
             .map(|m| {
-                total_meshlet_indices += m.triangle_count as u64 * 3;
+                total_meshlet_triangles += m.triangle_count;
                 Meshlet {
                     start_vertex_id: m.vertex_offset,
                     start_index_id: m.triangle_offset,
@@ -76,7 +76,7 @@ impl MeshletMesh {
             .collect();
 
         Ok(Self {
-            total_meshlet_indices,
+            total_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshopt_meshlets.vertices.into(),
             indices: meshopt_meshlets.triangles.into(),
