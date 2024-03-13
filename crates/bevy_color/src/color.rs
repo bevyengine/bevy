@@ -381,64 +381,6 @@ impl Alpha for Color {
     }
 }
 
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Color {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Color::Srgba(x) => (x * rhs).into(),
-            Color::LinearRgba(x) => (x * rhs).into(),
-            Color::Hsla(x) => (x * rhs).into(),
-            Color::Hsva(x) => (x * rhs).into(),
-            Color::Hwba(x) => (x * rhs).into(),
-            Color::Laba(x) => (x * rhs).into(),
-            Color::Lcha(x) => (x * rhs).into(),
-            Color::Oklaba(x) => (x * rhs).into(),
-            Color::Oklcha(x) => (x * rhs).into(),
-            Color::Xyza(x) => (x * rhs).into(),
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Color> for f32 {
-    type Output = Color;
-
-    fn mul(self, rhs: Color) -> Self::Output {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Color {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Color::Srgba(x) => (x / rhs).into(),
-            Color::LinearRgba(x) => (x / rhs).into(),
-            Color::Hsla(x) => (x / rhs).into(),
-            Color::Hsva(x) => (x / rhs).into(),
-            Color::Hwba(x) => (x / rhs).into(),
-            Color::Laba(x) => (x / rhs).into(),
-            Color::Lcha(x) => (x / rhs).into(),
-            Color::Oklaba(x) => (x / rhs).into(),
-            Color::Oklcha(x) => (x / rhs).into(),
-            Color::Xyza(x) => (x / rhs).into(),
-        }
-    }
-}
-
 impl From<Srgba> for Color {
     fn from(value: Srgba) -> Self {
         Self::Srgba(value)
