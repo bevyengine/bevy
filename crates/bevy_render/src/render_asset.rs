@@ -340,11 +340,11 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                     AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                         changed_assets.insert(*id);
                     }
-                    AssetEvent::Removed { .. } => {}
-                    AssetEvent::Unused { id } => {
+                    AssetEvent::Removed { id } => {
                         changed_assets.remove(id);
                         removed.push(*id);
                     }
+                    AssetEvent::Unused { .. } => {}
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
                     }
