@@ -1,6 +1,9 @@
+use std::ops::{Add, Div, Mul, Sub};
+
 use crate::{
     Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +41,7 @@ pub enum Color {
 }
 
 impl StandardColor for Color {}
+impl Point for Color {}
 
 impl Color {
     /// Return the color as a linear RGBA color.
@@ -379,6 +383,114 @@ impl Alpha for Color {
             Color::Oklaba(x) => x.set_alpha(alpha),
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
+        }
+    }
+}
+
+/// The colors are added in the color space of lhs
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue (if present) is in `0..360`
+impl Add<Self> for Color {
+    type Output = Color;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match self {
+            Color::Srgba(x) => (x + rhs.into()).into(),
+            Color::LinearRgba(x) => (x + rhs.into()).into(),
+            Color::Hsla(x) => (x + rhs.into()).into(),
+            Color::Hsva(x) => (x + rhs.into()).into(),
+            Color::Hwba(x) => (x + rhs.into()).into(),
+            Color::Laba(x) => (x + rhs.into()).into(),
+            Color::Lcha(x) => (x + rhs.into()).into(),
+            Color::Oklaba(x) => (x + rhs.into()).into(),
+            Color::Oklcha(x) => (x + rhs.into()).into(),
+            Color::Xyza(x) => (x + rhs.into()).into(),
+        }
+    }
+}
+
+/// The colors are subtracted in the color space of lhs
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue (if present) is in `0..360`
+impl Sub<Self> for Color {
+    type Output = Color;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match self {
+            Color::Srgba(x) => (x - rhs.into()).into(),
+            Color::LinearRgba(x) => (x - rhs.into()).into(),
+            Color::Hsla(x) => (x - rhs.into()).into(),
+            Color::Hsva(x) => (x - rhs.into()).into(),
+            Color::Hwba(x) => (x - rhs.into()).into(),
+            Color::Laba(x) => (x - rhs.into()).into(),
+            Color::Lcha(x) => (x - rhs.into()).into(),
+            Color::Oklaba(x) => (x - rhs.into()).into(),
+            Color::Oklcha(x) => (x - rhs.into()).into(),
+            Color::Xyza(x) => (x - rhs.into()).into(),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Color {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Color::Srgba(x) => (x * rhs).into(),
+            Color::LinearRgba(x) => (x * rhs).into(),
+            Color::Hsla(x) => (x * rhs).into(),
+            Color::Hsva(x) => (x * rhs).into(),
+            Color::Hwba(x) => (x * rhs).into(),
+            Color::Laba(x) => (x * rhs).into(),
+            Color::Lcha(x) => (x * rhs).into(),
+            Color::Oklaba(x) => (x * rhs).into(),
+            Color::Oklcha(x) => (x * rhs).into(),
+            Color::Xyza(x) => (x * rhs).into(),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Color> for f32 {
+    type Output = Color;
+
+    fn mul(self, rhs: Color) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Color {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            Color::Srgba(x) => (x / rhs).into(),
+            Color::LinearRgba(x) => (x / rhs).into(),
+            Color::Hsla(x) => (x / rhs).into(),
+            Color::Hsva(x) => (x / rhs).into(),
+            Color::Hwba(x) => (x / rhs).into(),
+            Color::Laba(x) => (x / rhs).into(),
+            Color::Lcha(x) => (x / rhs).into(),
+            Color::Oklaba(x) => (x / rhs).into(),
+            Color::Oklcha(x) => (x / rhs).into(),
+            Color::Xyza(x) => (x / rhs).into(),
         }
     }
 }
