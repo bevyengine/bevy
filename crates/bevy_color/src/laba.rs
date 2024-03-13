@@ -1,6 +1,10 @@
+use std::ops::{Add, Div, Mul, Sub};
+
 use crate::{
-    Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    add_alpha_blend, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba,
+    Srgba, StandardColor, Xyza,
 };
+use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -138,6 +142,88 @@ impl Luminance for Laba {
         )
     }
 }
+
+/// All color channels are added directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Add<Laba> for Laba {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness + rhs.lightness,
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
+            alpha: add_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl Sub<Laba> for Laba {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness - rhs.lightness,
+            a: self.a - rhs.a,
+            b: self.b - rhs.b,
+            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<f32> for Laba {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness * rhs,
+            a: self.a * rhs,
+            b: self.b * rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Mul<Laba> for f32 {
+    type Output = Laba;
+
+    fn mul(self, rhs: Laba) -> Self::Output {
+        rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl Div<f32> for Laba {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            lightness: self.lightness / rhs,
+            a: self.a / rhs,
+            b: self.b / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl Point for Laba {}
 
 impl From<Laba> for Xyza {
     fn from(
