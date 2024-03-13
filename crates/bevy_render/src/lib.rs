@@ -103,8 +103,8 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
-    /// ready for sorting
+    /// Queue drawable entities as phase items in render phases ready for
+    /// sorting (if necessary)
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
