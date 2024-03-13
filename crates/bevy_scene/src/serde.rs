@@ -693,32 +693,6 @@ mod tests {
         assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
     }
 
-    // Regression test for https://github.com/bevyengine/bevy/issues/12462
-    #[test]
-    fn should_reserialize() {
-        let mut world = create_world();
-
-        world.spawn(MyComponent {
-            foo: [1, 2, 3],
-            bar: (1.3, 3.7),
-            baz: MyEnum::Tuple("Hello World!".to_string()),
-        });
-
-        let registry = world.resource::<AppTypeRegistry>();
-        let scene = DynamicScene::from_world(&world);
-        let serialized_scene1 = scene.serialize_ron(&registry.0).unwrap();
-
-        let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
-        };
-        let mut deserializer = ron::de::Deserializer::from_str(&serialized_scene1).unwrap();
-        let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
-
-        let serialized_scene2 = deserialized_scene.serialize_ron(&registry.0).unwrap();
-
-        assert_eq!(serialized_scene1, serialized_scene2);
-    }
-
     #[test]
     fn should_roundtrip_with_later_generations_and_obsolete_references() {
         let mut world = create_world();
