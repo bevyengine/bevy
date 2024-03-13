@@ -39,18 +39,18 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+   |                    - found this type parameter
    |
-   = help: the following other types implement trait `Reflect`:
-             bool
-             char
-             isize
-             i8
-             i16
-             i32
-             i64
-             i128
+   = note: expected mutable reference `&mut TheirInner<bool>`
+              found mutable reference `&mut TheirInner<T>`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:61:8
+   |
+61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
   --> tests/reflect_remote/nested.fail.rs:51:5
    |
 51 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
