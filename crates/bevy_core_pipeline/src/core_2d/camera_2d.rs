@@ -35,11 +35,7 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        let projection = OrthographicProjection {
-            far: 1000.,
-            near: -1000.,
-            ..Default::default()
-        };
+        let projection = OrthographicProjection::default();
         let transform = Transform::default();
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {

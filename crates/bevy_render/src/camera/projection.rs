@@ -458,7 +458,7 @@ impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
             scale: 1.0,
-            near: 0.0,
+            near: -1000.0,
             far: 1000.0,
             viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize(1.0),
