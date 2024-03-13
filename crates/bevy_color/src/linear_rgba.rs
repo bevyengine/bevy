@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
 use crate::{
     add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Luminance, Mix,
@@ -369,6 +369,16 @@ impl Sub<Self> for LinearRgba {
             blue: self.blue - rhs.blue,
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+impl SubAssign<Self> for LinearRgba {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 

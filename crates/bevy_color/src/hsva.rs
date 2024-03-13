@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
@@ -140,6 +140,17 @@ impl Sub<Hsva> for Hsva {
             saturation: self.saturation - rhs.saturation,
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl SubAssign<Self> for Hsva {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 

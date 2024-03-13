@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Laba, LinearRgba, Luminance, Mix, Srgba,
@@ -216,6 +216,17 @@ impl Sub<Lcha> for Lcha {
             hue: (self.hue - rhs.hue).rem_euclid(360.),
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl SubAssign<Self> for Lcha {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 

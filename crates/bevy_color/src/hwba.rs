@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
@@ -144,6 +144,17 @@ impl Sub<Hwba> for Hwba {
             blackness: self.blackness - rhs.blackness,
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
         }
+    }
+}
+
+/// All color channels are subtracted directly
+/// but alpha is blended
+///
+/// Values are not clamped
+/// but hue is in `0..360`
+impl SubAssign<Self> for Hwba {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
