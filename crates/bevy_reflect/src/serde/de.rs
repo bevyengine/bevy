@@ -753,8 +753,12 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
         };
-
-        dynamic_enum.set_variant(variant_info.name(), value);
+        let variant_name = variant_info.name();
+        let variant_index = self
+            .enum_info
+            .index_of(variant_name)
+            .expect("variant should exist");
+        dynamic_enum.set_variant_with_index(variant_index, variant_name, value);
         Ok(dynamic_enum)
     }
 }
