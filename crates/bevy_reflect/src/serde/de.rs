@@ -1253,7 +1253,6 @@ mod tests {
             ),
         }"#;
 
-        let registry = get_registry();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
@@ -1437,30 +1436,19 @@ mod tests {
 
     // Regression test for https://github.com/bevyengine/bevy/issues/12462
     #[test]
-    fn enum_should_be_correct_variant_on_reserialize() {
-        #[derive(Reflect, Default)]
-        enum MyEnum {
-            #[default]
-            Unit,
-            Tuple(String),
-            Struct {
-                value: u32,
-            },
-        }
+    fn should_reserialize() {
+        
+        let registry = get_registry();
+        let input1 = get_my_struct();
 
-        let mut registry = TypeRegistry::default();
-        registry.register::<MyEnum>();
-
-        let value = MyEnum::Tuple("Hello world".to_string());
-
-        let serializer1 = ReflectSerializer::new(&value, &registry);
+        let serializer1 = ReflectSerializer::new(&input1, &registry);
         let serialized1 = ron::ser::to_string(&serializer1).unwrap();
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized1).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let serializer2 = ReflectSerializer::new(&*value, &registry);
+        let serializer2 = ReflectSerializer::new(&*input2, &registry);
         let serialized2 = ron::ser::to_string(&serializer2).unwrap();
 
         assert_eq!(serialized1, serialized2);
