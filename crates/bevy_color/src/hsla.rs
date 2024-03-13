@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
@@ -256,6 +256,16 @@ impl Mul<Hsla> for f32 {
 
     fn mul(self, rhs: Hsla) -> Self::Output {
         rhs * self
+    }
+}
+
+/// All color channels are scaled directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped.
+impl MulAssign<f32> for Hsla {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
     }
 }
 
