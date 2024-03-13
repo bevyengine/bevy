@@ -113,7 +113,7 @@ pub mod prelude {
     pub use crate::xyza::*;
 }
 
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use bevy_math::cubic_splines::Point;
 pub use color::*;
@@ -158,6 +158,7 @@ where
     Self: Div<f32>,
     Self: Mul<f32>,
     f32: Mul<Self>,
+    Self: Neg,
     Self: Point,
 {
 }

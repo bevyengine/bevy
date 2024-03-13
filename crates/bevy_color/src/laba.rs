@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba,
@@ -228,6 +228,23 @@ impl Div<f32> for Laba {
             lightness: self.lightness / rhs,
             a: self.a / rhs,
             b: self.b / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Laba {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            lightness: -self.lightness,
+            a: -self.a,
+            b: -self.b,
             alpha: self.alpha,
         }
     }

@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
@@ -186,8 +186,25 @@ impl Div<f32> for Hwba {
     fn div(self, rhs: f32) -> Self::Output {
         Self::Output {
             hue: (self.hue / rhs).rem_euclid(360.),
-            blackness: self.blackness / rhs,
             whiteness: self.whiteness / rhs,
+            blackness: self.blackness / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Hwba {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            hue: 360. - self.hue,
+            whiteness: -self.whiteness,
+            blackness: -self.blackness,
             alpha: self.alpha,
         }
     }

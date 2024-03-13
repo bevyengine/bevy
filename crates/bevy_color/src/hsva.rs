@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{
     add_alpha_blend, sub_alpha_blend, Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
@@ -184,6 +184,23 @@ impl Div<f32> for Hsva {
             hue: (self.hue / rhs).rem_euclid(360.),
             value: self.value / rhs,
             saturation: self.saturation / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Hsva {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            hue: 360. - self.hue,
+            saturation: -self.saturation,
+            value: -self.value,
             alpha: self.alpha,
         }
     }

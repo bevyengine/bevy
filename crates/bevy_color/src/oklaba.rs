@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{
     add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba,
@@ -220,6 +220,23 @@ impl Div<f32> for Oklaba {
             l: self.l / rhs,
             a: self.a / rhs,
             b: self.b / rhs,
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Oklaba {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            l: -self.l,
+            a: -self.a,
+            b: -self.b,
             alpha: self.alpha,
         }
     }

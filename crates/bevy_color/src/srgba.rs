@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::color_difference::EuclideanDistance;
 use crate::{
@@ -460,6 +460,23 @@ impl Sub<Self> for Srgba {
             green: self.green - rhs.green,
             blue: self.blue - rhs.blue,
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Srgba {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            red: -self.red,
+            green: -self.green,
+            blue: -self.blue,
+            alpha: self.alpha,
         }
     }
 }

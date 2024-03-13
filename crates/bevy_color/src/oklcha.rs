@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{
     add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba,
@@ -265,6 +265,23 @@ impl Div<f32> for Oklcha {
             lightness: self.lightness / rhs,
             chroma: self.chroma / rhs,
             hue: (self.hue / rhs).rem_euclid(360.),
+            alpha: self.alpha,
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Oklcha {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            hue: 360. - self.hue,
+            lightness: -self.lightness,
+            chroma: -self.chroma,
             alpha: self.alpha,
         }
     }

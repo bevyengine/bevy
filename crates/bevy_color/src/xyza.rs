@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 use crate::{add_alpha_blend, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_math::cubic_splines::Point;
@@ -223,6 +223,23 @@ impl Sub<Self> for Xyza {
             y: self.y - rhs.y,
             z: self.z - rhs.z,
             alpha: sub_alpha_blend(self.alpha, rhs.alpha),
+        }
+    }
+}
+
+/// All color channels are negated directly,
+/// but alpha is unchanged.
+///
+/// Values are not clamped
+impl Neg for Xyza {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            alpha: self.alpha,
         }
     }
 }
