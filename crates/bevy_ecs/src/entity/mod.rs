@@ -386,7 +386,13 @@ impl<'de> Deserialize<'de> for Entity {
 
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}|{}", self.index(), self.generation(), self.to_bits())
+        write!(
+            f,
+            "{}v{}|{}",
+            self.index(),
+            self.generation(),
+            self.to_bits()
+        )
     }
 }
 
