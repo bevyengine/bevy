@@ -1207,6 +1207,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns `true` if there are no query items.
+    /// 
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
     ///
     /// # Example
     ///
@@ -1226,6 +1231,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(update_score_system);
     /// ```
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self) -> bool {
         // SAFETY:
