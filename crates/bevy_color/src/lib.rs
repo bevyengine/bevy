@@ -62,7 +62,9 @@
 //! and color range operations.
 //!
 //! When adding or subtracting one color from another, all channels of the colors are added/subtracted directly.
-//! The only exception to this rule is the `alpha` channel which is blended between the two colors.
+//! The only exception to this rule is the `alpha` channel which is blended between the two colors using
+//! - `lhs + rhs * (1. - lhs)` for addition and
+//! - `lhs * (1. - rhs)` for subtraction.
 //!
 //! When multiplying or dividing a color by a scalar ([`f32`]) or negating a color,
 //! all channels of the color will be multiplied, divided or negated directly.
