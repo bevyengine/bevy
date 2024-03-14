@@ -3,16 +3,14 @@ mod function_feature;
 
 pub use function_feature::*;
 
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::marker::PhantomData;
 
 use bevy_app::App;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::query::Has;
-use bevy_ecs::system::{Query, SystemParam, SystemParamItem};
+use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
-use bevy_render::view::ViewTarget;
 use bevy_utils::all_tuples;
 
 //todo: mutable param access in the thingamabob
@@ -70,10 +68,6 @@ impl<'b> Default for IOHandle<'b, ()> {
 }
 
 impl<'b, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'b, G, F> {
-    fn get_inputs(&self) -> IOHandle<'b, FeatureInput<G, F>> {
-        todo!()
-    }
-
     pub fn add_sub_feature<Marker: 'static, S: IntoSubFeature<Marker>>(
         &mut self,
         stage: FeatureStage,
@@ -100,7 +94,7 @@ macro_rules! impl_handle_tuple {
     ($($T: ident),*) => {
         impl <'b, $($T: FeatureIO),*> IOHandleTuple for IOHandle<'b, ($($T,)*)> {
             type Tupled = ($(IOHandle<'b, $T>,)*);
-            fn untupled(tuple: Self::Tupled) -> Self {
+            fn untupled(_tuple: Self::Tupled) -> Self {
                 todo!()
             }
             fn tupled(self) -> Self::Tupled {
@@ -150,7 +144,7 @@ impl FeatureSignature for () {
 #[macro_export]
 macro_rules! FeatureSig_Macro {
     [$i: ty => $o: ty] => {
-        crate::render_feature::FeatureSigData<$i, $o>
+        $crate::render_feature::FeatureSigData<$i, $o>
     };
 }
 

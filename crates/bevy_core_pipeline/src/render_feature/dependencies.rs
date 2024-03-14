@@ -1,5 +1,4 @@
 use super::{Feature, FeatureIO};
-use crate::render_feature::{FeatureSignature, SubFeature};
 use bevy_render::render_graph::RenderSubGraph;
 use bevy_utils::all_tuples_with_size;
 use std::marker::PhantomData;
@@ -18,11 +17,14 @@ all_tuples_with_size!(impl_feature_dependencies, 1, 32, Dep, In);
 
 struct SelectType<F, T>(PhantomData<fn(F) -> T>);
 
+#[macro_export]
 macro_rules! SelectDeps {
     [$($F:ty as {$($S:ty),+}),+] => {
-        ($($(SelectType<$F, $S>),+),+)
+        ($($($crate::render_feature::dependencies::SelectType<$F, $S>),+),+)
     }
 }
+
+pub use SelectDeps;
 
 trait SelectDependencies<G> {
     type Out;
