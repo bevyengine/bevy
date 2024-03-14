@@ -6,7 +6,7 @@ mod file_asset;
 #[cfg(not(feature = "multi-threaded"))]
 mod sync_file_asset;
 
-use bevy_log::error;
+use bevy_utils::tracing::error;
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
 
@@ -75,16 +75,15 @@ impl FileAssetWriter {
     ///
     /// See `get_base_path` below.
     pub fn new<P: AsRef<Path> + std::fmt::Debug>(path: P, create_root: bool) -> Self {
+        let root_path = get_base_path().join(path.as_ref());
         if create_root {
-            if let Err(e) = std::fs::create_dir_all(&path) {
+            if let Err(e) = std::fs::create_dir_all(&root_path) {
                 error!(
                     "Failed to create root directory {:?} for file asset writer: {:?}",
-                    path, e
+                    root_path, e
                 );
             }
         }
-        Self {
-            root_path: get_base_path().join(path.as_ref()),
-        }
+        Self { root_path }
     }
 }

@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
@@ -12,7 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -659,7 +661,7 @@ header_message = \"Examples ({})\"
 
 fn parse_examples() -> Vec<Example> {
     let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()

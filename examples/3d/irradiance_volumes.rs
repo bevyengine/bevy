@@ -13,6 +13,7 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use bevy::color::palettes::css::*;
 use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
@@ -47,7 +48,7 @@ static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
 static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
-static GIZMO_COLOR: Color = Color::YELLOW;
+static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
 
 static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
@@ -96,8 +97,11 @@ struct ExampleAssets {
     // The glTF scene containing the animated fox.
     fox: Handle<Scene>,
 
-    // The animation that the fox will play.
-    fox_animation: Handle<AnimationClip>,
+    // The graph containing the animation that the fox will play.
+    fox_animation_graph: Handle<AnimationGraph>,
+
+    // The node within the animation graph containing the animation.
+    fox_animation_node: AnimationNodeIndex,
 
     // The voxel cube mesh.
     voxel_cube: Handle<Mesh>,
@@ -362,7 +366,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
+                ..default()
             },
         )
     }
@@ -512,45 +516,39 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
-        // Load all the assets.
-        let asset_server = world.resource::<AssetServer>();
-        let fox = asset_server.load("models/animated/Fox.glb#Scene0");
-        let main_scene =
-            asset_server.load("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0");
-        let irradiance_volume = asset_server.load::<Image>("irradiance_volumes/Example.vxgi.ktx2");
-        let fox_animation =
-            asset_server.load::<AnimationClip>("models/animated/Fox.glb#Animation1");
-
-        // Just use a specular map for the skybox since it's not too blurry.
-        // In reality you wouldn't do this--you'd use a real skybox texture--but
-        // reusing the textures like this saves space in the Bevy repository.
-        let skybox = asset_server.load::<Image>("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
-
-        let mut mesh_assets = world.resource_mut::<Assets<Mesh>>();
-        let main_sphere = mesh_assets.add(Sphere::default().mesh().uv(32, 18));
-        let voxel_cube = mesh_assets.add(Cuboid::default());
-
-        let mut standard_material_assets = world.resource_mut::<Assets<StandardMaterial>>();
-        let main_material = standard_material_assets.add(Color::SILVER);
+        let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
+        let (fox_animation_graph, fox_animation_node) =
+            AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
-            main_sphere,
-            fox,
-            main_sphere_material: main_material,
-            main_scene,
-            irradiance_volume,
-            fox_animation,
-            voxel_cube,
-            skybox,
+            main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
+            fox: world.load_asset("models/animated/Fox.glb#Scene0"),
+            main_sphere_material: world.add_asset(Color::from(SILVER)),
+            main_scene: world
+                .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
+            irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
+            fox_animation_graph: world.add_asset(fox_animation_graph),
+            fox_animation_node,
+            voxel_cube: world.add_asset(Cuboid::default()),
+            // Just use a specular map for the skybox since it's not too blurry.
+            // In reality you wouldn't do this--you'd use a real skybox texture--but
+            // reusing the textures like this saves space in the Bevy repository.
+            skybox: world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
         }
     }
 }
 
 // Plays the animation on the fox.
-fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut AnimationPlayer>) {
-    for mut player in players.iter_mut() {
-        // This will safely do nothing if the animation is already playing.
-        player.play(assets.fox_animation.clone()).repeat();
+fn play_animations(
+    mut commands: Commands,
+    assets: Res<ExampleAssets>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+) {
+    for (entity, mut player) in players.iter_mut() {
+        commands
+            .entity(entity)
+            .insert(assets.fox_animation_graph.clone());
+        player.play(assets.fox_animation_node).repeat();
     }
 }
 
@@ -580,7 +578,7 @@ fn create_cubes(
         let resolution = image.texture_descriptor.size;
 
         let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
-            base: StandardMaterial::from(Color::RED),
+            base: StandardMaterial::from(Color::from(RED)),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
                     transform: VOXEL_TRANSFORM.inverse(),

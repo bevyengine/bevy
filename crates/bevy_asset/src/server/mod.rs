@@ -18,8 +18,8 @@ use crate::{
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
@@ -797,16 +797,25 @@ impl AssetServer {
             .map(|h| h.typed_debug_checked())
     }
 
+    /// Get a `Handle` from an `AssetId`.
+    ///
+    /// This only returns `Some` if `id` is derived from a `Handle` that was
+    /// loaded through an `AssetServer`, otherwise it returns `None`.
+    ///
+    /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
+    /// comes from [`Assets::add`].
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
         self.get_id_handle_untyped(id.untyped()).map(|h| h.typed())
     }
 
+    /// Get an `UntypedHandle` from an `UntypedAssetId`.
+    /// See [`AssetServer::get_id_handle`] for details.
     pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
         self.data.infos.read().get_id_handle(id)
     }
 
     /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
-    /// Otherwise, returns false.
+    /// Otherwise, returns `false`.
     pub fn is_managed(&self, id: impl Into<UntypedAssetId>) -> bool {
         self.data.infos.read().contains_key(id.into())
     }

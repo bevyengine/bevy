@@ -19,7 +19,7 @@ pub mod graph {
         Tonemapping,
         Fxaa,
         Upscaling,
-        ConstrastAdaptiveSharpening,
+        ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
     }
 }
@@ -42,7 +42,8 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use bevy_utils::FloatOrd;
+use nonmax::NonMaxU32;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 

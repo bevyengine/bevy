@@ -6,7 +6,7 @@ use crate::{
     processor::AssetProcessorData,
 };
 use bevy_ecs::system::Resource;
-use bevy_log::{error, warn};
+use bevy_utils::tracing::{error, warn};
 use bevy_utils::{CowArc, Duration, HashMap};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
@@ -490,7 +490,9 @@ impl AssetSource {
                     sender,
                     file_debounce_wait_time,
                 )
-                .expect("Failed to create file watcher"),
+                .unwrap_or_else(|e| {
+                    panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                }),
             ));
             #[cfg(any(
                 not(feature = "file_watcher"),

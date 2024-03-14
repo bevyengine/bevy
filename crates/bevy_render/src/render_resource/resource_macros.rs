@@ -136,6 +136,18 @@ macro_rules! define_atomic_id {
                 }))
             }
         }
+
+        impl From<$atomic_id_type> for core::num::NonZeroU32 {
+            fn from(value: $atomic_id_type) -> Self {
+                value.0
+            }
+        }
+
+        impl From<core::num::NonZeroU32> for $atomic_id_type {
+            fn from(value: core::num::NonZeroU32) -> Self {
+                Self(value)
+            }
+        }
     };
 }
 

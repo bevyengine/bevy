@@ -56,7 +56,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
+use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -80,6 +80,17 @@ type IdCursor = isize;
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Stability warning
+/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
+/// representation is liable to change from release to release as are the behaviors or performance
+/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in
+/// `Entity`'s representation, though made readable through various functions on the type, are not considered
+/// breaking changes under [SemVer].
+///
+/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarantee of long
+/// term wire format compatibility. Changes in behavior will cause serialized `Entity` values persisted
+/// to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being updated.
 ///
 /// # Usage
 ///
@@ -127,6 +138,7 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
+/// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(
@@ -741,7 +753,8 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        self.meta.get_unchecked_mut(index as usize).location = location;
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        meta.location = location;
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -848,9 +861,14 @@ impl Entities {
         let free_cursor = self.free_cursor.get_mut();
         *free_cursor = 0;
         self.meta.reserve(count);
-        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
-        self.meta.set_len(count);
+        // SAFETY: The EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        unsafe {
+            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        }
+        // SAFETY: We have reserved `count` elements above and we have initialized values from index 0 to `count`.
+        unsafe {
+            self.meta.set_len(count);
+        }
 
         self.len = count as u32;
     }

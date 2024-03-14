@@ -1,6 +1,5 @@
 //! Implements loader for a Gzip compressed asset.
 
-use bevy::utils::thiserror;
 use bevy::{
     asset::{
         io::{Reader, VecReader},
@@ -30,7 +29,7 @@ pub enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
-    /// An error caused when the asset path cannot be used ot determine the uncompressed asset type.
+    /// An error caused when the asset path cannot be used to determine the uncompressed asset type.
     #[error("Could not determine file path of uncompressed asset")]
     IndeterminateFilePath,
     /// An error caused by the internal asset loader.

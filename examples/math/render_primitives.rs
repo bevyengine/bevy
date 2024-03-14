@@ -82,7 +82,7 @@ enum PrimitiveSelected {
     Capsule,
     Cylinder,
     Cone,
-    ConicalFrustrum,
+    ConicalFrustum,
     Torus,
 }
 
@@ -112,7 +112,7 @@ impl PrimitiveSelected {
         Self::Capsule,
         Self::Cylinder,
         Self::Cone,
-        Self::ConicalFrustrum,
+        Self::ConicalFrustum,
         Self::Torus,
     ];
 
@@ -165,26 +165,18 @@ const TRIANGLE: Triangle2d = Triangle2d {
     ],
 };
 
-const PLANE_2D: Plane2d = Plane2d {
-    normal: Direction2d::Y,
-};
-const PLANE_3D: Plane3d = Plane3d {
-    normal: Direction3d::Y,
-};
+const PLANE_2D: Plane2d = Plane2d { normal: Dir2::Y };
+const PLANE_3D: Plane3d = Plane3d { normal: Dir3::Y };
 
-const LINE2D: Line2d = Line2d {
-    direction: Direction2d::X,
-};
-const LINE3D: Line3d = Line3d {
-    direction: Direction3d::X,
-};
+const LINE2D: Line2d = Line2d { direction: Dir2::X };
+const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Direction2d::X,
+    direction: Dir2::X,
     half_length: BIG_2D,
 };
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Direction3d::X,
+    direction: Dir3::X,
     half_length: BIG_3D,
 };
 
@@ -239,7 +231,7 @@ const CONE: Cone = Cone {
     height: BIG_3D,
 };
 
-const CONICAL_FRUSTRUM: ConicalFrustum = ConicalFrustum {
+const CONICAL_FRUSTUM: ConicalFrustum = ConicalFrustum {
     radius_top: BIG_3D,
     radius_bottom: SMALL_3D,
     height: BIG_3D,
@@ -432,7 +424,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Capsule => gizmos.primitive_2d(CAPSULE_2D, POSITION, angle, color),
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
-        PrimitiveSelected::ConicalFrustrum => {}
+        PrimitiveSelected::ConicalFrustum => {}
         PrimitiveSelected::Torus => {}
     }
 }
@@ -474,7 +466,7 @@ fn spawn_primitive_2d(
         Some(CAPSULE_2D.mesh().build()),
         None, // cylinder
         None, // cone
-        None, // conical frustrum
+        None, // conical frustum
         None, // torus
     ]
     .into_iter()
@@ -520,7 +512,7 @@ fn spawn_primitive_3d(
         Some(CAPSULE_3D.mesh().build()),
         Some(CYLINDER.mesh().build()),
         None, // cone
-        None, // conical frustrum
+        None, // conical frustum
         Some(TORUS.mesh().build()),
     ]
     .into_iter()
@@ -648,8 +640,8 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
                 .primitive_3d(CONE, POSITION, rotation, color)
                 .segments(segments),
         ),
-        PrimitiveSelected::ConicalFrustrum => {
-            gizmos.primitive_3d(CONICAL_FRUSTRUM, POSITION, rotation, color);
+        PrimitiveSelected::ConicalFrustum => {
+            gizmos.primitive_3d(CONICAL_FRUSTUM, POSITION, rotation, color);
         }
 
         PrimitiveSelected::Torus => drop(

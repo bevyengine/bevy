@@ -1,6 +1,7 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -51,8 +52,6 @@ pub mod prelude {
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }
-
-pub use bevy_utils::all_tuples;
 
 #[cfg(test)]
 mod tests {
@@ -1067,7 +1066,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1550,7 +1549,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);

@@ -10,7 +10,7 @@ mod stepping;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
-const PADDLE_SIZE: Vec3 = Vec3::new(120.0, 20.0, 0.0);
+const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
 const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
 const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
@@ -41,13 +41,13 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
+const BALL_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
+const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
@@ -202,7 +202,7 @@ fn setup(
         SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
-                scale: PADDLE_SIZE,
+                scale: PADDLE_SIZE.extend(1.0),
                 ..default()
             },
             sprite: Sprite {
