@@ -65,7 +65,7 @@
 //! The only exception to this rule is the `alpha` channel which is blended between the two colors.
 //!
 //! When multiplying or dividing a color by a scalar ([`f32`]) or negating a color,
-//! all channels of the color will be multiplied, devided or negated directly.
+//! all channels of the color will be multiplied, divided or negated directly.
 //! The only exception to this rule is the `alpha` channel which is left unchanged.
 //!
 //! Please note that these operations may result in colors that are outside useful ranges, e.g. a negative value in one of the color channels of a [`LinearRgba`] color:
@@ -73,7 +73,7 @@
 //! use bevy_color::LinearRgba;
 //!
 //! let white = LinearRgba::new(1., 1., 1., 1.);
-//! assert_eq!(-white, LinearRgba::new(-1., -1., -1., -1.));
+//! assert_eq!(-white, LinearRgba::new(-1., -1., -1., 1.));
 //! ```
 //!
 //! In addition, there is a [`Color`] enum that can represent any of the color
