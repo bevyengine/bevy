@@ -364,4 +364,31 @@ mod tests {
             assert_approx_eq!(color.lab.alpha, laba.alpha, 0.001);
         }
     }
+
+    #[test]
+    fn test_laba_group() {
+        let value1 = Laba::lab(0.2, -1.2, 1.2);
+        let value2 = Laba::lab(1.5, -0.925, 0.0);
+        let value3 = Laba::new(0.8, 0.25, -0.98, 0.333);
+
+        // the neutral element
+        let transparent_black = Laba::new(0.0, 0.0, 0.0, 0.0);
+
+        // Test for neutral element
+        assert_eq!(value1 + transparent_black, value1);
+        assert_eq!(transparent_black + value2, value2);
+        assert_eq!(value3 + transparent_black, value3);
+
+        // Test associativity
+        assert_eq!(
+            value1 + (value2 + value3),
+            (value1 + value2) + value3,
+            "laba is not associative"
+        );
+
+        // Test for inverse element
+        assert_eq!((-value1 + value1).with_alpha(0.), transparent_black);
+        assert_eq!((-value2 + value2).with_alpha(0.), transparent_black);
+        assert_eq!((-value3 + value3).with_alpha(0.), transparent_black);
+    }
 }

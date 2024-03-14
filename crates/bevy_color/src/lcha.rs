@@ -326,4 +326,27 @@ mod tests {
             assert_approx_eq!(color.lch.alpha, lcha.alpha, 0.001);
         }
     }
+
+    #[test]
+    fn test_lcha_group() {
+        let value1 = Lcha::lch(0.2, 1.3, 90.);
+        let value2 = Lcha::lch(1.5, 0.9, 128.9);
+        let value3 = Lcha::new(0.8, 0.25, 307., 0.333);
+
+        // the neutral element
+        let transparent_black = Lcha::new(0.0, 0.0, 0.0, 0.0);
+
+        // Test for neutral element
+        assert_eq!(value1 + transparent_black, value1);
+        assert_eq!(transparent_black + value2, value2);
+        assert_eq!(value3 + transparent_black, value3);
+
+        // Test associativity
+        assert_eq!(value1 + (value2 + value3), (value1 + value2) + value3);
+
+        // Test for inverse element
+        assert_eq!((-value1 + value1).with_alpha(0.), transparent_black);
+        assert_eq!((-value2 + value2).with_alpha(0.), transparent_black);
+        assert_eq!((-value3 + value3).with_alpha(0.), transparent_black);
+    }
 }

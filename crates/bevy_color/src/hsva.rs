@@ -224,4 +224,27 @@ mod tests {
             assert_approx_eq!(color.hsv.alpha, hsv2.alpha, 0.001);
         }
     }
+
+    #[test]
+    fn test_hsva_group() {
+        let value1 = Hsva::hsv(337., 0.7, 0.1);
+        let value2 = Hsva::hsv(21., 0.9, 0.0);
+        let value3 = Hsva::new(142.5, 0.25, 0.98, 0.333);
+
+        // the neutral element
+        let transparent_black = Hsva::new(0.0, 0.0, 0.0, 0.0);
+
+        // Test for neutral element
+        assert_eq!(value1 + transparent_black, value1);
+        assert_eq!(transparent_black + value2, value2);
+        assert_eq!(value3 + transparent_black, value3);
+
+        // Test associativity
+        assert_eq!(value1 + (value2 + value3), (value1 + value2) + value3);
+
+        // Test for inverse element
+        assert_eq!((-value1 + value1).with_alpha(0.), transparent_black);
+        assert_eq!((-value2 + value2).with_alpha(0.), transparent_black);
+        assert_eq!((-value3 + value3).with_alpha(0.), transparent_black);
+    }
 }
