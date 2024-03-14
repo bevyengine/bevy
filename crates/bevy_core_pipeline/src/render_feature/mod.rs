@@ -1,200 +1,232 @@
+pub mod dependencies;
+mod function_feature;
+
+pub use function_feature::*;
+
+use std::any::{Any, TypeId};
 use std::marker::PhantomData;
 
 use bevy_app::App;
-use bevy_ecs::component::{Component, ComponentStorage, SparseStorage};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::query::{QueryState, With};
-use bevy_ecs::system::{SystemParam, SystemParamItem};
-use bevy_ecs::world::{FromWorld, World};
-use bevy_render::render_graph::{
-    Node, NodeRunError, RenderGraphContext, RenderGraphError, RenderSubGraph,
-};
-pub use null_feature::*;
+use bevy_ecs::query::Has;
+use bevy_ecs::system::{Query, SystemParam, SystemParamItem};
+use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
+use bevy_render::view::ViewTarget;
+use bevy_utils::all_tuples;
 
-mod simple_feature;
-pub use simple_feature::*;
-mod dependencies;
-mod stages;
-use crate::render_feature::stages::NotAfter;
-pub use dependencies::*;
-use stages::RenderFeatureStageMarker;
-mod null_feature;
+//todo: mutable param access in the thingamabob
 
-//todo: WGPU limits, etc,
-pub trait RenderFeature<G: RenderSubGraph>: 'static {
-    //todo: type conflicts when selecting features for dependencies? must be clear that type
-    //equality is used to decide dependencies
-    type Extract: RenderFeatureSignature<In = ()>;
-    type SpecializePipelines: RenderFeatureSignature;
-    type PrepareResources: RenderFeatureSignature;
-    type PrepareBindGroups: RenderFeatureSignature;
-    type Dispatch: RenderFeatureSignature<Out = Result<(), RenderGraphError>>;
+pub trait Feature<G: RenderSubGraph>: Sized + 'static {
+    type CompatibilityKey;
+    type Sig: FeatureSignature;
 
-    fn build(&self, _app: &mut App) {} // for adding systems not associated with the main View
-
-    fn additional_sub_features(&self) -> impl RenderSubFeatures<G, stages::Dispatch>;
-
-    fn extract(&self) -> impl RenderSubFeature<G, Stage = stages::Extract, Sig = Self::Extract>;
-
-    fn specialize_pipelines(
+    fn check_compatibility(
         &self,
-    ) -> impl RenderSubFeature<G, Stage = stages::SpecializePipelines, Sig = Self::SpecializePipelines>;
+        features: WgpuFeatures,
+        limits: WgpuLimits,
+    ) -> Self::CompatibilityKey;
 
-    //todo: this wouldn't allow parallelizing resource creation with separate systems
-    fn prepare_resources(
+    fn dependencies(
         &self,
-    ) -> impl RenderSubFeature<G, Stage = stages::PrepareResources, Sig = Self::PrepareResources>;
+        compatibility: Self::CompatibilityKey,
+    ) -> impl FeatureDependencies<G, FeatureInput<G, Self>>;
 
-    fn prepare_bind_groups(
+    fn build(&self, _compatibility: Self::CompatibilityKey, _app: &mut App) {} // for adding systems not associated with the main View
+
+    fn build_feature<'b>(
         &self,
-    ) -> impl RenderSubFeature<G, Stage = stages::PrepareBindGroups, Sig = Self::PrepareBindGroups>;
-
-    fn dispatch(&self) -> impl RenderSubFeature<G, Stage = stages::Dispatch, Sig = Self::Dispatch>;
+        compatibility: Self::CompatibilityKey,
+        builder: &mut FeatureBuilder<'b, G, Self>,
+        inputs: IOHandle<'b, FeatureInput<G, Self>>,
+    ) -> IOHandle<'b, FeatureOutput<G, Self>>;
+}
+#[derive(PartialEq, Eq, Ord, PartialOrd)]
+pub enum FeatureStage {
+    Extract = 0,
+    SpecializePipelines = 1,
+    PrepareResources = 2,
+    PrepareBindGroups = 3,
+    Dispatch = 4,
 }
 
-pub trait RenderFeatureSignature: 'static {
-    type In;
-    type Out: RenderComponent;
+pub enum Compatibility {
+    Full,
+    None,
 }
 
-impl<I: 'static, O: RenderComponent + 'static> RenderFeatureSignature for (I, O) {
+pub struct FeatureBuilder<'b, G: RenderSubGraph, F: Feature<G>> {
+    data: PhantomData<&'b (G, F)>,
+}
+
+pub struct IOHandle<'a, T: FeatureIO> {
+    data: PhantomData<&'a T>,
+}
+
+impl<'b> Default for IOHandle<'b, ()> {
+    fn default() -> Self {
+        Self { data: PhantomData }
+    }
+}
+
+impl<'b, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'b, G, F> {
+    fn get_inputs(&self) -> IOHandle<'b, FeatureInput<G, F>> {
+        todo!()
+    }
+
+    pub fn add_sub_feature<Marker: 'static, S: IntoSubFeature<Marker>>(
+        &mut self,
+        stage: FeatureStage,
+        input: IOHandle<'b, SubFeatureInput<S::SubFeature>>,
+        sub_feature: S,
+    ) -> IOHandle<'b, SubFeatureOutput<S::SubFeature>> {
+        let (_, _, _) = (stage, input, sub_feature);
+        todo!()
+    }
+}
+
+pub trait FeatureIO: Any + Send + Sync + 'static {}
+
+impl<A: Any + Send + Sync + 'static> FeatureIO for A {}
+
+pub trait IOHandleTuple {
+    type Tupled;
+
+    fn tupled(self) -> Self::Tupled;
+    fn untupled(tuple: Self::Tupled) -> Self;
+}
+
+macro_rules! impl_handle_tuple {
+    ($($T: ident),*) => {
+        impl <'b, $($T: FeatureIO),*> IOHandleTuple for IOHandle<'b, ($($T,)*)> {
+            type Tupled = ($(IOHandle<'b, $T>,)*);
+            fn untupled(tuple: Self::Tupled) -> Self {
+                todo!()
+            }
+            fn tupled(self) -> Self::Tupled {
+                todo!()
+            }
+        }
+    };
+}
+
+all_tuples!(impl_handle_tuple, 1, 16, T);
+
+/*macro_rules! impl_as_io_handles {
+    ($($T: ident),*) => {
+        impl<$($T: Send + Sync + 'static),*> FeatureIO for ($($T,)*) //have to impl for 1-tuple
+        //rather than raw type because of the evil
+        {
+            #[allow(unused_parens)]
+            type AsIOHandles<'a> = ($(IOHandle<'a, $T>,)*);
+
+            #[inline]
+            fn as_type_ids() -> Vec<TypeId> {
+                vec![$(TypeId::of::<$T>()),*]
+            }
+        }
+    };
+}
+
+all_tuples!(impl_as_io_handles, 1, 32, T);*/
+
+pub trait FeatureSignature: 'static {
+    type In: FeatureIO;
+    type Out: FeatureIO;
+}
+
+pub struct FeatureSigData<I: FeatureIO, O: FeatureIO>(PhantomData<(I, O)>);
+
+impl<I: FeatureIO, O: FeatureIO> FeatureSignature for FeatureSigData<I, O> {
     type In = I;
     type Out = O;
+}
+
+impl FeatureSignature for () {
+    type In = ();
+    type Out = ();
 }
 
 #[macro_export]
 macro_rules! FeatureSig_Macro {
     [$i: ty => $o: ty] => {
-        ($i, $o)
+        crate::render_feature::FeatureSigData<$i, $o>
     };
 }
 
 pub use FeatureSig_Macro as FeatureSig;
 
-type SubFeatureSig<G, F, S> = <S as RenderFeatureStageMarker>::SubFeatureSig<G, F>;
+use self::dependencies::{empty, FeatureDependencies};
 
-type FeatureInput<G, F> = <<F as RenderSubFeature<G>>::Sig as RenderFeatureSignature>::In;
-type FeatureOutput<G, F> = <<F as RenderSubFeature<G>>::Sig as RenderFeatureSignature>::Out;
+//type SubFeatureSig<G, F, S> = <S as RenderFeatureStageMarker>::SubFeatureSig<G, F>;
+type FeatureInput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature>::In;
+type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature>::Out;
+type SubFeatureInput<F> = <<F as SubFeature>::Sig as FeatureSignature>::In;
+type SubFeatureOutput<F> = <<F as SubFeature>::Sig as FeatureSignature>::Out;
 
-pub trait RenderSubFeature<G: RenderSubGraph>: 'static {
-    type Stage: RenderFeatureStageMarker;
-    type Sig: RenderFeatureSignature;
+pub trait SubFeature: 'static {
+    //type Stage: RenderFeatureStageMarker;
+    type Sig: FeatureSignature;
     type Param: SystemParam;
 
-    //mainly for the purpose of disabling stages completely
-    fn enabled(&self) -> bool {
-        true
-    }
-
-    fn default_dependencies(
-        &self,
-    ) -> impl dependencies::RenderFeatureDependencies<G, Self::Stage, FeatureInput<G, Self>>;
-
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
-        input: FeatureInput<G, Self>,
-        param: SystemParamItem<Self::Param>,
-    ) -> FeatureOutput<G, Self>;
+        input: SubFeatureInput<Self>,
+        param: &mut SystemParamItem<Self::Param>,
+    ) -> SubFeatureOutput<Self>;
 }
 
-pub trait IntoRenderSubFeatureConfigs<G: RenderSubGraph, F: RenderSubFeature<G>> {
-    fn override_dep<In, D: RenderSubFeature<G>>(&mut self)
-    where
-        D::Stage: NotAfter<F::Stage>,
-        D::Sig: RenderFeatureSignature<Out = In>;
+pub trait IntoSubFeature<Marker>: 'static {
+    type SubFeature: SubFeature;
 
-    fn override_dep_with<In, D: RenderSubFeatures<G, F::Stage>, A: Fn(D::Out) -> In>(
-        &mut self,
-        adapter: A,
-    );
-
-    fn after(&mut self, features: impl RenderSubFeatures<G, F::Stage>);
+    fn into_sub_feature(self) -> Self::SubFeature;
 }
 
-/*pub struct RenderFeatureConfigs<G: RenderSubGraph, F: RenderFeature<G>> {
-    extract: RenderSubFeatureConfigs<G, F::Extract>,
-    specialize_pipelines: RenderSubFeatureConfigs<G, F::SpecializePipelines>,
-    prepare_resources: RenderSubFeatureConfigs<G, F::PrepareResources>,
-    prepare_bind_groups: RenderSubFeatureConfigs<G, F::PrepareBindGroups>,
-    dispatch: RenderSubFeatureConfigs<G, F::Dispatch>,
-    data: PhantomData<(G, F)>,
-}
-
-impl<G: RenderSubGraph, F: RenderFeature<G>> RenderFeatureConfigs<G, F> {
-    pub fn with_extract(
-        &mut self,
-        fun: impl FnOnce(&mut RenderSubFeatureConfigs<G, F::Extract>),
-    ) -> &mut Self {
-        fun(&mut self.extract);
-        self
-    }
-
-    pub fn with_specialize_pipelines(
-        &mut self,
-        fun: impl FnOnce(&mut RenderSubFeatureConfigs<G, F::SpecializePipelines>),
-    ) -> &mut Self {
-        fun(&mut self.specialize_pipelines);
-        self
-    }
-
-    pub fn with_prepare_resources(
-        &mut self,
-        fun: impl FnOnce(&mut RenderSubFeatureConfigs<G, F::PrepareResources>),
-    ) -> &mut Self {
-        fun(&mut self.prepare_resources);
-        self
-    }
-
-    pub fn with_prepare_bind_groups(
-        &mut self,
-        fun: impl FnOnce(&mut RenderSubFeatureConfigs<G, F::PrepareBindGroups>),
-    ) -> &mut Self {
-        fun(&mut self.prepare_bind_groups);
-        self
-    }
-
-    pub fn with_dispatch(
-        &mut self,
-        fun: impl FnOnce(&mut RenderSubFeatureConfigs<G, F::Dispatch>),
-    ) -> &mut Self {
-        fun(&mut self.dispatch);
+impl<T: SubFeature> IntoSubFeature<()> for T {
+    type SubFeature = Self;
+    #[inline]
+    fn into_sub_feature(self) -> Self {
         self
     }
 }
 
-pub struct RenderSubFeatureConfigs<G: RenderSubGraph, F: RenderSubFeature<G>> {
-    sub_feature: F,
-    data: PhantomData<G>,
-}
+pub struct Blit<L: RenderLabel>(PhantomData<L>);
 
-impl<G: RenderSubGraph, F: RenderSubFeature<G>> RenderSubFeatureConfigs<G, F> {
-    pub fn after<D: RenderSubFeatures<G, F::Stage>>(&mut self) -> &mut Self {
-        todo!()
+impl<L: RenderLabel> Default for Blit<L> {
+    fn default() -> Self {
+        Self(PhantomData)
     }
-}*/
-
-//todo: add derive
-pub trait RenderComponent: Send + Sync + 'static {
-    type Storage: ComponentStorage;
 }
 
-impl RenderComponent for () {
-    type Storage = SparseStorage;
-}
+impl<G: RenderSubGraph, L: RenderLabel> Feature<G> for Blit<L> {
+    type CompatibilityKey = Compatibility;
 
-struct RenderFeatureResult<G: RenderSubGraph, F: RenderFeature<G>, S: RenderFeatureStageMarker> {
-    value: <SubFeatureSig<G, F, S> as RenderFeatureSignature>::Out,
-}
+    type Sig = FeatureSig![(u8, u32, u32) => u32];
 
-impl<G: RenderSubGraph, F: RenderFeature<G>, S: RenderFeatureStageMarker> Component
-    for RenderFeatureResult<G, F, S>
-{
-    type Storage =
-        <<SubFeatureSig<G, F, S> as RenderFeatureSignature>::Out as RenderComponent>::Storage;
-}
+    fn check_compatibility(
+        &self,
+        _features: WgpuFeatures,
+        _limits: WgpuLimits,
+    ) -> Self::CompatibilityKey {
+        Compatibility::Full
+    }
 
-//dependency stuff
-pub trait RenderSubFeatures<G: RenderSubGraph, S: RenderFeatureStageMarker> {
-    type Out;
+    fn dependencies(
+        &self,
+        _compatibility: Self::CompatibilityKey,
+    ) -> impl FeatureDependencies<G, FeatureInput<G, Self>> {
+        (empty(), empty(), empty())
+    }
+
+    fn build_feature<'b>(
+        &self,
+        _compatibility: Self::CompatibilityKey,
+        builder: &mut FeatureBuilder<'b, G, Self>,
+        input: IOHandle<'b, FeatureInput<G, Self>>,
+    ) -> IOHandle<'b, FeatureOutput<G, Self>> {
+        let (_, u2, _) = input.tupled();
+        let thing = builder.add_sub_feature(FeatureStage::Extract, u2, |_, c| c + 4);
+        thing
+    }
 }
