@@ -549,22 +549,23 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
-            let mut asset_unused = true;
-
             if drop_event.asset_server_managed {
-                let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+                let untyped_id = id.untyped();
                 if let Some(info) = infos.get(untyped_id) {
                     if let LoadState::Loading | LoadState::NotLoaded = info.load_state {
                         not_ready.push(drop_event);
                         continue;
                     }
                 }
-                asset_unused = infos.process_handle_drop(untyped_id);
+
+                if !infos.process_handle_drop(untyped_id) {
+                    // a new handle has been created, or the asset doesn't exist
+                    continue;
+                }
             }
-            if asset_unused {
-                assets.queued_events.push(AssetEvent::Unused { id });
-                assets.remove_dropped(id);
-            }
+
+            assets.queued_events.push(AssetEvent::Unused { id });
+            assets.remove_dropped(id);
         }
 
         // TODO: this is _extremely_ inefficient find a better fix
