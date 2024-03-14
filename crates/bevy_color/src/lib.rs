@@ -174,7 +174,7 @@ pub(crate) fn sub_alpha_blend(lhs: f32, rhs: f32) -> f32 {
     lhs * (1. - rhs)
 }
 
-/// Implements Add and AddAssign for a given color type
+/// Implements `Add` and `AddAssign` for a given color type
 macro_rules! impl_color_add {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are added directly
@@ -207,7 +207,7 @@ macro_rules! impl_color_add {
     };
 }
 
-/// Implements Sub and SubAssign for a given color type
+/// Implements `Sub` and `SubAssign` for a given color type
 macro_rules! impl_color_sub {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are subtracted directly
@@ -240,7 +240,7 @@ macro_rules! impl_color_sub {
     };
 }
 
-/// Implements Mul and MulAssign for a given color type
+/// Implements `Mul` and `MulAssign` for a given color type
 macro_rules! impl_color_mul {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are scaled directly,
@@ -285,7 +285,7 @@ macro_rules! impl_color_mul {
     };
 }
 
-/// Implements Div and DivAssign for a given color type
+/// Implements `Div` and `DivAssign` for a given color type
 macro_rules! impl_color_div {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are scaled directly,
@@ -318,7 +318,7 @@ macro_rules! impl_color_div {
     };
 }
 
-/// Implements Neg for a given color type
+/// Implements `Neg` for a given color type
 macro_rules! impl_color_neg {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are negated directly,
