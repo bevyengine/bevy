@@ -129,6 +129,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 state.update_archetype_component_access(archetype, access);
             }
         }
+        state.archetype_generation = world.archetypes.generation();
         state
     }
 
