@@ -1120,7 +1120,7 @@ mod tests {
     #[reflect(Deserialize)]
     struct CustomDeserialize {
         value: usize,
-        #[serde(rename = "renamed")]
+        #[serde(alias = "renamed")]
         inner_struct: SomeDeserializableStruct,
     }
 
@@ -1170,7 +1170,7 @@ mod tests {
         registry
     }
 
-    fn get_my_struct()->MyStruct{
+    fn get_my_struct() -> MyStruct {
         let mut map = HashMap::new();
         map.insert(64, 32);
 
@@ -1206,7 +1206,6 @@ mod tests {
 
     #[test]
     fn should_deserialize() {
-
         let expected = get_my_struct();
         let registry = get_registry();
 
@@ -1437,7 +1436,6 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/12462
     #[test]
     fn should_reserialize() {
-        
         let registry = get_registry();
         let input1 = get_my_struct();
 
@@ -1456,7 +1454,6 @@ mod tests {
 
     #[test]
     fn should_deserialize_non_self_describing_binary() {
-
         let expected = get_my_struct();
         let registry = get_registry();
 
@@ -1489,7 +1486,6 @@ mod tests {
 
     #[test]
     fn should_deserialize_self_describing_binary() {
-
         let expected = get_my_struct();
         let registry = get_registry();
 
