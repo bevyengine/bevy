@@ -14,9 +14,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     event::EventReader,
-    prelude::With,
+    prelude::{Local, With},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -650,8 +650,8 @@ impl NormalizedRenderTarget {
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &HashSet<Entity>,
-        changed_image_handles: &HashSet<&AssetId<Image>>,
+        changed_window_ids: &EntityHashSet,
+        changed_image_handles: &HashSet<AssetId<Image>>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
@@ -663,6 +663,15 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::TextureView(_) => true,
         }
     }
+}
+
+/// Caches buffers used by [`camera_system`].
+#[doc(hidden)]
+#[derive(Default)]
+pub struct CameraSystemCache {
+    changed_window_ids: EntityHashSet,
+    scale_factor_changed_window_ids: EntityHashSet,
+    changed_image_handles: HashSet<AssetId<Image>>,
 }
 
 /// System in charge of updating a [`Camera`] when its window or projection changes.
@@ -685,6 +694,7 @@ impl NormalizedRenderTarget {
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
+    mut cache: Local<CameraSystemCache>,
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
@@ -695,24 +705,31 @@ pub fn camera_system<T: CameraProjection + Component>(
     manual_texture_views: Res<ManualTextureViews>,
     mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
+    let CameraSystemCache {
+        changed_window_ids,
+        scale_factor_changed_window_ids,
+        changed_image_handles,
+    } = &mut *cache;
+    changed_window_ids.clear();
+    scale_factor_changed_window_ids.clear();
+    changed_image_handles.clear();
+
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = HashSet::new();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
-        .read()
-        .map(|event| event.window)
-        .collect();
-    changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
-    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
-        .read()
-        .filter_map(|event| match event {
-            AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
-            _ => None,
-        })
-        .collect();
+    scale_factor_changed_window_ids.extend(
+        window_scale_factor_changed_events
+            .read()
+            .map(|event| event.window),
+    );
+    changed_window_ids.extend(scale_factor_changed_window_ids.iter().cloned());
+
+    changed_image_handles.extend(image_asset_events.read().filter_map(|event| match *event {
+        AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
+        _ => None,
+    }));
 
     for (mut camera, mut camera_projection) in &mut cameras {
         let mut viewport_size = camera
