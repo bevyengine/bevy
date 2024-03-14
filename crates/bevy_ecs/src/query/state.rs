@@ -31,7 +31,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
     pub(crate) matched_table_ids: Vec<TableId>,
@@ -96,11 +95,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
-    /// Returns the archetype components accessed by this query.
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
     /// Returns the components accessed by this query.
     pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
         &self.component_access
@@ -146,7 +140,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -174,7 +167,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: builder.access().clone(),
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -268,7 +260,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype(archetype);
+            self.new_archetype(archetype, &mut Access::new());
         }
     }
 
@@ -295,12 +287,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
-    pub fn new_archetype(&mut self, archetype: &Archetype) {
+    pub fn new_archetype(&mut self, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
         {
-            self.update_archetype_component_access(archetype);
+            self.update_archetype_component_access(archetype, access);
 
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
@@ -331,15 +323,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    pub fn update_archetype_component_access(&mut self, archetype: &Archetype) {
+    pub fn update_archetype_component_access(&mut self, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
         self.component_access.access.reads().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_read(id);
+                access.add_read(id);
             }
         });
         self.component_access.access.writes().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_write(id);
+                access.add_write(id);
             }
         });
     }
@@ -391,7 +383,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
-            archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -499,7 +490,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: joined_component_access,
             matched_tables,
             matched_archetypes,
-            archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
