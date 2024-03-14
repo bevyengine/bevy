@@ -260,7 +260,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype(archetype, &mut Access::new());
+            self.new_archetype_internal(archetype);
         }
     }
 
@@ -294,12 +294,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
+        if self.new_archetype_internal(archetype) {
+            self.update_archetype_component_access(archetype, access);
+        }
+    }
+
+    fn new_archetype_internal(
+        &mut self,
+        archetype: &Archetype,
+    ) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
         {
-            self.update_archetype_component_access(archetype, access);
-
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
@@ -312,6 +319,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 self.matched_tables.set(table_index, true);
                 self.matched_table_ids.push(archetype.table_id());
             }
+            true
+        } else {
+            false
         }
     }
 
