@@ -272,11 +272,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
         let archetypes = world.archetypes();
-        let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+        let access = self.component_access.access.clone();
 
-        for archetype in &archetypes[old_generation..] {
-            self.new_archetype(archetype);
+        for component_id in access.reads_and_writes() {
+            let matching_archetypes = &archetypes.component_to_archetypes[&component_id];
+            for &archetype_id in matching_archetypes.keys() {
+                self.new_archetype(&archetypes[archetype_id]);
+            }
         }
     }
 
