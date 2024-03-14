@@ -1,9 +1,9 @@
 use crate::{
-    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
     entity::{Entities, Entity},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState},
-    storage::{Table, TableId, TableRow, Tables},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
+    storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::{borrow::Borrow, iter::FusedIterator, mem::MaybeUninit, ops::Range};
@@ -240,9 +240,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
         if D::IS_DENSE && F::IS_DENSE {
-            for table_id in self.cursor.table_id_iter.clone() {
+            for id in self.cursor.storage_id_iter.clone() {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
+                let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
                 accum =
                     // SAFETY: 
                     // - The fetched table matches both D and F
@@ -251,10 +251,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                     unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
             }
         } else {
-            for archetype_id in self.cursor.archetype_id_iter.clone() {
+            for id in self.cursor.storage_id_iter.clone() {
                 let archetype =
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
-                    unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
+                    unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
                 accum =
                     // SAFETY:
                     // - The fetched archetype matches both D and F
@@ -650,8 +650,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
 }
 
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
-    table_id_iter: std::slice::Iter<'s, TableId>,
-    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
+    storage_id_iter: std::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
@@ -665,8 +664,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
     fn clone(&self) -> Self {
         Self {
-            table_id_iter: self.table_id_iter.clone(),
-            archetype_id_iter: self.archetype_id_iter.clone(),
+            storage_id_iter: self.storage_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
             fetch: self.fetch.clone(),
@@ -687,8 +685,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
-            table_id_iter: [].iter(),
-            archetype_id_iter: [].iter(),
+            storage_id_iter: [].iter(),
             ..Self::init(world, query_state, last_run, this_run)
         }
     }
@@ -709,8 +706,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             filter,
             table_entities: &[],
             archetype_entities: &[],
-            table_id_iter: query_state.matched_table_ids.iter(),
-            archetype_id_iter: query_state.matched_archetype_ids.iter(),
+            storage_id_iter: query_state.matched_storage_ids.iter(),
             current_len: 0,
             current_row: 0,
         }
@@ -747,11 +743,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
-            let ids = self.table_id_iter.clone();
-            ids.map(|id| tables[*id].entity_count()).sum()
+            let ids = self.storage_id_iter.clone();
+            // SAFETY: The if check ensures that storage_id_iter stores TableIds
+            unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
-            let ids = self.archetype_id_iter.clone();
-            ids.map(|id| archetypes[*id].len()).sum()
+            let ids = self.storage_id_iter.clone();
+            // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
+            unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
         };
         remaining_matched + self.current_len - self.current_row
     }
@@ -773,8 +771,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
-                    let table_id = self.table_id_iter.next()?;
-                    let table = tables.get(*table_id).debug_checked_unwrap();
+                    let table_id = self.storage_id_iter.next()?.table_id;
+                    let table = tables.get(table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -809,8 +807,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         } else {
             loop {
                 if self.current_row == self.current_len {
-                    let archetype_id = self.archetype_id_iter.next()?;
-                    let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                    let archetype_id = self.storage_id_iter.next()?.archetype_id;
+                    let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
