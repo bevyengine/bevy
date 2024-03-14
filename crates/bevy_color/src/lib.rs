@@ -58,8 +58,23 @@
 //!
 //! # Other Utilities
 //!
-//! The crate also provides a number of color operations, such as blending, color difference,
+//! The crate also provides a number of color operations, such as adding, subtracting,  blending, color difference,
 //! and color range operations.
+//!
+//! When adding or subtracting one color from another, all channels of the colors are added/subtracted directly.
+//! The only exception to this rule is the `alpha` channel which is blended between the two colors.
+//!
+//! When multiplying or dividing a color by a scalar ([`f32`]) or negating a color,
+//! all channels of the color will be multiplied, devided or negated directly.
+//! The only exception to this rule is the `alpha` channel which is left unchanged.
+//!
+//! Please note that these operations may result in colors that are outside useful ranges, e.g. a negative value in one of the color channels of a [`LinearRgba`] color:
+//! ```
+//! use bevy_color::LinearRgba;
+//!
+//! let white = LinearRgba::new(1., 1., 1., 1.);
+//! assert_eq!(-white, LinearRgba::new(-1., -1., -1., -1.));
+//! ```
 //!
 //! In addition, there is a [`Color`] enum that can represent any of the color
 //! types in this crate. This is useful when you need to store a color in a data structure
@@ -166,21 +181,33 @@ where
 {
 }
 
+/// Alpha blending for adding colors
+/// The blending method used is equivalent to the OpenGL blend function `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)`.
+/// For more information please see [this article](https://www.ventuz.com/support/help/latest/NodeRenderoptionsAlphaBlending.html) by the Khronos group.
 pub(crate) fn add_alpha_blend(lhs: f32, rhs: f32) -> f32 {
     lhs + rhs * (1. - lhs)
 }
 
+/// Alpha blending for subtracting colors
+/// The blending method used is equivalent to the OpenGL blend function `glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ZERO)`.
+/// For more information please see [this article](https://www.ventuz.com/support/help/latest/NodeRenderoptionsAlphaBlending.html) by the Khronos group.
 pub(crate) fn sub_alpha_blend(lhs: f32, rhs: f32) -> f32 {
     lhs * (1. - rhs)
 }
 
 /// Implements `Add` and `AddAssign` for a given color type
+///
+/// Note that these operations may result in colors outside useful or acceptable ranges.
+/// For more information please refer to the crate docs.
 macro_rules! impl_color_add {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are added directly
         /// but alpha is blended
         ///
         /// Values are not clamped
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Add<$ty> for $ty {
             type Output = Self;
 
@@ -196,6 +223,9 @@ macro_rules! impl_color_add {
         /// but alpha is blended
         ///
         /// Values are not clamped
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::AddAssign<$ty> for $ty {
             fn add_assign(&mut self, other: Self) {
                 *self = $ty {
@@ -208,12 +238,18 @@ macro_rules! impl_color_add {
 }
 
 /// Implements `Sub` and `SubAssign` for a given color type
+///
+/// Note that these operations may result in colors outside useful or acceptable ranges.
+/// For more information please refer to the crate docs.
 macro_rules! impl_color_sub {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are subtracted directly
         /// but alpha is blended
         ///
         /// Values are not clamped
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Sub<$ty> for $ty {
             type Output = Self;
 
@@ -229,6 +265,9 @@ macro_rules! impl_color_sub {
         /// but alpha is blended
         ///
         /// Values are not clamped
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::SubAssign<$ty> for $ty {
             fn sub_assign(&mut self, other: Self) {
                 *self = $ty {
@@ -241,12 +280,18 @@ macro_rules! impl_color_sub {
 }
 
 /// Implements `Mul` and `MulAssign` for a given color type
+///
+/// Note that these operations may result in colors outside useful or acceptable ranges.
+/// For more information please refer to the crate docs.
 macro_rules! impl_color_mul {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are scaled directly,
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Mul<f32> for $ty {
             type Output = Self;
 
@@ -262,6 +307,9 @@ macro_rules! impl_color_mul {
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Mul<$ty> for f32 {
             type Output = $ty;
 
@@ -274,6 +322,9 @@ macro_rules! impl_color_mul {
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::MulAssign<f32> for $ty {
             fn mul_assign(&mut self, other: f32) {
                 *self = $ty {
@@ -286,12 +337,18 @@ macro_rules! impl_color_mul {
 }
 
 /// Implements `Div` and `DivAssign` for a given color type
+///
+/// Note that these operations may result in colors outside useful or acceptable ranges.
+/// For more information please refer to the crate docs.
 macro_rules! impl_color_div {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are scaled directly,
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Div<f32> for $ty {
             type Output = Self;
 
@@ -307,6 +364,9 @@ macro_rules! impl_color_div {
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::DivAssign<f32> for $ty {
             fn div_assign(&mut self, other: f32) {
                 *self = $ty {
@@ -319,12 +379,18 @@ macro_rules! impl_color_div {
 }
 
 /// Implements `Neg` for a given color type
+///
+/// Note that this operation may result in colors outside useful or acceptable ranges.
+/// For more information please refer to the crate docs.
 macro_rules! impl_color_neg {
     ($ty: ident, [$($element: ident),+]) => {
         /// All color channels are negated directly,
         /// but alpha is unchanged.
         ///
         /// Values are not clamped.
+        ///
+        /// Note that this operation may result in colors outside useful or acceptable ranges.
+        /// For more information please refer to the crate docs.
         impl core::ops::Neg for $ty {
             type Output = Self;
 
