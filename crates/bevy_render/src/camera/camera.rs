@@ -738,7 +738,7 @@ pub fn camera_system<T: CameraProjection + Component>(
             .map(|viewport| viewport.physical_size);
 
         if let Some(normalized_target) = camera.target.normalize(primary_window) {
-            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
+            if normalized_target.is_changed(changed_window_ids, changed_image_handles)
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
@@ -752,7 +752,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
-                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                if normalized_target.is_changed(scale_factor_changed_window_ids, &HashSet::new()) {
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
