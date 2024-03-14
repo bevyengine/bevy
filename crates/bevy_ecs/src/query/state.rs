@@ -150,7 +150,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        let state = Self {
+        Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -166,9 +166,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 query = std::any::type_name::<D>(),
                 filter = std::any::type_name::<F>(),
             ),
-        };
-
-        state
+        }
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits it's [`FilteredAccess`].
