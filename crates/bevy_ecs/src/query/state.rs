@@ -287,7 +287,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
-    pub fn new_archetype(&mut self, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn new_archetype(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
@@ -323,7 +329,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    pub fn update_archetype_component_access(&mut self, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn update_archetype_component_access(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
         self.component_access.access.reads().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
                 access.add_read(id);
