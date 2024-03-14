@@ -416,28 +416,24 @@ impl Transform {
     /// orientation). (Failure cases may differ somewhat.)
     ///
     /// In some cases a rotation cannot be constructed. Another axis will be picked in those cases:
-    /// * if `main_axis` or `direction` is zero, `Vec3::X` takes its place
+    /// * if `main_axis` or `main_direction` is zero, `Vec3::X` takes its place
     /// * if `secondary_axis` or `secondary_direction` is zero, `Vec3::Y` takes its place
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    /// a rotation is constructed which takes `main_axis` to `main_direction` but ignores the secondary counterparts
-    /// (i.e. is otherwise unspecified)
+    /// a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
+    /// counterparts
     ///
     /// Example
     /// ```
-    /// # use bevy_math::Vec3;
-    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_math::{Vec3, Quat};
     /// # use bevy_transform::components::Transform;
-    /// # #[derive(Component)]
-    /// # struct HasFront {
-    /// #     front_vector: Vec3,
-    /// # }
-    /// fn face_origin(mut query: Query<(&mut Transform, &HasFront)>) {
-    ///     for (mut transform, front) in &mut query {
-    ///         let origin_facing_vector = -transform.translation;
-    ///         transform.align(front.front_vector, origin_facing_vector, Vec3::Y, Vec3::Y);
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(face_origin);
+    /// let mut t1 = Transform::IDENTITY;
+    /// let mut t2 = Transform::IDENTITY;
+    /// t1.align(Vec3::ZERO, Vec3::Z, Vec3::ZERO, Vec3::X);
+    /// t2.align(Vec3::X, Vec3::Z, Vec3::Y, Vec3::X);
+    /// assert_eq!(t1.rotation, t2.rotation);
+    ///
+    /// t1.align(Vec3::X, Vec3::Z, Vec3::X, Vec3::Y);
+    /// assert_eq!(t1.rotation, Quat::from_rotation_arc(Vec3::X, Vec3::Z));
     /// ```
     #[inline]
     pub fn align(

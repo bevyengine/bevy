@@ -1,4 +1,4 @@
-//! This example shows how to use the `Transform::align` API.
+//! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
 use bevy::color::{
     palettes::basic::{GRAY, RED, WHITE},
