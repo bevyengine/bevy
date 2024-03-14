@@ -19,16 +19,18 @@ impl ViewRangefinder3d {
     #[inline]
     pub fn distance_translation(&self, translation: &Vec3) -> f32 {
         // NOTE: row 2 of the view-projection matrix dotted with the translation from the model matrix
-        // gives the z component of translation of the mesh in clip-space
-        self.view_proj_row_2.dot(translation.extend(1.0)) / self.view_proj_row_3.dot(translation.extend(1.0))
+        // gives the z component of translation of the mesh in clip-space.
+        // However, as we are using an infinite projection matrix for perspective projection,
+        // this value is meaningless.
+        let position = translation.extend(1.0);
+        self.view_proj_row_2.dot(position) / self.view_proj_row_3.dot(position)
     }
 
     /// Calculates the depth for the given `transform`.
     #[inline]
     pub fn distance(&self, transform: &Mat4) -> f32 {
-        // NOTE: row 2 of the view-projection matrix dotted with column 3 of the model matrix
-        // gives the z component of translation of the mesh in clip-space
-        self.view_proj_row_2.dot(transform.col(3)) / self.view_proj_row_3.dot(transform.col(3))
+        let position = transform.col(3);
+        self.view_proj_row_2.dot(position) / self.view_proj_row_3.dot(position)
     }
 }
 
