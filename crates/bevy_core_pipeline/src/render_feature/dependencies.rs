@@ -4,23 +4,23 @@ use bevy_utils::all_tuples_with_size;
 use std::marker::PhantomData;
 
 pub trait RenderFeatureDependency<G: RenderSubGraph, I: Send + Sync + 'static> {}
-pub trait FeatureDependencies<G: RenderSubGraph, I: FeatureIO> {}
+pub trait FeatureDependencies<G: RenderSubGraph, I: FeatureIO<true>> {}
 
 macro_rules! impl_feature_dependencies {
     ($N: expr, $(($Dep: ident, $In: ident)),*) => {
         #[allow(unused_parens)]
-        impl<G: RenderSubGraph, $($Dep: RenderFeatureDependency<G, $In>,)* $($In: Send + Sync + 'static),*> FeatureDependencies<G, ($($In,)*)> for ($($Dep),*) {}
+        impl<G: RenderSubGraph, $($Dep: RenderFeatureDependency<G, $In>,)* $($In: FeatureIO<false>),*> FeatureDependencies<G, ($($In,)*)> for ($($Dep),*) {}
     };
 }
 
-all_tuples_with_size!(impl_feature_dependencies, 1, 32, Dep, In);
+all_tuples_with_size!(impl_feature_dependencies, 1, 16, Dep, In);
 
-struct SelectType<F, T>(PhantomData<fn(F) -> T>);
+struct Select<F, T>(PhantomData<fn(F) -> T>);
 
 #[macro_export]
 macro_rules! SelectDeps {
     [$($F:ty as {$($S:ty),+}),+] => {
-        ($($($crate::render_feature::dependencies::SelectType<$F, $S>),+),+)
+        ($($($crate::render_feature::dependencies::Select<$F, $S>),+),+)
     }
 }
 
@@ -33,7 +33,7 @@ trait SelectDependencies<G> {
 macro_rules! impl_select_dependencies {
     ($N: expr, $(($F: ident, $I: ident)),*) => {
         #[allow(unused_parens)]
-        impl<G: RenderSubGraph, $($F: Feature<G>,)* $($I),*> SelectDependencies<G> for ($(SelectType<$F, $I>),*) {
+        impl<G: RenderSubGraph, $($F: Feature<G>,)* $($I),*> SelectDependencies<G> for ($(Select<$F, $I>),*) {
             #[allow(unused_parens)]
             type Out = ($($I),*);
         }
@@ -62,13 +62,13 @@ where
 {
 }*/
 
-pub struct DependencyAdapter<A, D>(A, PhantomData<fn(D) -> ()>);
+pub struct FromWith<A, D>(A, PhantomData<fn(D) -> ()>);
 
-pub fn adapt<A, F>(adapter: A) -> DependencyAdapter<A, F> {
-    DependencyAdapter(adapter, PhantomData)
+pub fn from_with<A, F>(adapter: A) -> FromWith<A, F> {
+    FromWith(adapter, PhantomData)
 }
 
-impl<G, A, F, I> RenderFeatureDependency<G, I> for DependencyAdapter<A, F>
+impl<G, A, F, I> RenderFeatureDependency<G, I> for FromWith<A, F>
 where
     G: RenderSubGraph,
     A: Fn(F::Out) -> I,
@@ -87,16 +87,14 @@ where
 }*/
 
 // a "hole" or unfilled dependency. If left unfilled, will panic! at .build() time.
-pub struct EmptyDependency;
+pub struct Hole;
 
-pub fn empty() -> EmptyDependency {
-    EmptyDependency
+pub fn hole() -> Hole {
+    Hole
 }
 
-impl<G: RenderSubGraph, I: Send + Sync + 'static> RenderFeatureDependency<G, I>
-    for EmptyDependency
-{
-}
+impl<G: RenderSubGraph, I: Send + Sync + 'static> RenderFeatureDependency<G, I> for Hole {}
+
 /*impl<G: RenderSubGraph, I> RenderFeatureDependencies<G, I> for EmptyDependency {}
 
 //todo: probably not great, a patch for the implementation of SimpleFeature::default_dependencies()

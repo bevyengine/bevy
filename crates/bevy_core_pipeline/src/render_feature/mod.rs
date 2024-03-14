@@ -1,9 +1,11 @@
 pub mod dependencies;
 mod function_feature;
 
+use bevy_ecs::component::{Component, TableStorage};
+use bevy_utils::petgraph::graph::Node;
 pub use function_feature::*;
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::marker::PhantomData;
 
 use bevy_app::App;
@@ -13,11 +15,9 @@ use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
 use bevy_utils::all_tuples;
 
-//todo: mutable param access in the thingamabob
-
-pub trait Feature<G: RenderSubGraph>: Sized + 'static {
+pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
     type CompatibilityKey;
-    type Sig: FeatureSignature;
+    type Sig: FeatureSignature<true>;
 
     fn check_compatibility(
         &self,
@@ -36,9 +36,10 @@ pub trait Feature<G: RenderSubGraph>: Sized + 'static {
         &self,
         compatibility: Self::CompatibilityKey,
         builder: &mut FeatureBuilder<'b, G, Self>,
-        inputs: IOHandle<'b, FeatureInput<G, Self>>,
-    ) -> IOHandle<'b, FeatureOutput<G, Self>>;
+        inputs: IOHandles<'b, true, FeatureInput<G, Self>>,
+    ) -> IOHandles<'b, true, FeatureOutput<G, Self>>;
 }
+
 #[derive(PartialEq, Eq, Ord, PartialOrd)]
 pub enum FeatureStage {
     Extract = 0,
@@ -57,7 +58,7 @@ pub struct FeatureBuilder<'b, G: RenderSubGraph, F: Feature<G>> {
     data: PhantomData<&'b (G, F)>,
 }
 
-pub struct IOHandle<'a, T: FeatureIO> {
+pub struct IOHandle<'a, T: Send + Sync + 'static> {
     data: PhantomData<&'a T>,
 }
 
@@ -71,26 +72,50 @@ impl<'b, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'b, G, F> {
     pub fn add_sub_feature<Marker: 'static, S: IntoSubFeature<Marker>>(
         &mut self,
         stage: FeatureStage,
-        input: IOHandle<'b, SubFeatureInput<S::SubFeature>>,
+        input: IOHandles<'b, true, SubFeatureInput<S::SubFeature>>,
         sub_feature: S,
-    ) -> IOHandle<'b, SubFeatureOutput<S::SubFeature>> {
+    ) -> IOHandles<'b, false, SubFeatureOutput<S::SubFeature>> {
         let (_, _, _) = (stage, input, sub_feature);
         todo!()
     }
 }
 
-pub trait FeatureIO: Any + Send + Sync + 'static {}
+type IOHandles<'b, const MULT: bool, F> = <F as FeatureIO<MULT>>::Handles<'b>;
 
-impl<A: Any + Send + Sync + 'static> FeatureIO for A {}
+pub trait FeatureIO<const MULT: bool>: Send + Sync + 'static {
+    type Handles<'b>;
 
-pub trait IOHandleTuple {
-    type Tupled;
-
-    fn tupled(self) -> Self::Tupled;
-    fn untupled(tuple: Self::Tupled) -> Self;
+    fn type_ids() -> Vec<TypeId>;
 }
 
-macro_rules! impl_handle_tuple {
+impl<A: Send + Sync + 'static> FeatureIO<false> for A {
+    type Handles<'b> = IOHandle<'b, A>;
+
+    fn type_ids() -> Vec<TypeId> {
+        vec![TypeId::of::<Self>()]
+    }
+}
+
+macro_rules! impl_multi_feature_io {
+    ($($T: ident),*) => {
+        impl <$($T: FeatureIO<false>),*> FeatureIO<true> for ($($T,)*) {
+            type Handles<'b> = ($(IOHandle<'b, $T>,)*);
+
+            fn type_ids() -> Vec<TypeId> {
+                vec![$(TypeId::of::<$T>()),*]
+            }
+        }
+    };
+}
+
+// pub trait IOHandleTuple {
+//     type Tupled;
+//
+//     fn tupled(self) -> Self::Tupled;
+//     fn untupled(tuple: Self::Tupled) -> Self;
+// }
+
+/*macro_rules! impl_handle_tuple {
     ($($T: ident),*) => {
         impl <'b, $($T: FeatureIO),*> IOHandleTuple for IOHandle<'b, ($($T,)*)> {
             type Tupled = ($(IOHandle<'b, $T>,)*);
@@ -102,43 +127,22 @@ macro_rules! impl_handle_tuple {
             }
         }
     };
+}*/
+
+all_tuples!(impl_multi_feature_io, 0, 16, T);
+
+pub trait FeatureSignature<const MULTI_OUTPUT: bool>: 'static {
+    type In: FeatureIO<true>;
+    type Out: FeatureIO<MULTI_OUTPUT>;
 }
 
-all_tuples!(impl_handle_tuple, 1, 16, T);
+pub struct FeatureSigData<I, O>(PhantomData<fn(I) -> O>);
 
-/*macro_rules! impl_as_io_handles {
-    ($($T: ident),*) => {
-        impl<$($T: Send + Sync + 'static),*> FeatureIO for ($($T,)*) //have to impl for 1-tuple
-        //rather than raw type because of the evil
-        {
-            #[allow(unused_parens)]
-            type AsIOHandles<'a> = ($(IOHandle<'a, $T>,)*);
-
-            #[inline]
-            fn as_type_ids() -> Vec<TypeId> {
-                vec![$(TypeId::of::<$T>()),*]
-            }
-        }
-    };
-}
-
-all_tuples!(impl_as_io_handles, 1, 32, T);*/
-
-pub trait FeatureSignature: 'static {
-    type In: FeatureIO;
-    type Out: FeatureIO;
-}
-
-pub struct FeatureSigData<I: FeatureIO, O: FeatureIO>(PhantomData<(I, O)>);
-
-impl<I: FeatureIO, O: FeatureIO> FeatureSignature for FeatureSigData<I, O> {
+impl<const MULTI_OUTPUT: bool, I: FeatureIO<true>, O: FeatureIO<MULTI_OUTPUT>>
+    FeatureSignature<MULTI_OUTPUT> for FeatureSigData<I, O>
+{
     type In = I;
     type Out = O;
-}
-
-impl FeatureSignature for () {
-    type In = ();
-    type Out = ();
 }
 
 #[macro_export]
@@ -148,19 +152,17 @@ macro_rules! FeatureSig_Macro {
     };
 }
 
-pub use FeatureSig_Macro as FeatureSig;
+pub use FeatureSig_Macro as Sig;
 
-use self::dependencies::{empty, FeatureDependencies};
+use self::dependencies::{hole, FeatureDependencies};
 
-//type SubFeatureSig<G, F, S> = <S as RenderFeatureStageMarker>::SubFeatureSig<G, F>;
-type FeatureInput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature>::In;
-type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature>::Out;
-type SubFeatureInput<F> = <<F as SubFeature>::Sig as FeatureSignature>::In;
-type SubFeatureOutput<F> = <<F as SubFeature>::Sig as FeatureSignature>::Out;
+type FeatureInput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature<true>>::In;
+type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature<true>>::Out;
+type SubFeatureInput<F> = <<F as SubFeature>::Sig as FeatureSignature<false>>::In;
+type SubFeatureOutput<F> = <<F as SubFeature>::Sig as FeatureSignature<false>>::Out;
 
 pub trait SubFeature: 'static {
-    //type Stage: RenderFeatureStageMarker;
-    type Sig: FeatureSignature;
+    type Sig: FeatureSignature<false>;
     type Param: SystemParam;
 
     fn run(
@@ -196,7 +198,7 @@ impl<L: RenderLabel> Default for Blit<L> {
 impl<G: RenderSubGraph, L: RenderLabel> Feature<G> for Blit<L> {
     type CompatibilityKey = Compatibility;
 
-    type Sig = FeatureSig![(u8, u32, u32) => u32];
+    type Sig = Sig![(u8, u32, u32) => (u32, u32)];
 
     fn check_compatibility(
         &self,
@@ -210,17 +212,44 @@ impl<G: RenderSubGraph, L: RenderLabel> Feature<G> for Blit<L> {
         &self,
         _compatibility: Self::CompatibilityKey,
     ) -> impl FeatureDependencies<G, FeatureInput<G, Self>> {
-        (empty(), empty(), empty())
+        (hole(), hole(), hole()) //Deps!(_, _, _)
     }
 
     fn build_feature<'b>(
         &self,
         _compatibility: Self::CompatibilityKey,
         builder: &mut FeatureBuilder<'b, G, Self>,
-        input: IOHandle<'b, FeatureInput<G, Self>>,
-    ) -> IOHandle<'b, FeatureOutput<G, Self>> {
-        let (_, u2, _) = input.tupled();
-        let thing = builder.add_sub_feature(FeatureStage::Extract, u2, |_, c| c + 4);
-        thing
+        (_, b, c): IOHandles<'b, true, FeatureInput<G, Self>>,
+    ) -> IOHandles<'b, true, FeatureOutput<G, Self>> {
+        let thing = builder.add_sub_feature(FeatureStage::Extract, (b,), |_, (c,)| c + 4);
+        let thing2 = builder.add_sub_feature(FeatureStage::Dispatch, (c,), |_, (c,)| c + 4);
+        (thing, thing2)
+    }
+}
+
+//implementation time!!!!!
+
+struct FeatureResult<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
+    value: SubFeatureOutput<S>,
+    data: PhantomData<(F, G)>,
+}
+
+impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Component for FeatureResult<G, F, S> {
+    type Storage = TableStorage;
+}
+
+struct SubFeatureNode<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
+    sub_feature: S,
+    data: PhantomData<(G, F)>,
+}
+
+impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Node for SubFeatureNode<G, F, S> {
+    fn run<'w>(
+        &self,
+        graph: &mut bevy_render::render_graph::RenderGraphContext,
+        render_context: &mut bevy_render::renderer::RenderContext<'w>,
+        world: &'w bevy_ecs::world::World,
+    ) -> Result<(), bevy_render::render_graph::NodeRunError> {
+        todo!()
     }
 }
