@@ -139,7 +139,7 @@ type IdCursor = isize;
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
 /// [SemVer]: https://semver.org/
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -384,9 +384,9 @@ impl<'de> Deserialize<'de> for Entity {
     }
 }
 
-impl fmt::Debug for Entity {
+impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.index(), self.generation())
+        write!(f, "{}v{}|{}", self.index(), self.generation(), self.to_bits())
     }
 }
 
@@ -1146,5 +1146,15 @@ mod tests {
             let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
             assert_ne!(hash, first_hash);
         }
+    }
+
+    #[test]
+    fn entity_display() {
+        let entity = Entity::from_raw(42);
+        let string = format!("{}", entity);
+        let bits = entity.to_bits().to_string();
+        assert!(string.contains("42"));
+        assert!(string.contains("v1"));
+        assert!(string.contains(&bits));
     }
 }
