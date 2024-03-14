@@ -114,6 +114,25 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
+        let mut state = Self::new_internal(world);
+        state.update_archetypes(world);
+        state
+    }
+
+    pub(crate) fn new_with_access(
+        world: &mut World,
+        access: &mut Access<ArchetypeComponentId>,
+    ) -> Self {
+        let mut state = Self::new_internal(world);
+        for archetype in world.archetypes.iter() {
+            if state.new_archetype_internal(archetype) {
+                state.update_archetype_component_access(archetype, access);
+            }
+        }
+        state
+    }
+
+    fn new_internal(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
@@ -130,7 +149,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        let mut state = Self {
+        let state = Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -147,7 +166,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = std::any::type_name::<F>(),
             ),
         };
-        state.update_archetypes(world);
+
         state
     }
 
