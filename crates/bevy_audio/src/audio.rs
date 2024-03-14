@@ -37,7 +37,7 @@ pub enum PlaybackMode {
     Once,
     /// Repeat the sound forever.
     Loop,
-    /// Despawn the entity when the sound finishes playing.
+    /// Despawn the entity and its children when the sound finishes playing.
     Despawn,
     /// Remove the audio components from the entity, when the sound finishes playing.
     Remove,

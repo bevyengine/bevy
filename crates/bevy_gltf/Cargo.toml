@@ -58,3 +58,6 @@ smallvec = "1.11"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

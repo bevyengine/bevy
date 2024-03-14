@@ -41,5 +41,8 @@ smallvec = "1.11"
 [features]
 serialize = ["serde", "smallvec/serde"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lints]
 workspace = true

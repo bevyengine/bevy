@@ -51,7 +51,7 @@ web-sys = "0.3"
 crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
-features = ["x11"]
+all-features = true
 
 [lints]
 workspace = true
