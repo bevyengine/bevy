@@ -21,9 +21,9 @@ use super::{
     QuerySingleError, ROQueryItem,
 };
 
-/// Either a table or an archetype. Used for Query iteration.
-/// 
-/// # Safety 
+/// An ID for either a table or an archetype. Used for Query iteration.
+///
+/// # Safety
 /// Must be initialized and accessed as a TableId, if both generic parameters to the query are dense.
 /// Must be initialized and accessed as an ArchetypeId otherwise.
 #[derive(Clone, Copy)]
@@ -307,11 +307,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 self.matched_archetypes.grow(archetype_index + 1);
                 self.matched_archetypes.set(archetype_index, true);
                 // This is inside the outer if because point queries (i.e. QueryState::get)
-                // always relies on matched_archetypes, while matched_tables is only use 
+                // always relies on matched_archetypes, while matched_tables is only use
                 // relied on for deduplication here.
                 if !D::IS_DENSE || !F::IS_DENSE {
                     self.matched_storage_ids.push(StorageId {
-                        archetype_id: archetype.id()
+                        archetype_id: archetype.id(),
                     });
                 }
             }
@@ -321,7 +321,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     self.matched_tables.grow(table_index + 1);
                     self.matched_tables.set(table_index, true);
                     self.matched_storage_ids.push(StorageId {
-                        table_id: archetype.table_id()
+                        table_id: archetype.table_id(),
                     });
                 }
             }
@@ -495,15 +495,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .intersection(&other.matched_archetypes)
             .collect();
         let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
-            matched_tables.ones().map(|id| StorageId {
-                table_id: TableId::from_usize(id)
-        })
-            .collect()
+            matched_tables
+                .ones()
+                .map(|id| StorageId {
+                    table_id: TableId::from_usize(id),
+                })
+                .collect()
         } else {
-            matched_archetypes.ones().map(|id| StorageId {
-                archetype_id: ArchetypeId::new(id)
-        })
-            .collect()
+            matched_archetypes
+                .ones()
+                .map(|id| StorageId {
+                    archetype_id: ArchetypeId::new(id),
+                })
+                .collect()
         };
 
         QueryState {
@@ -1303,11 +1307,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         scope.spawn(async move {
                             #[cfg(feature = "trace")]
                             let _span = self.par_iter_span.enter();
-                            let table = &world
-                                .storages()
-                                .tables
-                                .get(table_id)
-                                .debug_checked_unwrap();
+                            let table =
+                                &world.storages().tables.get(table_id).debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_table_range(&mut func, table, batch);
