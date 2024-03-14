@@ -1,7 +1,6 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use crate::{
-    add_alpha_blend, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba,
+    add_alpha_blend, impl_color_add, impl_color_div, impl_color_mul, impl_color_neg,
+    impl_color_sub, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba,
     Srgba, StandardColor, Xyza,
 };
 use bevy_math::cubic_splines::Point;
@@ -143,132 +142,11 @@ impl Luminance for Laba {
     }
 }
 
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Add<Laba> for Laba {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness + rhs.lightness,
-            a: self.a + rhs.a,
-            b: self.b + rhs.b,
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl AddAssign<Self> for Laba {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Sub<Laba> for Laba {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness - rhs.lightness,
-            a: self.a - rhs.a,
-            b: self.b - rhs.b,
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl SubAssign<Self> for Laba {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Laba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness * rhs,
-            a: self.a * rhs,
-            b: self.b * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Laba> for f32 {
-    type Output = Laba;
-
-    fn mul(self, rhs: Laba) -> Self::Output {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Laba {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Laba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness / rhs,
-            a: self.a / rhs,
-            b: self.b / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Laba {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            lightness: -self.lightness,
-            a: -self.a,
-            b: -self.b,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Laba, [lightness, a, b]);
+impl_color_sub!(Laba, [lightness, a, b]);
+impl_color_mul!(Laba, [lightness, a, b]);
+impl_color_div!(Laba, [lightness, a, b]);
+impl_color_neg!(Laba, [lightness, a, b]);
 
 impl Point for Laba {}
 

@@ -113,7 +113,7 @@ pub mod prelude {
     pub use crate::xyza::*;
 }
 
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use bevy_math::cubic_splines::Point;
 pub use color::*;
@@ -157,9 +157,10 @@ where
     Self: Sub<Self>,
     Self: SubAssign<Self>,
     Self: Div<f32>,
-    Self: MulAssign<f32>,
+    Self: DivAssign<f32>,
     Self: Mul<f32>,
     f32: Mul<Self>,
+    Self: MulAssign<f32>,
     Self: Neg,
     Self: Point,
 {
@@ -172,3 +173,169 @@ pub(crate) fn add_alpha_blend(lhs: f32, rhs: f32) -> f32 {
 pub(crate) fn sub_alpha_blend(lhs: f32, rhs: f32) -> f32 {
     lhs * (1. - rhs)
 }
+
+/// Implements Add and AddAssign for a given color type
+macro_rules! impl_color_add {
+    ($ty: ident, [$($element: ident),+]) => {
+        /// All color channels are added directly
+        /// but alpha is blended
+        ///
+        /// Values are not clamped
+        impl core::ops::Add<$ty> for $ty {
+            type Output = Self;
+
+            fn add(self, other: Self) -> Self::Output {
+                $ty {
+                    $($element: self.$element + other.$element,)+
+                    alpha: add_alpha_blend(self.alpha, other.alpha),
+                }
+            }
+        }
+
+        /// All color channels are added directly
+        /// but alpha is blended
+        ///
+        /// Values are not clamped
+        impl core::ops::AddAssign<$ty> for $ty {
+            fn add_assign(&mut self, other: Self) {
+                *self = $ty {
+                    $($element: self.$element + other.$element,)+
+                    alpha: add_alpha_blend(self.alpha, other.alpha),
+                };
+            }
+        }
+    };
+}
+
+/// Implements Sub and SubAssign for a given color type
+macro_rules! impl_color_sub {
+    ($ty: ident, [$($element: ident),+]) => {
+        /// All color channels are subtracted directly
+        /// but alpha is blended
+        ///
+        /// Values are not clamped
+        impl core::ops::Sub<$ty> for $ty {
+            type Output = Self;
+
+            fn sub(self, other: Self) -> Self::Output {
+                $ty {
+                    $($element: self.$element - other.$element,)+
+                    alpha: sub_alpha_blend(self.alpha, other.alpha),
+                }
+            }
+        }
+
+        /// All color channels are subtracted directly
+        /// but alpha is blended
+        ///
+        /// Values are not clamped
+        impl core::ops::SubAssign<$ty> for $ty {
+            fn sub_assign(&mut self, other: Self) {
+                *self = $ty {
+                    $($element: self.$element + other.$element,)+
+                    alpha: sub_alpha_blend(self.alpha, other.alpha),
+                };
+            }
+        }
+    };
+}
+
+/// Implements Mul and MulAssign for a given color type
+macro_rules! impl_color_mul {
+    ($ty: ident, [$($element: ident),+]) => {
+        /// All color channels are scaled directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::Mul<f32> for $ty {
+            type Output = Self;
+
+            fn mul(self, other: f32) -> Self::Output {
+                $ty {
+                    $($element: self.$element * other,)+
+                    alpha: self.alpha,
+                }
+            }
+        }
+
+        /// All color channels are scaled directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::Mul<$ty> for f32 {
+            type Output = $ty;
+
+            fn mul(self, other: $ty) -> Self::Output {
+                other * self
+            }
+        }
+
+        /// All color channels are scaled directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::MulAssign<f32> for $ty {
+            fn mul_assign(&mut self, other: f32) {
+                *self = $ty {
+                    $($element: self.$element * other,)+
+                    alpha: self.alpha,
+                };
+            }
+        }
+    };
+}
+
+/// Implements Div and DivAssign for a given color type
+macro_rules! impl_color_div {
+    ($ty: ident, [$($element: ident),+]) => {
+        /// All color channels are scaled directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::Div<f32> for $ty {
+            type Output = Self;
+
+            fn div(self, other: f32) -> Self::Output {
+                $ty {
+                    $($element: self.$element / other,)+
+                    alpha: self.alpha,
+                }
+            }
+        }
+
+        /// All color channels are scaled directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::DivAssign<f32> for $ty {
+            fn div_assign(&mut self, other: f32) {
+                *self = $ty {
+                    $($element: self.$element / other,)+
+                    alpha: self.alpha,
+                };
+            }
+        }
+    };
+}
+
+/// Implements Neg for a given color type
+macro_rules! impl_color_neg {
+    ($ty: ident, [$($element: ident),+]) => {
+        /// All color channels are negated directly,
+        /// but alpha is unchanged.
+        ///
+        /// Values are not clamped.
+        impl core::ops::Neg for $ty {
+            type Output = Self;
+
+            fn neg(self) -> Self::Output {
+                $ty {
+                    $($element: -self.$element,)+
+                    alpha: self.alpha,
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use {impl_color_add, impl_color_div, impl_color_mul, impl_color_neg, impl_color_sub};

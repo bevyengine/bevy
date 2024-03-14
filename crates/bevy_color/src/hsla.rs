@@ -1,7 +1,6 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use crate::{
-    add_alpha_blend, sub_alpha_blend, Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    add_alpha_blend, impl_color_add, impl_color_div, impl_color_mul, impl_color_neg,
+    impl_color_sub, sub_alpha_blend, Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
     StandardColor, Xyza,
 };
 use bevy_math::cubic_splines::Point;
@@ -172,136 +171,11 @@ impl Luminance for Hsla {
     }
 }
 
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Add<Hsla> for Hsla {
-    type Output = Self;
-
-    fn add(self, rhs: Hsla) -> Self::Output {
-        Self::Output {
-            hue: (self.hue + rhs.hue).rem_euclid(360.),
-            lightness: self.lightness + rhs.lightness,
-            saturation: self.saturation + rhs.saturation,
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl AddAssign<Self> for Hsla {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Sub<Hsla> for Hsla {
-    type Output = Self;
-
-    fn sub(self, rhs: Hsla) -> Self::Output {
-        Self::Output {
-            hue: (self.hue - rhs.hue).rem_euclid(360.),
-            lightness: self.lightness - rhs.lightness,
-            saturation: self.saturation - rhs.saturation,
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl SubAssign<Self> for Hsla {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Hsla {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            hue: (self.hue * rhs).rem_euclid(360.),
-            lightness: self.lightness * rhs,
-            saturation: self.saturation * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Hsla> for f32 {
-    type Output = Hsla;
-
-    fn mul(self, rhs: Hsla) -> Self::Output {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Hsla {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Hsla {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            hue: (self.hue / rhs).rem_euclid(360.),
-            lightness: self.lightness / rhs,
-            saturation: self.saturation / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Hsla {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            hue: 360. - self.hue,
-            saturation: -self.saturation,
-            lightness: -self.lightness,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Hsla, [hue, saturation, lightness]);
+impl_color_sub!(Hsla, [hue, saturation, lightness]);
+impl_color_mul!(Hsla, [hue, saturation, lightness]);
+impl_color_div!(Hsla, [hue, saturation, lightness]);
+impl_color_neg!(Hsla, [hue, saturation, lightness]);
 
 impl Point for Hsla {}
 

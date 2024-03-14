@@ -1,8 +1,7 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use crate::{
-    add_alpha_blend, color_difference::EuclideanDistance, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba,
-    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    add_alpha_blend, color_difference::EuclideanDistance, impl_color_add, impl_color_div,
+    impl_color_mul, impl_color_neg, impl_color_sub, sub_alpha_blend, Alpha, Hsla, Hsva, Hwba, Laba,
+    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -177,136 +176,11 @@ impl EuclideanDistance for Oklcha {
     }
 }
 
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Add<Oklcha> for Oklcha {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness + rhs.lightness,
-            chroma: self.chroma + rhs.chroma,
-            hue: (self.hue + rhs.hue).rem_euclid(360.),
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl AddAssign<Self> for Oklcha {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Sub<Oklcha> for Oklcha {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness - rhs.lightness,
-            chroma: self.chroma - rhs.chroma,
-            hue: (self.hue - rhs.hue).rem_euclid(360.),
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl SubAssign<Self> for Oklcha {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Oklcha {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness * rhs,
-            chroma: self.chroma * rhs,
-            hue: (self.hue * rhs).rem_euclid(360.),
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Oklcha> for f32 {
-    type Output = Oklcha;
-
-    fn mul(self, rhs: Oklcha) -> Self::Output {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Oklcha {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Oklcha {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            lightness: self.lightness / rhs,
-            chroma: self.chroma / rhs,
-            hue: (self.hue / rhs).rem_euclid(360.),
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Oklcha {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            hue: 360. - self.hue,
-            lightness: -self.lightness,
-            chroma: -self.chroma,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Oklcha, [lightness, chroma, hue]);
+impl_color_sub!(Oklcha, [lightness, chroma, hue]);
+impl_color_mul!(Oklcha, [lightness, chroma, hue]);
+impl_color_div!(Oklcha, [lightness, chroma, hue]);
+impl_color_neg!(Oklcha, [lightness, chroma, hue]);
 
 impl Point for Oklcha {}
 

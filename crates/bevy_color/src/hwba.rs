@@ -2,10 +2,9 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use crate::{
-    add_alpha_blend, sub_alpha_blend, Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
+    add_alpha_blend, impl_color_add, impl_color_div, impl_color_mul, impl_color_neg,
+    impl_color_sub, sub_alpha_blend, Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -100,136 +99,11 @@ impl Alpha for Hwba {
     }
 }
 
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Add<Hwba> for Hwba {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            hue: (self.hue + rhs.hue).rem_euclid(360.),
-            whiteness: self.whiteness + rhs.whiteness,
-            blackness: self.blackness + rhs.blackness,
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl AddAssign<Self> for Hwba {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl Sub<Hwba> for Hwba {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            hue: (self.hue - rhs.hue).rem_euclid(360.),
-            whiteness: self.whiteness - rhs.whiteness,
-            blackness: self.blackness - rhs.blackness,
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-/// but hue is in `0..360`
-impl SubAssign<Self> for Hwba {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Hwba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            hue: (self.hue * rhs).rem_euclid(360.),
-            whiteness: self.whiteness * rhs,
-            blackness: self.blackness * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Hwba> for f32 {
-    type Output = Hwba;
-
-    fn mul(self, rhs: Hwba) -> Self::Output {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Hwba {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Hwba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            hue: (self.hue / rhs).rem_euclid(360.),
-            whiteness: self.whiteness / rhs,
-            blackness: self.blackness / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Hwba {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            hue: 360. - self.hue,
-            whiteness: -self.whiteness,
-            blackness: -self.blackness,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Hwba, [hue, whiteness, blackness]);
+impl_color_sub!(Hwba, [hue, whiteness, blackness]);
+impl_color_mul!(Hwba, [hue, whiteness, blackness]);
+impl_color_div!(Hwba, [hue, whiteness, blackness]);
+impl_color_neg!(Hwba, [hue, whiteness, blackness]);
 
 impl Point for Hwba {}
 

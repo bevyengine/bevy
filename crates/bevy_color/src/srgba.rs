@@ -1,8 +1,7 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use crate::color_difference::EuclideanDistance;
 use crate::{
-    add_alpha_blend, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza,
+    add_alpha_blend, impl_color_add, impl_color_div, impl_color_mul, impl_color_neg,
+    impl_color_sub, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
 use bevy_math::cubic_splines::Point;
 use bevy_math::Vec4;
@@ -374,132 +373,11 @@ pub enum HexColorError {
     Char(char),
 }
 
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Srgba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Self {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Srgba> for f32 {
-    type Output = Srgba;
-
-    fn mul(self, rhs: Srgba) -> Srgba {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Srgba {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Srgba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self {
-        Self {
-            red: self.red / rhs,
-            green: self.green / rhs,
-            blue: self.blue / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Add<Self> for Srgba {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            red: self.red + rhs.red,
-            green: self.green + rhs.green,
-            blue: self.blue + rhs.blue,
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl AddAssign<Self> for Srgba {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Sub<Self> for Srgba {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            red: self.red - rhs.red,
-            green: self.green - rhs.green,
-            blue: self.blue - rhs.blue,
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl SubAssign<Self> for Srgba {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Srgba {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            red: -self.red,
-            green: -self.green,
-            blue: -self.blue,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Srgba, [red, green, blue]);
+impl_color_sub!(Srgba, [red, green, blue]);
+impl_color_mul!(Srgba, [red, green, blue]);
+impl_color_div!(Srgba, [red, green, blue]);
+impl_color_neg!(Srgba, [red, green, blue]);
 
 impl Point for Srgba {}
 

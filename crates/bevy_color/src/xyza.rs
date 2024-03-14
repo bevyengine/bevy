@@ -1,6 +1,7 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
-use crate::{add_alpha_blend, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{
+    add_alpha_blend, impl_color_add, impl_color_div, impl_color_mul, impl_color_neg,
+    impl_color_sub, sub_alpha_blend, Alpha, LinearRgba, Luminance, Mix, StandardColor,
+};
 use bevy_math::cubic_splines::Point;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -137,132 +138,11 @@ impl Mix for Xyza {
     }
 }
 
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Xyza {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Self {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            z: self.z * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<Xyza> for f32 {
-    type Output = Xyza;
-
-    fn mul(self, rhs: Xyza) -> Xyza {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl MulAssign<f32> for Xyza {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Xyza {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self {
-        Self {
-            x: self.x / rhs,
-            y: self.y / rhs,
-            z: self.z / rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Add<Self> for Xyza {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-            alpha: add_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are added directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl AddAssign<Self> for Xyza {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl Sub<Self> for Xyza {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::Output {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            z: self.z - rhs.z,
-            alpha: sub_alpha_blend(self.alpha, rhs.alpha),
-        }
-    }
-}
-
-/// All color channels are subtracted directly
-/// but alpha is blended
-///
-/// Values are not clamped
-impl SubAssign<Self> for Xyza {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-
-/// All color channels are negated directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped
-impl Neg for Xyza {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-            alpha: self.alpha,
-        }
-    }
-}
+impl_color_add!(Xyza, [x, y, z]);
+impl_color_sub!(Xyza, [x, y, z]);
+impl_color_mul!(Xyza, [x, y, z]);
+impl_color_div!(Xyza, [x, y, z]);
+impl_color_neg!(Xyza, [x, y, z]);
 
 impl Point for Xyza {}
 
