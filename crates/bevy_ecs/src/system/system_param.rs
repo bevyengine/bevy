@@ -193,7 +193,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let mut state = QueryState::new(world);
+        let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<D>(),
