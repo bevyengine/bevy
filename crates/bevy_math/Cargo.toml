@@ -18,6 +18,8 @@ rand = { version = "0.8", default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"
+# Enable the use of thread_rng in examples
+rand = "0.8"
 
 [features]
 default = ["rand"]
