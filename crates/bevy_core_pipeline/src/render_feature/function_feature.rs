@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Mutex};
+use std::marker::PhantomData;
 
 use bevy_ecs::{
     entity::Entity,
@@ -13,7 +13,7 @@ use super::{FeatureIO, FeatureSignature, Sig, SubFeature, SubFeatureInput, SubFe
 pub struct IsFunctionSubFeature;
 
 pub struct FunctionSubFeature<Marker, F: SubFeatureFunction<Marker>> {
-    fun: Mutex<F>,
+    fun: F,
     data: PhantomData<fn() -> Marker>,
 }
 
@@ -22,7 +22,7 @@ pub trait SubFeatureFunction<Marker>: Send + Sync + 'static {
     type Param: SystemParam;
 
     fn run(
-        &mut self,
+        &self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
@@ -36,7 +36,7 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>>
     #[inline]
     fn into_sub_feature(self) -> Self::SubFeature {
         FunctionSubFeature {
-            fun: Mutex::new(self),
+            fun: self,
             data: PhantomData,
         }
     }
@@ -54,8 +54,7 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>> SubFeature for FunctionSubF
         input: SubFeatureInput<Self>,
         param: &SystemParamItem<Self::Param>,
     ) -> SubFeatureOutput<Self> {
-        let mut fun = self.fun.lock().unwrap();
-        F::run(&mut *fun, view_entity, input, param)
+        F::run(&self.fun, view_entity, input, param)
     }
 }
 
@@ -63,14 +62,14 @@ impl<In, Out, Func: Send + Sync + 'static> SubFeatureFunction<fn(Entity, In) -> 
 where
     In: FeatureIO<true>,
     Out: FeatureIO<false>,
-    for<'a> &'a mut Func: FnMut(Entity, In) -> Out + FnMut(Entity, In) -> Out,
+    for<'a> &'a Func: Fn(Entity, In) -> Out + Fn(Entity, In) -> Out,
 {
     type Sig = Sig![In => Out];
     type Param = ();
 
     #[inline]
     fn run(
-        &mut self,
+        &self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         _param: &SystemParamItem<Self::Param>,
@@ -79,7 +78,7 @@ where
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
         fn call_inner<In, Out>(
-            mut f: impl FnMut(Entity, In) -> Out,
+            f: impl Fn(Entity, In) -> Out,
             view_entity: Entity,
             input: In,
         ) -> Out {
@@ -94,15 +93,15 @@ impl<Out, In, Func: Send + Sync + 'static, Param: SystemParam>
 where
     In: FeatureIO<true>,
     Out: FeatureIO<false>,
-    for<'a> &'a mut Func:
-        FnMut(Entity, In, &Param) -> Out + FnMut(Entity, In, &SystemParamItem<Param>) -> Out,
+    for<'a> &'a Func:
+        Fn(Entity, In, &Param) -> Out + Fn(Entity, In, &SystemParamItem<Param>) -> Out,
 {
     type Sig = Sig![In => Out];
     type Param = Param;
 
     #[inline]
     fn run(
-        &mut self,
+        &self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
@@ -111,7 +110,7 @@ where
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
         fn call_inner<In, Out, Param>(
-            mut f: impl FnMut(Entity, In, &Param) -> Out,
+            f: impl Fn(Entity, In, &Param) -> Out,
             view_entity: Entity,
             input: In,
             param: &Param,
