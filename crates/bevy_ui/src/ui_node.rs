@@ -1851,6 +1851,11 @@ impl Default for ZIndex {
 /// * `Val::AUTO` is resolved to `Val::Px(0.)`.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct UiBorderRadius {
     pub top_left: Val,
     pub top_right: Val,
