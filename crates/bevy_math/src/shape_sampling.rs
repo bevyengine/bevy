@@ -13,6 +13,8 @@ pub trait ShapeSample {
 
     /// Uniformly sample a point from inside the area/volume of this shape, centered on 0.
     ///
+    /// Shapes like [`Cylinder`], [`Capsule2d`] and [`Capsule3d`] are oriented along the y-axis.
+    ///
     /// # Example
     /// ```
     /// # use bevy_math::prelude::*;
@@ -24,6 +26,8 @@ pub trait ShapeSample {
     fn sample_volume<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
     /// Uniformly sample a point from the surface of this shape, centered on 0.
+    ///
+    /// Shapes like [`Cylinder`], [`Capsule2d`] and [`Capsule3d`] are oriented along the y-axis.
     ///
     /// # Example
     /// ```
