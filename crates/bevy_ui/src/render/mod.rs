@@ -340,7 +340,13 @@ pub(crate) fn resolve_border_radius(
     ui_scale: f32,
 ) -> [f32; 4] {
     let max_radius = 0.5 * node_size.min_element() * ui_scale;
-    <[Val; 4]>::from(values).map(|value| {
+    [
+        values.top_left,
+        values.top_right,
+        values.bottom_right,
+        values.bottom_left,
+    ]
+    .map(|value| {
         match value {
             Val::Auto => 0.,
             Val::Px(px) => ui_scale * px,

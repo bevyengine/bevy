@@ -1875,7 +1875,7 @@ impl Default for UiBorderRadius {
 impl UiBorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
-    /// Zero curvature. All the corners will be right angled.
+    /// Zero curvature. All the corners will be right-angled.
     pub const ZERO: Self = Self::all(Val::Px(0.));
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
@@ -2066,17 +2066,6 @@ impl UiBorderRadius {
         self.bottom_left = radius;
         self.bottom_right = radius;
         self
-    }
-}
-
-impl From<UiBorderRadius> for [Val; 4] {
-    fn from(value: UiBorderRadius) -> Self {
-        [
-            value.top_left,
-            value.top_right,
-            value.bottom_right,
-            value.bottom_left,
-        ]
     }
 }
 
