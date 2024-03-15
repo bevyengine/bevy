@@ -468,6 +468,225 @@ impl Style {
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
     };
+
+    /// Overlays the `patch` onto `self`, ignoring any fields of the `patch` which are at the `DEFAULT` value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Style, Display, PositionType};
+    /// let patch = Style {
+    ///     display: Display::Grid, // non-default
+    ///     ..Default::default()
+    /// };
+    ///
+    /// let style = Style {
+    ///     position_type: PositionType::Absolute, // non-default
+    ///     ..Default::default()
+    /// };
+    ///
+    /// let patched = style.with(patch);
+    ///
+    /// // `patch`'s default `position_type` does not overwrite `style`'s
+    /// assert_eq!(patched.position_type, PositionType::Absolute);
+    /// assert_eq!(patched.display, Display::Grid);
+    /// ```
+    pub fn with(self, patch: Self) -> Self {
+        Style {
+            display: if patch.display == Self::DEFAULT.display {
+                self.display
+            } else {
+                patch.display
+            },
+            position_type: if patch.position_type == Self::DEFAULT.position_type {
+                self.position_type
+            } else {
+                patch.position_type
+            },
+            left: if patch.left == Self::DEFAULT.left {
+                self.left
+            } else {
+                patch.left
+            },
+            right: if patch.right == Self::DEFAULT.right {
+                self.right
+            } else {
+                patch.right
+            },
+            top: if patch.top == Self::DEFAULT.top {
+                self.top
+            } else {
+                patch.top
+            },
+            bottom: if patch.bottom == Self::DEFAULT.bottom {
+                self.bottom
+            } else {
+                patch.bottom
+            },
+            direction: if patch.direction == Self::DEFAULT.direction {
+                self.direction
+            } else {
+                patch.direction
+            },
+            flex_direction: if patch.flex_direction == Self::DEFAULT.flex_direction {
+                self.flex_direction
+            } else {
+                patch.flex_direction
+            },
+            flex_wrap: if patch.flex_wrap == Self::DEFAULT.flex_wrap {
+                self.flex_wrap
+            } else {
+                patch.flex_wrap
+            },
+            align_items: if patch.align_items == Self::DEFAULT.align_items {
+                self.align_items
+            } else {
+                patch.align_items
+            },
+            justify_items: if patch.justify_items == Self::DEFAULT.justify_items {
+                self.justify_items
+            } else {
+                patch.justify_items
+            },
+            align_self: if patch.align_self == Self::DEFAULT.align_self {
+                self.align_self
+            } else {
+                patch.align_self
+            },
+            justify_self: if patch.justify_self == Self::DEFAULT.justify_self {
+                self.justify_self
+            } else {
+                patch.justify_self
+            },
+            align_content: if patch.align_content == Self::DEFAULT.align_content {
+                self.align_content
+            } else {
+                patch.align_content
+            },
+            justify_content: if patch.justify_content == Self::DEFAULT.justify_content {
+                self.justify_content
+            } else {
+                patch.justify_content
+            },
+            margin: if patch.margin == Self::DEFAULT.margin {
+                self.margin
+            } else {
+                patch.margin
+            },
+            padding: if patch.padding == Self::DEFAULT.padding {
+                self.padding
+            } else {
+                patch.padding
+            },
+            border: if patch.border == Self::DEFAULT.border {
+                self.border
+            } else {
+                patch.border
+            },
+            flex_grow: if patch.flex_grow == Self::DEFAULT.flex_grow {
+                self.flex_grow
+            } else {
+                patch.flex_grow
+            },
+            flex_shrink: if patch.flex_shrink == Self::DEFAULT.flex_shrink {
+                self.flex_shrink
+            } else {
+                patch.flex_shrink
+            },
+            flex_basis: if patch.flex_basis == Self::DEFAULT.flex_basis {
+                self.flex_basis
+            } else {
+                patch.flex_basis
+            },
+            width: if patch.width == Self::DEFAULT.width {
+                self.width
+            } else {
+                patch.width
+            },
+            height: if patch.height == Self::DEFAULT.height {
+                self.height
+            } else {
+                patch.height
+            },
+            min_width: if patch.min_width == Self::DEFAULT.min_width {
+                self.min_width
+            } else {
+                patch.min_width
+            },
+            min_height: if patch.min_height == Self::DEFAULT.min_height {
+                self.min_height
+            } else {
+                patch.min_height
+            },
+            max_width: if patch.max_width == Self::DEFAULT.max_width {
+                self.max_width
+            } else {
+                patch.max_width
+            },
+            max_height: if patch.max_height == Self::DEFAULT.max_height {
+                self.max_height
+            } else {
+                patch.max_height
+            },
+            aspect_ratio: if patch.aspect_ratio == Self::DEFAULT.aspect_ratio {
+                self.aspect_ratio
+            } else {
+                patch.aspect_ratio
+            },
+            overflow: if patch.overflow == Self::DEFAULT.overflow {
+                self.overflow
+            } else {
+                patch.overflow
+            },
+            row_gap: if patch.row_gap == Self::DEFAULT.row_gap {
+                self.row_gap
+            } else {
+                patch.row_gap
+            },
+            column_gap: if patch.column_gap == Self::DEFAULT.column_gap {
+                self.column_gap
+            } else {
+                patch.column_gap
+            },
+            grid_auto_flow: if patch.grid_auto_flow == Self::DEFAULT.grid_auto_flow {
+                self.grid_auto_flow
+            } else {
+                patch.grid_auto_flow
+            },
+            grid_template_rows: if patch.grid_template_rows == Self::DEFAULT.grid_template_rows {
+                self.grid_template_rows
+            } else {
+                patch.grid_template_rows
+            },
+            grid_template_columns: if patch.grid_template_columns
+                == Self::DEFAULT.grid_template_columns
+            {
+                self.grid_template_columns
+            } else {
+                patch.grid_template_columns
+            },
+            grid_auto_rows: if patch.grid_auto_rows == Self::DEFAULT.grid_auto_rows {
+                self.grid_auto_rows
+            } else {
+                patch.grid_auto_rows
+            },
+            grid_auto_columns: if patch.grid_auto_columns == Self::DEFAULT.grid_auto_columns {
+                self.grid_auto_columns
+            } else {
+                patch.grid_auto_columns
+            },
+            grid_column: if patch.grid_column == Self::DEFAULT.grid_column {
+                self.grid_column
+            } else {
+                patch.grid_column
+            },
+            grid_row: if patch.grid_row == Self::DEFAULT.grid_row {
+                self.grid_row
+            } else {
+                patch.grid_row
+            },
+        }
+    }
 }
 
 impl Default for Style {
