@@ -382,7 +382,7 @@ pub struct CameraView
 }
 
 impl CameraView {
-    /// Makes a new `CameraView` with no visibile [`RenderLayer`].
+    /// Makes a new `CameraView` with no visible [`RenderLayer`].
     pub fn empty() -> Self {
         Self{ layers: RenderLayers::empty() }
     }
