@@ -6,7 +6,7 @@ use bevy_math::{Rect, Vec2};
 pub use border_rect::BorderRect;
 pub use slicer::{SliceScaleMode, TextureSlicer};
 
-pub(crate) use computed_slices::{
+pub use computed_slices::{
     compute_slices_on_asset_event, compute_slices_on_sprite_change, ComputedTextureSlices,
 };
 

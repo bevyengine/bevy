@@ -271,7 +271,7 @@ pub fn winit_runner(mut app: App) {
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
-    let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
+    let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
         SystemState::new(&mut app.world);
 
     let mut event_writer_system_state: SystemState<(
@@ -317,7 +317,7 @@ fn handle_winit_event(
         Query<(&mut Window, &mut CachedWindow)>,
         NonSend<AccessKitAdapters>,
     )>,
-    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
+    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     event: Event<UserEvent>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
@@ -346,7 +346,7 @@ fn handle_winit_event(
     match event {
         Event::AboutToWait => {
             let (config, windows) = focused_windows_state.get(&app.world);
-            let focused = windows.iter().any(|window| window.focused);
+            let focused = windows.iter().any(|(_, window)| window.focused);
             let mut should_update = match config.update_mode(focused) {
                 UpdateMode::Continuous => {
                     runner_state.redraw_requested
@@ -378,7 +378,7 @@ fn handle_winit_event(
             }
 
             if should_update {
-                let visible = windows.iter().any(|window| window.visible);
+                let visible = windows.iter().any(|(_, window)| window.visible);
                 let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
                 if visible && runner_state.active != ActiveState::WillSuspend {
                     for window in winit_windows.windows.values() {
@@ -709,7 +709,7 @@ fn handle_winit_event(
 fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
-    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
+    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
@@ -733,6 +733,40 @@ fn run_app_update_if_should(
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::platform::web::WindowExtWebSys;
+        use bevy_window::WindowGlContextLost;
+        use wasm_bindgen::JsCast;
+
+        fn get_gl_context(window: &winit::window::Window) -> Option<web_sys::WebGl2RenderingContext> {
+            if let Some(canvas) = window.canvas() {
+                let context = canvas.get_context("webgl2").ok()??;
+
+                Some(context.dyn_into::<web_sys::WebGl2RenderingContext>().ok()?)
+            } else {
+                None
+            }
+        }
+
+        fn has_gl_context(window: &winit::window::Window) -> bool {
+            get_gl_context(window).map_or(false, |ctx| !ctx.is_context_lost())
+        }
+
+        let (_, windows) = focused_windows_state.get(&app.world);
+
+        if let Some((entity, _)) = windows.iter().next()
+        {
+            let winit_windows = app.world.non_send_resource::<WinitWindows>();
+            let window = winit_windows.get_window(entity).expect("Window must exist");
+
+            if !has_gl_context(&window) {
+                app.world.send_event(WindowGlContextLost { window: entity });
+                return;
+            }
+        }
+    }
+
     if app.plugins_state() == PluginsState::Cleaned {
         runner_state.last_update = Instant::now();
 
@@ -740,7 +774,7 @@ fn run_app_update_if_should(
 
         // decide when to run the next update
         let (config, windows) = focused_windows_state.get(&app.world);
-        let focused = windows.iter().any(|window| window.focused);
+        let focused = windows.iter().any(|(_, window)| window.focused);
         match config.update_mode(focused) {
             UpdateMode::Continuous => {
                 runner_state.redraw_requested = true;

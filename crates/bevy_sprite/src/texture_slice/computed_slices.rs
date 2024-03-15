@@ -24,7 +24,7 @@ impl ComputedTextureSlices {
     /// * `sprite` - The sprite component
     /// * `handle` - The sprite texture handle
     #[must_use]
-    pub(crate) fn extract_sprites<'a>(
+    pub fn extract_sprites<'a>(
         &'a self,
         transform: &'a GlobalTransform,
         original_entity: Entity,
@@ -105,7 +105,7 @@ fn compute_sprite_slices(
 
 /// System reacting to added or modified [`Image`] handles, and recompute sprite slices
 /// on matching sprite entities with a [`ImageScaleMode`] component
-pub(crate) fn compute_slices_on_asset_event(
+pub fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
@@ -135,7 +135,7 @@ pub(crate) fn compute_slices_on_asset_event(
 
 /// System reacting to changes on relevant sprite bundle components to compute the sprite slices
 /// on matching sprite entities with a [`ImageScaleMode`] component
-pub(crate) fn compute_slices_on_sprite_change(
+pub fn compute_slices_on_sprite_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
     changed_sprites: Query<
