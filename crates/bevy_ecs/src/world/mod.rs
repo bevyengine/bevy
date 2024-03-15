@@ -1784,6 +1784,36 @@ impl World {
         Tick::new(prev_tick)
     }
 
+    /// Sets [`World::last_change_tick()`] to the specified value during a scope.
+    /// It will revert to its previous value after the scope ends.
+    pub fn last_change_tick_scope<T>(
+        &mut self,
+        last_change_tick: Tick,
+        f: impl FnOnce(&mut World) -> T,
+    ) -> T {
+        struct LastTickGuard<'a> {
+            world: &'a mut World,
+            last_tick: Tick,
+        }
+
+        // By setting the change tick in the drop impl, we esnure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl std::ops::Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                self.world.last_change_tick = self.last_tick;
+            }
+        }
+
+        let guard = LastTickGuard {
+            last_tick: self.last_change_tick,
+            world: self,
+        };
+
+        guard.world.last_change_tick = last_change_tick;
+
+        f(guard.world)
+    }
+
     /// Reads the current change tick of this world.
     ///
     /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),

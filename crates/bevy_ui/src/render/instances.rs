@@ -74,6 +74,16 @@ pub struct DashedBorderInstance {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable, Debug)]
+pub struct ShadowInstance {
+    pub location: [f32; 2],
+    pub size: [f32; 2],
+    pub radius: [f32; 4],
+    pub color: [f32; 4],
+    pub blur_radius: f32,
+}
+
+#[repr(C)]
 #[derive(Copy, Clone, Zeroable, Debug)]
 pub struct ClippedInstance<I>
 where
@@ -138,6 +148,7 @@ pub struct UiInstanceBuffers {
     pub linear_gradient: UiInstanceBuffer<LinearGradientInstance>,
     pub radial_gradient: UiInstanceBuffer<RadialGradientInstance>,
     pub dashed_border: UiInstanceBuffer<DashedBorderInstance>,
+    pub shadow: UiInstanceBuffer<ShadowInstance>,
 }
 
 impl UiInstanceBuffers {
@@ -148,6 +159,7 @@ impl UiInstanceBuffers {
         self.linear_gradient.clear();
         self.radial_gradient.clear();
         self.dashed_border.clear();
+        self.shadow.clear()
     }
 
     /// Queue writes for all instance buffers.
@@ -159,6 +171,7 @@ impl UiInstanceBuffers {
         self.linear_gradient.write(&render_device, &render_queue);
         self.radial_gradient.write(&render_device, &render_queue);
         self.dashed_border.write(&render_device, &render_queue);
+        self.shadow.write(&render_device, &render_queue);
     }
 }
 
@@ -236,6 +249,20 @@ impl UiInstance for ClippedInstance<DashedBorderInstance> {
     }
 }
 
+impl UiInstance for ShadowInstance {
+    #[inline]
+    fn push(self, buffers: &mut UiInstanceBuffers) {
+        buffers.shadow.unclipped.push(self);
+    }
+}
+
+impl UiInstance for ClippedInstance<ShadowInstance> {
+    #[inline]
+    fn push(self, buffers: &mut UiInstanceBuffers) {
+        buffers.shadow.clipped.push(self);
+    }
+}
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum BatchType {
     Node = 0,
@@ -248,10 +275,12 @@ pub enum BatchType {
     CRadialGradient = 7,
     DashedBorder = 8,
     CDashedBorder = 9,
+    Shadow = 10,
+    CShadow = 11,
 }
 
 #[derive(Default)]
-pub struct InstanceCounters([u32; 10]);
+pub struct InstanceCounters([u32; 12]);
 
 impl InstanceCounters {
     #[inline]
@@ -272,6 +301,8 @@ pub enum ExtractedInstance {
     CLinearGradient(ClippedInstance<LinearGradientInstance>),
     CRadialGradient(ClippedInstance<RadialGradientInstance>),
     CDashedBorder(ClippedInstance<DashedBorderInstance>),
+    Shadow(ShadowInstance),
+    CShadow(ClippedInstance<ShadowInstance>),
 }
 
 impl ExtractedInstance {
@@ -287,6 +318,8 @@ impl ExtractedInstance {
             ExtractedInstance::CRadialGradient(_) => BatchType::CRadialGradient,
             ExtractedInstance::DashedBorder(_) => BatchType::DashedBorder,
             ExtractedInstance::CDashedBorder(_) => BatchType::CDashedBorder,
+            ExtractedInstance::Shadow(_) => BatchType::Shadow,
+            ExtractedInstance::CShadow(_) => BatchType::CShadow,
         }
     }
 
@@ -302,6 +335,8 @@ impl ExtractedInstance {
             ExtractedInstance::CRadialGradient(i) => i.push(instance_buffers),
             ExtractedInstance::DashedBorder(i) => i.push(instance_buffers),
             ExtractedInstance::CDashedBorder(i) => i.push(instance_buffers),
+            ExtractedInstance::Shadow(i) => i.push(instance_buffers),
+            ExtractedInstance::CShadow(i) => i.push(instance_buffers),
         }
     }
 }
@@ -357,6 +392,16 @@ impl From<(DashedBorderInstance, Option<Rect>)> for ExtractedInstance {
             Self::CDashedBorder((instance, clip).into())
         } else {
             Self::DashedBorder(instance)
+        }
+    }
+}
+
+impl From<(ShadowInstance, Option<Rect>)> for ExtractedInstance {
+    fn from((instance, clip): (ShadowInstance, Option<Rect>)) -> Self {
+        if let Some(clip) = get_clip(clip) {
+            Self::CShadow((instance, clip).into())
+        } else {
+            Self::Shadow(instance)
         }
     }
 }

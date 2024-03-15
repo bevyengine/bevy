@@ -83,10 +83,21 @@ impl ExtractedUiNodes {
         border: [f32; 4],
         radius: [f32; 4],
         clip: Option<Rect>,
+        flip_x: bool,
+        flip_y: bool,
     ) {
         let color = color.as_linear_rgba_f32();
-        let uv_min = uv_rect.min;
-        let uv_size = uv_rect.size();
+        let (uv_x, uv_w) = if flip_x {
+            (uv_rect.max.x, -uv_rect.size().x)
+        } else {
+            (uv_rect.min.x, uv_rect.size().x)
+        };
+
+        let (uv_y, uv_h) = if flip_y {
+            (uv_rect.max.y, -uv_rect.size().y)
+        } else {
+            (uv_rect.min.y, uv_rect.size().y)
+        };
 
         let flags = if image.is_some() {
             TEXTURED_QUAD
@@ -99,7 +110,7 @@ impl ExtractedUiNodes {
         let i = NodeInstance {
             location: position.into(),
             size: size.into(),
-            uv: [uv_min.x, uv_min.y, uv_size.x, uv_size.y],
+            uv: [uv_x, uv_y, uv_w, uv_h],
             color,
             border,
             radius,
@@ -362,6 +373,32 @@ impl ExtractedUiNodes {
                 ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
             );
         }
+    }
+
+    pub fn push_shadow(
+        &mut self,
+        commands: &mut Commands,
+        stack_index: usize,
+        position: Vec2,
+        size: Vec2,
+        radius: [f32; 4],
+        blur_radius: f32,
+        color: Color,
+        clip: Option<Rect>,
+    ) {
+        let color = color.as_linear_rgba_f32();
+
+        let i = ShadowInstance {
+            location: position.into(),
+            size: size.into(),
+            radius,
+            color,
+            blur_radius,
+        };
+        self.push(
+            commands.spawn_empty().id(),
+            ExtractedItem::new(stack_index, AssetId::default(), (i, clip)),
+        );
     }
 }
 

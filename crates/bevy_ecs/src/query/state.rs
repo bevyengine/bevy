@@ -60,6 +60,26 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+    /// Returns the archetype components accessed by this query.
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns the components accessed by this query.
+    pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
+        &self.component_access
+    }
+
+    /// Returns the tables matched by this query.
+    pub fn matched_tables(&self) -> &[TableId] {
+        &self.matched_table_ids
+    }
+
+    /// Returns the archetypes matched by this query.
+    pub fn matched_archetypes(&self) -> &[ArchetypeId] {
+        &self.matched_archetype_ids
+    }
+
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`

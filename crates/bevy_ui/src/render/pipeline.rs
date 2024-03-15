@@ -45,16 +45,17 @@ impl FromWorld for UiPipeline {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum UiPipelineSpecialization {
     Node,
     Text,
     LinearGradient,
     RadialGradient,
     DashedBorder,
+    Shadow,
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
     pub clip: bool,
@@ -181,6 +182,22 @@ impl SpecializedRenderPipeline for UiPipeline {
                     VertexFormat::Float32,
                 ]);
             }
+            UiPipelineSpecialization::Shadow => {
+                shader_defs.push("SPECIAL".into());
+                shader_defs.push("SHADOW".into());
+                formats.extend([
+                    // @location(0) i_location: vec2<f32>,
+                    VertexFormat::Float32x2,
+                    // @location(1) i_size: vec2<f32>,
+                    VertexFormat::Float32x2,
+                    // @location(2) i_radius: vec4<f32>,
+                    VertexFormat::Float32x4,
+                    // @location(3) i_color: vec4<f32>,
+                    VertexFormat::Float32x4,
+                    // @location(4) i_blur_radius: f32,
+                    VertexFormat::Float32,
+                ]);
+            }
         }
 
         if key.clip {
@@ -191,7 +208,6 @@ impl SpecializedRenderPipeline for UiPipeline {
 
         let instance_rate_vertex_buffer_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Instance, formats);
-
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: super::UI_SHADER_HANDLE,

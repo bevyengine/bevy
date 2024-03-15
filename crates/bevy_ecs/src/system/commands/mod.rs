@@ -645,28 +645,16 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand: Send + 'static {
+pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);
+
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    fn with_entity(self, id: Entity) -> impl Command
     where
         Self: Sized,
     {
-        WithEntity { cmd: self, id }
-    }
-}
-
-/// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<C: EntityCommand> {
-    cmd: C,
-    id: Entity,
-}
-
-impl<C: EntityCommand> Command for WithEntity<C> {
-    #[inline]
-    fn apply(self, world: &mut World) {
-        self.cmd.apply(self.id, world);
+        move |world: &mut World| self.apply(id, world)
     }
 }
 
@@ -905,7 +893,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
+    pub fn add<M: Send + 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands.add(command.with_entity(self.entity));
         self
     }
@@ -981,12 +969,21 @@ where
     }
 }
 
-impl<F> EntityCommand for F
+impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) {
         self(world.entity_mut(id));
+    }
+}
+
+impl<F> EntityCommand for F
+where
+    F: FnOnce(Entity, &mut World) + Send + 'static,
+{
+    fn apply(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 

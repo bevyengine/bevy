@@ -515,6 +515,85 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
 // ***********************************************************************************
 
+#ifdef SHADOW
+
+struct VertexInput {
+    @builtin(vertex_index) index: u32,
+    @location(0) i_location: vec2<f32>,
+    @location(1) i_size: vec2<f32>,
+    @location(2) i_radius: vec4<f32>,
+    @location(3) i_color: vec4<f32>,
+    @location(4) i_blur_radius: f32,
+    #ifdef CLIP 
+        @location(5) i_clip: vec4<f32>,
+    #endif
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) @interpolate(flat) color: vec4<f32>,
+    @location(1) @interpolate(flat) radius: vec4<f32>,
+    @location(2) point: vec2<f32>,
+    @location(3) @interpolate(flat) size: vec2<f32>,
+    @location(4) position: vec2<f32>,
+    @location(5) @interpolate(flat) blur_radius: f32,
+    #ifdef CLIP 
+        @location(6) clip: vec4<f32>,
+    #endif
+};
+
+
+@vertex
+fn vertex(in: VertexInput) -> VertexOutput {
+    let padding = in.i_blur_radius * 2.;
+    let location = in.i_location - padding;
+    var out: VertexOutput;
+    let half_size = 0.5 * in.i_size;
+    let norm_x = f32(in.index & 1u);
+    let norm_y = f32((in.index & 2u) >> 1u);
+    let norm_location = vec2(norm_x, norm_y);
+    let relative_location = (in.i_size + 2. * padding) * norm_location;
+    out.position = location + relative_location;
+    out.clip_position = view.view_proj * vec4(location + relative_location, 0., 1.);
+    out.color = in.i_color;
+    out.radius = in.i_radius;
+    out.size = in.i_size;
+    out.point = (2. * padding + in.i_size) * (norm_location - 0.4999);
+    out.blur_radius = in.i_blur_radius;
+    #ifdef CLIP 
+        out.clip = in.i_clip;
+    #endif
+    return out;
+}
+
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {    
+    let color_out = calc_shadow(in.color, in.point, in.size, in.radius, in.blur_radius);
+    #ifdef CLIP 
+        return clip(color_out, in.position, in.clip);
+    #else 
+        return color_out;
+    #endif
+    
+}
+
+#endif
+
+// ***********************************************************************************
+
+fn calc_shadow(
+    color: vec4<f32>,
+    point: vec2<f32>,
+    size: vec2<f32>,
+    radius: vec4<f32>,
+    blur: f32,
+) -> vec4<f32> {
+    let g = color.a * roundedBoxShadow(-0.5 * size, 0.5 * size, point, max(blur, 0.01), radius);
+    let color_out = vec4(color.rgb, g);
+    return color_out;
+}
+
+
 fn sd_box(point: vec2<f32>, half_size: vec2<f32>) -> f32 {
     let d = abs(point) - half_size;
     return length(max(d, vec2(0.0))) + min(max(d.x, d.y) , 0.0);
@@ -671,4 +750,65 @@ fn compute_rounded_box_perimeter(s: vec2<f32>, radius: vec4<f32>) -> f32 {
         t += calculate_quarter_perimeter(s, radius[j]);
     }
     return t;
+}
+
+fn gaussian(x: f32, sigma: f32) -> f32 {
+  return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
+}
+
+
+const FRAC_2_SQRT_PI = 1.1283791;
+
+fn erf(p: vec2<f32>) -> vec2<f32> {
+  let s = sign(p);
+  let a = abs(p);
+  var result = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
+  result = result * result;
+  return s - s / (result * result);
+}
+
+
+fn selectCorner(x: f32, y: f32, c: vec4<f32>) -> f32 {
+  return mix(mix(c.x, c.y, step(0., x)), mix(c.w, c.z, step(0., x)), step(0., y));
+}
+
+// Return the blurred mask along the x dimension.
+fn roundedBoxShadowX(x: f32, y: f32, s: f32, corner: f32, halfSize: vec2<f32>) -> f32 {
+  let d = min(halfSize.y - corner - abs(y), 0.);
+  let c = halfSize.x - corner + sqrt(max(0., corner * corner - d * d));
+  let integral = 0.5 + 0.5 * erf((x + vec2(-c, c)) * (sqrt(0.5) / s));
+  return integral.y - integral.x;
+}
+
+// Return the mask for the shadow of a box from lower to upper.
+fn roundedBoxShadow(
+  lower: vec2<f32>,
+  upper: vec2<f32>,
+  point: vec2<f32>,
+  sigma: f32,
+  corners: vec4<f32>,
+) -> f32 {
+  // Center everything to make the math easier.
+  let center = (lower + upper) * 0.5;
+  let halfSize = (upper - lower) * 0.5;
+  let p = point - center;
+
+  // The signal is only non-zero in a limited range, so don't waste samples.
+  let low = p.y - halfSize.y;
+  let high = p.y + halfSize.y;
+  let start = clamp(-3. * sigma, low, high);
+  let end = clamp(3. * sigma, low, high);
+
+  // Accumulate samples (we can get away with surprisingly few samples).
+  let step = (end - start) / 4.0;
+  var y = start + step * 0.5;
+  var value: f32 = 0.0;
+
+  for (var i = 0; i < 4; i++) {
+    let corner = selectCorner(p.x, p.y, corners);
+    value += roundedBoxShadowX(p.x, p.y - y, sigma, corner, halfSize) * gaussian(y, sigma) * step;
+    y += step;
+  }
+
+  return value;
 }

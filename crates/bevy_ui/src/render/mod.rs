@@ -19,7 +19,7 @@ use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     UiImage, UiScale, UiTextureAtlasImage, Val,
 };
-use crate::{resolve_color_stops, Outline, OutlineStyle, UiColor};
+use crate::{resolve_color_stops, BoxShadow, Outline, OutlineStyle, UiColor};
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -63,6 +63,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    ExtractShadow,
     ExtractNode,
     ExtractBorder,
     ExtractOutline,
@@ -89,7 +90,12 @@ pub fn build_ui_render(app: &mut App) {
             (
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
-                extract_uinodes.in_set(RenderUiSystem::ExtractNode),
+                extract_shadows
+                    .in_set(RenderUiSystem::ExtractShadow)
+                    .before(RenderUiSystem::ExtractNode),
+                extract_uinodes
+                    .in_set(RenderUiSystem::ExtractNode)
+                    .after(RenderUiSystem::ExtractShadow),
                 extract_atlas_uinodes
                     .in_set(RenderUiSystem::ExtractAtlasNode)
                     .after(RenderUiSystem::ExtractNode),
@@ -250,6 +256,8 @@ pub fn extract_atlas_uinodes(
             uinode.border,
             uinode.border_radius,
             clip.map(|clip| clip.clip),
+            false, 
+            false,
         );
     }
 }
@@ -459,7 +467,7 @@ pub fn extract_uinodes(
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0 as f32;
 
-    for (entity, uinode, color, maybe_image, view_visibility, clip) in uinode_query.iter() {
+    for (_, uinode, color, maybe_image, view_visibility, clip) in uinode_query.iter() {
         // Skip invisible and completely transparent nodes
         if !view_visibility.get()
             || color.0.is_fully_transparent()
@@ -469,7 +477,7 @@ pub fn extract_uinodes(
             continue;
         }
 
-        let (image, _flip_x, _flip_y) = if let Some(image) = maybe_image {
+        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
             // Skip loading images
             if !images.contains(&image.texture) {
                 continue;
@@ -482,7 +490,7 @@ pub fn extract_uinodes(
         match &color.0 {
             UiColor::Color(color) => {
                 extracted_uinodes.push_node(
-                    entity,
+                    commands.spawn_empty().id(),
                     uinode.stack_index as usize,
                     uinode.position,
                     uinode.size(),
@@ -492,6 +500,8 @@ pub fn extract_uinodes(
                     uinode.border,
                     uinode.border_radius,
                     clip.map(|clip| clip.clip),
+                    flip_x,
+                    flip_y,
                 );
             }
             UiColor::LinearGradient(l) => {
@@ -527,6 +537,38 @@ pub fn extract_uinodes(
                 );
             }
         }
+    }
+}
+
+fn extract_shadows(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<Query<(&Node, &BoxShadow, &ViewVisibility, Option<&CalculatedClip>)>>,
+) {
+    for (uinode, shadow, view_visibility, clip) in uinode_query.iter() {
+        let size = uinode.size() + shadow.spread_radius;
+        // Skip invisible and completely transparent nodes
+        if !view_visibility.get()
+            || shadow.color.is_fully_transparent()
+            || size.x <= 0.
+            || size.y <= 0.
+        {
+            continue;
+        }
+        let position = uinode.position() + shadow.offset;
+        let border_radius = shadow
+            .border_radius_override
+            .unwrap_or(uinode.border_radius);
+        extracted_uinodes.push_shadow(
+            &mut commands,
+            uinode.stack_index as usize,
+            position,
+            size,
+            border_radius,
+            shadow.blur_radius,
+            shadow.color,
+            clip.map(|clip| clip.clip),
+        );
     }
 }
 
@@ -662,7 +704,7 @@ pub fn extract_text_uinodes(
             }
             if let Some(atlas) = texture_atlases.get(&atlas_info.texture_atlas) {
                 let mut uv_rect = atlas.textures[atlas_info.glyph_index];
-                let scaled_glyph_size = (uv_rect.size() - 2.) * inverse_scale_factor;
+                let scaled_glyph_size = uv_rect.size() * inverse_scale_factor;
                 let scaled_glyph_position = *glyph_position * inverse_scale_factor;
                 uv_rect.min /= atlas.size;
                 uv_rect.max /= atlas.size;
@@ -851,6 +893,26 @@ pub fn queue_uinodes(
             },
         );
 
+        let shadow_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: false,
+                specialization: UiPipelineSpecialization::Shadow,
+            },
+        );
+
+        let clipped_shadow_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                hdr: view.hdr,
+                clip: true,
+                specialization: UiPipelineSpecialization::Shadow,
+            },
+        );
+
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());
@@ -867,6 +929,8 @@ pub fn queue_uinodes(
                 ExtractedInstance::CLinearGradient(..) => clipped_linear_gradient_pipeline,
                 ExtractedInstance::CRadialGradient(..) => clipped_radial_gradient_pipeline,
                 ExtractedInstance::CDashedBorder(..) => clipped_dashed_border_pipeline,
+                ExtractedInstance::Shadow(..) => shadow_pipeline,
+                ExtractedInstance::CShadow(..) => clipped_shadow_pipeline,
             };
             transparent_phase.add(TransparentUi {
                 batch_type: extracted_uinode.instance.get_type(),

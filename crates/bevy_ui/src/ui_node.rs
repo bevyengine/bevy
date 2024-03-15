@@ -2639,6 +2639,26 @@ impl RadialGradient {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BoxShadow {
+    /// The shadow's color
+    pub color: Color,
+    /// Offset increasing to the right and down
+    pub offset: Vec2,
+    /// Difference in size from occluding uninode
+    pub spread_radius: Vec2,
+    /// Blurriness of the shadow
+    pub blur_radius: f32,
+    /// Hack until elliptical border radius implemented
+    pub border_radius_override: Option<[f32; 4]>,
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_math::Vec2;

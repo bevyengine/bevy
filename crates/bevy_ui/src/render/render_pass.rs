@@ -340,6 +340,26 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
                         .slice(..),
                 );
             }
+            super::BatchType::Shadow => pass.set_vertex_buffer(
+                0,
+                ui_meta
+                    .instance_buffers
+                    .shadow
+                    .unclipped
+                    .buffer()
+                    .unwrap()
+                    .slice(..),
+            ),
+            super::BatchType::CShadow => pass.set_vertex_buffer(
+                0,
+                ui_meta
+                    .instance_buffers
+                    .shadow
+                    .clipped
+                    .buffer()
+                    .unwrap()
+                    .slice(..),
+            ),
         };
         pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success

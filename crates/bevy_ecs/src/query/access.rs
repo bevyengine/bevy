@@ -271,6 +271,8 @@ pub struct FilteredAccess<T: SparseSetIndex> {
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     filter_sets: Vec<AccessFilters<T>>,
+    // Values that are not accessed, but whose presence in an archetype affect query results.
+    archetypal_accesses: FixedBitSet,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -278,6 +280,7 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
         Self {
             access: Access::default(),
             filter_sets: vec![AccessFilters::default()],
+            archetypal_accesses: FixedBitSet::new(),
         }
     }
 }
@@ -313,6 +316,18 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn add_write(&mut self, index: T) {
         self.access.add_write(index.clone());
         self.and_with(index);
+    }
+
+    /// Adds an archetypal (inderect) access to the element given by `index`.
+    pub fn add_archetypal(&mut self, index: T) {
+        self.archetypal_accesses.grow(index.sparse_set_index() + 1);
+        self.archetypal_accesses.insert(index.sparse_set_index());
+    }
+
+    /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
+    /// This is an element that is not accessed, but whose presence in an archetype affects a query result.
+    pub fn has_archetypal(&self, index: T) -> bool {
+        self.archetypal_accesses.contains(index.sparse_set_index())
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -422,6 +437,25 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Sets the underlying unfiltered access as having mutable access to all indexed elements.
     pub fn write_all(&mut self) {
         self.access.write_all();
+    }
+
+    /// Returns the components this access filters for.
+    pub fn get_with(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns the components this access filters out.
+    pub fn get_without(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns the components whose presence in an archetype affects query results.
+    pub fn get_archetypal(&self) -> impl Iterator<Item = T> + '_ {
+        self.archetypal_accesses.ones().map(T::get_sparse_set_index)
     }
 }
 
