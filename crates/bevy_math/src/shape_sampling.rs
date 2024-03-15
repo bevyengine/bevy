@@ -98,10 +98,14 @@ impl ShapeSample for Rectangle {
         let primary_side = rng.gen_range(-1.0..1.0);
         let other_side = if rng.gen() { -1.0 } else { 1.0 };
 
-        if rng.gen_bool((self.half_size.x / (self.half_size.x + self.half_size.y)) as f64) {
-            Vec2::new(primary_side, other_side) * self.half_size
+        if self.half_size.x + self.half_size.y > 0.0 {
+            if rng.gen_bool((self.half_size.x / (self.half_size.x + self.half_size.y)) as f64) {
+                Vec2::new(primary_side, other_side) * self.half_size
+            } else {
+                Vec2::new(other_side, primary_side) * self.half_size
+            }
         } else {
-            Vec2::new(other_side, primary_side) * self.half_size
+            Vec2::ZERO
         }
     }
 }
@@ -150,17 +154,21 @@ impl ShapeSample for Cylinder {
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         // This uses the area of the ends divided by the overall surface area (optimised)
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
-        if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
-            let Vec2 { x, y: z } = self.base().sample_interior(rng);
-            if rng.gen() {
-                Vec3::new(x, self.half_height, z)
+        if self.radius + 2.0 * self.half_height > 0.0 {
+            if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
+                let Vec2 { x, y: z } = self.base().sample_interior(rng);
+                if rng.gen() {
+                    Vec3::new(x, self.half_height, z)
+                } else {
+                    Vec3::new(x, -self.half_height, z)
+                }
             } else {
-                Vec3::new(x, -self.half_height, z)
+                let Vec2 { x, y: z } = self.base().sample_boundary(rng);
+                let y = rng.gen_range(-self.half_height..=self.half_height);
+                Vec3::new(x, y, z)
             }
         } else {
-            let Vec2 { x, y: z } = self.base().sample_boundary(rng);
-            let y = rng.gen_range(-self.half_height..=self.half_height);
-            Vec3::new(x, y, z)
+            Vec3::ZERO
         }
     }
 }
@@ -171,41 +179,50 @@ impl ShapeSample for Capsule2d {
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let rectangle_area = self.half_length * self.radius * 4.0;
         let capsule_area = rectangle_area + PI * self.radius * self.radius;
-        // Check if the random point should be inside the rectangle
-        if rng.gen_bool((rectangle_area / capsule_area) as f64) {
-            let rectangle = Rectangle::new(self.radius, self.half_length * 2.0);
-            rectangle.sample_interior(rng)
-        } else {
-            let circle = Circle::new(self.radius);
-            let point = circle.sample_interior(rng);
-            // Add half length if it is the top semi-circle, otherwise subtract half
-            if point.y > 0.0 {
-                point + Vec2::Y * self.half_length
+        if capsule_area > 0.0 {
+            // Check if the random point should be inside the rectangle
+            if rng.gen_bool((rectangle_area / capsule_area) as f64) {
+                let rectangle = Rectangle::new(self.radius, self.half_length * 2.0);
+                rectangle.sample_interior(rng)
             } else {
-                point - Vec2::Y * self.half_length
+                let circle = Circle::new(self.radius);
+                let point = circle.sample_interior(rng);
+                // Add half length if it is the top semi-circle, otherwise subtract half
+                if point.y > 0.0 {
+                    point + Vec2::Y * self.half_length
+                } else {
+                    point - Vec2::Y * self.half_length
+                }
             }
+        } else {
+            Vec2::ZERO
         }
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let rectangle_surface = 4.0 * self.half_length;
         let capsule_surface = rectangle_surface + TAU * self.radius;
-        if rng.gen_bool((rectangle_surface / capsule_surface) as f64) {
-            let side_distance = rng.gen_range((-2.0 * self.half_length)..=(2.0 * self.half_length));
-            if side_distance < 0.0 {
-                Vec2::new(self.radius, side_distance + self.half_length)
+        if capsule_surface > 0.0 {
+            if rng.gen_bool((rectangle_surface / capsule_surface) as f64) {
+                let side_distance =
+                    rng.gen_range((-2.0 * self.half_length)..=(2.0 * self.half_length));
+                if side_distance < 0.0 {
+                    Vec2::new(self.radius, side_distance + self.half_length)
+                } else {
+                    Vec2::new(-self.radius, side_distance - self.half_length)
+                }
             } else {
-                Vec2::new(-self.radius, side_distance - self.half_length)
+                let circle = Circle::new(self.radius);
+                let point = circle.sample_boundary(rng);
+                // Add half length if it is the top semi-circle, otherwise subtract half
+                if point.y > 0.0 {
+                    point + Vec2::Y * self.half_length
+                } else {
+                    point - Vec2::Y * self.half_length
+                }
             }
         } else {
-            let circle = Circle::new(self.radius);
-            let point = circle.sample_boundary(rng);
-            // Add half length if it is the top semi-circle, otherwise subtract half
-            if point.y > 0.0 {
-                point + Vec2::Y * self.half_length
-            } else {
-                point - Vec2::Y * self.half_length
-            }
+            Vec2::ZERO
         }
     }
 }
@@ -217,37 +234,45 @@ impl ShapeSample for Capsule3d {
         let cylinder_vol = PI * self.radius * self.radius * 2.0 * self.half_length;
         // Add 4/3 pi r^3
         let capsule_vol = cylinder_vol + 4.0 / 3.0 * PI * self.radius * self.radius * self.radius;
-        // Check if the random point should be inside the cylinder
-        if rng.gen_bool((cylinder_vol / capsule_vol) as f64) {
-            self.to_cylinder().sample_interior(rng)
-        } else {
-            let sphere = Sphere::new(self.radius);
-            let point = sphere.sample_interior(rng);
-            // Add half length if it is the top semi-sphere, otherwise subtract half
-            if point.y > 0.0 {
-                point + Vec3::Y * self.half_length
+        if capsule_vol > 0.0 {
+            // Check if the random point should be inside the cylinder
+            if rng.gen_bool((cylinder_vol / capsule_vol) as f64) {
+                self.to_cylinder().sample_interior(rng)
             } else {
-                point - Vec3::Y * self.half_length
+                let sphere = Sphere::new(self.radius);
+                let point = sphere.sample_interior(rng);
+                // Add half length if it is the top semi-sphere, otherwise subtract half
+                if point.y > 0.0 {
+                    point + Vec3::Y * self.half_length
+                } else {
+                    point - Vec3::Y * self.half_length
+                }
             }
+        } else {
+            Vec3::ZERO
         }
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let cylinder_surface = TAU * self.radius * 2.0 * self.half_length;
         let capsule_surface = cylinder_surface + 4.0 * PI * self.radius * self.radius;
-        if rng.gen_bool((cylinder_surface / capsule_surface) as f64) {
-            let Vec2 { x, y: z } = Circle::new(self.radius).sample_boundary(rng);
-            let y = rng.gen_range(-self.half_length..=self.half_length);
-            Vec3::new(x, y, z)
-        } else {
-            let sphere = Sphere::new(self.radius);
-            let point = sphere.sample_boundary(rng);
-            // Add half length if it is the top semi-sphere, otherwise subtract half
-            if point.y > 0.0 {
-                point + Vec3::Y * self.half_length
+        if capsule_surface > 0.0 {
+            if rng.gen_bool((cylinder_surface / capsule_surface) as f64) {
+                let Vec2 { x, y: z } = Circle::new(self.radius).sample_boundary(rng);
+                let y = rng.gen_range(-self.half_length..=self.half_length);
+                Vec3::new(x, y, z)
             } else {
-                point - Vec3::Y * self.half_length
+                let sphere = Sphere::new(self.radius);
+                let point = sphere.sample_boundary(rng);
+                // Add half length if it is the top semi-sphere, otherwise subtract half
+                if point.y > 0.0 {
+                    point + Vec3::Y * self.half_length
+                } else {
+                    point - Vec3::Y * self.half_length
+                }
             }
+        } else {
+            Vec3::ZERO
         }
     }
 }
