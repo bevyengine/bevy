@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
@@ -45,12 +46,13 @@ impl DerefMut for AppTypeRegistry {
 /// Creates a `T` from a `&dyn Reflect`.
 ///
 /// The first approach uses `T`'s implementation of `FromReflect`.
-/// If this fails, it falls back to default-initializing a new instance of `T` using its
-/// `ReflectFromWorld` data from the `world`'s `AppTypeRegistry` and `apply`ing the
+/// If this fails, it falls back to default-initializing a new instance of `T` using
+/// either its `ReflectDefault` or its `ReflectFromWorld` registration in `registry`
+/// (whichever is found, preferring `ReflectDefault` if present) and `apply`ing the
 /// `&dyn Reflect` on it.
 ///
-/// Panics if both approaches fail.
-fn from_reflect_or_world<T: FromReflect>(
+/// Panics if all approaches fail.
+fn from_reflect_with_fallback<T: FromReflect>(
     reflected: &dyn Reflect,
     world: &mut World,
     registry: &TypeRegistry,
@@ -59,20 +61,34 @@ fn from_reflect_or_world<T: FromReflect>(
         return value;
     }
 
-    // Clone the `ReflectFromWorld` because it's cheap and "frees"
-    // the borrow of `world` so that it can be passed to `from_world`.
-    let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
-    else {
+    fn different_type_error<T>(reflected: &str) -> ! {
         panic!(
-            "`FromReflect` failed and no `ReflectFromWorld` registration found for `{}`",
+            "the registration for the reflected `{}` trait for the type `{}` produced \
+            a value of a different type",
+            reflected,
             // FIXME: once we have unique reflect, use `TypePath`.
             std::any::type_name::<T>(),
         );
-    };
+    }
 
-    let Ok(mut value) = reflect_from_world.from_world(world).take::<T>() else {
+    let mut value = if let Some(reflect_default) =
+        registry.get_type_data::<ReflectDefault>(TypeId::of::<T>())
+    {
+        reflect_default
+            .default()
+            .take::<T>()
+            .unwrap_or_else(|_| different_type_error::<T>("Default"))
+    } else if let Some(reflect_from_world) =
+        registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
+    {
+        reflect_from_world
+            .from_world(world)
+            .take::<T>()
+            .unwrap_or_else(|_| different_type_error::<T>("FromWorld"))
+    } else {
         panic!(
-            "the `ReflectFromWorld` registration for `{}` produced a value of a different type",
+            "`FromReflect::from_reflect` failed and no registration for the reflected \
+            `Default` or `FromWorld` traits was found for the type `{}`",
             // FIXME: once we have unique reflect, use `TypePath`.
             std::any::type_name::<T>(),
         );
