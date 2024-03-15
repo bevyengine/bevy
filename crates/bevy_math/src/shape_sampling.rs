@@ -244,3 +244,69 @@ impl ShapeSample for Capsule3d {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::{rngs::StdRng, SeedableRng};
+
+    #[test]
+    fn circle_interior_sampling() {
+        let mut rng = StdRng::from_seed(Default::default());
+        let circle = Circle::new(8.0);
+
+        let boxes = [
+            (-3.0, 3.0),
+            (1.0, 2.0),
+            (-1.0, -2.0),
+            (3.0, -2.0),
+            (1.0, -6.0),
+            (-3.0, -7.0),
+            (-7.0, -3.0),
+            (-6.0, 1.0),
+        ];
+        let mut box_hits = [0; 8];
+
+        // Checks which boxes (if any) the sampled points are in
+        for _ in 0..5000 {
+            let point = circle.sample_interior(&mut rng);
+
+            for (i, box_) in boxes.iter().enumerate() {
+                if (point.x > box_.0 && point.x < box_.0 + 4.0)
+                    && (point.y > box_.1 && point.y < box_.1 + 4.0)
+                {
+                    box_hits[i] += 1;
+                }
+            }
+        }
+
+        assert_eq!(
+            box_hits,
+            [400, 367, 365, 394, 445, 417, 405, 382],
+            "samples will occur across all array items at statistically equal chance"
+        );
+    }
+
+    #[test]
+    fn circle_boundary_sampling() {
+        let mut rng = StdRng::from_seed(Default::default());
+        let circle = Circle::new(1.0);
+
+        let mut wedge_hits = [0; 8];
+
+        // Checks in which eighth of the circle each sampled point is in
+        for _ in 0..5000 {
+            let point = circle.sample_boundary(&mut rng);
+
+            let angle = f32::atan(point.y / point.x) + PI / 2.0;
+            let wedge = (angle * 8.0 / PI).floor() as usize;
+            wedge_hits[wedge] += 1;
+        }
+
+        assert_eq!(
+            wedge_hits,
+            [677, 638, 649, 625, 594, 624, 600, 593],
+            "samples will occur across all array items at statistically equal chance"
+        );
+    }
+}
