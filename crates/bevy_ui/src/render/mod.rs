@@ -250,7 +250,7 @@ pub fn extract_uinode_images(
         .get_single()
         .map(|window| window.resolution.size())
         .unwrap_or(Vec2::ZERO)
-        * ui_scale.0 as f32;
+        * ui_scale.0;
 
     for (uinode, transform, style, view_visibility, clip, camera, image, atlas, slices) in
         &uinode_query
@@ -343,11 +343,11 @@ pub(crate) fn resolve_border_radius(
     viewport_size: Vec2,
     ui_scale: f32,
 ) -> [f32; 4] {
-    let max_radius = 0.5 * node_size.min_element() * ui_scale as f32;
+    let max_radius = 0.5 * node_size.min_element() * ui_scale;
     <[Val; 4]>::from(values).map(|value| {
         match value {
             Val::Auto => 0.,
-            Val::Px(px) => ui_scale as f32 * px,
+            Val::Px(px) => ui_scale * px,
             Val::Percent(percent) => node_size.min_element() * percent / 100.,
             Val::Vw(percent) => viewport_size.x * percent / 100.,
             Val::Vh(percent) => viewport_size.y * percent / 100.,
@@ -362,7 +362,7 @@ pub(crate) fn resolve_border_radius(
 fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
     let s = 0.5 * size + offset;
     let sm = s.x.min(s.y);
-    return r.min(sm);
+    r.min(sm)
 }
 
 #[inline]
@@ -1070,9 +1070,8 @@ pub fn prepare_uinodes(
                     };
 
                     let color = extracted_uinode.color.to_f32_array();
-                    match extracted_uinode.node_type {
-                        NodeType::Border => flags |= shader_flags::BORDER,
-                        _ => {}
+                    if extracted_uinode.node_type == NodeType::Border {
+                        flags |= shader_flags::BORDER;
                     }
 
                     for i in 0..4 {
