@@ -1,6 +1,6 @@
 mod prepass_bindings;
 
-use bevy_render::batching::{allocate_batch_buffer, reserve_batch_buffer, clear_batch_buffer};
+use bevy_render::batching::{allocate_batch_buffer, clear_batch_buffer, reserve_batch_buffer};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_resource::binding_types::uniform_buffer;
 pub use prepass_bindings::*;

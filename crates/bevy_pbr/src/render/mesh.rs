@@ -13,8 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, GetBatchData,
-        NoAutomaticBatching, allocate_batch_buffer, clear_batch_buffer, reserve_batch_buffer,
+        allocate_batch_buffer, batch_and_prepare_render_phase, clear_batch_buffer,
+        reserve_batch_buffer, GetBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -137,8 +137,7 @@ impl Plugin for MeshRenderPlugin {
                             .in_set(RenderSet::PrepareResources)
                             .before(allocate_batch_buffer::<MeshPipeline>)
                             .after(clear_batch_buffer::<MeshPipeline>),
-                        allocate_batch_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                        allocate_batch_buffer::<MeshPipeline>.in_set(RenderSet::PrepareResources),
                         (
                             batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,

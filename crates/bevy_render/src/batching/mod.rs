@@ -8,7 +8,7 @@ use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferable, GpuArrayBufferPool},
+    render_resource::{CachedRenderPipelineId, GpuArrayBufferPool, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
 };
 
@@ -85,7 +85,8 @@ pub fn reserve_batch_buffer<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     mut views: Query<&mut RenderPhase<I>>,
 ) {
     for mut phase in &mut views {
-        phase.reserved_range = wgpu::BufferSize::new(phase.items.len() as u64).map(|size| gpu_array_buffer.reserve(size));
+        phase.reserved_range = wgpu::BufferSize::new(phase.items.len() as u64)
+            .map(|size| gpu_array_buffer.reserve(size));
     }
 }
 
@@ -103,43 +104,46 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
     mut views: Query<&mut RenderPhase<I>>,
     render_queue: Res<RenderQueue>,
     param: StaticSystemParam<F::Param>,
-) where for<'w, 's> <F::Param as SystemParam>::Item<'w, 's>: Sync {
+) where
+    for<'w, 's> <F::Param as SystemParam>::Item<'w, 's>: Sync,
+{
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    views.par_iter_mut()
-        .for_each(|mut phase| {
-            let Some(slice) = phase.reserved_range else {
-                return
-            };
-            let mut writer = gpu_array_buffer.get_writer(slice, &render_queue).expect("GPU Array Buffer was not allocated.");
+    views.par_iter_mut().for_each(|mut phase| {
+        let Some(slice) = phase.reserved_range else {
+            return;
+        };
+        let mut writer = gpu_array_buffer
+            .get_writer(slice, &render_queue)
+            .expect("GPU Array Buffer was not allocated.");
 
-            let mut process_item = |item: &mut I| {
-                let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
-                let buffer_index = writer.write(buffer_data);
+        let mut process_item = |item: &mut I| {
+            let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
+            let buffer_index = writer.write(buffer_data);
 
-                let index = buffer_index.index;
-                *item.batch_range_mut() = index..index + 1;
-                *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+            let index = buffer_index.index;
+            *item.batch_range_mut() = index..index + 1;
+            *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-                if I::AUTOMATIC_BATCHING {
-                    compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
-                } else {
-                    None
-                }
-            };
+            if I::AUTOMATIC_BATCHING {
+                compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+            } else {
+                None
+            }
+        };
 
-            let items = phase.items.iter_mut().map(|item| {
-                let batch_data = process_item(item);
-                (item.batch_range_mut(), batch_data)
-            });
-            items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
-                if batch_meta.is_some() && prev_batch_meta == batch_meta {
-                    start_range.end = range.end;
-                    (start_range, prev_batch_meta)
-                } else {
-                    (range, batch_meta)
-                }
-            });
+        let items = phase.items.iter_mut().map(|item| {
+            let batch_data = process_item(item);
+            (item.batch_range_mut(), batch_data)
         });
+        items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
+            if batch_meta.is_some() && prev_batch_meta == batch_meta {
+                start_range.end = range.end;
+                (start_range, prev_batch_meta)
+            } else {
+                (range, batch_meta)
+            }
+        });
+    });
 }

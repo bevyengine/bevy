@@ -126,7 +126,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
-            if thread_count <= 1 {
+            let (batch_size, sum) = self.get_batch_size(thread_count);
+            if sum == 0 {
+                return;
+            } else if thread_count <= 1 || sum <= self.batching_strategy.batch_size_limits.start {
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
@@ -134,8 +137,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                         .for_each(func);
                 }
             } else {
-                // Need a batch size of at least 1.
-                let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state.par_for_each_unchecked_manual(
@@ -150,41 +151,37 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         }
     }
 
+    // Return value is (batch_size, sum)
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
-        if self.batching_strategy.batch_size_limits.is_empty() {
-            return self.batching_strategy.batch_size_limits.start;
-        }
-
-        assert!(
-            thread_count > 0,
-            "Attempted to run parallel iteration over a query with an empty TaskPool"
-        );
-        let max_size = if D::IS_DENSE && F::IS_DENSE {
+    fn get_batch_size(&self, thread_count: usize) -> (usize, usize) {
+        let (max_size, sum) = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state
                 .matched_table_ids
                 .iter()
                 .map(|id| tables[*id].entity_count())
-                .max()
-                .unwrap_or(0)
+                .fold((0, 0), |(max, sum), value| (max.max(value), sum + value))
         } else {
             let archetypes = &self.world.archetypes();
             self.state
                 .matched_archetype_ids
                 .iter()
                 .map(|id| archetypes[*id].len())
-                .max()
-                .unwrap_or(0)
+                .fold((0, 0), |(max, sum), value| (max.max(value), sum + value))
         };
 
         let batches = thread_count * self.batching_strategy.batches_per_thread;
-        // Round up to the nearest batch size.
-        let batch_size = (max_size + batches - 1) / batches;
-        batch_size.clamp(
-            self.batching_strategy.batch_size_limits.start,
-            self.batching_strategy.batch_size_limits.end,
-        )
+        let batch_size = if batches == 0 {
+            usize::MAX
+        } else {
+            // Round up to the nearest batch size.
+            let batch_size = (max_size + batches - 1) / batches;
+            batch_size.clamp(
+                self.batching_strategy.batch_size_limits.start,
+                self.batching_strategy.batch_size_limits.end,
+            )
+        };
+        (batch_size.max(1), sum)
     }
 }
