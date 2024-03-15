@@ -65,7 +65,7 @@ pub use naga::ShaderStage;
 
 use self::encase::internal::BufferMut;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct BufferPoolSlice {
     address: wgpu::BufferAddress,
     size: wgpu::BufferSize,

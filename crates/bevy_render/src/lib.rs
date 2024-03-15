@@ -116,8 +116,6 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
-    PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
     /// Actual rendering happens here.
@@ -156,7 +154,7 @@ impl Render {
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
         schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+            (PrepareResources, PrepareBindGroups)
                 .chain()
                 .in_set(Prepare),
         );

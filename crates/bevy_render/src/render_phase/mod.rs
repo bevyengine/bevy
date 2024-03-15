@@ -34,7 +34,7 @@ pub use draw_state::*;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
+use crate::render_resource::{CachedRenderPipelineId, PipelineCache, BufferPoolSlice};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -54,11 +54,12 @@ use std::{ops::Range, slice::SliceIndex};
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
     pub items: Vec<I>,
+    pub reserved_range: Option<BufferPoolSlice>,
 }
 
 impl<I: PhaseItem> Default for RenderPhase<I> {
     fn default() -> Self {
-        Self { items: Vec::new() }
+        Self { items: Vec::new(), reserved_range: None }
     }
 }
 

@@ -8,7 +8,7 @@ use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
-    render_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
+    render_resource::{CachedRenderPipelineId, GpuArrayBufferable, GpuArrayBufferPool},
     renderer::{RenderDevice, RenderQueue},
 };
 
@@ -74,53 +74,72 @@ pub trait GetBatchData {
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
-/// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
-/// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
-    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
-    mut views: Query<&mut RenderPhase<I>>,
-    param: StaticSystemParam<F::Param>,
+pub fn clear_batch_buffer<F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
 ) {
-    let gpu_array_buffer = gpu_array_buffer.into_inner();
-    let system_param_item = param.into_inner();
+    gpu_array_buffer.clear();
+}
 
-    let mut process_item = |item: &mut I| {
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
-        let buffer_index = gpu_array_buffer.push(buffer_data);
-
-        let index = buffer_index.index;
-        *item.batch_range_mut() = index..index + 1;
-        *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
-
-        if I::AUTOMATIC_BATCHING {
-            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
-        } else {
-            None
-        }
-    };
-
+pub fn reserve_batch_buffer<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    mut views: Query<&mut RenderPhase<I>>,
+) {
     for mut phase in &mut views {
-        let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item);
-            (item.batch_range_mut(), batch_data)
-        });
-        items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
-            if batch_meta.is_some() && prev_batch_meta == batch_meta {
-                start_range.end = range.end;
-                (start_range, prev_batch_meta)
-            } else {
-                (range, batch_meta)
-            }
-        });
+        phase.reserved_range = wgpu::BufferSize::new(phase.items.len() as u64).map(|size| gpu_array_buffer.reserve(size));
     }
 }
 
-pub fn write_batched_instance_buffer<F: GetBatchData>(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
+pub fn allocate_batch_buffer<F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    device: Res<RenderDevice>,
 ) {
+    gpu_array_buffer.allocate(&device);
+}
+
+/// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
+/// and trying to combine the draws into a batch.
+pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+    gpu_array_buffer: Res<GpuArrayBufferPool<F::BufferData>>,
+    mut views: Query<&mut RenderPhase<I>>,
+    render_queue: Res<RenderQueue>,
+    param: StaticSystemParam<F::Param>,
+) where for<'w, 's> <F::Param as SystemParam>::Item<'w, 's>: Sync {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
-    gpu_array_buffer.clear();
+    let system_param_item = param.into_inner();
+
+    views.par_iter_mut()
+        .for_each(|mut phase| {
+            let Some(slice) = phase.reserved_range else {
+                return
+            };
+            let mut writer = gpu_array_buffer.get_writer(slice, &render_queue).expect("GPU Array Buffer was not allocated.");
+
+            let mut process_item = |item: &mut I| {
+                let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
+                let buffer_index = writer.write(buffer_data);
+
+                let index = buffer_index.index;
+                *item.batch_range_mut() = index..index + 1;
+                *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+
+                if I::AUTOMATIC_BATCHING {
+                    compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+                } else {
+                    None
+                }
+            };
+
+            let items = phase.items.iter_mut().map(|item| {
+                let batch_data = process_item(item);
+                (item.batch_range_mut(), batch_data)
+            });
+            items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
+                if batch_meta.is_some() && prev_batch_meta == batch_meta {
+                    start_range.end = range.end;
+                    (start_range, prev_batch_meta)
+                } else {
+                    (range, batch_meta)
+                }
+            });
+        });
 }
