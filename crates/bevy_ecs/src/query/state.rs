@@ -730,16 +730,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .entities()
             .get(entity)
             .ok_or(QueryEntityError::NoSuchEntity(entity))?;
-        if !self
-            .matched_archetypes
-            .contains(location.archetype_id.index())
-        {
-            return Err(QueryEntityError::QueryDoesNotMatch(entity));
+        if D::IS_DENSE && F::IS_DENSE {
+            if !self.matched_tables.contains(location.table_id.as_usize()) {
+                return Err(QueryEntityError::QueryDoesNotMatch(entity));
+            }
+        } else {
+            if !self
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                return Err(QueryEntityError::QueryDoesNotMatch(entity));
+            }
         }
-        let archetype = world
-            .archetypes()
-            .get(location.archetype_id)
-            .debug_checked_unwrap();
+
         let mut fetch = D::init_fetch(world, &self.fetch_state, last_run, this_run);
         let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
@@ -748,8 +751,18 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .tables
             .get(location.table_id)
             .debug_checked_unwrap();
-        D::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
-        F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+
+        if D::IS_DENSE && F::IS_DENSE {
+            D::set_table(&mut fetch, &self.fetch_state, table);
+            F::set_table(&mut filter, &self.filter_state, table);
+        } else {
+            let archetype = world
+                .archetypes()
+                .get(location.archetype_id)
+                .debug_checked_unwrap();
+            D::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+            F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+        }
 
         if F::filter_fetch(&mut filter, entity, location.table_row) {
             Ok(D::fetch(&mut fetch, entity, location.table_row))
