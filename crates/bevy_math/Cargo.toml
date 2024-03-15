@@ -14,7 +14,9 @@ thiserror = "1.0"
 serde = { version = "1", features = ["derive"], optional = true }
 libm = { version = "0.2", optional = true }
 approx = { version = "0.5", optional = true }
-rand = { version = "0.8", features = ["alloc"], default-features = false, optional = true }
+rand = { version = "0.8", features = [
+  "alloc",
+], default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"
