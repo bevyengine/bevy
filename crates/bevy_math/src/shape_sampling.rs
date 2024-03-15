@@ -89,9 +89,9 @@ impl ShapeSample for Rectangle {
 
     fn sample_surface<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let side_distance = rng.gen_range(-1.0..1.0);
-        let other_side = if rng.gen_ratio(1, 2) { -1.0 } else { 1.0 };
+        let other_side = if rng.gen() { -1.0 } else { 1.0 };
 
-        if rng.gen_ratio(1, 2) {
+        if rng.gen() {
             Vec2::new(side_distance, other_side) * self.half_size
         } else {
             Vec2::new(other_side, side_distance) * self.half_size
@@ -111,8 +111,8 @@ impl ShapeSample for Cuboid {
 
     fn sample_surface<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let side_distance = rng.gen_range(-1.0..1.0);
-        let other_side1 = if rng.gen_ratio(1, 2) { -1.0 } else { 1.0 };
-        let other_side2 = if rng.gen_ratio(1, 2) { -1.0 } else { 1.0 };
+        let other_side1 = if rng.gen() { -1.0 } else { 1.0 };
+        let other_side2 = if rng.gen() { -1.0 } else { 1.0 };
 
         match rng.gen_range(0..=2) {
             0 => Vec3::new(side_distance, other_side1, other_side2) * self.half_size,
@@ -137,7 +137,7 @@ impl ShapeSample for Cylinder {
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
         if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
             let Vec2 { x, y: z } = self.base().sample_volume(rng);
-            if rng.gen_ratio(1, 2) {
+            if rng.gen() {
                 Vec3::new(x, self.half_height, z)
             } else {
                 Vec3::new(x, -self.half_height, z)
