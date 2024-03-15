@@ -1,10 +1,10 @@
-use crate::{self as bevy_asset, DropEvent};
+use crate::{self as bevy_asset};
 use crate::{
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
 };
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Local, Res, ResMut, Resource},
+    system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
@@ -538,42 +538,41 @@ impl<A: Asset> Assets<A> {
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
     /// [`Handle`] drop events.
-    pub fn track_assets(
-        mut assets: ResMut<Self>,
-        asset_server: Res<AssetServer>,
-        mut unprocessed: Local<Vec<DropEvent>>,
-    ) {
+    pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
         // that `asset_server.load` calls that occur during it block, which ensures that
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
-
-        // collect all available drop events
-        unprocessed.extend(assets.handle_provider.drop_receiver.try_iter());
-        unprocessed.retain(|drop_event: &DropEvent| {
+        let mut not_ready = Vec::new();
+        while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {
                 let untyped_id = id.untyped();
                 if let Some(info) = infos.get(untyped_id) {
                     if let LoadState::Loading | LoadState::NotLoaded = info.load_state {
-                        // keep this event for processing next time
-                        return true;
+                        not_ready.push(drop_event);
+                        continue;
                     }
                 }
 
                 if !infos.process_handle_drop(untyped_id) {
-                    // a newer handle to this asset must have been created
-                    return false;
+                    // a new handle has been created, or the asset doesn't exist
+                    continue;
                 }
             }
 
             assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
-            false
-        });
+        }
+
+        // TODO: this is _extremely_ inefficient find a better fix
+        // This will also loop failed assets indefinitely. Is that ok?
+        for event in not_ready {
+            assets.handle_provider.drop_sender.send(event).unwrap();
+        }
     }
 
     /// A system that applies accumulated asset change events to the [`Events`] resource.
