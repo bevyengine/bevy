@@ -248,11 +248,12 @@ impl ShapeSample for Capsule3d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{rngs::StdRng, SeedableRng};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn circle_interior_sampling() {
-        let mut rng = StdRng::from_seed(Default::default());
+        let mut rng = ChaCha8Rng::from_seed(Default::default());
         let circle = Circle::new(8.0);
 
         let boxes = [
@@ -282,14 +283,14 @@ mod tests {
 
         assert_eq!(
             box_hits,
-            [400, 367, 365, 394, 445, 417, 405, 382],
+            [396, 377, 415, 404, 366, 408, 408, 430],
             "samples will occur across all array items at statistically equal chance"
         );
     }
 
     #[test]
     fn circle_boundary_sampling() {
-        let mut rng = StdRng::from_seed(Default::default());
+        let mut rng = ChaCha8Rng::from_seed(Default::default());
         let circle = Circle::new(1.0);
 
         let mut wedge_hits = [0; 8];
@@ -305,7 +306,7 @@ mod tests {
 
         assert_eq!(
             wedge_hits,
-            [677, 638, 649, 625, 594, 624, 600, 593],
+            [636, 608, 639, 603, 614, 650, 640, 610],
             "samples will occur across all array items at statistically equal chance"
         );
     }
