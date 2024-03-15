@@ -219,7 +219,7 @@ pub fn extract_uinode_background_colors(
         }
 
         let border_radius =
-            resolve_border_radius(&border_radius, uinode.size(), viewport_size, ui_scale.0);
+            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0);
 
         extracted_uinodes.uinodes.insert(
             entity,
@@ -261,7 +261,7 @@ pub fn extract_uinode_images(
             Option<&TargetCamera>,
             &UiImage,
             Option<&TextureAtlas>,
-            Option<&ComputedTextureSlices>,
+            Option<&ComputedTextureSlices>
             &UiBorderRadius,
         )>,
     >,
@@ -318,7 +318,7 @@ pub fn extract_uinode_images(
         };
 
         let border_radius =
-            resolve_border_radius(&border_radius, uinode.size(), viewport_size, ui_scale.0);
+            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0);
 
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
@@ -481,7 +481,7 @@ pub fn extract_uinode_borders(
         let border = [left, top, right, bottom];
 
         let border_radius = resolve_border_radius(
-            &border_radius,
+            border_radius,
             node.size(),
             ui_logical_viewport_size,
             ui_scale.0,
