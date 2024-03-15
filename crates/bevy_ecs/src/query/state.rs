@@ -114,16 +114,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        let mut state = Self::new_internal(world);
+        let mut state = Self::new_uninitialized(world);
         state.update_archetypes(world);
         state
     }
 
+    /// Identical to `new`, but it populates the provided `access` with the matched results.
     pub(crate) fn new_with_access(
         world: &mut World,
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
-        let mut state = Self::new_internal(world);
+        let mut state = Self::new_uninitialized(world);
         for archetype in world.archetypes.iter() {
             if state.new_archetype_internal(archetype) {
                 state.update_archetype_component_access(archetype, access);
@@ -133,7 +134,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
-    fn new_internal(world: &mut World) -> Self {
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and it's variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
