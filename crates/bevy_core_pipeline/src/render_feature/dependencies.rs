@@ -77,15 +77,6 @@ where
 {
 }
 
-/*impl<I, F, G, S, A> RenderFeatureDependencies<G, S, I> for DependencyAdapter<A, F>
-where
-    F: RenderSubFeatures<G, S>,
-    G: RenderSubGraph,
-    S: RenderFeatureStageMarker,
-    A: Fn(F::Out) -> I,
-{
-}*/
-
 // a "hole" or unfilled dependency. If left unfilled, will panic! at .build() time.
 pub struct Hole;
 
@@ -94,11 +85,3 @@ pub fn hole() -> Hole {
 }
 
 impl<G: RenderSubGraph, I: Send + Sync + 'static> RenderFeatureDependency<G, I> for Hole {}
-
-/*impl<G: RenderSubGraph, I> RenderFeatureDependencies<G, I> for EmptyDependency {}
-
-//todo: probably not great, a patch for the implementation of SimpleFeature::default_dependencies()
-impl<G: RenderSubGraph, I> RenderFeatureDependencies<G, I>
-    for &dyn RenderFeatureDependencies<G, I>
-{
-}*/

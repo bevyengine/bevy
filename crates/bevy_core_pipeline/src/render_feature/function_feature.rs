@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Mutex};
 
 use bevy_ecs::{
     entity::Entity,
@@ -13,7 +13,7 @@ use super::{FeatureIO, FeatureSignature, Sig, SubFeature, SubFeatureInput, SubFe
 pub struct IsFunctionSubFeature;
 
 pub struct FunctionSubFeature<Marker, F: SubFeatureFunction<Marker>> {
-    fun: F,
+    fun: Mutex<F>,
     data: PhantomData<fn() -> Marker>,
 }
 
@@ -25,7 +25,7 @@ pub trait SubFeatureFunction<Marker>: Send + Sync + 'static {
         &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &SystemParamItem<Self::Param>,
     ) -> <Self::Sig as FeatureSignature<false>>::Out;
 }
 
@@ -36,7 +36,7 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>>
     #[inline]
     fn into_sub_feature(self) -> Self::SubFeature {
         FunctionSubFeature {
-            fun: self,
+            fun: Mutex::new(self),
             data: PhantomData,
         }
     }
@@ -49,12 +49,13 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>> SubFeature for FunctionSubF
 
     #[inline]
     fn run(
-        &mut self,
+        &self,
         view_entity: Entity,
         input: SubFeatureInput<Self>,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &SystemParamItem<Self::Param>,
     ) -> SubFeatureOutput<Self> {
-        F::run(&mut self.fun, view_entity, input, param)
+        let mut fun = self.fun.lock().unwrap();
+        F::run(&mut *fun, view_entity, input, param)
     }
 }
 
@@ -72,7 +73,7 @@ where
         &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
-        _param: &mut SystemParamItem<Self::Param>,
+        _param: &SystemParamItem<Self::Param>,
     ) -> <Self::Sig as FeatureSignature<false>>::Out {
         // Yes, this is strange, but `rustc` fails to compile this impl
         // without using this function. It fails to recognize that `func`
@@ -104,7 +105,7 @@ where
         &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &SystemParamItem<Self::Param>,
     ) -> <Self::Sig as FeatureSignature<false>>::Out {
         // Yes, this is strange, but `rustc` fails to compile this impl
         // without using this function. It fails to recognize that `func`

@@ -2,16 +2,20 @@ pub mod dependencies;
 mod function_feature;
 
 use bevy_ecs::component::{Component, TableStorage};
-use bevy_utils::petgraph::graph::Node;
+use bevy_ecs::world::World;
+use bevy_render::renderer::RenderContext;
 pub use function_feature::*;
 
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 use std::marker::PhantomData;
+use std::sync::Mutex;
 
 use bevy_app::App;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
-use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+use bevy_render::render_graph::{
+    Node, NodeRunError, RenderGraphContext, RenderLabel, RenderSubGraph,
+};
 use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
 use bevy_utils::all_tuples;
 
@@ -108,27 +112,6 @@ macro_rules! impl_multi_feature_io {
     };
 }
 
-// pub trait IOHandleTuple {
-//     type Tupled;
-//
-//     fn tupled(self) -> Self::Tupled;
-//     fn untupled(tuple: Self::Tupled) -> Self;
-// }
-
-/*macro_rules! impl_handle_tuple {
-    ($($T: ident),*) => {
-        impl <'b, $($T: FeatureIO),*> IOHandleTuple for IOHandle<'b, ($($T,)*)> {
-            type Tupled = ($(IOHandle<'b, $T>,)*);
-            fn untupled(_tuple: Self::Tupled) -> Self {
-                todo!()
-            }
-            fn tupled(self) -> Self::Tupled {
-                todo!()
-            }
-        }
-    };
-}*/
-
 all_tuples!(impl_multi_feature_io, 0, 16, T);
 
 pub trait FeatureSignature<const MULTI_OUTPUT: bool>: 'static {
@@ -161,15 +144,15 @@ type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature<true>>::O
 type SubFeatureInput<F> = <<F as SubFeature>::Sig as FeatureSignature<false>>::In;
 type SubFeatureOutput<F> = <<F as SubFeature>::Sig as FeatureSignature<false>>::Out;
 
-pub trait SubFeature: 'static {
+pub trait SubFeature: Send + Sync + 'static {
     type Sig: FeatureSignature<false>;
     type Param: SystemParam;
 
     fn run(
-        &mut self,
+        &self,
         view_entity: Entity,
         input: SubFeatureInput<Self>,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &SystemParamItem<Self::Param>,
     ) -> SubFeatureOutput<Self>;
 }
 
@@ -239,17 +222,17 @@ impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Component for FeatureResul
 }
 
 struct SubFeatureNode<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
-    sub_feature: S,
+    sub_feature: Mutex<S>,
     data: PhantomData<(G, F)>,
 }
 
 impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Node for SubFeatureNode<G, F, S> {
     fn run<'w>(
         &self,
-        graph: &mut bevy_render::render_graph::RenderGraphContext,
-        render_context: &mut bevy_render::renderer::RenderContext<'w>,
-        world: &'w bevy_ecs::world::World,
-    ) -> Result<(), bevy_render::render_graph::NodeRunError> {
-        todo!()
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        Ok(())
     }
 }
