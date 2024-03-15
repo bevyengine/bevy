@@ -25,7 +25,7 @@ pub enum IcosphereError {
 /// A type of sphere mesh.
 #[derive(Clone, Copy, Debug)]
 pub enum SphereKind {
-    /// An icosphere, a spherical mesh that consists of equally sized triangles.
+    /// An icosphere, a spherical mesh that consists of similar sized triangles.
     Ico {
         /// The number of subdivisions applied.
         /// The number of faces quadruples with each subdivision.
