@@ -261,7 +261,7 @@ pub fn extract_uinode_images(
             Option<&TargetCamera>,
             &UiImage,
             Option<&TextureAtlas>,
-            Option<&ComputedTextureSlices>
+            Option<&ComputedTextureSlices>,
             &UiBorderRadius,
         )>,
     >,
