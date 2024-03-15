@@ -3,8 +3,8 @@ use taffy::style_helpers;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style,
-    UiBorderRadius, UiRect, Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style, UiRect,
+    Val,
 };
 
 use super::LayoutContext;
@@ -394,6 +394,7 @@ mod tests {
 
     #[test]
     fn test_convert_from() {
+        use crate::UiBorderRadius;
         use sh::TaffyZero;
         use taffy::style_helpers as sh;
 
