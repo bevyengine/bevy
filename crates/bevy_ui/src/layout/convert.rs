@@ -3,8 +3,8 @@ use taffy::style_helpers;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style, UiRect,
-    Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style,
+    UiBorderRadius, UiRect, Val,
 };
 
 use super::LayoutContext;
@@ -463,6 +463,7 @@ mod tests {
             ],
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
+            border_radius: UiBorderRadius::default(),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style);
