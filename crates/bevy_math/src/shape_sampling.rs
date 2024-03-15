@@ -117,16 +117,23 @@ impl ShapeSample for Cuboid {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let primary_side = rng.gen_range(-1.0..1.0);
-        let other_side1 = if rng.gen() { -1.0 } else { 1.0 };
-        let other_side2 = if rng.gen() { -1.0 } else { 1.0 };
+        let primary_side1 = rng.gen_range(-1.0..1.0);
+        let primary_side2 = rng.gen_range(-1.0..1.0);
+        let other_side = if rng.gen() { -1.0 } else { 1.0 };
 
-        let dist = WeightedIndex::new(self.half_size.to_array()).unwrap();
-        match dist.sample(rng) {
-            0 => Vec3::new(primary_side, other_side1, other_side2) * self.half_size,
-            1 => Vec3::new(other_side1, primary_side, other_side2) * self.half_size,
-            2 => Vec3::new(other_side1, other_side2, primary_side) * self.half_size,
-            _ => unreachable!(),
+        if let Ok(dist) = WeightedIndex::new([
+            self.half_size.y * self.half_size.z,
+            self.half_size.x * self.half_size.z,
+            self.half_size.x * self.half_size.y,
+        ]) {
+            match dist.sample(rng) {
+                0 => Vec3::new(other_side, primary_side1, primary_side2) * self.half_size,
+                1 => Vec3::new(primary_side1, other_side, primary_side2) * self.half_size,
+                2 => Vec3::new(primary_side1, primary_side2, other_side) * self.half_size,
+                _ => unreachable!(),
+            }
+        } else {
+            Vec3::ZERO
         }
     }
 }
