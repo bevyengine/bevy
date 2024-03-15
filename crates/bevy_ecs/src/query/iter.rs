@@ -239,8 +239,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             let Some(item) = self.next() else { break };
             accum = func(accum, item);
         }
-        if D::IS_DENSE && F::IS_DENSE {
-            for id in self.cursor.storage_id_iter.clone() {
+        for id in self.cursor.storage_id_iter.clone() {
+            if D::IS_DENSE && F::IS_DENSE {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
                 accum =
@@ -249,9 +249,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                     // - The provided range is equivalent to [0, table.entity_count)
                     // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
                     unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
-            }
-        } else {
-            for id in self.cursor.storage_id_iter.clone() {
+            } else {
                 let archetype =
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
                     unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
@@ -742,12 +740,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// Note that if `D::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+        let ids = self.storage_id_iter.clone();
         let remaining_matched: usize = if Self::IS_DENSE {
-            let ids = self.storage_id_iter.clone();
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
-            let ids = self.storage_id_iter.clone();
             // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
             unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
         };

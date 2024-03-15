@@ -24,7 +24,7 @@ use super::{
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// # Safety
-/// Must be initialized and accessed as a TableId, if both generic parameters to the query are dense.
+/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
 /// Must be initialized and accessed as an ArchetypeId otherwise.
 #[derive(Clone, Copy)]
 pub(crate) union StorageId {

@@ -160,26 +160,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
+        let id_iter = self.state.matched_storage_ids.iter();
         let max_size = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
-            self.state
-                .matched_storage_ids
-                .iter()
-                // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                .map(|id| unsafe { tables[id.table_id].entity_count() })
-                .max()
-                .unwrap_or(0)
+            // SAFETY: The if check ensures that matched_storage_ids stores TableIds
+            id_iter.map(|id| unsafe { tables[id.table_id].entity_count() }).max()
         } else {
             let archetypes = &self.world.archetypes();
-            self.state
-                .matched_storage_ids
-                .iter()
-                // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                .map(|id| unsafe { archetypes[id.archetype_id].len() })
-                .max()
-                .unwrap_or(0)
+            // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
+            id_iter.map(|id| unsafe { archetypes[id.archetype_id].len() }).max()
         };
+        let max_size = max_size.unwrap_or(0);
 
         let batches = thread_count * self.batching_strategy.batches_per_thread;
         // Round up to the nearest batch size.
