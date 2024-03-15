@@ -67,7 +67,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         border: UiRect::all(Val::Px(5.0)),
-                        border_radius: UiBorderRadius::MAX,
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text
@@ -75,6 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     border_color: BorderColor(Color::BLACK),
+                    border_radius: UiBorderRadius::MAX,
                     image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 })

@@ -6,8 +6,8 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style,
+    UiBorderRadius, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_color::Color;
@@ -34,6 +34,8 @@ pub struct NodeBundle {
     pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
+    /// The border radius of the node
+    pub border_radius: UiBorderRadius,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -62,6 +64,7 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             border_color: Color::NONE.into(),
+            border_radius: UiBorderRadius::default(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -314,6 +317,8 @@ pub struct ButtonBundle {
     pub focus_policy: FocusPolicy,
     /// The color of the Node's border
     pub border_color: BorderColor,
+    /// The border radius of the node
+    pub border_radius: UiBorderRadius,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -344,6 +349,7 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
             border_color: BorderColor(Color::NONE),
+            border_radius: UiBorderRadius::default(),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

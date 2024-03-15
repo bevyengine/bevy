@@ -394,7 +394,6 @@ mod tests {
 
     #[test]
     fn test_convert_from() {
-        use crate::UiBorderRadius;
         use sh::TaffyZero;
         use taffy::style_helpers as sh;
 
@@ -464,7 +463,6 @@ mod tests {
             ],
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
-            border_radius: UiBorderRadius::default(),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style);

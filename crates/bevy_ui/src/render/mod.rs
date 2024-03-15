@@ -236,13 +236,13 @@ pub fn extract_uinode_images(
         Query<(
             &Node,
             &GlobalTransform,
-            &Style,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &UiImage,
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
+            &UiBorderRadius,
         )>,
     >,
 ) {
@@ -252,7 +252,7 @@ pub fn extract_uinode_images(
         .unwrap_or(Vec2::ZERO)
         * ui_scale.0;
 
-    for (uinode, transform, style, view_visibility, clip, camera, image, atlas, slices) in
+    for (uinode, transform, view_visibility, clip, camera, image, atlas, slices, border_radius) in
         &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -297,12 +297,8 @@ pub fn extract_uinode_images(
             ),
         };
 
-        let border_radius = resolve_border_radius(
-            &style.border_radius,
-            uinode.size(),
-            viewport_size,
-            ui_scale.0,
-        );
+        let border_radius =
+            resolve_border_radius(&border_radius, uinode.size(), viewport_size, ui_scale.0);
 
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
@@ -397,6 +393,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &Style,
                 &BorderColor,
+                &UiBorderRadius,
             ),
             Without<ContentSize>,
         >,
@@ -405,8 +402,17 @@ pub fn extract_uinode_borders(
 ) {
     let image = AssetId::<Image>::default();
 
-    for (node, global_transform, view_visibility, clip, camera, parent, style, border_color) in
-        &uinode_query
+    for (
+        node,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        parent,
+        style,
+        border_color,
+        border_radius,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -449,7 +455,7 @@ pub fn extract_uinode_borders(
         let border = [left, top, right, bottom];
 
         let border_radius = resolve_border_radius(
-            &style.border_radius,
+            &border_radius,
             node.size(),
             ui_logical_viewport_size,
             ui_scale.0,

@@ -425,38 +425,6 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
-
-    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly rounded corners
-    /// or specify different radii for each corner. If a given radius exceeds half the length of the smallest dimension between the node's height or width,
-    /// the radius will calculated as half the smallest dimension.
-    ///
-    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest dimension, either width or height.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_ui::{Style, UiRect, UiBorderRadius, Val};
-    /// let style = Style {
-    ///     // Set a uniform border radius of 10 logical pixels
-    ///     border_radius: UiBorderRadius::all(Val::Px(10.)),
-    ///     ..Default::default()
-    /// };
-    /// let style = Style {
-    ///     border_radius: UiBorderRadius {
-    ///         // The top left corner will be rounded with a radius of 10 logical pixels.
-    ///         top_left: Val::Px(10.),
-    ///         // Percentage values are based on the node's smallest dimension, either width or height.
-    ///         top_right: Val::Percent(20.),
-    ///         // Viewport coordinates can also be used.
-    ///         bottom_left: Val::Vw(10.),
-    ///         // The bottom right corner will be unrounded.
-    ///         ..Default::default()
-    ///     },
-    ///     ..Default::default()
-    /// };
-    /// ```
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
-    pub border_radius: UiBorderRadius,
 }
 
 impl Style {
@@ -499,7 +467,6 @@ impl Style {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
-        border_radius: UiBorderRadius::DEFAULT,
     };
 }
 
@@ -1845,11 +1812,47 @@ impl Default for ZIndex {
     }
 }
 
-/// Radii for rounded corner edges.
-/// * A corner set to a 0 value will be right angled.
-/// * The value is clamped to between 0 and half the length of the shortest side of the node before being used.
-/// * `Val::AUTO` is resolved to `Val::Px(0.)`.
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+/// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
+/// rounded corners or specify different radii for each corner. If a given radius exceeds half
+/// the length of the smallest dimension between the node's height or width, the radius will
+/// calculated as half the smallest dimension.
+///
+/// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
+/// dimension, either width or height.
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_color::palettes::basic::{BLUE};
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 border: UiRect::all(Val::Px(2.)),
+///                 ..Default::default()
+///             },
+///             background_color: BLUE.into(),
+///             border_radius: UiBorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
+///             ..Default::default()
+///         },
+///     ));
+/// }
+/// ```
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
