@@ -175,7 +175,9 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -185,11 +187,26 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &BackgroundColor,
+            &UiBorderRadius,
         )>,
     >,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
-        &uinode_query
+    let viewport_size = windows
+        .get_single()
+        .map(|window| window.resolution.size())
+        .unwrap_or(Vec2::ZERO)
+        * ui_scale.0;
+
+    for (
+        entity,
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        background_color,
+        border_radius,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -200,6 +217,9 @@ pub fn extract_uinode_background_colors(
         if !view_visibility.get() || background_color.0.is_fully_transparent() {
             continue;
         }
+
+        let border_radius =
+            resolve_border_radius(&border_radius, uinode.size(), viewport_size, ui_scale.0);
 
         extracted_uinodes.uinodes.insert(
             entity,
@@ -218,7 +238,7 @@ pub fn extract_uinode_background_colors(
                 flip_y: false,
                 camera_entity,
                 border: [0.; 4],
-                border_radius: [0.; 4],
+                border_radius,
                 node_type: NodeType::Rect,
             },
         );
