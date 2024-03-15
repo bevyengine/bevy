@@ -1,7 +1,10 @@
 use std::f32::consts::{PI, TAU};
 
 use crate::{primitives::*, Vec2, Vec3};
-use rand::Rng;
+use rand::{
+    distributions::{Distribution, WeightedIndex},
+    Rng,
+};
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.
 pub trait ShapeSample {
@@ -88,13 +91,13 @@ impl ShapeSample for Rectangle {
     }
 
     fn sample_surface<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
-        let side_distance = rng.gen_range(-1.0..1.0);
+        let primary_side = rng.gen_range(-1.0..1.0);
         let other_side = if rng.gen() { -1.0 } else { 1.0 };
 
-        if rng.gen() {
-            Vec2::new(side_distance, other_side) * self.half_size
+        if rng.gen_bool((self.half_size.x / (self.half_size.x + self.half_size.y)) as f64) {
+            Vec2::new(primary_side, other_side) * self.half_size
         } else {
-            Vec2::new(other_side, side_distance) * self.half_size
+            Vec2::new(other_side, primary_side) * self.half_size
         }
     }
 }
@@ -110,14 +113,15 @@ impl ShapeSample for Cuboid {
     }
 
     fn sample_surface<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let side_distance = rng.gen_range(-1.0..1.0);
+        let primary_side = rng.gen_range(-1.0..1.0);
         let other_side1 = if rng.gen() { -1.0 } else { 1.0 };
         let other_side2 = if rng.gen() { -1.0 } else { 1.0 };
 
-        match rng.gen_range(0..=2) {
-            0 => Vec3::new(side_distance, other_side1, other_side2) * self.half_size,
-            1 => Vec3::new(other_side1, side_distance, other_side2) * self.half_size,
-            2 => Vec3::new(other_side1, other_side2, side_distance) * self.half_size,
+        let dist = WeightedIndex::new(self.half_size.to_array()).unwrap();
+        match dist.sample(rng) {
+            0 => Vec3::new(primary_side, other_side1, other_side2) * self.half_size,
+            1 => Vec3::new(other_side1, primary_side, other_side2) * self.half_size,
+            2 => Vec3::new(other_side1, other_side2, primary_side) * self.half_size,
             _ => unreachable!(),
         }
     }
