@@ -62,3 +62,32 @@ pub mod encase {
 pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;
+
+use self::encase::internal::BufferMut;
+
+#[derive(Clone, Copy)]
+pub struct BufferPoolSlice {
+    address: wgpu::BufferAddress,
+    size: wgpu::BufferSize,
+}
+
+/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
+/// [`BufferMut`].
+pub(crate) struct QueueWriteBufferViewWrapper<'a> {
+    buffer_view: wgpu::QueueWriteBufferView<'a>,
+    // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
+    // invoke a panic.
+    capacity: usize,
+}
+
+impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    #[inline]
+    fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
+        self.buffer_view.write(offset, val);
+    }
+}

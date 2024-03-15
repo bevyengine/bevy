@@ -1,16 +1,17 @@
 use std::{marker::PhantomData, num::NonZeroU64};
 
 use crate::{
-    render_resource::Buffer,
+    render_resource::{Buffer, BufferPoolSlice, QueueWriteBufferViewWrapper},
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
-    internal::{AlignmentValue, BufferMut, WriteInto},
+    internal::{AlignmentValue, WriteInto},
     DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
 };
 use wgpu::{
     util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
+    Device,
 };
 
 use super::IntoBinding;
@@ -353,6 +354,143 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 }
 
+pub struct DynamicUniformBufferPool<T: ShaderType> {
+    alignment: AlignmentValue,
+    buffer: Option<Buffer>,
+    label: Option<String>,
+    changed: bool,
+    buffer_usage: BufferUsages,
+    reserved: wgpu::BufferAddress,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T: ShaderType + WriteInto> DynamicUniformBufferPool<T> {
+    pub fn new(device: &Device) -> Self {
+        Self::new_with_alignment(if cfg!(feature = "ios_simulator") {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+            256
+        } else {
+            device.limits().min_uniform_buffer_offset_alignment as u64
+        })
+    }
+
+    pub fn new_with_alignment(alignment: u64) -> Self {
+        Self {
+            alignment: AlignmentValue::new(alignment),
+            buffer: None,
+            label: None,
+            changed: false,
+            reserved: 0,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            _marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: Some(T::min_size()),
+        }))
+    }
+
+    pub fn reserve(&mut self, count: wgpu::BufferSize) -> BufferPoolSlice {
+        let start = self.reserved;
+        let size = self
+            .alignment
+            .round_up(T::min_size().get())
+            .checked_mul(count.get())
+            .and_then(wgpu::BufferSize::new)
+            .expect("Overflowed buffer size");
+        self.reserved = self
+            .reserved
+            .checked_add(size.get())
+            .expect("Overflowed buffer size");
+        BufferPoolSlice {
+            address: start,
+            size,
+        }
+    }
+
+    pub fn allocate<'a>(&mut self, device: &RenderDevice) {
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+
+        if capacity < self.reserved || self.changed {
+            self.buffer = Some(device.create_buffer(&BufferDescriptor {
+                label: self.label.as_deref(),
+                size: self.reserved,
+                usage: self.buffer_usage,
+                mapped_at_creation: false,
+            }));
+            self.changed = false;
+        }
+    }
+
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::UNIFORM`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
+    }
+
+    /// Creates a writer that can be used to directly write elements into the target buffer.
+    ///
+    /// The provided `slice` should be provided by calling [`reserve`] as many times as needed, then the
+    /// underlying buffer *must* be allocated via [`allocate`] first, or this will return `None`
+    /// for any invalid `slice`.
+    #[inline]
+    pub fn get_writer<'a>(
+        &'a self,
+        slice: BufferPoolSlice,
+        queue: &'a RenderQueue,
+    ) -> Option<DynamicUniformBufferWriter<'a, T>> {
+        let buffer = self.buffer.as_deref()?;
+        let buffer_view = queue.write_buffer_with(buffer, slice.address, slice.size)?;
+
+        Some(DynamicUniformBufferWriter {
+            buffer: encase::DynamicUniformBuffer::new_with_alignment(
+                QueueWriteBufferViewWrapper {
+                    capacity: slice.size.get() as usize,
+                    buffer_view,
+                },
+                self.alignment.get(),
+            ),
+            _marker: PhantomData,
+        })
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.reserved = 0;
+    }
+}
+
 /// A writer that can be used to directly write elements into the target buffer.
 ///
 /// For more information, see [`DynamicUniformBuffer::get_writer`].
@@ -364,27 +502,6 @@ pub struct DynamicUniformBufferWriter<'a, T> {
 impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
     pub fn write(&mut self, value: &T) -> u32 {
         self.buffer.write(value).unwrap() as u32
-    }
-}
-
-/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
-/// [`BufferMut`].
-struct QueueWriteBufferViewWrapper<'a> {
-    buffer_view: wgpu::QueueWriteBufferView<'a>,
-    // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
-    // invoke a panic.
-    capacity: usize,
-}
-
-impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
-    #[inline]
-    fn capacity(&self) -> usize {
-        self.capacity
-    }
-
-    #[inline]
-    fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
-        self.buffer_view.write(offset, val);
     }
 }
 

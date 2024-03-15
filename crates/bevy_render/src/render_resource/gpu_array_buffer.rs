@@ -3,13 +3,18 @@ use super::{
     BindGroupLayoutEntryBuilder, StorageBuffer,
 };
 use crate::{
-    render_resource::batched_uniform_buffer::BatchedUniformBuffer,
+    render_resource::{
+        batched_uniform_buffer::{
+            BatchedUniformBuffer, BatchedUniformBufferPool, BatchedUniformBufferWriter,
+        },
+        BufferPoolSlice, StorageBufferPool, StorageBufferWriter,
+    },
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{prelude::Component, system::Resource};
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, num::NonZeroU64};
 use wgpu::BindingResource;
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
@@ -114,4 +119,110 @@ pub struct GpuArrayBufferIndex<T: GpuArrayBufferable> {
     /// Only used on platforms that don't support storage buffers.
     pub dynamic_offset: Option<NonMaxU32>,
     pub element_type: PhantomData<T>,
+}
+
+#[derive(Resource)]
+pub enum GpuArrayBufferPool<T: GpuArrayBufferable> {
+    Uniform(BatchedUniformBufferPool<T>),
+    Storage(StorageBufferPool<T>),
+}
+
+impl<T: GpuArrayBufferable> GpuArrayBufferPool<T> {
+    pub fn new(device: &RenderDevice) -> Self {
+        let limits = device.limits();
+        if limits.max_storage_buffers_per_shader_stage == 0 {
+            GpuArrayBufferPool::Uniform(BatchedUniformBufferPool::new(&limits))
+        } else {
+            GpuArrayBufferPool::Storage(StorageBufferPool::default())
+        }
+    }
+
+    pub fn clear(&mut self) {
+        match self {
+            GpuArrayBufferPool::Uniform(buffer) => buffer.clear(),
+            GpuArrayBufferPool::Storage(buffer) => buffer.clear(),
+        }
+    }
+
+    pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        if device.limits().max_storage_buffers_per_shader_stage == 0 {
+            uniform_buffer_sized(
+                true,
+                // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
+                // None here and let wgpu figure out the size.
+                None,
+            )
+        } else {
+            storage_buffer_read_only::<T>(false)
+        }
+    }
+
+    pub fn binding(&self) -> Option<BindingResource> {
+        match self {
+            GpuArrayBufferPool::Uniform(buffer) => buffer.binding(),
+            GpuArrayBufferPool::Storage(buffer) => buffer.binding(),
+        }
+    }
+
+    pub fn reserve(&mut self, count: NonZeroU64) -> BufferPoolSlice {
+        match self {
+            GpuArrayBufferPool::Uniform(buffer) => buffer.reserve(count),
+            GpuArrayBufferPool::Storage(buffer) => buffer.reserve(count),
+        }
+    }
+
+    pub fn allocate(&mut self, device: &RenderDevice) {
+        match self {
+            GpuArrayBufferPool::Uniform(buffer) => buffer.allocate(device),
+            GpuArrayBufferPool::Storage(buffer) => buffer.allocate(device),
+        }
+    }
+
+    #[inline]
+    pub fn get_writer<'a>(
+        &'a self,
+        slice: BufferPoolSlice,
+        queue: &'a RenderQueue,
+    ) -> Option<GpuArrayBufferWriter<'a, T>> {
+        Some(match self {
+            GpuArrayBufferPool::Uniform(buffer) => {
+                GpuArrayBufferWriter::Uniform(buffer.get_writer(slice, queue)?)
+            }
+            GpuArrayBufferPool::Storage(buffer) => {
+                GpuArrayBufferWriter::Storage(buffer.get_writer(slice, queue)?)
+            }
+        })
+    }
+
+    pub fn batch_size(device: &RenderDevice) -> Option<u32> {
+        let limits = device.limits();
+        if limits.max_storage_buffers_per_shader_stage == 0 {
+            Some(BatchedUniformBuffer::<T>::batch_size(&limits) as u32)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Resource)]
+pub enum GpuArrayBufferWriter<'a, T: GpuArrayBufferable> {
+    Uniform(BatchedUniformBufferWriter<'a, T>),
+    Storage(StorageBufferWriter<'a, T>),
+}
+
+impl<'a, T: GpuArrayBufferable> GpuArrayBufferWriter<'a, T> {
+    pub fn write(&mut self, value: T) -> GpuArrayBufferIndex<T> {
+        match self {
+            GpuArrayBufferWriter::Uniform(buffer) => buffer.write(value),
+            GpuArrayBufferWriter::Storage(buffer) => {
+                let index = buffer.current_index() as u32;
+                buffer.write(&value);
+                GpuArrayBufferIndex {
+                    index,
+                    dynamic_offset: None,
+                    element_type: PhantomData,
+                }
+            }
+        }
+    }
 }
