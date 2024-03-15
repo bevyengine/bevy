@@ -164,12 +164,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         let max_size = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
-            // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-            id_iter.map(|id| unsafe { tables[id.table_id].entity_count() }).max()
+            id_iter
+                // SAFETY: The if check ensures that matched_storage_ids stores TableIds
+                .map(|id| unsafe { tables[id.table_id].entity_count() })
+                .max()
         } else {
             let archetypes = &self.world.archetypes();
-            // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-            id_iter.map(|id| unsafe { archetypes[id.archetype_id].len() }).max()
+            id_iter
+                // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
+                .map(|id| unsafe { archetypes[id.archetype_id].len() })
+                .max()
         };
         let max_size = max_size.unwrap_or(0);
 
