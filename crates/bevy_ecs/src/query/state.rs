@@ -25,7 +25,7 @@ use super::{
 ///
 /// # Safety
 /// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
-/// Must be initialized and accessed as an ArchetypeId otherwise.
+/// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
 #[derive(Clone, Copy)]
 pub(crate) union StorageId {
     pub table_id: TableId,
