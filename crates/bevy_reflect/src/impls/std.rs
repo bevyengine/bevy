@@ -402,6 +402,109 @@ impl_reflect_for_veclike!(
     VecDeque::<T>
 );
 
+
+impl<T: FromReflect + TypePath + GetTypeRegistration> Reflect for ::alloc::collections::BinaryHeap<T> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::list_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::List(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::List(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::list_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: FromReflect + TypePath + GetTypeRegistration> Typed for ::alloc::collections::BinaryHeap<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+    }
+}
+
+impl<T: FromReflect + TypePath + GetTypeRegistration> GetTypeRegistration for ::alloc::collections::BinaryHeap<T> {
+fn get_type_registration() -> TypeRegistration {
+    let mut registration = TypeRegistration::of::<::alloc::collections::BinaryHeap<T>>();
+    registration.insert::<ReflectFromPtr>(FromType::<::alloc::collections::BinaryHeap<T>>::from_type());
+    registration
+}
+
+fn register_type_dependencies(registry: &mut TypeRegistry) {
+    registry.register::<T>();
+}
+}
+
+impl<T: FromReflect + TypePath + GetTypeRegistration> FromReflect for ::alloc::collections::BinaryHeap<T> {
+fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+    if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
+        let mut new_list = Self::with_capacity(ref_list.len());
+        for field in ref_list.iter() {
+            ::alloc::collections::BinaryHeap::<T>::push(&mut new_list, T::from_reflect(field)?);
+        }
+        Some(new_list)
+    } else {
+        None
+    }
+}
+}
+
+impl_type_path!(::alloc::collections::BinaryHeap<T>);
+
 macro_rules! impl_reflect_for_hashmap {
     ($ty:path) => {
         impl<K, V, S> Map for $ty
