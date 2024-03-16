@@ -114,7 +114,7 @@ impl RenderLayers {
     }
 
     /// Returns `true` if the specified render layer is included in this `RenderLayers`.
-    pub fn contains_layer(&self, layer: RenderLayer) -> bool {
+    pub fn contains(&self, layer: RenderLayer) -> bool {
         let (buffer_index, bit) = Self::layer_info(layer);
         if buffer_index >= self.layers.len() {
             return false;
@@ -134,6 +134,12 @@ impl RenderLayers {
         }
 
         false
+    }
+
+    /// Gets the bitmask representation of the contained layers
+    /// as a slice of bitmasks.
+    pub fn bits(&self) -> &[u64] {
+        self.layers.as_slice()
     }
 
     fn layer_info(layer: usize) -> (usize, u64) {
@@ -170,6 +176,16 @@ impl From<RenderLayer> for RenderLayers {
     fn from(layer: RenderLayer) -> Self {
         let mut layers = Self{ layers: SmallVec::default() };
         layers.add(layer);
+        layers
+    }
+}
+
+impl From<&[RenderLayer]> for RenderLayers {
+    fn from(layers: &[RenderLayer]) -> Self {
+        let mut layers = Self{ layers: SmallVec::default() };
+        for layer in layers {
+            layers.add(layer);
+        }
         layers
     }
 }
@@ -341,24 +357,33 @@ impl Default for RenderGroups {
     }
 }
 
-/// Component on an entity computed by merging its [`RenderGroups`] component with
-/// a [`RenderGroups`] propagated by the entity's parent via [`PropagateRenderGroups`].
+/// Component on an entity that stores the result of merging the entity's [`RenderGroups`]
+/// component with the [`RenderGroups`] of an entity propagated by the entity's parent.
 ///
-/// This is automatically updated in [`PostUpdate`] in the TODO visibility system.
-/// The component will be removed if the entity has no [`RenderGroups`] component and no
-/// component is propagated.
+/// See [`PropagateRenderGroups`].
+///
+/// This is automatically updated in [`PostUpdate`] in the [`VisibilityPropagate`] set.
+/// The component will be automatically added or removed depending on if it is needed.
 ///
 /// ### Merge details
 ///
-/// This will equal the entity's [`RenderGroups`] component if no groups are propagated, and
-/// vice versa if a [`RenderGroups`] is propagated and an entity has no [`RenderGroups`] component.
-///
 /// The merge direction is 'entity_rendergroups.merge(propagated_rendergroups)`
 /// (see [`RenderGroups::merge`]).
-/// This means `InheritedRenderGroups` will prioritize the entity's affiliated camera
-/// over the propagated affiliated camera.
+/// This means the entity's affiliated camera will be prioritized over the propagated affiliated camera.
 #[derive(Component, Debug, Clone)]
-pub struct InheritedRenderGroups(RenderGroups);
+pub struct InheritedRenderGroups
+{
+    /// The entity that propagated [`RenderGroups`] to this entity.
+    ///
+    /// This is cached so children of this entity can update themselves without needing to traverse the
+    /// entire hierarchy.
+    pub propagater: Entity,
+    /// The [`RenderGroups`] computed by merging the [`RenderGroups`] of the `Self::propagater` entity into
+    /// the node's [`RenderGroups`] component.
+    ///
+    /// This is cached for efficient access in the [`check_visibility`] system.
+    pub computed: RenderGroups,
+};
 
 /// Component on camera entities that controls which [`RenderLayers`] are visible to
 /// the camera.
@@ -367,8 +392,9 @@ pub struct InheritedRenderGroups(RenderGroups);
 /// - The entity is in a [`RenderLayer`] visible to the camera.
 /// - The entity has a [`RenderGroups`] component with camera affiliation equal to the camera.
 ///
-/// Cameras use entities' [`InheritedRenderGroups] to determine visibility. If an entity has no
-/// [`InheritedRenderGroups`] component, then the camera will only see it if the camera can
+/// Cameras use entities' [`InheritedRenderGroups`] to determine visibility, with a fall-back to the
+/// entity's [`RenderGroups`]. If an entity does not have [`InheritedRenderGroups`]
+/// or [`RenderGroups`] components, then the camera will only see it if the camera can
 /// view the [`DEFAULT_RENDER_LAYER`] layer.
 ///
 /// A camera without the `CameraView` component will see the [`DEFAULT_RENDER_LAYER`]
@@ -454,11 +480,15 @@ impl Default for CameraView {
 
 /// Component on an entity that causes it to propagate a [`RenderGroups`] value to its children.
 ///
+/// Entities with this component will ignore [`RenderGroups`] propagated by parents.
+///
 /// See [`RenderGroups`] and [`CameraView`].
 #[derive(Component)]
 pub enum PropagateRenderGroups
 {
     /// If the entity has a [`RenderGroups`] component, that value is propagated.
+    ///
+    /// Note that it is allowed to add a [`RenderGroup`] component to a camera.
     ///
     /// Otherwise nothing is propagated and no errors are logged.
     Auto,
@@ -473,4 +503,73 @@ pub enum PropagateRenderGroups
     CameraWithView,
     /// Propagates a custom [`RenderGroups`].
     Custom(RenderGroups),
+}
+
+#[cfg(test)]
+mod rendering_mask_tests {
+    use super::{RenderLayer, RenderLayers};
+
+    #[test]
+    fn rendering_mask_sanity() {
+        assert_eq!(RenderLayers::default().len(), 1, "default layer contains only one layer");
+        assert!(RenderLayers::default().contains(DEFAULT_RENDER_LAYER), "default layer contains default");
+        assert_eq!(RenderLayers::from(RenderLayer(1)).len(), 1, "from contains 1 layer");
+        assert!(RenderLayers::from(RenderLayer(1)).contains(RenderLayer(1)), "contains is accurate");
+        assert!(!RenderLayers::from(RenderLayer(1)).contains(RenderLayer(2)), "contains fails when expected");
+
+
+
+        assert_eq!(RenderLayers::layer(0).with(1).0, 3, "layer 0 + 1 is mask 3");
+        assert_eq!(
+            RenderLayers::layer(0).with(1).without(0).0,
+            2,
+            "layer 0 + 1 - 0 is mask 2"
+        );
+        assert!(
+            RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
+            "layers match like layers"
+        );
+        assert!(
+            RenderLayers::layer(0).intersects(&RenderLayers(1)),
+            "a layer of 0 means the mask is just 1 bit"
+        );
+
+        assert!(
+            RenderLayers::layer(0)
+                .with(3)
+                .intersects(&RenderLayers::layer(3)),
+            "a mask will match another mask containing any similar layers"
+        );
+
+        assert!(
+            RenderLayers::default().intersects(&RenderLayers::default()),
+            "default masks match each other"
+        );
+
+        assert!(
+            !RenderLayers::layer(0).intersects(&RenderLayers::layer(1)),
+            "masks with differing layers do not match"
+        );
+        assert!(
+            !RenderLayers(0).intersects(&RenderLayers(0)),
+            "empty masks don't match"
+        );
+        assert_eq!(
+            RenderLayers::from_layers(&[0, 2, 16, 30])
+                .iter()
+                .collect::<Vec<_>>(),
+            vec![0, 2, 16, 30],
+            "from_layers and get_layers should roundtrip"
+        );
+        assert_eq!(
+            format!("{:?}", RenderLayers::from_layers(&[0, 1, 2, 3])).as_str(),
+            "RenderLayers([0, 1, 2, 3])",
+            "Debug instance shows layers"
+        );
+        assert_eq!(
+            RenderLayers::from_layers(&[0, 1, 2]),
+            <RenderLayers as FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
+            "from_layers and from_iter are equivalent"
+        );
+    }
 }
