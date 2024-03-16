@@ -110,10 +110,11 @@ mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
+mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 pub use adapter_system::*;
 pub use combinator::*;
@@ -123,6 +124,7 @@ pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
+pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
@@ -192,6 +194,12 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let system = Self::into_system(self);
         let name = system.name();
         AdapterSystem::new(f, system, name)
+    }
+
+    /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
+    #[inline]
+    fn system_type_id(&self) -> TypeId {
+        TypeId::of::<Self::System>()
     }
 }
 
@@ -308,6 +316,20 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     system.run((), &mut world);
 }
 
+impl<T> std::ops::Deref for In<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> std::ops::DerefMut for In<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -379,6 +401,7 @@ mod tests {
         schedule.run(world);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn query_system_gets() {
         fn query_system(
@@ -1538,6 +1561,7 @@ mod tests {
         });
     }
 
+    #[allow(deprecated)]
     #[test]
     fn readonly_query_get_mut_component_fails() {
         use crate::query::QueryComponentError;
@@ -1717,14 +1741,14 @@ mod tests {
         let mut sched = Schedule::default();
         sched.add_systems(
             (
-                (|mut res: ResMut<C>| {
+                |mut res: ResMut<C>| {
                     res.0 += 1;
-                }),
-                (|mut res: ResMut<C>| {
+                },
+                |mut res: ResMut<C>| {
                     res.0 += 2;
-                }),
+                },
             )
-                .distributive_run_if(resource_exists::<A>().or_else(resource_exists::<B>())),
+                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);

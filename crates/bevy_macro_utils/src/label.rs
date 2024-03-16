@@ -79,7 +79,7 @@ pub fn derive_label(
         })
         .unwrap(),
     );
-    (quote! {
+    quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
                 ::std::boxed::Box::new(::std::clone::Clone::clone(self))
@@ -95,6 +95,6 @@ pub fn derive_label(
                 ::std::hash::Hash::hash(self, &mut state);
             }
         }
-    })
+    }
     .into()
 }

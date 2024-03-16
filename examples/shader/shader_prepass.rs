@@ -61,8 +61,8 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +71,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
+            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
             }),
@@ -85,7 +85,7 @@ fn setup(
     // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(CustomMaterial {
                 color: Color::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
@@ -99,7 +99,7 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
@@ -112,7 +112,7 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(CustomMaterial {
             color: Color::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
@@ -125,7 +125,7 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 300_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -157,7 +157,7 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
     color: Color,
     #[texture(1)]
@@ -205,7 +205,7 @@ struct ShowPrepassSettings {
 
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct PrepassOutputMaterial {
+struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
 }

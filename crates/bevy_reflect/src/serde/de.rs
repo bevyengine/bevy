@@ -49,12 +49,12 @@ impl StructLikeInfo for StructInfo {
         self.type_path()
     }
 
-    fn field_at(&self, index: usize) -> Option<&NamedField> {
-        self.field_at(index)
-    }
-
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
+    }
+
+    fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.field_at(index)
     }
 
     fn get_field_len(&self) -> usize {
@@ -88,12 +88,12 @@ impl StructLikeInfo for StructVariantInfo {
         self.name()
     }
 
-    fn field_at(&self, index: usize) -> Option<&NamedField> {
-        self.field_at(index)
-    }
-
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
+    }
+
+    fn field_at(&self, index: usize) -> Option<&NamedField> {
+        self.field_at(index)
     }
 
     fn get_field_len(&self) -> usize {
@@ -219,7 +219,7 @@ impl Container for TupleVariantInfo {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```ignore (Can't import private struct from doctest)
 /// let expected = vec!["foo", "bar", "baz"];
 /// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
 /// ```
@@ -573,18 +573,18 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
         formatter.write_str("reflected struct value")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
-        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
-    }
-
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
         visit_struct_seq(&mut seq, self.struct_info, self.registration, self.registry)
+    }
+
+    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+    where
+        V: MapAccess<'de>,
+    {
+        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
     }
 }
 
@@ -831,6 +831,19 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 formatter.write_str("expected either a variant index or variant name")
             }
 
+            fn visit_u32<E>(self, variant_index: u32) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.variant_at(variant_index as usize).ok_or_else(|| {
+                    Error::custom(format_args!(
+                        "no variant found at index `{}` on enum `{}`",
+                        variant_index,
+                        self.0.type_path()
+                    ))
+                })
+            }
+
             fn visit_str<E>(self, variant_name: &str) -> Result<Self::Value, E>
             where
                 E: Error,
@@ -841,19 +854,6 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
                         ExpectedValues(names.collect())
-                    ))
-                })
-            }
-
-            fn visit_u32<E>(self, variant_index: u32) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                self.0.variant_at(variant_index as usize).ok_or_else(|| {
-                    Error::custom(format_args!(
-                        "no variant found at index `{}` on enum `{}`",
-                        variant_index,
-                        self.0.type_path()
                     ))
                 })
             }
@@ -876,18 +876,18 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
         formatter.write_str("reflected struct variant value")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
-        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
-    }
-
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
         visit_struct_seq(&mut seq, self.struct_info, self.registration, self.registry)
+    }
+
+    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+    where
+        V: MapAccess<'de>,
+    {
+        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
     }
 }
 
@@ -925,6 +925,15 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
         formatter.write_str(self.enum_info.type_path())
     }
 
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let mut option = DynamicEnum::default();
+        option.set_variant("None", ());
+        Ok(option)
+    }
+
     fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -950,15 +959,6 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
                 info.name()
             ))),
         }
-    }
-
-    fn visit_none<E>(self) -> Result<Self::Value, E>
-    where
-        E: Error,
-    {
-        let mut option = DynamicEnum::default();
-        option.set_variant("None", ());
-        Ok(option)
     }
 }
 

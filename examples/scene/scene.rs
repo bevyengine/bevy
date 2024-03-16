@@ -34,7 +34,7 @@ struct ComponentA {
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
 #[derive(Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, FromWorld)]
 struct ComponentB {
     pub value: String,
     #[reflect(skip_serializing)]

@@ -1,7 +1,10 @@
-use crate::mesh::{Indices, Mesh};
-use wgpu::PrimitiveTopology;
+use crate::mesh::{CylinderMeshBuilder, Mesh};
 
 /// A cylinder which stands on the XZ plane
+#[deprecated(
+    since = "0.13.0",
+    note = "please use the `Cylinder` primitive in `bevy_math` instead"
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct Cylinder {
     /// Radius in the XZ plane.
@@ -31,97 +34,8 @@ impl Default for Cylinder {
 
 impl From<Cylinder> for Mesh {
     fn from(c: Cylinder) -> Self {
-        debug_assert!(c.radius > 0.0);
-        debug_assert!(c.height > 0.0);
-        debug_assert!(c.resolution > 2);
-        debug_assert!(c.segments > 0);
-
-        let num_rings = c.segments + 1;
-        let num_vertices = c.resolution * 2 + num_rings * (c.resolution + 1);
-        let num_faces = c.resolution * (num_rings - 2);
-        let num_indices = (2 * num_faces + 2 * (c.resolution - 1) * 2) * 3;
-
-        let mut positions = Vec::with_capacity(num_vertices as usize);
-        let mut normals = Vec::with_capacity(num_vertices as usize);
-        let mut uvs = Vec::with_capacity(num_vertices as usize);
-        let mut indices = Vec::with_capacity(num_indices as usize);
-
-        let step_theta = std::f32::consts::TAU / c.resolution as f32;
-        let step_y = c.height / c.segments as f32;
-
-        // rings
-
-        for ring in 0..num_rings {
-            let y = -c.height / 2.0 + ring as f32 * step_y;
-
-            for segment in 0..=c.resolution {
-                let theta = segment as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([c.radius * cos, y, c.radius * sin]);
-                normals.push([cos, 0., sin]);
-                uvs.push([
-                    segment as f32 / c.resolution as f32,
-                    ring as f32 / c.segments as f32,
-                ]);
-            }
-        }
-
-        // barrel skin
-
-        for i in 0..c.segments {
-            let ring = i * (c.resolution + 1);
-            let next_ring = (i + 1) * (c.resolution + 1);
-
-            for j in 0..c.resolution {
-                indices.extend_from_slice(&[
-                    ring + j,
-                    next_ring + j,
-                    ring + j + 1,
-                    next_ring + j,
-                    next_ring + j + 1,
-                    ring + j + 1,
-                ]);
-            }
-        }
-
-        // caps
-
-        let mut build_cap = |top: bool| {
-            let offset = positions.len() as u32;
-            let (y, normal_y, winding) = if top {
-                (c.height / 2., 1., (1, 0))
-            } else {
-                (c.height / -2., -1., (0, 1))
-            };
-
-            for i in 0..c.resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([cos * c.radius, y, sin * c.radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            for i in 1..(c.resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
-            }
-        };
-
-        // top
-
-        build_cap(true);
-        build_cap(false);
-
-        Mesh::new(PrimitiveTopology::TriangleList)
-            .with_indices(Some(Indices::U32(indices)))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        CylinderMeshBuilder::new(c.radius, c.height, c.resolution)
+            .segments(c.segments)
+            .build()
     }
 }

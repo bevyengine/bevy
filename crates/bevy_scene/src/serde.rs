@@ -236,6 +236,28 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         formatter.write_str("scene struct")
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let resources = seq
+            .next_element_seed(SceneMapDeserializer {
+                registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+
+        let entities = seq
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
+
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
+    }
+
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
@@ -265,28 +287,6 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 
         let resources = resources.ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
         let entities = entities.ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
-
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-
-        let entities = seq
-            .next_element_seed(SceneEntitiesDeserializer {
-                type_registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
         Ok(DynamicScene {
             resources,
@@ -455,6 +455,20 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         formatter.write_str("map of reflect types")
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut dynamic_properties = Vec::new();
+        while let Some(entity) =
+            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
+        {
+            dynamic_properties.push(entity);
+        }
+
+        Ok(dynamic_properties)
+    }
+
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
@@ -478,20 +492,6 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
         Ok(entries)
     }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut dynamic_properties = Vec::new();
-        while let Some(entity) =
-            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
-        {
-            dynamic_properties.push(entity);
-        }
-
-        Ok(dynamic_properties)
-    }
 }
 
 #[cfg(test)]
@@ -499,13 +499,13 @@ mod tests {
     use crate::ron;
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
+    use bevy_ecs::entity::EntityHashMap;
     use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
-    use bevy_utils::EntityHashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -550,8 +550,8 @@ mod tests {
     struct MyEntityRef(Entity);
 
     impl MapEntities for MyEntityRef {
-        fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
-            self.0 = entity_mapper.get_or_reserve(self.0);
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.0 = entity_mapper.map_entity(self.0);
         }
     }
 
@@ -605,18 +605,18 @@ mod tests {
     ),
   },
   entities: {
-    0: (
+    4294967296: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    4294967297: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    4294967298: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -642,18 +642,18 @@ mod tests {
     ),
   },
   entities: {
-    0: (
+    4294967296: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    1: (
+    4294967297: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    2: (
+    4294967298: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -763,10 +763,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101,
-                114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112,
-                111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72,
-                101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 1, 128, 128, 128, 128, 16, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
+                67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
+                108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -803,11 +803,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
-                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-                67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166,
-                102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                146, 128, 129, 207, 0, 0, 0, 1, 0, 0, 0, 0, 145, 129, 217, 37, 98, 101, 118, 121,
+                95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
+                116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
+                2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
+                108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );
@@ -844,7 +844,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
                 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0,

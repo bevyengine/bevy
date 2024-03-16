@@ -34,7 +34,6 @@ fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_sets: Res<FontAtlasSets>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
@@ -42,12 +41,10 @@ fn atlas_render_system(
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
+            let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
             commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
+                image: font_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,

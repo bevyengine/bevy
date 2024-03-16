@@ -227,8 +227,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     #[inline]
-    pub fn push(&mut self, value: T) -> u32 {
-        self.scratch.write(&value).unwrap() as u32
+    pub fn push(&mut self, value: &T) -> u32 {
+        self.scratch.write(value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {

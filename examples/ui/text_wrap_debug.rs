@@ -19,7 +19,12 @@ struct Args {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     let window = if let Some(scale_factor) = args.scale_factor {
         Window {
             resolution: WindowResolution::default().with_scale_factor_override(scale_factor),

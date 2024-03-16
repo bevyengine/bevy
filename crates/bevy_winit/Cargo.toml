@@ -28,19 +28,24 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.1" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.1" }
 
 # other
-winit = { version = "0.28.7", default-features = false }
-accesskit_winit = { version = "0.15", default-features = false }
+# feature rwh_06 refers to window_raw_handle@v0.6
+winit = { version = "0.29", default-features = false, features = ["rwh_06"] }
+accesskit_winit = { version = "0.17", default-features = false, features = [
+  "rwh_06",
+] }
 approx = { version = "0.5", default-features = false }
-raw-window-handle = "0.5"
+raw-window-handle = "0.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.28.7", default-features = false, features = [
+winit = { version = "0.29", default-features = false, features = [
   "android-native-activity",
+  "rwh_06",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
+
 crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]

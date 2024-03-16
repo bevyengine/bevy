@@ -24,7 +24,7 @@ fn setup(
     // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");
     // Build a default quad mesh
-    let mut mesh = Mesh::from(shape::Quad::default());
+    let mut mesh = Mesh::from(Rectangle::default());
     // Build vertex colors for the quad. One entry per vertex (the corners of the quad)
     let vertex_colors: Vec<[f32; 4]> = vec![
         Color::RED.as_rgba_f32(),
@@ -54,7 +54,7 @@ fn setup(
         mesh: mesh_handle,
         transform: Transform::from_translation(Vec3::new(96., 0., 0.))
             .with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::from(texture_handle)),
+        material: materials.add(texture_handle),
         ..default()
     });
 }

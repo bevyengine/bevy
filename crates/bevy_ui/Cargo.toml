@@ -32,10 +32,12 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.1" }
 
 # other
 taffy = { version = "0.3.10" }
-serde = { version = "1", features = ["derive"] }
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
+serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
+
+[features]
+serialize = ["serde"]
 
 [lints]
 workspace = true

@@ -79,7 +79,7 @@ fn display_override(mut windows: Query<&mut Window>) {
 fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
 
-    if input.just_pressed(KeyCode::Return) {
+    if input.just_pressed(KeyCode::Enter) {
         let scale_factor_override = window.resolution.scale_factor_override();
         window
             .resolution
@@ -91,11 +91,11 @@ fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Win
 fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
     let scale_factor_override = window.resolution.scale_factor_override();
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         window
             .resolution
             .set_scale_factor_override(scale_factor_override.map(|n| n + 1.0));
-    } else if input.just_pressed(KeyCode::Down) {
+    } else if input.just_pressed(KeyCode::ArrowDown) {
         window
             .resolution
             .set_scale_factor_override(scale_factor_override.map(|n| (n - 1.0).max(1.0)));

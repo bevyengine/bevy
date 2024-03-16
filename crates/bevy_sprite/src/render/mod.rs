@@ -1,14 +1,15 @@
 use std::ops::Range;
 
 use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite, SPRITE_SHADER_HANDLE,
+    texture_atlas::{TextureAtlas, TextureAtlasLayout},
+    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
 };
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -36,7 +37,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -121,10 +122,10 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const COLORED                           = (1 << 0);
-        const HDR                               = (1 << 1);
-        const TONEMAP_IN_SHADER                 = (1 << 2);
-        const DEBAND_DITHER                     = (1 << 3);
+        const COLORED                           = 1 << 0;
+        const HDR                               = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -312,7 +313,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -333,8 +334,9 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
+    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
         Query<(
             Entity,
@@ -342,73 +344,50 @@ pub fn extract_sprites(
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
-        )>,
-    >,
-    atlas_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &TextureAtlasSprite,
-            &GlobalTransform,
-            &Handle<TextureAtlas>,
+            Option<&TextureAtlas>,
+            Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
+    for (entity, view_visibility, sprite, transform, handle, sheet, slices) in sprite_query.iter() {
+        if !view_visibility.get() {
+            continue;
+        }
 
-    for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !view_visibility.get() {
-            continue;
-        }
-        // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.insert(
-            entity,
-            ExtractedSprite {
-                color: sprite.color,
-                transform: *transform,
-                rect: sprite.rect,
-                // Pass the custom size
-                custom_size: sprite.custom_size,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
-                original_entity: None,
-            },
-        );
-    }
-    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
-        atlas_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-        if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(
-                *texture_atlas
-                    .textures
-                    .get(atlas_sprite.index)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
-                            atlas_sprite.index,
-                            texture_atlas_handle.id(),
-                        )
-                    }),
+        if let Some(slices) = slices {
+            extracted_sprites.sprites.extend(
+                slices
+                    .extract_sprites(transform, entity, sprite, handle)
+                    .map(|e| (commands.spawn_empty().id(), e)),
             );
+        } else {
+            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let rect = match (atlas_rect, sprite.rect) {
+                (None, None) => None,
+                (None, Some(sprite_rect)) => Some(sprite_rect),
+                (Some(atlas_rect), None) => Some(atlas_rect),
+                (Some(atlas_rect), Some(mut sprite_rect)) => {
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
+
+                    Some(sprite_rect)
+                }
+            };
+
+            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
                 entity,
                 ExtractedSprite {
-                    color: atlas_sprite.color,
+                    color: sprite.color,
                     transform: *transform,
-                    // Select the area in the texture atlas
                     rect,
                     // Pass the custom size
-                    custom_size: atlas_sprite.custom_size,
-                    flip_x: atlas_sprite.flip_x,
-                    flip_y: atlas_sprite.flip_y,
-                    image_handle_id: texture_atlas.texture.id(),
-                    anchor: atlas_sprite.anchor.as_vec(),
+                    custom_size: sprite.custom_size,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: handle.id(),
+                    anchor: sprite.anchor.as_vec(),
                     original_entity: None,
                 },
             );
@@ -588,8 +567,9 @@ pub fn prepare_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Added {..} |
-            // images don't have dependencies
+            AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
+            // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
@@ -767,13 +747,13 @@ pub type DrawSprite = (
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'_ ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -788,17 +768,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
 
         pass.set_bind_group(
             I,
@@ -815,17 +798,21 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
-    type ViewData = ();
-    type ItemData = Read<SpriteBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'_ SpriteBatch,
+        batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
             0,

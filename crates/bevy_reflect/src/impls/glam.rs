@@ -1,9 +1,9 @@
 use crate as bevy_reflect;
 use crate::prelude::ReflectDefault;
-use bevy_reflect_derive::{impl_reflect_struct, impl_reflect_value};
+use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use glam::*;
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec2 {
@@ -11,7 +11,7 @@ impl_reflect_struct!(
         y: i32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec3 {
@@ -20,7 +20,7 @@ impl_reflect_struct!(
         z: i32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct IVec4 {
@@ -31,7 +31,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct I64Vec2 {
@@ -40,7 +40,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct I64Vec3 {
@@ -50,7 +50,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct I64Vec4 {
@@ -61,7 +61,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec2 {
@@ -69,7 +69,7 @@ impl_reflect_struct!(
         y: u32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec3 {
@@ -78,7 +78,7 @@ impl_reflect_struct!(
         z: u32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct UVec4 {
@@ -89,7 +89,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct U64Vec2 {
@@ -97,7 +97,7 @@ impl_reflect_struct!(
         y: u64,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct U64Vec3 {
@@ -106,7 +106,7 @@ impl_reflect_struct!(
         z: u64,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
     struct U64Vec4 {
@@ -117,7 +117,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Vec2 {
@@ -125,7 +125,7 @@ impl_reflect_struct!(
         y: f32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Vec3 {
@@ -134,7 +134,7 @@ impl_reflect_struct!(
         z: f32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Vec3A {
@@ -143,7 +143,7 @@ impl_reflect_struct!(
         z: f32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Vec4 {
@@ -154,7 +154,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct BVec2 {
@@ -162,7 +162,7 @@ impl_reflect_struct!(
         y: bool,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct BVec3 {
@@ -171,7 +171,7 @@ impl_reflect_struct!(
         z: bool,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct BVec4 {
@@ -182,7 +182,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DVec2 {
@@ -190,7 +190,7 @@ impl_reflect_struct!(
         y: f64,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DVec3 {
@@ -199,7 +199,7 @@ impl_reflect_struct!(
         z: f64,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DVec4 {
@@ -210,7 +210,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Mat2 {
@@ -218,7 +218,7 @@ impl_reflect_struct!(
         y_axis: Vec2,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Mat3 {
@@ -227,7 +227,7 @@ impl_reflect_struct!(
         z_axis: Vec3,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Mat3A {
@@ -236,7 +236,7 @@ impl_reflect_struct!(
         z_axis: Vec3A,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Mat4 {
@@ -247,7 +247,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DMat2 {
@@ -255,7 +255,7 @@ impl_reflect_struct!(
         y_axis: DVec2,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DMat3 {
@@ -264,7 +264,7 @@ impl_reflect_struct!(
         z_axis: DVec3,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DMat4 {
@@ -275,7 +275,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Affine2 {
@@ -283,7 +283,7 @@ impl_reflect_struct!(
         translation: Vec2,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Affine3A {
@@ -292,7 +292,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DAffine2 {
@@ -300,7 +300,7 @@ impl_reflect_struct!(
         translation: DVec2,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DAffine3 {
@@ -309,7 +309,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct Quat {
@@ -319,7 +319,7 @@ impl_reflect_struct!(
         w: f32,
     }
 );
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
     struct DQuat {

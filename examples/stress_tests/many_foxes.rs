@@ -10,12 +10,13 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
 struct Args {
-    /// wether all foxes run in sync.
+    /// whether all foxes run in sync.
     #[argh(switch)]
     sync: bool,
 
@@ -33,7 +34,11 @@ struct Foxes {
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
         .add_plugins((
@@ -50,6 +55,10 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
@@ -58,7 +67,7 @@ fn main() {
         })
         .insert_resource(AmbientLight {
             color: Color::WHITE,
-            brightness: 1.0,
+            brightness: 100.0,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -185,8 +194,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -194,6 +203,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
+            illuminance: 3000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -258,15 +268,15 @@ fn keyboard_animation_control(
         foxes.moving = !foxes.moving;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Up) {
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         foxes.speed *= 1.25;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Down) {
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
         foxes.speed *= 0.8;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Return) {
+    if keyboard_input.just_pressed(KeyCode::Enter) {
         *current_animation = (*current_animation + 1) % animations.0.len();
     }
 
@@ -279,27 +289,27 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
             let speed = player.speed();
             player.set_speed(speed * 1.25);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
             let speed = player.speed();
             player.set_speed(speed * 0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed - 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
             let elapsed = player.seek_time();
             player.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             player
                 .play_with_transition(
                     animations.0[*current_animation].clone_weak(),

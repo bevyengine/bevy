@@ -1,6 +1,6 @@
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
@@ -269,6 +269,11 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Array(self)
     }
@@ -297,15 +302,15 @@ impl Reflect for DynamicArray {
         array_partial_eq(self, value)
     }
 
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "DynamicArray(")?;
         array_debug(self, f)?;
         write!(f, ")")
+    }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 

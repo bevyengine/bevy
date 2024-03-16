@@ -10,7 +10,7 @@ use futures_lite::Future;
 /// can spawn `Send` tasks from other threads.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
 /// use bevy_tasks::ThreadExecutor;
 ///

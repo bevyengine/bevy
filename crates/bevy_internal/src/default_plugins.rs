@@ -1,4 +1,4 @@
-use bevy_app::{PluginGroup, PluginGroupBuilder};
+use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`LogPlugin`](crate::log::LogPlugin)
@@ -11,6 +11,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`DiagnosticsPlugin`](crate::diagnostic::DiagnosticsPlugin)
 /// * [`InputPlugin`](crate::input::InputPlugin)
 /// * [`WindowPlugin`](crate::window::WindowPlugin)
+/// * [`AccessibilityPlugin`](crate::a11y::AccessibilityPlugin)
 /// * [`AssetPlugin`](crate::asset::AssetPlugin) - with feature `bevy_asset`
 /// * [`ScenePlugin`](crate::scene::ScenePlugin) - with feature `bevy_scene`
 /// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
@@ -133,7 +134,49 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_gizmos::GizmoPlugin);
         }
 
+        group = group.add(IgnoreAmbiguitiesPlugin);
+
         group
+    }
+}
+
+struct IgnoreAmbiguitiesPlugin;
+
+impl Plugin for IgnoreAmbiguitiesPlugin {
+    #[allow(unused_variables)] // Variables are used depending on enabled features
+    fn build(&self, app: &mut bevy_app::App) {
+        // bevy_ui owns the Transform and cannot be animated
+        #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
+        app.ignore_ambiguity(
+            bevy_app::PostUpdate,
+            bevy_animation::animation_player,
+            bevy_ui::ui_layout_system,
+        );
+
+        #[cfg(feature = "bevy_render")]
+        if let Ok(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
+            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_sprite"))]
+            {
+                render_app.ignore_ambiguity(
+                    bevy_render::Render,
+                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
+                    bevy_sprite::queue_sprites,
+                );
+                render_app.ignore_ambiguity(
+                    bevy_render::Render,
+                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
+                    bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                );
+            }
+            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_pbr"))]
+            {
+                render_app.ignore_ambiguity(
+                    bevy_render::Render,
+                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos3d,
+                    bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>,
+                );
+            }
+        }
     }
 }
 

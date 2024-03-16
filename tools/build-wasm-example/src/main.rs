@@ -44,7 +44,7 @@ fn main() {
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
-    let mut default_features = true;
+    let default_features = true;
     let mut features: Vec<&str> = cli.features.iter().map(|f| f.as_str()).collect();
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
@@ -56,30 +56,7 @@ fn main() {
     match cli.api {
         WebApi::Webgl2 => (),
         WebApi::Webgpu => {
-            features.push("animation");
-            features.push("bevy_asset");
-            features.push("bevy_audio");
-            features.push("bevy_gilrs");
-            features.push("bevy_scene");
-            features.push("bevy_winit");
-            features.push("bevy_core_pipeline");
-            features.push("bevy_pbr");
-            features.push("bevy_gltf");
-            features.push("bevy_render");
-            features.push("bevy_sprite");
-            features.push("bevy_text");
-            features.push("bevy_ui");
-            features.push("png");
-            features.push("hdr");
-            features.push("ktx2");
-            features.push("zstd");
-            features.push("vorbis");
-            features.push("x11");
-            features.push("bevy_gizmos");
-            features.push("android_shared_stdcxx");
-            features.push("tonemapping_luts");
-            features.push("default_font");
-            default_features = false;
+            features.push("webgpu");
         }
     }
 

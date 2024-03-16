@@ -1,13 +1,16 @@
-use crate::TextureAtlas;
-use bevy_asset::Assets;
+use crate::TextureAtlasLayout;
+use bevy_asset::{Assets, Handle};
 use bevy_math::{IVec2, Rect, Vec2};
-use bevy_render::texture::{Image, TextureFormatPixelInfo};
+use bevy_render::{
+    render_asset::{RenderAsset, RenderAssetUsages},
+    texture::{Image, TextureFormatPixelInfo},
+};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
-/// Helper utility to update [`TextureAtlas`] on the fly.
+/// Helper utility to update [`TextureAtlasLayout`] on the fly.
 ///
 /// Helpful in cases when texture is created procedurally,
-/// e.g: in a font glyph [`TextureAtlas`], only add the [`Image`] texture for letters to be rendered.
+/// e.g: in a font glyph [`TextureAtlasLayout`], only add the [`Image`] texture for letters to be rendered.
 pub struct DynamicTextureAtlasBuilder {
     atlas_allocator: AtlasAllocator,
     padding: i32,
@@ -27,24 +30,42 @@ impl DynamicTextureAtlasBuilder {
         }
     }
 
-    /// Add a new texture to [`TextureAtlas`].
-    /// It is user's responsibility to pass in the correct [`TextureAtlas`]
+    /// Add a new texture to `atlas_layout`.
+    ///
+    /// It is the user's responsibility to pass in the correct [`TextureAtlasLayout`].
+    /// Also, the asset that `atlas_texture_handle` points to must have a usage matching
+    /// [`RenderAssetUsages::MAIN_WORLD`].
+    ///
+    /// # Arguments
+    ///
+    /// * `altas_layout` - The atlas to add the texture to
+    /// * `textures` - The texture assets container
+    /// * `texture` - The new texture to add to the atlas
+    /// * `atlas_texture_handle` - The atlas texture to edit
     pub fn add_texture(
         &mut self,
-        texture_atlas: &mut TextureAtlas,
+        atlas_layout: &mut TextureAtlasLayout,
         textures: &mut Assets<Image>,
         texture: &Image,
+        atlas_texture_handle: &Handle<Image>,
     ) -> Option<usize> {
         let allocation = self.atlas_allocator.allocate(size2(
             texture.width() as i32 + self.padding,
             texture.height() as i32 + self.padding,
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
+            let atlas_texture = textures.get_mut(atlas_texture_handle).unwrap();
+            assert!(
+                atlas_texture
+                    .asset_usage()
+                    .contains(RenderAssetUsages::MAIN_WORLD),
+                "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
+            );
+
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = to_rect(allocation.rectangle);
             rect.max -= self.padding as f32;
-            Some(texture_atlas.add_texture(rect))
+            Some(atlas_layout.add_texture(rect))
         } else {
             None
         }

@@ -18,9 +18,10 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
 
-shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out"]
+shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # For ktx2 supercompression
@@ -32,6 +33,7 @@ tracing-tracy = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
+webgpu = ["wgpu/webgpu"]
 
 [dependencies]
 # bevy
@@ -62,34 +64,39 @@ image = { version = "0.24", default-features = false }
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.18", features = [
+wgpu = { version = "0.19.1", default-features = false, features = [
+  "wgsl",
+  "dx12",
+  "metal",
   "naga",
+  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "0.14.2", features = ["wgsl-in"] }
-naga_oil = "0.11"
+naga = { version = "0.19", features = ["wgsl-in"] }
+naga_oil = { version = "0.13", default-features = false, features = [
+  "test_shader",
+] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"
 futures-lite = "2.0.1"
-hexasphere = "9.0"
+hexasphere = "10.0"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
-ruzstd = { version = "0.4.0", optional = true }
+ruzstd = { version = "0.5.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
-encase = { version = "0.6.1", features = ["glam"] }
+encase = { version = "0.7", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
   "profile-with-tracing",
 ], optional = true }
-async-channel = "1.8"
+async-channel = "2.1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"

@@ -4,8 +4,8 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiColor,
-    UiImage, UiMaterial, UiTextureAtlasImage, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -18,9 +18,11 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// The basic UI node
+/// The basic UI node.
 ///
-/// Useful as a container for a variety of child nodes.
+/// Contains the [`Node`] component and other components required to make a container.
+///
+/// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
@@ -74,6 +76,11 @@ impl Default for NodeBundle {
 }
 
 /// A UI node that is an image
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -115,6 +122,8 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a texture atlas sprite
+///
+/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
@@ -128,10 +137,10 @@ pub struct AtlasImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
+    /// The image of the node
+    pub image: UiImage,
     /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_image: UiTextureAtlasImage,
+    pub texture_atlas: TextureAtlas,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
@@ -282,6 +291,11 @@ where
 }
 
 /// A UI node that is a button
+///
+/// # Extra behaviours
+///
+/// You may add the following components to enable additional behaviours
+/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node

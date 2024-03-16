@@ -9,7 +9,7 @@ use crate::{
 use bevy_ecs::{prelude::Component, system::Resource};
 use bevy_utils::nonmax::NonMaxU32;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
-use std::{marker::PhantomData, mem};
+use std::marker::PhantomData;
 use wgpu::BindingResource;
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
@@ -32,7 +32,7 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 #[derive(Resource)]
 pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
     Uniform(BatchedUniformBuffer<T>),
-    Storage((StorageBuffer<Vec<T>>, Vec<T>)),
+    Storage(StorageBuffer<Vec<T>>),
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
@@ -41,21 +41,22 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
-            GpuArrayBuffer::Storage((StorageBuffer::default(), Vec::new()))
+            GpuArrayBuffer::Storage(StorageBuffer::default())
         }
     }
 
     pub fn clear(&mut self) {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.clear(),
-            GpuArrayBuffer::Storage((_, buffer)) => buffer.clear(),
+            GpuArrayBuffer::Storage(buffer) => buffer.get_mut().clear(),
         }
     }
 
     pub fn push(&mut self, value: T) -> GpuArrayBufferIndex<T> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
-            GpuArrayBuffer::Storage((_, buffer)) => {
+            GpuArrayBuffer::Storage(buffer) => {
+                let buffer = buffer.get_mut();
                 let index = NonMaxU32::new(buffer.len() as u32).unwrap();
                 buffer.push(value);
                 GpuArrayBufferIndex {
@@ -70,10 +71,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.write_buffer(device, queue),
-            GpuArrayBuffer::Storage((buffer, vec)) => {
-                buffer.set(mem::take(vec));
-                buffer.write_buffer(device, queue);
-            }
+            GpuArrayBuffer::Storage(buffer) => buffer.write_buffer(device, queue),
         }
     }
 
@@ -93,7 +91,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding(),
+            GpuArrayBuffer::Storage(buffer) => buffer.binding(),
         }
     }
 

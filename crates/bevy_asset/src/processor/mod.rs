@@ -293,6 +293,13 @@ impl AssetProcessor {
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
                             }
+                            AssetReaderError::HttpError(status) => {
+                                error!(
+                                    "Path '{}' was removed, but the destination reader could not determine if it \
+                                    was a folder or a file due to receiving an unexpected HTTP Status {status}",
+                                    AssetPath::from_path(&path).with_source(source.id())
+                                );
+                            }
                         }
                     }
                 }
@@ -343,6 +350,13 @@ impl AssetProcessor {
             Err(err) => match err {
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
+                }
+                AssetReaderError::HttpError(status) => {
+                    self.log_unrecoverable().await;
+                    error!(
+                        "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
+                        in the source directory. Restart the asset processor to fully reprocess assets. HTTP Status Code {status}"
+                    );
                 }
                 AssetReaderError::Io(err) => {
                     self.log_unrecoverable().await;
@@ -752,7 +766,7 @@ impl AssetProcessor {
             .await
             .map_err(|e| ProcessError::AssetReaderError {
                 path: asset_path.clone(),
-                err: AssetReaderError::Io(e),
+                err: AssetReaderError::Io(e.into()),
             })?;
 
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
@@ -878,11 +892,11 @@ impl AssetProcessor {
                                     state_is_valid = false;
                                 };
                                 let Ok(source) = self.get_source(path.source()) else {
-                                    (unrecoverable_err)(&"AssetSource does not exist");
+                                    unrecoverable_err(&"AssetSource does not exist");
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    (unrecoverable_err)(&"AssetSource does not have a processed AssetWriter registered");
+                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -891,7 +905,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }
@@ -901,7 +915,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)(&err);
+                                                unrecoverable_err(&err);
                                             }
                                         }
                                     }

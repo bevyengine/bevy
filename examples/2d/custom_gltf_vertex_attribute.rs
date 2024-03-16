@@ -61,10 +61,10 @@ fn setup(
 struct CustomMaterial {}
 
 impl Material2d for CustomMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn vertex_shader() -> ShaderRef {
         "shaders/custom_gltf_2d.wgsl".into()
     }
-    fn vertex_shader() -> ShaderRef {
+    fn fragment_shader() -> ShaderRef {
         "shaders/custom_gltf_2d.wgsl".into()
     }
 

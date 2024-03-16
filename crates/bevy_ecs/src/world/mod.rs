@@ -7,7 +7,10 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut, Entry, OccupiedEntry, VacantEntry};
+pub use entity_ref::{
+    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
+    OccupiedEntry, VacantEntry,
+};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -15,14 +18,17 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
+    component::{
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Tick,
+    },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Resource,
+    system::{Res, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -207,7 +213,7 @@ impl World {
     /// Returns [`None`] if the `Component` type has not yet been initialized within
     /// the `World` using [`World::init_component`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -507,7 +513,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
@@ -536,7 +542,7 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.entity();
+                    let entity = archetype_entity.id();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
@@ -1252,6 +1258,26 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Retrieves the change ticks for the given resource.
+    pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
+        self.components
+            .get_resource_id(TypeId::of::<R>())
+            .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where possible.**
+    pub fn get_resource_change_ticks_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentTicks> {
+        self.storages
+            .resources
+            .get(component_id)
+            .and_then(|resource| resource.get_ticks())
+    }
+
     /// Gets a reference to the resource of the given type
     ///
     /// # Panics
@@ -1265,6 +1291,30 @@ impl World {
     #[track_caller]
     pub fn resource<R: Resource>(&self) -> &R {
         match self.get_resource() {
+            Some(x) => x,
+            None => panic!(
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
+                Resources are also implicitly added via `app.add_event`,
+                and can be added by plugins.",
+                std::any::type_name::<R>()
+            ),
+        }
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_ref`](World::get_resource_ref) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+        match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
@@ -1305,8 +1355,17 @@ impl World {
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed immutably
+        // - `&self` ensures nothing in world is borrowed mutably
         unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
+    }
+
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    #[inline]
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+        // SAFETY:
+        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
+        // - `&self` ensures nothing in world is borrowed mutably
+        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref() }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
@@ -1721,13 +1780,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 
@@ -1738,13 +1795,11 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
-        let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
             .initialize_with(component_id, &self.components, || {
-                let id = ArchetypeComponentId::new(*archetype_component_count);
-                *archetype_component_count += 1;
-                id
+                archetypes.new_archetype_component_id()
             })
     }
 
@@ -1845,6 +1900,117 @@ impl World {
         self.last_change_tick
     }
 
+    /// Sets [`World::last_change_tick()`] to the specified value during a scope.
+    /// When the scope terminates, it will return to its old value.
+    ///
+    /// This is useful if you need a region of code to be able to react to earlier changes made in the same system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// // This function runs an update loop repeatedly, allowing each iteration of the loop
+    /// // to react to changes made in the previous loop iteration.
+    /// fn update_loop(
+    ///     world: &mut World,
+    ///     mut update_fn: impl FnMut(&mut World) -> std::ops::ControlFlow<()>,
+    /// ) {
+    ///     let mut last_change_tick = world.last_change_tick();
+    ///
+    ///     // Repeatedly run the update function until it requests a break.
+    ///     loop {
+    ///         let control_flow = world.last_change_tick_scope(last_change_tick, |world| {
+    ///             // Increment the change tick so we can detect changes from the previous update.
+    ///             last_change_tick = world.change_tick();
+    ///             world.increment_change_tick();
+    ///
+    ///             // Update once.
+    ///             update_fn(world)
+    ///         });
+    ///
+    ///         // End the loop when the closure returns `ControlFlow::Break`.
+    ///         if control_flow.is_break() {
+    ///             break;
+    ///         }
+    ///     }
+    /// }
+    /// #
+    /// # #[derive(Resource)] struct Count(u32);
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Count(0));
+    /// # let saved_last_tick = world.last_change_tick();
+    /// # let mut num_updates = 0;
+    /// # update_loop(&mut world, |world| {
+    /// #     let mut c = world.resource_mut::<Count>();
+    /// #     match c.0 {
+    /// #         0 => {
+    /// #             assert_eq!(num_updates, 0);
+    /// #             assert!(c.is_added());
+    /// #             c.0 = 1;
+    /// #         }
+    /// #         1 => {
+    /// #             assert_eq!(num_updates, 1);
+    /// #             assert!(!c.is_added());
+    /// #             assert!(c.is_changed());
+    /// #             c.0 = 2;
+    /// #         }
+    /// #         2 if c.is_changed() => {
+    /// #             assert_eq!(num_updates, 2);
+    /// #             assert!(!c.is_added());
+    /// #         }
+    /// #         2 => {
+    /// #             assert_eq!(num_updates, 3);
+    /// #             assert!(!c.is_changed());
+    /// #             world.remove_resource::<Count>();
+    /// #             world.insert_resource(Count(3));
+    /// #         }
+    /// #         3 if c.is_changed() => {
+    /// #             assert_eq!(num_updates, 4);
+    /// #             assert!(c.is_added());
+    /// #         }
+    /// #         3 => {
+    /// #             assert_eq!(num_updates, 5);
+    /// #             assert!(!c.is_added());
+    /// #             c.0 = 4;
+    /// #             return std::ops::ControlFlow::Break(());
+    /// #         }
+    /// #         _ => unreachable!(),
+    /// #     }
+    /// #     num_updates += 1;
+    /// #     std::ops::ControlFlow::Continue(())
+    /// # });
+    /// # assert_eq!(num_updates, 5);
+    /// # assert_eq!(world.resource::<Count>().0, 4);
+    /// # assert_eq!(world.last_change_tick(), saved_last_tick);
+    /// ```
+    pub fn last_change_tick_scope<T>(
+        &mut self,
+        last_change_tick: Tick,
+        f: impl FnOnce(&mut World) -> T,
+    ) -> T {
+        struct LastTickGuard<'a> {
+            world: &'a mut World,
+            last_tick: Tick,
+        }
+
+        // By setting the change tick in the drop impl, we ensure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl std::ops::Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                self.world.last_change_tick = self.last_tick;
+            }
+        }
+
+        let guard = LastTickGuard {
+            last_tick: self.last_change_tick,
+            world: self,
+        };
+
+        guard.world.last_change_tick = last_change_tick;
+
+        f(guard.world)
+    }
+
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     ///
@@ -1879,7 +2045,7 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();

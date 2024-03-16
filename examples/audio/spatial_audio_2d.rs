@@ -13,7 +13,7 @@ const AUDIO_SCALE: f32 = 1. / 100.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
-            spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
+            default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
             ..default()
         }))
         .add_systems(Startup, setup)
@@ -34,8 +34,8 @@ fn setup(
     // sound emitter
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
-            material: materials.add(ColorMaterial::from(Color::BLUE)),
+            mesh: meshes.add(Circle::new(15.0)).into(),
+            material: materials.add(Color::BLUE),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             ..default()
         },
@@ -124,16 +124,16 @@ fn update_listener(
 
     let speed = 200.;
 
-    if keyboard.pressed(KeyCode::Right) {
+    if keyboard.pressed(KeyCode::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Up) {
+    if keyboard.pressed(KeyCode::ArrowUp) {
         transform.translation.y += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::Down) {
+    if keyboard.pressed(KeyCode::ArrowDown) {
         transform.translation.y -= speed * time.delta_seconds();
     }
 }

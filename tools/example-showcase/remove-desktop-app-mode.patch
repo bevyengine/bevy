@@ -1,8 +1,8 @@
 diff --git a/crates/bevy_winit/src/winit_config.rs b/crates/bevy_winit/src/winit_config.rs
-index c71a92814..b138d07a0 100644
+index b91e25d34..48f19b708 100644
 --- a/crates/bevy_winit/src/winit_config.rs
 +++ b/crates/bevy_winit/src/winit_config.rs
-@@ -47,15 +47,7 @@ impl WinitSettings {
+@@ -29,14 +29,7 @@ impl WinitSettings {
      /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
      /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
      pub fn desktop_app() -> Self {
@@ -13,9 +13,8 @@ index c71a92814..b138d07a0 100644
 -            unfocused_mode: UpdateMode::ReactiveLowPower {
 -                wait: Duration::from_secs(60),
 -            },
--            ..Default::default()
 -        }
-+        Self::game()
++        Self::default()
      }
  
      /// Returns the current [`UpdateMode`].

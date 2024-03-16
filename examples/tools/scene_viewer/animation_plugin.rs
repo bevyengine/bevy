@@ -87,7 +87,7 @@ fn handle_inputs(
             continue;
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
+        if keyboard_input.just_pressed(KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
             let resume = !player.is_paused();

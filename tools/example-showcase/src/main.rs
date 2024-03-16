@@ -228,6 +228,15 @@ fn main() {
                 .run()
                 .unwrap();
 
+                // Don't try to get an audio output stream in CI as there isn't one
+                // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/disable-audio.patch"
+                )
+                .run()
+                .unwrap();
+
                 // Sort the examples so that they are not run by category
                 examples_to_run.sort_by_key(|example| {
                     let mut hasher = DefaultHasher::new();

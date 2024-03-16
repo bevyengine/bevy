@@ -210,8 +210,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos: f32 =
-        ((fAngularThreshold * 3.14159265358979323846f64 as f32 / 180.0f32) as f64).cos() as f32;
+    let fThresCos = fAngularThreshold.to_radians().cos();
     f = 0;
     while f < iNrFaces {
         let verts = geometry.num_vertices_of_face(f);

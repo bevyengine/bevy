@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.74.0"
+rust-version = "1.76.0"
 
 [workspace]
 exclude = [
@@ -39,6 +39,15 @@ redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 map_flatten = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+#TODO(rust 1.77): enable `ref_as_ptr`
+# ref_as_ptr = "warn"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+missing_docs = "warn"
 
 [lints]
 workspace = true
@@ -68,6 +77,7 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -277,8 +287,11 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
+# Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU. Requires the `RUSTFLAGS` environment variable to be set to `--cfg=web_sys_unstable_apis` when building.
+webgpu = ["bevy_internal/webgpu"]
 
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_internal/asset_processor"]
@@ -288,6 +301,9 @@ file_watcher = ["bevy_internal/file_watcher"]
 
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
+
+# Enable stepping-based debugging of Bevy systems
+bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.1", default-features = false, optional = true }
@@ -396,7 +412,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
-description = "Renders a rectangle, circle, and hexagon"
+description = "Renders simple 2D primitive shapes like circles and polygons"
 category = "2D Rendering"
 wasm = true
 
@@ -456,6 +472,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
 doc-scrape-examples = true
@@ -489,13 +525,23 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "pixel_perfect"
-path = "examples/2d/pixel_perfect.rs"
+name = "pixel_grid_snap"
+path = "examples/2d/pixel_grid_snap.rs"
+
+[package.metadata.example.pixel_grid_snap]
+name = "Pixel Grid Snapping"
+description = "Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "bounding_2d"
+path = "examples/2d/bounding_2d.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.pixel_perfect]
-name = "Pixel Perfect"
-description = "Demonstrates pixel perfect in 2d"
+[package.metadata.example.bounding_2d]
+name = "2D Bounding Volume Intersections"
+description = "Showcases bounding volumes and intersection tests"
 category = "2D Rendering"
 wasm = true
 
@@ -530,6 +576,17 @@ doc-scrape-examples = true
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
 description = "Demonstrates how to use the `Camera::viewport_to_world` method"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "animated_material"
+path = "examples/3d/animated_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_material]
+name = "Animated Material"
+description = "Shows how to animate material properties"
 category = "3D Rendering"
 wasm = true
 
@@ -596,6 +653,17 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deterministic"
+path = "examples/3d/deterministic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.deterministic]
+name = "Deterministic rendering"
+description = "Stop flickering from z-fighting at a performance cost"
 category = "3D Rendering"
 wasm = true
 
@@ -873,6 +941,28 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Demonstrates irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Rendering a scene with baked lightmaps"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true
@@ -1015,6 +1105,16 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1122,6 +1222,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
 description = "Implements a custom AssetReader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "embedded_asset"
+path = "examples/asset/embedded_asset.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.embedded_asset]
+name = "Embedded Asset"
+description = "Embed an asset in the application binary and load it"
 category = "Assets"
 wasm = true
 
@@ -1273,11 +1384,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
-
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
@@ -1296,6 +1402,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "custom_schedule"
+path = "examples/ecs/custom_schedule.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_schedule]
+name = "Custom Schedule"
+description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 doc-scrape-examples = true
@@ -1307,6 +1424,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 doc-scrape-examples = true
@@ -1314,6 +1442,17 @@ doc-scrape-examples = true
 [package.metadata.example.event]
 name = "Event"
 description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "send_and_receive_events"
+path = "examples/ecs/send_and_receive_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.send_and_receive_events]
+name = "Send and receive events"
+description = "Demonstrates how to send and receive events of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1456,6 +1595,17 @@ doc-scrape-examples = true
 [package.metadata.example.system_param]
 name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "system_stepping"
+path = "examples/ecs/system_stepping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_stepping]
+name = "System Stepping"
+description = "Demonstrate stepping through systems in order of execution"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1840,6 +1990,7 @@ wasm = true
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_glsl"]
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
@@ -2215,6 +2366,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "size_constraints"
 path = "examples/ui/size_constraints.rs"
 doc-scrape-examples = true
@@ -2370,6 +2532,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice"
+path = "examples/ui/ui_texture_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice]
+name = "UI Texture Slice"
+description = "Illustrates how to use 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -2483,6 +2656,17 @@ doc-scrape-examples = true
 name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
+
+[[example]]
+name = "reflection_probes"
+path = "examples/3d/reflection_probes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflection_probes]
+name = "Reflection Probes"
+description = "Demonstrates reflection probes"
+category = "3D Rendering"
+wasm = false
 
 [package.metadata.example.fallback_image]
 hidden = true

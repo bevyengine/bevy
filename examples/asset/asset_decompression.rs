@@ -16,12 +16,12 @@ use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
-pub struct GzAsset {
-    pub uncompressed: ErasedLoadedAsset,
+struct GzAsset {
+    uncompressed: ErasedLoadedAsset,
 }
 
 #[derive(Default)]
-pub struct GzAssetLoader;
+struct GzAssetLoader;
 
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]

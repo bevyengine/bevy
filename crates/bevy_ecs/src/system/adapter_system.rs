@@ -81,10 +81,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
         self.system.component_access()
     }

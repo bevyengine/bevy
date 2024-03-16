@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::{
     AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
@@ -15,8 +16,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::tracing::warn;
 
 use crate::*;
 
@@ -41,7 +42,7 @@ use crate::*;
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
-    /// Luminous power in lumens
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -92,7 +93,7 @@ impl Default for PointLightShadowMap {
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
-    /// Luminous power in lumens
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -188,7 +189,12 @@ impl Default for SpotLight {
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
-    /// Illuminance in lux
+    /// Illuminance in lux (lumens per square meter), representing the amount of
+    /// light projected onto surfaces by this light source. Lux is used here
+    /// instead of lumens because a directional light illuminates all surfaces
+    /// more-or-less the same way (depending on the angle of incidence). Lumens
+    /// can only be specified for light sources which emit light from a specific
+    /// area.
     pub illuminance: f32,
     pub shadows_enabled: bool,
     pub shadow_depth_bias: f32,
@@ -241,7 +247,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -350,7 +356,11 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -381,7 +391,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 #[reflect(Component)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
+    pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
@@ -557,7 +567,7 @@ fn calculate_cascade(
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 0.3;
+///    ambient_light.brightness = 20.0;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
@@ -572,7 +582,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            brightness: 0.05,
+            brightness: 8.0,
         }
     }
 }

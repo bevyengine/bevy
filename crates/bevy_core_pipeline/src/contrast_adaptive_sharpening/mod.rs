@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Labels2d, SubGraph2d},
+    core_3d::graph::{Labels3d, SubGraph3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -77,11 +77,11 @@ pub struct CASUniform {
 }
 
 impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
-    type Data = &'static Self;
-    type Filter = With<Camera>;
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
     type Out = (DenoiseCAS, CASUniform);
 
-    fn extract_component(item: QueryItem<Self::Data>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
             return None;
         }
@@ -124,31 +124,37 @@ impl Plugin for CASPlugin {
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_3D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_3D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CASNode>(SubGraph3d, Labels3d::ContrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    SubGraph3d,
+                    Labels3d::Tonemapping,
+                    Labels3d::ContrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_3D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    SubGraph3d,
+                    (
+                        Labels3d::Fxaa,
+                        Labels3d::ContrastAdaptiveSharpening,
+                        Labels3d::EndMainPassPostProcessing,
+                    ),
                 );
         }
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_2D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_2D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CASNode>(SubGraph2d, Labels2d::ConstrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    SubGraph2d,
+                    Labels2d::Tonemapping,
+                    Labels2d::ConstrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_2D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    SubGraph2d,
+                    (
+                        Labels2d::Fxaa,
+                        Labels2d::ConstrastAdaptiveSharpening,
+                        Labels2d::EndMainPassPostProcessing,
+                    ),
                 );
         }
     }

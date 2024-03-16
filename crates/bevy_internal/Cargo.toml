@@ -34,7 +34,7 @@ jpeg = ["bevy_render/jpeg"]
 bmp = ["bevy_render/bmp"]
 webp = ["bevy_render/webp"]
 basis-universal = ["bevy_render/basis-universal"]
-dds = ["bevy_render/dds"]
+dds = ["bevy_render/dds", "bevy_core_pipeline/dds", "bevy_gltf/dds"]
 pnm = ["bevy_render/pnm"]
 ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
@@ -58,7 +58,10 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_glsl = [
+  "bevy_render/shader_format_glsl",
+  "bevy_pbr?/shader_format_glsl",
+]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
@@ -69,10 +72,12 @@ serialize = [
   "bevy_transform/serialize",
   "bevy_math/serialize",
   "bevy_scene?/serialize",
+  "bevy_ui?/serialize",
 ]
 multi-threaded = [
-  "bevy_asset/multi-threaded",
+  "bevy_asset?/multi-threaded",
   "bevy_ecs/multi-threaded",
+  "bevy_render?/multi-threaded",
   "bevy_tasks/multi-threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
@@ -97,6 +102,14 @@ webgl = [
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
   "bevy_sprite?/webgl",
+]
+
+webgpu = [
+  "bevy_core_pipeline?/webgpu",
+  "bevy_pbr?/webgpu",
+  "bevy_render?/webgpu",
+  "bevy_gizmos?/webgpu",
+  "bevy_sprite?/webgpu",
 ]
 
 # enable systems that allow for automated testing on CI
@@ -143,6 +156,12 @@ file_watcher = ["bevy_asset?/file_watcher"]
 
 # Enables watching embedded files for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_asset?/embedded_watcher"]
+
+# Enable system stepping support
+bevy_debug_stepping = [
+  "bevy_ecs/bevy_debug_stepping",
+  "bevy_app/bevy_debug_stepping",
+]
 
 [dependencies]
 # bevy

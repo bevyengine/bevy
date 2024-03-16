@@ -1,12 +1,15 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
-use std::f32::consts::PI;
+#[path = "../helpers/camera_controller.rs"]
+mod camera_controller;
 
-use bevy::{input::mouse::MouseMotion, pbr::ShadowFilteringMethod, prelude::*};
+use bevy::{pbr::ShadowFilteringMethod, prelude::*};
+use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -16,7 +19,6 @@ fn main() {
                 adjust_point_light_biases,
                 toggle_light,
                 adjust_directional_light_biases,
-                camera_controller,
             ),
         )
         .run();
@@ -40,13 +42,7 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
@@ -72,7 +68,7 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: 100000.0,
+                    illuminance: 1500.0,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
@@ -111,8 +107,9 @@ fn setup(
     }
 
     // ground plane
+    let plane_size = 2.0 * spawn_plane_depth;
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
         material: white_handle,
         ..default()
     });
@@ -135,8 +132,6 @@ fn setup(
         .with_children(|c| {
             c.spawn(TextBundle::from_sections([
                 TextSection::new("Controls:\n", style.clone()),
-                TextSection::new("WSAD  - forward/back/strafe left/right\n", style.clone()),
-                TextSection::new("E / Q - up / down\n", style.clone()),
                 TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
                 TextSection::new(
                     "L     - switch between directional and point lights [",
@@ -192,10 +187,10 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().sections[5].value = "PointLight".to_string();
+                example_text.single_mut().sections[3].value = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -203,7 +198,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().sections[5].value = "DirectionalLight".to_string();
+                example_text.single_mut().sections[3].value = "DirectionalLight".to_string();
                 100000.0
             } else {
                 0.0
@@ -218,16 +213,16 @@ fn adjust_light_position(
     mut example_text: Query<&mut Text>,
 ) {
     let mut offset = Vec3::ZERO;
-    if input.just_pressed(KeyCode::Left) {
+    if input.just_pressed(KeyCode::ArrowLeft) {
         offset.x -= 1.0;
     }
-    if input.just_pressed(KeyCode::Right) {
+    if input.just_pressed(KeyCode::ArrowRight) {
         offset.x += 1.0;
     }
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         offset.z -= 1.0;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         offset.z += 1.0;
     }
     if input.just_pressed(KeyCode::PageDown) {
@@ -241,9 +236,9 @@ fn adjust_light_position(
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
-            example_text.sections[23].value = format!("{:.1},", light.translation.x);
-            example_text.sections[24].value = format!(" {:.1},", light.translation.y);
-            example_text.sections[25].value = format!(" {:.1}", light.translation.z);
+            example_text.sections[21].value = format!("{:.1},", light.translation.x);
+            example_text.sections[22].value = format!(" {:.1},", light.translation.y);
+            example_text.sections[23].value = format!(" {:.1}", light.translation.z);
         }
     }
 }
@@ -253,7 +248,7 @@ fn cycle_filter_methods(
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::F) {
+    if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
             let filter_method_string;
             *filter_method = match *filter_method {
@@ -270,7 +265,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().sections[8].value = filter_method_string;
+            example_text.single_mut().sections[6].value = filter_method_string;
         }
     }
 }
@@ -283,29 +278,29 @@ fn adjust_point_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key1) {
+        if input.just_pressed(KeyCode::Digit1) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key2) {
+        if input.just_pressed(KeyCode::Digit2) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key3) {
+        if input.just_pressed(KeyCode::Digit3) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key4) {
+        if input.just_pressed(KeyCode::Digit4) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::R) {
+        if input.just_pressed(KeyCode::KeyR) {
             light.shadow_depth_bias = PointLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = PointLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::Z) {
+        if input.just_pressed(KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[11].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[14].value = format!("{:.1}", light.shadow_normal_bias);
+        example_text.single_mut().sections[9].value = format!("{:.2}", light.shadow_depth_bias);
+        example_text.single_mut().sections[12].value = format!("{:.1}", light.shadow_normal_bias);
     }
 }
 
@@ -317,140 +312,28 @@ fn adjust_directional_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Key5) {
+        if input.just_pressed(KeyCode::Digit5) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key6) {
+        if input.just_pressed(KeyCode::Digit6) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key7) {
+        if input.just_pressed(KeyCode::Digit7) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Key8) {
+        if input.just_pressed(KeyCode::Digit8) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::R) {
+        if input.just_pressed(KeyCode::KeyR) {
             light.shadow_depth_bias = DirectionalLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = DirectionalLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::Z) {
+        if input.just_pressed(KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[17].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[20].value = format!("{:.1}", light.shadow_normal_bias);
-    }
-}
-
-#[derive(Component)]
-struct CameraController {
-    pub enabled: bool,
-    pub sensitivity: f32,
-    pub key_forward: KeyCode,
-    pub key_back: KeyCode,
-    pub key_left: KeyCode,
-    pub key_right: KeyCode,
-    pub key_up: KeyCode,
-    pub key_down: KeyCode,
-    pub key_run: KeyCode,
-    pub walk_speed: f32,
-    pub run_speed: f32,
-    pub friction: f32,
-    pub pitch: f32,
-    pub yaw: f32,
-    pub velocity: Vec3,
-}
-
-impl Default for CameraController {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            sensitivity: 0.5,
-            key_forward: KeyCode::W,
-            key_back: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
-            key_up: KeyCode::E,
-            key_down: KeyCode::Q,
-            key_run: KeyCode::ShiftLeft,
-            walk_speed: 10.0,
-            run_speed: 30.0,
-            friction: 0.5,
-            pitch: 0.0,
-            yaw: 0.0,
-            velocity: Vec3::ZERO,
-        }
-    }
-}
-
-fn camera_controller(
-    time: Res<Time>,
-    mut mouse_events: EventReader<MouseMotion>,
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
-) {
-    let dt = time.delta_seconds();
-
-    // Handle mouse input
-    let mut mouse_delta = Vec2::ZERO;
-    for mouse_event in mouse_events.read() {
-        mouse_delta += mouse_event.delta;
-    }
-
-    for (mut transform, mut options) in &mut query {
-        if !options.enabled {
-            continue;
-        }
-
-        // Handle key input
-        let mut axis_input = Vec3::ZERO;
-        if key_input.pressed(options.key_forward) {
-            axis_input.z += 1.0;
-        }
-        if key_input.pressed(options.key_back) {
-            axis_input.z -= 1.0;
-        }
-        if key_input.pressed(options.key_right) {
-            axis_input.x += 1.0;
-        }
-        if key_input.pressed(options.key_left) {
-            axis_input.x -= 1.0;
-        }
-        if key_input.pressed(options.key_up) {
-            axis_input.y += 1.0;
-        }
-        if key_input.pressed(options.key_down) {
-            axis_input.y -= 1.0;
-        }
-
-        // Apply movement update
-        if axis_input != Vec3::ZERO {
-            let max_speed = if key_input.pressed(options.key_run) {
-                options.run_speed
-            } else {
-                options.walk_speed
-            };
-            options.velocity = axis_input.normalize() * max_speed;
-        } else {
-            let friction = options.friction.clamp(0.0, 1.0);
-            options.velocity *= 1.0 - friction;
-            if options.velocity.length_squared() < 1e-6 {
-                options.velocity = Vec3::ZERO;
-            }
-        }
-        let forward = transform.forward();
-        let right = transform.right();
-        transform.translation += options.velocity.x * dt * right
-            + options.velocity.y * dt * Vec3::Y
-            + options.velocity.z * dt * forward;
-
-        if mouse_delta != Vec2::ZERO {
-            // Apply look update
-            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
-                .clamp(-PI / 2., PI / 2.);
-            options.yaw -= mouse_delta.x * options.sensitivity * dt;
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
-        }
+        example_text.single_mut().sections[15].value = format!("{:.2}", light.shadow_depth_bias);
+        example_text.single_mut().sections[18].value = format!("{:.1}", light.shadow_normal_bias);
     }
 }

@@ -1,8 +1,8 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId},
+    archetype::Archetype,
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -175,16 +175,12 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -287,16 +283,12 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _access: &mut Access<ArchetypeComponentId>,
-    ) {
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<Self::State> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -449,6 +441,7 @@ macro_rules! impl_query_filter_tuple {
                         _new_access.extend_access(&intermediate);
                     } else {
                         $filter::update_component_access($filter, &mut _new_access);
+                        _new_access.required = access.required.clone();
                         _not_first = true;
                     }
                 )*
@@ -456,13 +449,12 @@ macro_rules! impl_query_filter_tuple {
                 *access = _new_access;
             }
 
-            fn update_archetype_component_access(state: &Self::State, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
-                let ($($filter,)*) = state;
-                $($filter::update_archetype_component_access($filter, archetype, access);)*
-            }
-
             fn init_state(world: &mut World) -> Self::State {
                 ($($filter::init_state(world),)*)
+            }
+
+            fn get_state(world: &World) -> Option<Self::State> {
+                Some(($($filter::get_state(world)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -524,6 +516,36 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Added` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Added<T>` filter will iterate over all of them even if none of them were just added.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::{DetectChanges, Ref};
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Added;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Added<Transform>>) {
+///     for item in &q { /* component added */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_added() { /* component added */ }
+///     }
+/// }
+/// ```
 ///
 /// # Examples
 ///
@@ -647,19 +669,12 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_read(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        &id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<ComponentId> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -698,6 +713,37 @@ impl<T: Component> QueryFilter for Added<T> {
 /// (like entity creation or entity component addition or removal)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Changed` is not [`ArchetypeFilter`], which practically means that
+/// if query (with `T` component filter) matches million entities,
+/// `Changed<T>` filter will iterate over all of them even if none of them were changed.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Changed<Transform>>) {
+///     for item in &q { /* component changed */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_changed() { /* component changed */ }
+///     }
+/// }
+/// ```
 ///
 /// # Examples
 ///
@@ -823,19 +869,12 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_read(id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
-        &id: &ComponentId,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        if let Some(archetype_component_id) = archetype.get_archetype_component_id(id) {
-            access.add_read(archetype_component_id);
-        }
-    }
-
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn get_state(world: &World) -> Option<ComponentId> {
+        world.component_id::<T>()
     }
 
     fn matches_component_set(

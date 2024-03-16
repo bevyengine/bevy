@@ -37,13 +37,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let base_color = Color::rgba(0.9, 0.2, 0.3, 1.0);
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
     let opaque = commands
@@ -146,10 +140,10 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK.into());
-    let white_material = materials.add(Color::WHITE.into());
+    let black_material = materials.add(Color::BLACK);
+    let white_material = materials.add(Color::WHITE);
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
 
     for x in -3..4 {
         for z in -3..4 {
@@ -174,6 +168,10 @@ fn setup(
 
     // Light
     commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
@@ -292,9 +290,9 @@ fn example_control_system(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::Up) {
+    if input.pressed(KeyCode::ArrowUp) {
         state.alpha = (state.alpha + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Down) {
+    } else if input.pressed(KeyCode::ArrowDown) {
         state.alpha = (state.alpha - time.delta_seconds()).max(0.0);
     }
 
@@ -302,7 +300,7 @@ fn example_control_system(
         state.unlit = !state.unlit;
     }
 
-    let randomize_colors = input.just_pressed(KeyCode::C);
+    let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
         let material = materials.get_mut(material_handle).unwrap();
@@ -320,13 +318,13 @@ fn example_control_system(
 
     let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
 
-    if input.just_pressed(KeyCode::H) {
+    if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
     }
 
-    let rotation = if input.pressed(KeyCode::Left) {
+    let rotation = if input.pressed(KeyCode::ArrowLeft) {
         time.delta_seconds()
-    } else if input.pressed(KeyCode::Right) {
+    } else if input.pressed(KeyCode::ArrowRight) {
         -time.delta_seconds()
     } else {
         0.0

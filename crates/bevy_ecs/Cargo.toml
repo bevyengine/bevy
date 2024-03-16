@@ -12,7 +12,8 @@ categories = ["game-engines", "data-structures"]
 [features]
 trace = []
 multi-threaded = ["bevy_tasks/multi-threaded"]
-default = ["bevy_reflect"]
+bevy_debug_stepping = []
+default = ["bevy_reflect", "bevy_debug_stepping"]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.12.1" }
@@ -21,8 +22,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.1" }
 bevy_ecs_macros = { path = "macros", version = "0.12.1" }
 
-async-channel = "1.4"
-event-listener = "2.5"
+async-channel = "2.1.0"
 thread_local = "1.1.4"
 fixedbitset = "0.4.2"
 rustc-hash = "1.1"
@@ -32,6 +32,7 @@ thiserror = "1.0"
 
 [dev-dependencies]
 rand = "0.8"
+static_assertions = "1.1.0"
 
 [[example]]
 name = "events"

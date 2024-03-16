@@ -4,9 +4,10 @@ use std::hash::Hash;
 
 /// Stateful run condition that can be toggled via a input press using [`ButtonInput::just_pressed`].
 ///
-/// ```rust,no_run
-/// use bevy::prelude::*;
-/// use bevy::input::common_conditions::input_toggle_active;
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_input::{common_conditions::input_toggle_active, prelude::KeyCode};
 ///
 /// fn main() {
 ///     App::new()
@@ -22,9 +23,10 @@ use std::hash::Hash;
 ///
 /// If you want other systems to be able to access whether the toggled state is active,
 /// you should use a custom resource or a state for that:
-/// ```rust,no_run
-/// use bevy::prelude::*;
-/// use bevy::input::common_conditions::input_just_pressed;
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::prelude::{IntoSystemConfigs, Res, ResMut, Resource};
+/// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 ///
 /// #[derive(Resource, Default)]
 /// struct Paused(bool);
@@ -71,9 +73,10 @@ where
 
 /// Run condition that is active if [`ButtonInput::just_pressed`] is true for the given input.
 ///
-/// ```rust,no_run
-/// use bevy::prelude::*;
-/// use bevy::input::common_conditions::input_just_pressed;
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::prelude::IntoSystemConfigs;
+/// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
@@ -101,7 +104,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::{IntoSystemConfigs, KeyCode, Schedule};
+    use crate::prelude::KeyCode;
+    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
 
     fn test_system() {}
 

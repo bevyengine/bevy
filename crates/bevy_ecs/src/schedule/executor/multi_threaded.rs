@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{block_on, poll_once, ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
@@ -163,7 +163,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        _skip_systems: Option<FixedBitSet>,
+        world: &mut World,
+    ) {
         // reset counts
         self.num_systems = schedule.systems.len();
         if self.num_systems == 0 {
@@ -179,6 +184,31 @@ impl SystemExecutor for MultiThreadedExecutor {
             if *dependencies == 0 {
                 self.ready_systems.insert(system_index);
             }
+        }
+
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(mut skipped_systems) = _skip_systems {
+            debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
+            // mark skipped systems as completed
+            self.completed_systems |= &skipped_systems;
+            self.num_completed_systems = self.completed_systems.count_ones(..);
+
+            // signal the dependencies for each of the skipped systems, as
+            // though they had run
+            for system_index in skipped_systems.ones() {
+                self.signal_dependents(system_index);
+            }
+
+            // Finally, we need to clear all skipped systems from the ready
+            // list.
+            //
+            // We invert the skipped system mask to get the list of systems
+            // that should be run.  Then we bitwise AND it with the ready list,
+            // resulting in a list of ready systems that aren't skipped.
+            skipped_systems.toggle_range(..);
+            self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world
@@ -197,7 +227,8 @@ impl SystemExecutor for MultiThreadedExecutor {
             |scope| {
                 // the executor itself is a `Send` future so that it can run
                 // alongside systems that claim the local thread
-                let executor = async {
+                #[allow(unused_mut)]
+                let mut executor = Box::pin(async {
                     let world_cell = world.as_unsafe_world_cell();
                     while self.num_completed_systems < self.num_systems {
                         // SAFETY:
@@ -222,13 +253,19 @@ impl SystemExecutor for MultiThreadedExecutor {
                             self.rebuild_active_access();
                         }
                     }
-                };
+                });
 
                 #[cfg(feature = "trace")]
                 let executor_span = info_span!("multithreaded executor");
                 #[cfg(feature = "trace")]
-                let executor = executor.instrument(executor_span);
-                scope.spawn(executor);
+                let mut executor = executor.instrument(executor_span);
+
+                // Immediately poll the task once to avoid the overhead of the executor
+                // and thread wake-up. Only spawn the task if the executor does not immediately
+                // terminate.
+                if block_on(poll_once(&mut executor)).is_none() {
+                    scope.spawn(executor);
+                }
             },
         );
 

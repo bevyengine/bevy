@@ -20,14 +20,13 @@ bevy_math = { path = "../bevy_math", version = "0.12.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.1" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.1", features = [
   "glam",
+  "smol_str",
 ] }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
-
-[dev-dependencies]
-bevy = { path = "../../", version = "0.12.1" }
+smol_str = "0.2"
 
 [lints]
 workspace = true

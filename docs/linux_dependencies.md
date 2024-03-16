@@ -7,7 +7,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 ## [Ubuntu](https://ubuntu.com/)
 
 ```bash
-sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 ```
 
 if using Wayland, you will also need to install

@@ -1,4 +1,4 @@
-use crate::DiagnosticId;
+use crate::DiagnosticPath;
 use bevy_app::prelude::*;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
@@ -24,10 +24,8 @@ impl Plugin for SystemInformationDiagnosticsPlugin {
 }
 
 impl SystemInformationDiagnosticsPlugin {
-    pub const CPU_USAGE: DiagnosticId =
-        DiagnosticId::from_u128(78494871623549551581510633532637320956);
-    pub const MEM_USAGE: DiagnosticId =
-        DiagnosticId::from_u128(42846254859293759601295317811892519825);
+    pub const CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/cpu_usage");
+    pub const MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
 }
 
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
@@ -43,29 +41,19 @@ impl SystemInformationDiagnosticsPlugin {
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_log::info;
-    use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
+    use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
+
+    use super::SystemInformationDiagnosticsPlugin;
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
     pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
-        diagnostics.add(
-            Diagnostic::new(
-                super::SystemInformationDiagnosticsPlugin::CPU_USAGE,
-                "cpu_usage",
-                20,
-            )
-            .with_suffix("%"),
-        );
-        diagnostics.add(
-            Diagnostic::new(
-                super::SystemInformationDiagnosticsPlugin::MEM_USAGE,
-                "mem_usage",
-                20,
-            )
-            .with_suffix("%"),
-        );
+        diagnostics
+            .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::CPU_USAGE).with_suffix("%"));
+        diagnostics
+            .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
     }
 
     pub(crate) fn diagnostic_system(
@@ -76,7 +64,7 @@ pub mod internal {
             *sysinfo = Some(System::new_with_specifics(
                 RefreshKind::new()
                     .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                    .with_memory(),
+                    .with_memory(MemoryRefreshKind::everything()),
             ));
         }
         let Some(sys) = sysinfo.as_mut() else {
@@ -91,10 +79,10 @@ pub mod internal {
         let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
         let current_used_mem = used_mem / total_mem * 100.0;
 
-        diagnostics.add_measurement(super::SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
+        diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
             current_cpu_usage as f64
         });
-        diagnostics.add_measurement(super::SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
+        diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
             current_used_mem
         });
     }
@@ -116,12 +104,8 @@ pub mod internal {
         sys.refresh_memory();
 
         let info = SystemInfo {
-            os: sys
-                .long_os_version()
-                .unwrap_or_else(|| String::from("not available")),
-            kernel: sys
-                .kernel_version()
-                .unwrap_or_else(|| String::from("not available")),
+            os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
+            kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
             cpu: sys.global_cpu_info().brand().trim().to_string(),
             core_count: sys
                 .physical_core_count()

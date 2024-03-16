@@ -54,16 +54,16 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::BLUE.into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::BLUE),
         ..default()
     });
 
     // Red cube: Never renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::RED.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::RED),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         },
@@ -71,16 +71,16 @@ fn setup(
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::ORANGE.into()),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::ORANGE),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // Green cube: Always renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::GREEN.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::GREEN),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         },
@@ -95,6 +95,10 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        point_light: PointLight {
+            intensity: 150_000.0,
+            ..default()
+        },
         ..default()
     });
 
@@ -139,12 +143,12 @@ Color: {:?}
     );
 
     // Toggle showing a wireframe on all meshes
-    if keyboard_input.just_pressed(KeyCode::Z) {
+    if keyboard_input.just_pressed(KeyCode::KeyZ) {
         config.global = !config.global;
     }
 
     // Toggle the global wireframe color
-    if keyboard_input.just_pressed(KeyCode::X) {
+    if keyboard_input.just_pressed(KeyCode::KeyX) {
         config.default_color = if config.default_color == Color::WHITE {
             Color::PINK
         } else {
@@ -153,7 +157,7 @@ Color: {:?}
     }
 
     // Toggle the color of a wireframe using WireframeColor and not the global color
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
             color.color = if color.color == Color::GREEN {
                 Color::RED

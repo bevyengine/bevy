@@ -15,7 +15,7 @@ license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 
 [dependencies]
-glam = "0.24.1"
+glam = "0.25"
 
 [[example]]
 name = "generate"

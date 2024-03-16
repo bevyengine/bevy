@@ -1,3 +1,5 @@
+//! Illustrates spot lights.
+
 use std::f32::consts::*;
 
 use bevy::{
@@ -10,14 +12,13 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            brightness: 0.02,
+            brightness: 4.0,
             ..default()
         })
         .add_plugins((
             DefaultPlugins,
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
-            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement))
@@ -35,15 +36,15 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(Color::WHITE.into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
+        material: materials.add(Color::WHITE),
         ..default()
     });
 
     // cubes
     let mut rng = StdRng::seed_from_u64(19878367467713);
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
-    let blue = materials.add(Color::rgb_u8(124, 144, 255).into());
+    let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
+    let blue = materials.add(Color::rgb_u8(124, 144, 255));
     for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
         let y = rng.gen_range(0.0..3.0);
@@ -59,22 +60,16 @@ fn setup(
         ));
     }
 
-    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.05,
-        ..default()
-    }));
-    let sphere_mesh_direction = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.1,
-        ..default()
-    }));
+    let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
+    let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
         base_color: Color::RED,
-        emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: Color::MAROON,
-        emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
+        emissive: Color::rgba_linear(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
     for x in 0..4 {
@@ -87,7 +82,7 @@ fn setup(
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
-                        intensity: 200.0, // lumens
+                        intensity: 100_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
@@ -147,16 +142,16 @@ fn movement(
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::Up) {
+        if input.pressed(KeyCode::ArrowUp) {
             direction.z -= 1.0;
         }
-        if input.pressed(KeyCode::Down) {
+        if input.pressed(KeyCode::ArrowDown) {
             direction.z += 1.0;
         }
-        if input.pressed(KeyCode::Left) {
+        if input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::Right) {
+        if input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
         if input.pressed(KeyCode::PageUp) {

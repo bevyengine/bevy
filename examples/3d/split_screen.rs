@@ -3,15 +3,14 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig, pbr::CascadeShadowConfigBuilder, prelude::*,
-    render::camera::Viewport, window::WindowResized,
+    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, set_camera_viewports)
+        .add_systems(Update, (set_camera_viewports, button_system))
         .run();
 }
 
@@ -24,8 +23,8 @@ fn setup(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -38,6 +37,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
+            illuminance: 1500.0,
             shadows_enabled: true,
             ..default()
         },
@@ -52,32 +52,131 @@ fn setup(
     });
 
     // Left Camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        LeftCamera,
-    ));
+    let left_camera = commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
+                ..default()
+            },
+            LeftCamera,
+        ))
+        .id();
 
     // Right Camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
-                // Renders the right camera after the left camera, which has a default priority of 0
-                order: 1,
+    let right_camera = commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
+                camera: Camera {
+                    // Renders the right camera after the left camera, which has a default priority of 0
+                    order: 1,
+                    // don't clear on the second camera because the first camera already cleared the window
+                    clear_color: ClearColorConfig::None,
+                    ..default()
+                },
                 ..default()
             },
-            camera_3d: Camera3d {
-                // don't clear on the second camera because the first camera already cleared the window
-                clear_color: ClearColorConfig::None,
+            RightCamera,
+        ))
+        .id();
+
+    // Set up UI
+    commands
+        .spawn((
+            TargetCamera(left_camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        RightCamera,
-    ));
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Left",
+                TextStyle {
+                    font_size: 20.,
+                    ..default()
+                },
+            ));
+            buttons_panel(parent);
+        });
+
+    commands
+        .spawn((
+            TargetCamera(right_camera),
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Right",
+                TextStyle {
+                    font_size: 20.,
+                    ..default()
+                },
+            ));
+            buttons_panel(parent);
+        });
+
+    fn buttons_panel(parent: &mut ChildBuilder) {
+        parent
+            .spawn(NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|parent| {
+                rotate_button(parent, "<", Direction::Left);
+                rotate_button(parent, ">", Direction::Right);
+            });
+    }
+
+    fn rotate_button(parent: &mut ChildBuilder, caption: &str, direction: Direction) {
+        parent
+            .spawn((
+                RotateCamera(direction),
+                ButtonBundle {
+                    style: Style {
+                        width: Val::Px(40.),
+                        height: Val::Px(40.),
+                        border: UiRect::all(Val::Px(2.)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    border_color: Color::WHITE.into(),
+                    background_color: Color::DARK_GRAY.into(),
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    caption,
+                    TextStyle {
+                        font_size: 20.,
+                        ..default()
+                    },
+                ));
+            });
+    }
 }
 
 #[derive(Component)]
@@ -85,6 +184,14 @@ struct LeftCamera;
 
 #[derive(Component)]
 struct RightCamera;
+
+#[derive(Component)]
+struct RotateCamera(Direction);
+
+enum Direction {
+    Left,
+    Right,
+}
 
 fn set_camera_viewports(
     windows: Query<&Window>,
@@ -116,5 +223,28 @@ fn set_camera_viewports(
             ),
             ..default()
         });
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn button_system(
+    interaction_query: Query<
+        (&Interaction, &TargetCamera, &RotateCamera),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+) {
+    for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
+        if let Interaction::Pressed = *interaction {
+            // Since TargetCamera propagates to the children, we can use it to find
+            // which side of the screen the button is on.
+            if let Ok(mut camera_transform) = camera_query.get_mut(target_camera.entity()) {
+                let angle = match direction {
+                    Direction::Left => -0.1,
+                    Direction::Right => 0.1,
+                };
+                camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
+            }
+        }
     }
 }

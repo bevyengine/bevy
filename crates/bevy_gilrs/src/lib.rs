@@ -3,8 +3,6 @@
 //! This crate is built on top of [GilRs](gilrs), a library
 //! that handles abstracting over platform-specific gamepad APIs.
 
-#![warn(missing_docs)]
-
 mod converter;
 mod gilrs_system;
 mod rumble;
