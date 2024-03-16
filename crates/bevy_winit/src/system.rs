@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{NonSendMut, Query, SystemParamItem},
+    system::{NonSendMut, Query, SystemParamItem, Local},
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
@@ -103,13 +103,20 @@ pub(crate) fn despawn_windows(
     window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
+    // Winit windows are preserved for an extra frame in this vector.
+    // This is due to the window still being active on render world when using pipelined rendering.
+    mut pending_window_removal: Local<Vec<Entity>>,
 ) {
+    for window in pending_window_removal.drain(..) {
+        winit_windows.remove_window(window);
+    }
     for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.
         if !window_entities.contains(window) {
-            winit_windows.remove_window(window);
+            // Delay winit window removal by a frame.
+            pending_window_removal.push(window);
             close_events.send(WindowClosed { window });
         }
     }
