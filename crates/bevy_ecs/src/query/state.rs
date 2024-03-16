@@ -314,20 +314,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
                 self.matched_archetypes.set(archetype_index, true);
-                // This is inside the outer if because point queries (i.e. QueryState::get)
-                // always relies on matched_archetypes, while matched_tables is only use
-                // relied on for deduplication here.
                 if !D::IS_DENSE || !F::IS_DENSE {
                     self.matched_storage_ids.push(StorageId {
                         archetype_id: archetype.id(),
                     });
                 }
             }
-            if D::IS_DENSE && F::IS_DENSE {
-                let table_index = archetype.table_id().as_usize();
-                if !self.matched_tables.contains(table_index) {
-                    self.matched_tables.grow(table_index + 1);
-                    self.matched_tables.set(table_index, true);
+            let table_index = archetype.table_id().as_usize();
+            if !self.matched_tables.contains(table_index) {
+                self.matched_tables.grow(table_index + 1);
+                self.matched_tables.set(table_index, true);
+                if D::IS_DENSE && F::IS_DENSE {
                     self.matched_storage_ids.push(StorageId {
                         table_id: archetype.table_id(),
                     });
