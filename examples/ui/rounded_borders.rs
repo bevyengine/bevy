@@ -92,13 +92,13 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                border_radius: UiBorderRadius::all(Val::Px(5.)),
+                border_radius: BorderRadius::all(Val::Px(5.)),
                 background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
         let border = borders[i % borders.len()];
-        let border_radius = UiBorderRadius::px(
+        let border_radius = BorderRadius::px(
             if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
                 f32::MAX
             } else {

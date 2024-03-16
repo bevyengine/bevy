@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     border_color: BorderColor(Color::BLACK),
-                    border_radius: UiBorderRadius::MAX,
+                    border_radius: BorderRadius::MAX,
                     image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
                 })

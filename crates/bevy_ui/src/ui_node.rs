@@ -1835,7 +1835,7 @@ impl Default for ZIndex {
 ///                 ..Default::default()
 ///             },
 ///             background_color: BLUE.into(),
-///             border_radius: UiBorderRadius::new(
+///             border_radius: BorderRadius::new(
 ///                 // top left
 ///                 Val::Px(10.),
 ///                 // top right
@@ -1859,20 +1859,20 @@ impl Default for ZIndex {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct UiBorderRadius {
+pub struct BorderRadius {
     pub top_left: Val,
     pub top_right: Val,
     pub bottom_left: Val,
     pub bottom_right: Val,
 }
 
-impl Default for UiBorderRadius {
+impl Default for BorderRadius {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
-impl UiBorderRadius {
+impl BorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
     /// Zero curvature. All the corners will be right-angled.

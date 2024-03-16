@@ -16,8 +16,8 @@ pub use ui_material_pipeline::*;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, CalculatedClip,
-    ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiBorderRadius, UiImage,
+    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
+    CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
     UiScale, Val,
 };
 
@@ -187,7 +187,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &BackgroundColor,
-            &UiBorderRadius,
+            &BorderRadius,
         )>,
     >,
 ) {
@@ -262,7 +262,7 @@ pub fn extract_uinode_images(
             &UiImage,
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
-            &UiBorderRadius,
+            &BorderRadius,
         )>,
     >,
 ) {
@@ -354,7 +354,7 @@ pub(crate) fn resolve_border_thickness(value: Val, parent_width: f32, viewport_s
 }
 
 pub(crate) fn resolve_border_radius(
-    &values: &UiBorderRadius,
+    &values: &BorderRadius,
     node_size: Vec2,
     viewport_size: Vec2,
     ui_scale: f32,
@@ -419,7 +419,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &Style,
                 &BorderColor,
-                &UiBorderRadius,
+                &BorderRadius,
             ),
             Without<ContentSize>,
         >,
