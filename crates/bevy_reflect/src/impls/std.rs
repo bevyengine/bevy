@@ -1032,7 +1032,7 @@ impl<T: FromReflect + TypePath + GetTypeRegistration> Enum for Option<T> {
         None
     }
 
-    fn name_at(&self, _index: usize) -> Option<&'static str> {
+    fn name_at(&self, _index: usize) -> Option<&str> {
         None
     }
 
