@@ -379,8 +379,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     fn add_required(&mut self, index: T) {
-        let index = index.sparse_set_index();
-        self.required.grow_and_insert(index);
+        self.required.grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -388,9 +387,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.with.grow_and_insert(index);
+            filter.with.grow_and_insert(index.sparse_set_index());
         }
     }
 
@@ -399,9 +397,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.without.grow_and_insert(index + 1);
+            filter.without.grow_and_insert(index.sparse_set_index());
         }
     }
 
