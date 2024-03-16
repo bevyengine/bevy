@@ -75,8 +75,8 @@ pub trait Hue: Sized {
 
     /// Return a new version of this color with the hue channel rotated by the given degrees.
     fn rotate_hue(&self, degrees: f32) -> Self {
-        let degrees = degrees.rem_euclid(360.);
-        self.with_hue((self.hue() + degrees) % 360.)
+        let rotated_hue = (self.hue() + degrees).rem_euclid(360.);
+        self.with_hue(rotated_hue)
     }
 }
 
