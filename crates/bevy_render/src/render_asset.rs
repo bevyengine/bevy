@@ -402,6 +402,10 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
