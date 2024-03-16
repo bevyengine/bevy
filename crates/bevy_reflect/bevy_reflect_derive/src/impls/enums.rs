@@ -134,7 +134,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
 
-            fn name_at(&self, #ref_index: usize) -> #FQOption<&str> {
+            fn name_at(&self, #ref_index: usize) -> #FQOption<&'static str> {
                  match self {
                     #(#enum_name_at,)*
                     _ => #FQOption::None,
@@ -154,7 +154,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #[inline]
-            fn variant_name(&self) -> &str {
+            fn variant_name(&self) -> &'static str {
                  match self {
                     #(#enum_variant_name,)*
                     _ => unreachable!(),

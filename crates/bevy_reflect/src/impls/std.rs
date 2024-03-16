@@ -1032,7 +1032,7 @@ impl<T: FromReflect + TypePath + GetTypeRegistration> Enum for Option<T> {
         None
     }
 
-    fn name_at(&self, _index: usize) -> Option<&str> {
+    fn name_at(&self, _index: usize) -> Option<&'static str> {
         None
     }
 
@@ -1049,7 +1049,7 @@ impl<T: FromReflect + TypePath + GetTypeRegistration> Enum for Option<T> {
     }
 
     #[inline]
-    fn variant_name(&self) -> &str {
+    fn variant_name(&self) -> &'static str {
         match self {
             Some(..) => "Some",
             None => "None",

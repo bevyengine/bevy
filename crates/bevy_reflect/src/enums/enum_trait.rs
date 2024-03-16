@@ -113,7 +113,7 @@ pub trait Enum: Reflect {
     /// Returns the number of fields in the current variant.
     fn field_len(&self) -> usize;
     /// The name of the current variant.
-    fn variant_name(&self) -> &str;
+    fn variant_name(&self) -> &'static str;
     /// The index of the current variant.
     fn variant_index(&self) -> usize;
     /// The type of the current variant.

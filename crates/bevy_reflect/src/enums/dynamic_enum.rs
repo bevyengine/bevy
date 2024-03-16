@@ -72,7 +72,7 @@ impl From<()> for DynamicVariant {
 #[derive(Default, Debug)]
 pub struct DynamicEnum {
     represented_type: Option<&'static TypeInfo>,
-    variant_name: String,
+    variant_name: &'static str,
     variant_index: usize,
     variant: DynamicVariant,
 }
@@ -85,7 +85,7 @@ impl DynamicEnum {
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
     ///
-    pub fn new<I: Into<String>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
+    pub fn new<I: Into<&'static str>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
         Self {
             represented_type: None,
             variant_index: 0,
@@ -102,7 +102,7 @@ impl DynamicEnum {
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
     ///
-    pub fn new_with_index<I: Into<String>, V: Into<DynamicVariant>>(
+    pub fn new_with_index<I: Into<&'static str>, V: Into<DynamicVariant>>(
         variant_index: usize,
         variant_name: I,
         variant: V,
@@ -135,13 +135,13 @@ impl DynamicEnum {
     }
 
     /// Set the current enum variant represented by this struct.
-    pub fn set_variant<I: Into<String>, V: Into<DynamicVariant>>(&mut self, name: I, variant: V) {
+    pub fn set_variant<I: Into<&'static str>, V: Into<DynamicVariant>>(&mut self, name: I, variant: V) {
         self.variant_name = name.into();
         self.variant = variant.into();
     }
 
     /// Set the current enum variant represented by this struct along with its variant index.
-    pub fn set_variant_with_index<I: Into<String>, V: Into<DynamicVariant>>(
+    pub fn set_variant_with_index<I: Into<&'static str>, V: Into<DynamicVariant>>(
         &mut self,
         variant_index: usize,
         variant_name: I,
@@ -261,8 +261,8 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn variant_name(&self) -> &str {
-        &self.variant_name
+    fn variant_name(&self) -> &'static str {
+        self.variant_name
     }
 
     fn variant_index(&self) -> usize {
@@ -281,7 +281,7 @@ impl Enum for DynamicEnum {
         Self {
             represented_type: self.represented_type,
             variant_index: self.variant_index,
-            variant_name: self.variant_name.clone(),
+            variant_name: self.variant_name,
             variant: self.variant.clone(),
         }
     }
