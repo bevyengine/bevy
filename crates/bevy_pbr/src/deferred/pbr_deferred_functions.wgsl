@@ -106,10 +106,12 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     var out: FragmentOutput;
 
+#ifdef DEFERRED_PREPASS
     // gbuffer
     out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
     // lighting pass id (used to determine which lighting shader to run for the fragment)
     out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
+#endif
     // normal if required
 #ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);

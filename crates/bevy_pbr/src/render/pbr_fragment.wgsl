@@ -41,11 +41,13 @@ fn pbr_input_from_vertex_output(
     pbr_input.material.base_color = in.color;
 #endif
 
+#ifdef VERTEX_NORMALS
     pbr_input.world_normal = pbr_functions::prepare_world_normal(
         in.world_normal,
         double_sided,
         is_front,
     );
+#endif
 
 #ifdef LOAD_PREPASS_NORMALS
     pbr_input.N = prepass_utils::prepass_normal(in.position, 0u);
