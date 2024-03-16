@@ -1,7 +1,8 @@
 mod render_layers;
 
 use bevy_derive::Deref;
-pub use render_layers::*;
+pub use render_groups::*;
+//pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
@@ -199,8 +200,8 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
-    /// Label for the system propagating the [`InheritedVisibility`] in a
-    /// [`hierarchy`](bevy_hierarchy).
+    /// Label for the system propagating [`InheritedVisibility`] and applying [`PropagateRenderGroups`]
+    /// in a [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
@@ -238,7 +239,11 @@ impl Plugin for VisibilityPlugin {
                     .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
-                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
+                (visibility_propagate_system, propagate_render_groups, reset_view_visibility).in_set(VisibilityPropagate),
+                // Use apply_deferred to process InheritedRenderGroups component additions/removals.
+                apply_deferred
+                    .after(VisibilityPropagate)
+                    .before(CheckVisibility),
                 check_visibility
                     .in_set(CheckVisibility)
                     .after(CalculateBounds)
@@ -353,6 +358,190 @@ fn propagate_recursive(
     Ok(())
 }
 
+fn propagate_render_groups(
+    mut updated_entities: Local<EntityHashSet>,
+    mut commands: Commands,
+    // Query for all propagators with changed PropagateRenderGroups.
+    // This does a 'full propagation' to push changes all the way down the tree.
+    changed_propagate_cameras_query: Query<
+        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups),
+        Changed<PropagateRenderGroups>
+    >,
+    // Query for camera propagator entities with changed CameraView.
+    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
+    changed_view_cameras_query: Query<
+        (Entity, &CameraView, Option<&RenderGroups>, &PropagateRenderGroups),
+        (With<Camera>, Changed<CameraView>),
+    >,
+    // Tracker to identify entities that lost CameraView.
+    mut removed_cameraview: RemovedComponents<CameraView>,
+    // Query for all propagators with removed CameraView.
+    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
+    removed_cameraview_propagator_query: Query<
+        (Entity, Option<&RenderGroups>, Option<&Camera>, &PropagateRenderGroups),
+        Without<CameraView>
+    >,
+    // Query for all propagator entities with updated RenderGroups.
+    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
+    changed_rendergroups_propagator_query: Query<
+        (Entity, &RenderGroups, &PropagateRenderGroups),
+        (Changed<RenderGroups>)
+    >,
+    // Tracker to identify entities that lost RenderGroups.
+    mut removed_rendergroups: RemovedComponents<RenderGroups>,
+    // Query for propagator entities with removed RenderGroups.
+    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
+    removed_rendergroups_propagator_query: Query<
+        (Entity, Option<&CameraView>, Option<&Camera>, &PropagateRenderGroups),
+        Without<RenderGroups>
+    >,
+    // Query for all propagators with changed children.
+    // This does a 'propagator enity propagation' to push changes to only descendents with different propagater
+    // entities.
+    changed_children_propagator_query: Query<
+        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups),
+        Changed<Children>,
+    >,
+    // Tracker to identify entities that lost PropagateRenderGroups.
+    // These entities and their children will be 'repropagated' from the lost entities' parents.
+    // - Takes into account where the entity has a parent.
+    // - Takes into account whether the parent is a propagator or non-propagater.
+    mut removed_propagate: RemovedComponents<PropagateRenderGroups>,
+    removed_propagate_entities: Query<&Children, Without<PropagateRenderGroups>>,
+    // Query for entities with InheritedRenderGroups who gained a new parent.
+    // - Ignores entities whose parents have PropagateRenderGroups, since that case is handled by
+    //   changed_children_propagator_query.
+    // - If the parent doesn't have InheritedRenderGroups, then the entity and its children will be 'unpropagated'.
+    // - If the parent does have InheritedRenderGroups, then propagation will be applied to the entity and
+    //   its children.
+    // This does a 'propagator enity propagation' to push changes to only descendents with different propagater
+    // entities.
+    changed_parents_query: Query<
+        (Entity, Option<&Children>),
+        (Changed<Parent>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // Query for entities with InheritedRenderGroups whose children changed.
+    // - Ignores children with InheritedRenderGroups, those are handled by changed_parents_query.
+    // This does a 'propagator enity propagation' to push changes to only descendents with different propagater
+    // entities.
+    changed_children_query: Query<
+        (Entity, &Children),
+        (Changed<Children>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // Query for non-propagator entities with updated RenderGroups.
+    // This updates the entity's InheritedRenderGroups.
+    changed_rendergroups_query: Query<
+        (Entity, &RenderGroups),
+        (Changed<RenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // Query for non-propagator entities with InheritedRenderGroups and removed RenderGroups.
+    // This updates the entity's InheritedRenderGroups.
+    removed_rendergroups_query: Query<
+        Entity,
+        (With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // Query for entities with PropagateRenderGroups that InheritedRenderGroups needs to be removed from.
+    dirty_propagators: Query<Entity, (With<InheritedRenderGroups>, With<PropagateRenderGroups>)>,
+    // Query for getting Children.
+    children_query: Query<&Children>,
+    // Query for entities that propagate.
+    // Used when pulling inheritance information from the parent.
+    propagators: Query<
+        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups)
+    >,
+    // Query for entities that inherited and don't propagate.
+    // Used when pulling inheritance information from the parent.
+    nonpropagators: Query<(), (With<InheritedRenderGroups>, Without<PropagateRenderGroups>)>,
+    // Query for updating InheritedRenderGroups on entities.
+    mut maybe_inherited_query: Query<(Entity, Option<&RenderGroups>, Option<&mut InheritedRenderGroups>)>,
+) {
+
+    let camera_view = maybe_camera_view.unwrap_or(&CameraView::default());
+
+    let mut propagated = if let Some(propagate) = maybe_propagate_groups {
+        Some(propagate.get_from_camera(entity, camera_view))
+    } else {
+        None
+    };
+
+
+    // Track updated entities to prevent redundant updates, as `Commands` changes are deferred.
+    //
+    // Using this ensures that once mutations to entities with PropagateRenderGroups have been
+    // propagated, all entities affected by those changes won't be mutated again. This makes it
+    // safe to read parent InheritedRenderGroups (in the other cases that need to be handled) in
+    // order to 'pull in' inherited changes when needed.
+    updated_entities.clear();
+
+    // Assuming that TargetCamera is manually set on the root node only,
+    // update root nodes first, since it implies the biggest change
+    for (root_node, target_camera) in &changed_root_nodes_query {
+        update_children_render_groups(
+            root_node,
+            target_camera,
+            &node_query,
+            &children_query,
+            &mut commands,
+            &mut updated_entities,
+        );
+    }
+
+    // If the root node TargetCamera was changed, then every child is updated
+    // by this point, and iteration will be skipped.
+    // Otherwise, update changed children
+    for (parent, target_camera) in &changed_children_query {
+        update_children_render_groups(
+            parent,
+            target_camera,
+            &node_query,
+            &children_query,
+            &mut commands,
+            &mut updated_entities,
+        );
+    }
+}
+
+fn update_children_render_groups(
+    entity: Entity,
+    camera_to_set: Option<&TargetCamera>,
+    node_query: &Query<Option<&TargetCamera>, With<Node>>,
+    children_query: &Query<&Children, With<Node>>,
+    commands: &mut Commands,
+    updated_entities: &mut HashSet<Entity>,
+) {
+    let Ok(children) = children_query.get(entity) else {
+        return;
+    };
+
+    for &child in children {
+        // Skip if the child has already been updated or update is not needed
+        if updated_entities.contains(&child)
+            || camera_to_set == node_query.get(child).ok().flatten()
+        {
+            continue;
+        }
+
+        match camera_to_set {
+            Some(camera) => {
+                commands.entity(child).insert(camera.clone());
+            }
+            None => {
+                commands.entity(child).remove::<TargetCamera>();
+            }
+        }
+        updated_entities.insert(child);
+
+        update_children_render_groups(
+            child,
+            camera_to_set,
+            node_query,
+            children_query,
+            commands,
+            updated_entities,
+        );
+    }
+}
+
 /// Resets the view visibility of every entity.
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
@@ -372,29 +561,32 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
+    mut commands: Commands,
     mut view_query: Query<(
+        Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&RenderLayers>,
+        Option<&CameraView>,
         &Camera,
     )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        Option<&RenderLayers>,
+        Option<&RenderGroups>,
+        Option<&InheritedRenderGroups>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
         if !camera.is_active {
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let camera_view = maybe_camera_view.unwrap_or(&CameraView::default());
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each(|query_item| {
@@ -402,7 +594,8 @@ pub fn check_visibility(
                 entity,
                 inherited_visibility,
                 mut view_visibility,
-                maybe_entity_mask,
+                maybe_groups,
+                maybe_inherited_groups,
                 maybe_model_aabb,
                 transform,
                 no_frustum_culling,
@@ -414,8 +607,11 @@ pub fn check_visibility(
                 return;
             }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
+            // Check render groups.
+            let entity_groups = maybe_inherited_groups.map(|i| &i.computed)
+                .or(maybe_groups)
+                .unwrap_or(&RenderGroups::default());
+            if !camera_view.entity_is_visible(camera_entity, entity_groups) {
                 return;
             }
 
