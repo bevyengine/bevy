@@ -97,26 +97,17 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
-    /// Increases the set capacity to the specified amount.
-    ///
-    /// Does nothing if `capacity` is less than or equal to the current value.
-    pub fn grow(&mut self, capacity: usize) {
-        self.reads_and_writes.grow(capacity);
-        self.writes.grow(capacity);
-    }
-
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
+        self.reads_and_writes
+            .grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
-        self.writes.grow(index.sparse_set_index() + 1);
-        self.writes.insert(index.sparse_set_index());
+        self.reads_and_writes
+            .grow_and_insert(index.sparse_set_index());
+        self.writes.grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds an archetypal (indirect) access to the element given by `index`.
@@ -128,8 +119,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn add_archetypal(&mut self, index: T) {
-        self.archetypal.grow(index.sparse_set_index() + 1);
-        self.archetypal.insert(index.sparse_set_index());
+        self.archetypal.grow_and_insert(index.sparse_set_index());
     }
 
     /// Returns `true` if this can access the element given by `index`.
@@ -390,8 +380,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     fn add_required(&mut self, index: T) {
         let index = index.sparse_set_index();
-        self.required.grow(index + 1);
-        self.required.insert(index);
+        self.required.grow_and_insert(index);
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -401,8 +390,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn and_with(&mut self, index: T) {
         let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.with.grow(index + 1);
-            filter.with.insert(index);
+            filter.with.grow_and_insert(index);
         }
     }
 
@@ -413,8 +401,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn and_without(&mut self, index: T) {
         let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.without.grow(index + 1);
-            filter.without.insert(index);
+            filter.without.grow_and_insert(index + 1);
         }
     }
 
@@ -689,7 +676,6 @@ mod tests {
     fn read_all_access_conflicts() {
         // read_all / single write
         let mut access_a = Access::<usize>::default();
-        access_a.grow(10);
         access_a.add_write(0);
 
         let mut access_b = Access::<usize>::default();
@@ -699,7 +685,6 @@ mod tests {
 
         // read_all / read_all
         let mut access_a = Access::<usize>::default();
-        access_a.grow(10);
         access_a.read_all();
 
         let mut access_b = Access::<usize>::default();

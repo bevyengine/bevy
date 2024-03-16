@@ -304,14 +304,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
-                self.matched_archetypes.grow(archetype_index + 1);
-                self.matched_archetypes.set(archetype_index, true);
+                self.matched_archetypes.grow_and_insert(archetype_index);
                 self.matched_archetype_ids.push(archetype.id());
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
-                self.matched_tables.grow(table_index + 1);
-                self.matched_tables.set(table_index, true);
+                self.matched_tables.grow_and_insert(table_index);
                 self.matched_table_ids.push(archetype.table_id());
             }
         }
