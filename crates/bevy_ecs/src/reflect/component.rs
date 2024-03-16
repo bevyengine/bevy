@@ -253,7 +253,7 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
