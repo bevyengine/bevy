@@ -2008,35 +2008,35 @@ impl BorderRadius {
         }
     }
 
-    /// Returns the [`UiBorderRadius`] with its `top_left` field set to the given value.
+    /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
     #[inline]
     pub fn with_top_left(mut self, radius: Val) -> Self {
         self.top_left = radius;
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `top_right` field set to the given value.
+    /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
     #[inline]
     pub fn with_top_right(mut self, radius: Val) -> Self {
         self.top_right = radius;
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `bottom_right` field set to the given value.
+    /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
     #[inline]
     pub fn with_bottom_right(mut self, radius: Val) -> Self {
         self.bottom_right = radius;
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `bottom_left` field set to the given value.
+    /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
     #[inline]
     pub fn with_bottom_left(mut self, radius: Val) -> Self {
         self.bottom_left = radius;
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
+    /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
     #[inline]
     pub fn with_left(mut self, radius: Val) -> Self {
         self.top_left = radius;
@@ -2044,7 +2044,7 @@ impl BorderRadius {
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
+    /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
     #[inline]
     pub fn with_right(mut self, radius: Val) -> Self {
         self.top_right = radius;
@@ -2052,7 +2052,7 @@ impl BorderRadius {
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `top_left` and `top_right` fields set to the given value.
+    /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
     #[inline]
     pub fn with_top(mut self, radius: Val) -> Self {
         self.top_left = radius;
@@ -2060,7 +2060,7 @@ impl BorderRadius {
         self
     }
 
-    /// Returns the [`UiBorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
+    /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
     #[inline]
     pub fn with_bottom(mut self, radius: Val) -> Self {
         self.bottom_left = radius;
