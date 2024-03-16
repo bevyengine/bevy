@@ -629,6 +629,57 @@ impl Torus {
     }
 }
 
+/// A 3D triangle primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Triangle3d {
+    /// The vertices of the triangle
+    pub vertices: [Vec3; 3],
+}
+
+impl Primitive3d for Triangle3d {}
+
+impl Default for Triangle3d {
+    /// Returns the default [`Triangle3d`] with vertices at the `[-0.5, 0.0, 0.0]`, `[0.5, 0.0, 0.0]`, and `[0.0, 0.5, 0.0]`
+    fn default() -> Self {
+        Self {
+            vertices: [Vec3::ZERO, Vec3::X, Vec3::Y],
+        }
+    }
+}
+
+impl Triangle3d {
+    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+
+    /// Get the area of the triangle
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+        
+        let s = (ab + bc + ca) / 2.0;
+        (s * (s - ab) * (s - bc) * (s - ca)).sqrt()
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+        ab + bc + ca
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
