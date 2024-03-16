@@ -3,12 +3,7 @@
     view_transformations::uv_to_ndc,
     prepass_io,
     pbr_prepass_functions,
-}
-
-fn rand_f(state: ptr<function, u32>) -> f32 {
-    *state = *state * 747796405u + 2891336453u;
-    let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
-    return f32((word >> 22u) ^ word) * bitcast<f32>(0x2f800004u);
+    utils::rand_f,
 }
 
 @vertex

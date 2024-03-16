@@ -189,7 +189,7 @@ impl MeshletMesh {
             .collect();
 
         Ok(Self {
-            total_meshlet_indices: 0, // TODO
+            total_meshlet_triangles: 0, // TODO
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),

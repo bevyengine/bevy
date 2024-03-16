@@ -368,20 +368,13 @@ fn raster_pass(
         draw_pass.set_camera_viewport(viewport);
     }
 
-    draw_pass.set_index_buffer(
-        meshlet_view_resources
-            .visibility_buffer_draw_index_buffer
-            .slice(..),
-        0,
-        IndexFormat::Uint32,
-    );
     draw_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer_raster,
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(visibility_buffer_raster_pipeline);
-    draw_pass.draw_indexed_indirect(visibility_buffer_draw_command_buffer, 0);
+    draw_pass.draw_indirect(visibility_buffer_draw_command_buffer, 0);
 }
 
 fn downsample_depth(

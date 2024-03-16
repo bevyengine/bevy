@@ -37,11 +37,10 @@ struct MeshletBoundingSphere {
     radius: f32,
 }
 
-struct DrawIndexedIndirectArgs {
-    index_count: atomic<u32>,
+struct DrawIndirectArgs {
+    vertex_count: atomic<u32>,
     instance_count: u32,
-    first_index: u32,
-    base_vertex: i32,
+    first_vertex: u32,
     first_instance: u32,
 }
 
@@ -77,7 +76,7 @@ fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
 @group(0) @binding(2) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
-@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndexedIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
 fn get_meshlet_occlusion(cluster_id: u32) -> bool {
@@ -103,7 +102,8 @@ fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
 @group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
-@group(0) @binding(8) var<uniform> view: View;
+@group(0) @binding(8) var<storage, read> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(9) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

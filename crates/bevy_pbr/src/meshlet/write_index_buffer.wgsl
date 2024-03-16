@@ -9,7 +9,7 @@
 
 var<workgroup> draw_index_buffer_start_workgroup: u32;
 
-/// This pass writes out an index buffer for the draw_indirect() call to rasterize each visible meshlet.
+/// This pass writes out a buffer of cluster + triangle IDs for the draw_indirect() call to rasterize each visible meshlet.
 
 @compute
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 workgroup per cluster, 1 thread per triangle
@@ -29,19 +29,15 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
 
-    // Reserve space in the index buffer for this meshlet, and broadcast the start of that slice to all threads
+    // Reserve space in the buffer for this meshlet's triangles, and broadcast the start of that slice to all threads
     if triangle_id == 0u {
-        draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.index_count, meshlet.triangle_count * 3u);
+        draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.vertex_count, meshlet.triangle_count * 3u);
+        draw_index_buffer_start_workgroup /= 3u;
     }
     workgroupBarrier();
-    let base_index_id = triangle_id * 3u;
-    let draw_index_buffer_start = draw_index_buffer_start_workgroup + base_index_id;
 
-    // Each thread writes one triangle of the meshlet to the index buffer slice
-    let base_index = (cluster_id << 8u) | base_index_id;
+    // Each thread writes one triangle of the meshlet to the buffer slice reserved for the meshlet
     if triangle_id < meshlet.triangle_count {
-        draw_index_buffer[draw_index_buffer_start] = base_index;
-        draw_index_buffer[draw_index_buffer_start + 1u] = base_index + 1u;
-        draw_index_buffer[draw_index_buffer_start + 2u] = base_index + 2u;
+        draw_index_buffer[draw_index_buffer_start_workgroup + triangle_id] = (cluster_id << 8u) | triangle_id;
     }
 }

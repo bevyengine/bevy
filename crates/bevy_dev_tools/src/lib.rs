@@ -3,8 +3,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_app::prelude::*;
+
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
+pub mod fps_overlay;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
