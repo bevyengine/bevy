@@ -106,14 +106,10 @@ impl ClampColor for Hwba {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.hue >= 0.
-            && self.hue <= 360.
-            && self.whiteness >= 0.
-            && self.whiteness <= 1.
-            && self.blackness >= 0.
-            && self.blackness <= 1.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.whiteness)
+            && (0. ..=1.).contains(&self.blackness)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 

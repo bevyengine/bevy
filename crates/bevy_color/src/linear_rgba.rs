@@ -269,14 +269,10 @@ impl ClampColor for LinearRgba {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.red >= 0.
-            && self.red <= 1.
-            && self.green >= 0.
-            && self.green <= 1.
-            && self.blue >= 0.
-            && self.blue <= 1.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..= 1.).contains(&self.red)
+            && (0. ..= 1.).contains(&self.green)
+            && (0. ..= 1.).contains(&self.blue)
+            && (0. ..= 1.).contains(&self.alpha)
     }
 }
 

@@ -145,14 +145,10 @@ impl ClampColor for Xyza {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.x >= 0.
-            && self.x <= 1.
-            && self.y >= 0.
-            && self.y <= 1.
-            && self.z >= 0.
-            && self.z <= 1.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..= 1.).contains(&self.x)
+            && (0. ..= 1.).contains(&self.y)
+            && (0. ..= 1.).contains(&self.z)
+            && (0. ..= 1.).contains(&self.alpha)
     }
 }
 

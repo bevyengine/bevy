@@ -220,14 +220,10 @@ impl ClampColor for Oklcha {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.lightness >= 0.
-            && self.lightness <= 1.
-            && self.chroma >= 0.
-            && self.chroma <= 1.
-            && self.hue >= 0.
-            && self.hue <= 360.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..=1.).contains(&self.lightness)
+            && (0. ..=1.).contains(&self.chroma)
+            && (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 

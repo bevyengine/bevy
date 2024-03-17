@@ -122,14 +122,10 @@ impl ClampColor for Laba {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.lightness >= 0.
-            && self.lightness <= 1.5
-            && self.a >= -1.5
-            && self.a <= 1.5
-            && self.b >= -1.5
-            && self.b <= 1.5
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..=1.5).contains(&self.lightness)
+            && (-1.5 ..=1.5).contains(&self.a)
+            && (-1.5 ..=1.5).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 

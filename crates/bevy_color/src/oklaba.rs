@@ -160,14 +160,10 @@ impl ClampColor for Oklaba {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.lightness >= 0.
-            && self.lightness <= 1.
-            && self.a >= -1.
-            && self.a <= 1.
-            && self.b >= -1.
-            && self.b <= 1.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..=1.).contains(&self.lightness)
+            && (-1. ..=1.).contains(&self.a)
+            && (-1. ..=1.).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 

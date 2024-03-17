@@ -102,14 +102,10 @@ impl ClampColor for Hsva {
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.hue >= 0.
-            && self.hue <= 360.
-            && self.saturation >= 0.
-            && self.saturation <= 1.
-            && self.value >= 0.
-            && self.value <= 1.
-            && self.alpha >= 0.
-            && self.alpha <= 1.
+        (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.saturation)
+            && (0. ..=1.).contains(&self.value)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
