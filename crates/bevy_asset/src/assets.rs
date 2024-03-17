@@ -558,6 +558,7 @@ impl<A: Asset> Assets<A> {
                     }
                 }
 
+                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
                 if !infos.process_handle_drop(untyped_id) {
                     // a new handle has been created, or the asset doesn't exist
                     continue;
