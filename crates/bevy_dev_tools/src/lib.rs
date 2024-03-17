@@ -120,17 +120,17 @@ impl DevToolsStore {
         self.dev_tools.remove(id);
     }
 
-    /// Returns a [`DevTool`].
+    /// Returns a reference to the given [`DevTool`] if present.
     pub fn get(&self, id: &DevToolId) -> Option<&DevTool> {
         self.dev_tools.get(id)
     }
 
-    /// Returns a mutable [`DevTool`].
+    /// Returns a mutable reference to the given [`DevTool`] if present.
     pub fn get_mut(&mut self, id: &DevToolId) -> Option<&mut DevTool> {
         self.dev_tools.get_mut(id)
     }
 
-    /// Returns an iterator over all [`DevTool`]s.
+    /// Returns an iterator over all [`DevTool`]s, by reference.
     pub fn iter(&self) -> impl Iterator<Item = &DevTool> {
         self.dev_tools.values()
     }
