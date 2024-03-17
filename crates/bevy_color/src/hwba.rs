@@ -3,7 +3,7 @@
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, ClampColor, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Hwba {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,

@@ -1,5 +1,5 @@
 use crate::{Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Hsva {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
