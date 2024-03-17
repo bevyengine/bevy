@@ -643,7 +643,11 @@ impl Default for Triangle3d {
     /// Returns the default [`Triangle3d`] with vertices at the `[-0.5, 0.0, 0.0]`, `[0.5, 0.0, 0.0]`, and `[0.0, 0.5, 0.0]`
     fn default() -> Self {
         Self {
-            vertices: [Vec3::ZERO, Vec3::X, Vec3::Y],
+            vertices: [
+                Vec3::new(-0.5, 0.0, 0.0),
+                Vec3::new(0.5, 0.0, 0.0),
+                Vec3::new(0.0, 0.5, 0.0),
+            ],
         }
     }
 }
