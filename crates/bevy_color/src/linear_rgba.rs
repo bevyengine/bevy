@@ -2,7 +2,7 @@ use std::ops::{Div, Mul};
 
 use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
 use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 #[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]

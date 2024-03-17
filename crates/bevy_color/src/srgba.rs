@@ -3,7 +3,7 @@ use std::ops::{Div, Mul};
 use crate::color_difference::EuclideanDistance;
 use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,7 +13,7 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Srgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,
