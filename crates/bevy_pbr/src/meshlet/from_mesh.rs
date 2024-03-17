@@ -49,7 +49,8 @@ impl MeshletMesh {
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
-        while simplification_queue.len() != 1 {
+        let mut lod_level = 0;
+        while simplification_queue.len() > 1 && lod_level < 10 {
             // For each meshlet build a set of triangle edges
             let mut triangle_edges_per_meshlet = HashMap::new();
             for meshlet_id in simplification_queue.clone() {
@@ -121,7 +122,7 @@ impl MeshletMesh {
 
             let next_lod_start = meshlets.len();
 
-            for group_meshlets in groups.values() {
+            for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
                 let mut group_indices = Vec::new();
                 for meshlet_id in group_meshlets {
@@ -163,6 +164,7 @@ impl MeshletMesh {
             }
 
             simplification_queue = next_lod_start..meshlets.len();
+            lod_level += 1;
         }
 
         // Calculate meshlet bounding spheres
