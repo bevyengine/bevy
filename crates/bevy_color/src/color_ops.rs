@@ -63,7 +63,7 @@ pub trait Alpha: Sized {
 }
 
 /// Trait with methods for asserting a colorspace is within bounds.
-/// 
+///
 /// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
 /// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
 pub trait ClampColor: Sized {
