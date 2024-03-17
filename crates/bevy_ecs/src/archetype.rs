@@ -26,6 +26,7 @@ use crate::{
     query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
+use core::arch;
 use std::{
     hash::Hash,
     ops::{Index, RangeFrom},
@@ -518,13 +519,16 @@ impl Archetype {
         row: ArchetypeRow,
     ) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
+        // SAFETY: Caller assures that `row` is in bounds.
         let entity = unsafe { self.entities.swap_remove_unchecked(row.index()) };
         ArchetypeSwapRemoveResult {
-            swapped_entity: if is_last {
-                None
-            } else {
-                Some(self.entities[row.index()].entity)
-            },
+            swapped_entity: (!is_last).then(|| {
+                let archetype_entity =
+                    // SAFETY: Caller assures that `row` is in bounds, and remains in bounds
+                    // after the prior swap_remove call.
+                    unsafe { self.entities.get(row.index()).debug_checked_unwrap() };
+                archetype_entity.entity
+            }),
             table_row: entity.table_row,
         }
     }
