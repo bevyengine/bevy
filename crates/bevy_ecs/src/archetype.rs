@@ -29,8 +29,6 @@ use crate::{
 use std::{
     hash::Hash,
     ops::{Index, RangeFrom},
-    panic,
-    sync::Arc,
 };
 
 /// An opaque location within a [`Archetype`].
@@ -746,10 +744,13 @@ impl Archetypes {
     }
 
     /// Fetches an mutable reference to an [`Archetype`] using its
-    /// ID. Returns `None` if no corresponding archetype exists.
+    /// ID.
+    ///
+    /// # Safety
+    /// `id` must be valid.
     #[inline]
-    pub(crate) fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
-        self.archetypes.get_mut(id.index())
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
+        self.archetypes.get_mut(id.index()).debug_checked_unwrap()
     }
 
     /// # Safety

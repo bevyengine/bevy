@@ -834,10 +834,11 @@ impl Tables {
 
     /// Fetches a mutable reference to a  [`Table`] by its [`TableId`].
     ///
-    /// Returns `None` if `id` is invalid.
+    /// # Safety
+    /// `id` must be valid.
     #[inline]
-    pub(crate) fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
-        self.tables.get_mut(id.as_usize())
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
+        self.tables.get_mut(id.as_usize()).debug_checked_unwrap()
     }
 
     /// Fetches the a reference to the [`Table`] for empty entities.
