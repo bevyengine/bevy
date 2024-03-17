@@ -661,12 +661,9 @@ impl Triangle3d {
     #[inline(always)]
     pub fn area(&self) -> f32 {
         let [a, b, c] = self.vertices;
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        let s = (ab + bc + ca) / 2.0;
-        (s * (s - ab) * (s - bc) * (s - ca)).sqrt()
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() / 2.0
     }
 
     /// Get the perimeter of the triangle
