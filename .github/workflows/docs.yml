@@ -3,7 +3,7 @@ name: Deploy Docs
 on:
   push:
     branches:
-      - 'test'
+      - 'main'
   # Allows running the action manually.
   workflow_dispatch:
 
