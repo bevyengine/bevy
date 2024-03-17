@@ -464,6 +464,12 @@ header_message = \"Examples (WebGL2)\"
                 if !to_show.wasm {
                     continue;
                 }
+
+                // This beautifys the path
+                // to make it a good looking URL
+                // rather than having weird whitespace
+                // and other characters that don't
+                // work well in a URL path.
                 let category_path = root_path.join(
                     &to_show
                         .category
