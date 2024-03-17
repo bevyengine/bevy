@@ -578,8 +578,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::query::QueryEntityError;
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -651,8 +650,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// returned instead.
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::query::QueryEntityError;
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);

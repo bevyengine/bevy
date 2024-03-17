@@ -18,8 +18,10 @@ use super::{ReadOnlySystem, System};
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{CombinatorSystem, Combine};
+/// use bevy_ecs::{
+///     prelude::*,
+///     system::{CombinatorSystem, Combine},
+/// };
 ///
 /// // A system combinator that performs an exclusive-or (XOR)
 /// // operation on the output of two systems.

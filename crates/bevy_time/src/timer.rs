@@ -373,8 +373,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::cmp::Ordering;
-    /// use std::time::Duration;
+    /// use std::{cmp::Ordering, time::Duration};
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// let result = timer.remaining_secs().total_cmp(&1.5);

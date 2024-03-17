@@ -21,8 +21,7 @@ use super::EntityHashMap;
 /// ## Example
 ///
 /// ```
-/// use bevy_ecs::entity::MapEntities;
-/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{entity::MapEntities, prelude::*};
 ///
 /// #[derive(Component)]
 /// struct Spring {
