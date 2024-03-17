@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, IsWithinBounds, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -92,6 +92,37 @@ impl Alpha for Hwba {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl ClampColor for Hwba {
+    fn clamp(&self) -> Self {
+        Self {
+            hue: self.hue.rem_euclid(360.),
+            whiteness: self.whiteness.clamp(0., 1.),
+            blackness: self.blackness.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn clamp_self(&mut self) {
+        self.hue = self.hue.rem_euclid(360.);
+        self.whiteness = self.whiteness.clamp(0., 1.);
+        self.blackness = self.blackness.clamp(0., 1.);
+        self.alpha = self.alpha.clamp(0., 1.);
+    }
+}
+
+impl IsWithinBounds for Hwba {
+    fn is_within_bounds(&self) -> bool {
+        self.hue >= 0.
+            && self.hue <= 360.
+            && self.whiteness >= 0.
+            && self.whiteness <= 1.
+            && self.blackness >= 0.
+            && self.blackness <= 1.
+            && self.alpha >= 0.
+            && self.alpha <= 1.
     }
 }
 
@@ -244,5 +275,21 @@ mod tests {
             assert_approx_eq!(color.hwb.blackness, hwb2.blackness, 0.001);
             assert_approx_eq!(color.hwb.alpha, hwb2.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Hwba::hwb(361., 2., -1.);
+        let color_2 = Hwba::hwb(250.2762, 1., 0.67);
+        let mut color_3 = Hwba::hwb(-50., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamp(), Hwba::hwb(1., 1., 0.));
+
+        assert!(color_2.is_within_bounds());
+
+        color_3.clamp_self();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Hwba::hwb(310., 1., 1.));
     }
 }
