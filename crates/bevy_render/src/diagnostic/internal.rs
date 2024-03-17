@@ -10,7 +10,7 @@ use std::{
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_utils::Instant;
+use bevy_utils::{tracing, Instant};
 use std::sync::Mutex;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
@@ -432,7 +432,7 @@ impl FrameData {
         let is_mapped = self.is_mapped.clone();
         read_buffer.slice(..).map_async(MapMode::Read, move |res| {
             if let Err(e) = res {
-                bevy_log::warn!("Failed to download render statistics buffer: {e}");
+                tracing::warn!("Failed to download render statistics buffer: {e}");
                 return;
             }
 
