@@ -71,3 +71,8 @@ pub trait ClampColor: Sized {
     fn clamp_self(&mut self);
 }
 
+/// Trait for verifying all the fields of a color is in the defined range.
+pub trait IsWithinBounds: Sized {
+    /// Is all the fields of this color in bounds?
+    fn is_within_bounds(&self) -> bool;
+}
