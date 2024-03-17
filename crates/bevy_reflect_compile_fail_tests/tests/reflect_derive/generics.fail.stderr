@@ -17,9 +17,9 @@ error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
               i128
             and $N others
 note: required by a bound in `bevy_reflect::GetField::get_field`
-   --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/struct_trait.rs:242:21
+   --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/struct_trait.rs:243:21
     |
-242 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
+243 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
     |                     ^^^^^^^ required by this bound in `GetField::get_field`
 
 error[E0277]: the trait bound `NoReflect: GetTypeRegistration` is not satisfied
