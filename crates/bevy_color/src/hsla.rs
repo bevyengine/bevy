@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize,)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Hsla {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
