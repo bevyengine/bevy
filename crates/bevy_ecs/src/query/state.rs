@@ -28,8 +28,8 @@ use super::{
 /// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
 #[derive(Clone, Copy)]
 pub(crate) union StorageId {
-    pub table_id: TableId,
-    pub archetype_id: ArchetypeId,
+    pub(crate) table_id: TableId,
+    pub(crate) archetype_id: ArchetypeId,
 }
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
