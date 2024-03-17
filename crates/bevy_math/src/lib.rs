@@ -8,6 +8,7 @@
 mod affine3;
 mod aspect_ratio;
 pub mod bounding;
+pub mod componentwise_arith;
 pub mod cubic_splines;
 mod direction;
 pub mod primitives;
