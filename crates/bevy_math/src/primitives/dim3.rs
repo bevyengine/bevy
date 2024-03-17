@@ -696,6 +696,12 @@ impl Triangle3d {
     pub fn reverse(&mut self) {
         self.vertices.swap(1, 2);
     }
+
+    /// Get the centroid of the triangle
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
+    }
 }
 
 #[cfg(test)]
