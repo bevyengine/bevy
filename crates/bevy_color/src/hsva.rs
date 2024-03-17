@@ -1,6 +1,4 @@
-use crate::{
-    Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
-};
+use crate::{Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 

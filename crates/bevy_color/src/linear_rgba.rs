@@ -1,8 +1,7 @@
 use std::ops::{Div, Mul};
 
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Luminance, Mix,
-    StandardColor,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Luminance, Mix, StandardColor,
 };
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
