@@ -20,6 +20,9 @@ use bevy_utils::tracing::warn;
 
 use crate::*;
 
+mod ambient_light;
+pub use ambient_light::AmbientLight;
+
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
     /// Approximations for converting the wattage of lamps to lumens.
@@ -589,7 +592,7 @@ fn calculate_cascade(
 
     // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
     // and inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascde` as the reference material suggests.
+    // `world_to_cascade` as the reference material suggests.
     let light_to_world_transpose = light_to_world.transpose();
     let world_to_cascade = Mat4::from_cols(
         light_to_world_transpose.x_axis,
@@ -616,45 +619,6 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-
-/// An ambient light, which lights the entire scene equally.
-///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
-///
-/// # Examples
-///
-/// Make ambient light slightly brighter:
-///
-/// ```
-/// # use bevy_ecs::system::ResMut;
-/// # use bevy_pbr::AmbientLight;
-/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 100.0;
-/// }
-/// ```
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
-pub struct AmbientLight {
-    pub color: Color,
-    /// A direct scale factor multiplied with `color` before being passed to the shader.
-    pub brightness: f32,
-}
-
-impl Default for AmbientLight {
-    fn default() -> Self {
-        Self {
-            color: Color::WHITE,
-            brightness: 80.0,
-        }
-    }
-}
-impl AmbientLight {
-    pub const NONE: AmbientLight = AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.0,
-    };
-}
-
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]

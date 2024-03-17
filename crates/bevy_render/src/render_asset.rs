@@ -14,9 +14,10 @@ use bevy_reflect::{
     ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
     TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
 };
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -401,6 +402,10 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);

@@ -21,8 +21,14 @@ bevy_core = { path = "../bevy_core", version = "0.14.0-dev", optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
+  "smallvec",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
+smallvec = { version = "1.11", features = ["union", "const_generics"] }
+
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

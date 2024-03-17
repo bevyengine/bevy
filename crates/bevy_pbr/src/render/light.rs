@@ -4,8 +4,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
+    diagnostic::RecordDiagnostics,
     mesh::Mesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -18,10 +19,8 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    nonmax::NonMaxU32,
-    tracing::{error, warn},
-};
+use bevy_utils::tracing::{error, warn};
+use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -1144,7 +1143,7 @@ pub fn prepare_lights(
                 .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
-            for (cascade_index, ((cascade, frusta), bound)) in cascades
+            for (cascade_index, ((cascade, frustum), bound)) in cascades
                 .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
@@ -1171,6 +1170,11 @@ pub fn prepare_lights(
                         });
                 directional_depth_texture_array_index += 1;
 
+                let mut frustum = *frustum;
+                // Push the near clip plane out to infinity for directional lights
+                frustum.half_spaces[4] =
+                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
@@ -1191,7 +1195,7 @@ pub fn prepare_lights(
                             hdr: false,
                             color_grading: Default::default(),
                         },
-                       *frusta,
+                        frustum,
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,
@@ -1806,6 +1810,9 @@ impl Node for ShadowPassNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
@@ -1817,6 +1824,7 @@ impl Node for ShadowPassNode {
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
+                let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
                     let _shadow_pass_span = info_span!("shadow_pass").entered();
@@ -1833,15 +1841,21 @@ impl Node for ShadowPassNode {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
                     let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+                    let pass_span =
+                        diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
                     shadow_phase.render(&mut render_pass, world, view_light_entity);
 
+                    pass_span.end(&mut render_pass);
                     drop(render_pass);
                     command_encoder.finish()
                 });
             }
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

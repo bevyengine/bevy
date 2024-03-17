@@ -8,11 +8,12 @@ use bevy_ecs::{
         ManualStateTransitions, ScheduleBuildSettings, ScheduleLabel,
     },
 };
-use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
+use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -188,11 +189,6 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
 
         app.add_event::<AppExit>();
-
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
 
         app
     }

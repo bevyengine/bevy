@@ -1,10 +1,18 @@
 //! Utilities for testing in CI environments.
 
-use crate::{app::AppExit, App, Update};
+use bevy_app::{App, AppExit, Update};
+use bevy_ecs::{
+    entity::Entity,
+    prelude::{resource_exists, Resource},
+    query::With,
+    schedule::IntoSystemConfigs,
+    system::{Local, Query, Res, ResMut},
+};
+use bevy_render::view::screenshot::ScreenshotManager;
+use bevy_time::TimeUpdateStrategy;
+use bevy_utils::{tracing::info, Duration};
+use bevy_window::PrimaryWindow;
 use serde::Deserialize;
-
-use bevy_ecs::prelude::Resource;
-use bevy_utils::tracing::info;
 
 /// A configuration struct for automated CI testing.
 ///
@@ -53,8 +61,39 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
         ron::from_str(config).expect("error deserializing CI testing configuration file")
     };
 
-    app.insert_resource(config)
-        .add_systems(Update, ci_testing_exit_after);
+    if let Some(frame_time) = config.frame_time {
+        app.world
+            .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                frame_time,
+            )));
+    }
+
+    app.insert_resource(config).add_systems(
+        Update,
+        (
+            ci_testing_exit_after,
+            ci_testing_screenshot_at.run_if(resource_exists::<ScreenshotManager>),
+        ),
+    );
 
     app
+}
+
+fn ci_testing_screenshot_at(
+    mut current_frame: Local<u32>,
+    ci_testing_config: Res<CiTestingConfig>,
+    mut screenshot_manager: ResMut<ScreenshotManager>,
+    main_window: Query<Entity, With<PrimaryWindow>>,
+) {
+    if ci_testing_config
+        .screenshot_frames
+        .contains(&*current_frame)
+    {
+        info!("Taking a screenshot at frame {}.", *current_frame);
+        let path = format!("./screenshot-{}.png", *current_frame);
+        screenshot_manager
+            .save_screenshot_to_disk(main_window.single(), path)
+            .unwrap();
+    }
+    *current_frame += 1;
 }

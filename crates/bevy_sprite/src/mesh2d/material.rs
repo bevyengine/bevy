@@ -572,6 +572,10 @@ pub fn prepare_materials_2d<M: Material2d>(
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match prepare_material2d(
             &material,
             &render_device,

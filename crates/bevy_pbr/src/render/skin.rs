@@ -146,6 +146,6 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
 ) {
     for entity in &query {
-        commands.entity(entity).insert(NoAutomaticBatching);
+        commands.entity(entity).try_insert(NoAutomaticBatching);
     }
 }

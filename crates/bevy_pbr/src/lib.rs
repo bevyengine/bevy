@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod wireframe;
 
@@ -234,13 +235,9 @@ impl Plugin for PbrPlugin {
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterFarZMode>()
-            .register_type::<ClusterZConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
@@ -250,10 +247,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<FogSettings>()
-            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
-            .register_type::<ParallaxMappingMethod>()
-            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

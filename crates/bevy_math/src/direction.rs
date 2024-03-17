@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Vec2, Vec3, Vec3A,
+    Quat, Rotation2d, Vec2, Vec3, Vec3A,
 };
 
 /// An error indicating that a direction is invalid.
@@ -171,6 +171,23 @@ impl std::ops::Mul<Dir2> for f32 {
     type Output = Vec2;
     fn mul(self, rhs: Dir2) -> Self::Output {
         self * rhs.0
+    }
+}
+
+impl std::ops::Mul<Dir2> for Rotation2d {
+    type Output = Dir2;
+
+    /// Rotates the [`Dir2`] using a [`Rotation2d`].
+    fn mul(self, direction: Dir2) -> Self::Output {
+        let rotated = self * *direction;
+
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "`Dir2` is denormalized after rotation.",
+            rotated.length_squared(),
+        );
+
+        Dir2(rotated)
     }
 }
 
