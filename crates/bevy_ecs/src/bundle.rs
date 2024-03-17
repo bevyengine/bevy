@@ -576,7 +576,10 @@ impl<'w> BundleInserter<'w> {
             archetype_id,
         );
         if new_archetype_id == archetype_id {
-            let archetype = &mut world.archetypes[archetype_id];
+            let archetype = world
+                .archetypes
+                .get_mut(archetype_id)
+                .debug_checked_unwrap();
             // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
             let add_bundle = unsafe {
                 archetype
@@ -585,7 +588,11 @@ impl<'w> BundleInserter<'w> {
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
-            let table = &mut world.storages.tables[table_id];
+            let table = world
+                .storages
+                .tables
+                .get_mut(table_id)
+                .debug_checked_unwrap();
             Self {
                 add_bundle: add_bundle.into(),
                 archetype: archetype.into(),
@@ -596,8 +603,9 @@ impl<'w> BundleInserter<'w> {
                 world: world.as_unsafe_world_cell(),
             }
         } else {
-            let (archetype, new_archetype) =
-                world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+            let (archetype, new_archetype) = world
+                .archetypes
+                .get_2_unchecked_mut(archetype_id, new_archetype_id);
             // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
             let add_bundle = unsafe {
                 archetype
@@ -608,7 +616,11 @@ impl<'w> BundleInserter<'w> {
             let table_id = archetype.table_id();
             let new_table_id = new_archetype.table_id();
             if table_id == new_table_id {
-                let table = &mut world.storages.tables[table_id];
+                let table = world
+                    .storages
+                    .tables
+                    .get_mut(table_id)
+                    .debug_checked_unwrap();
                 Self {
                     add_bundle: add_bundle.into(),
                     archetype: archetype.into(),
@@ -621,7 +633,10 @@ impl<'w> BundleInserter<'w> {
                     world: world.as_unsafe_world_cell(),
                 }
             } else {
-                let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
+                let (table, new_table) = world
+                    .storages
+                    .tables
+                    .get_2_unchecked_mut(table_id, new_table_id);
                 Self {
                     add_bundle: add_bundle.into(),
                     archetype: archetype.into(),
@@ -861,8 +876,15 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             ArchetypeId::EMPTY,
         );
-        let archetype = &mut world.archetypes[new_archetype_id];
-        let table = &mut world.storages.tables[archetype.table_id()];
+        let archetype = world
+            .archetypes
+            .get_mut(new_archetype_id)
+            .debug_checked_unwrap();
+        let table = world
+            .storages
+            .tables
+            .get_mut(archetype.table_id())
+            .debug_checked_unwrap();
         Self {
             bundle_info: bundle_info.into(),
             table: table.into(),

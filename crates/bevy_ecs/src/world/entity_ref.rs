@@ -790,15 +790,22 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity = self.entity;
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
+        let (old_archetype, bundle_info, mut deferred_world) = {
+            let archetype: *const Archetype = unsafe {
+                world
+                    .archetypes
+                    .get(old_location.archetype_id)
+                    .debug_checked_unwrap()
+            };
             let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[old_location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
+            // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+            unsafe {
+                (
+                    &*archetype,
+                    &*bundle_info,
+                    world.as_unsafe_world_cell().into_deferred(),
+                )
+            }
         };
 
         if old_archetype.has_on_remove() {
@@ -979,15 +986,24 @@ impl<'w> EntityWorldMut<'w> {
             return location;
         }
 
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
+        let (old_archetype, bundle_info, mut deferred_world) = {
+            // SAFETY: The caller guarentees that old_location is valid, so the archetype at it's
+            // archetype ID must exist.
+            let archetype: *const Archetype = unsafe {
+                world
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap()
+            };
             let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
+            // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+            unsafe {
+                (
+                    &*archetype,
+                    &*bundle_info,
+                    world.as_unsafe_world_cell().into_deferred(),
+                )
+            }
         };
 
         if old_archetype.has_on_remove() {
@@ -997,13 +1013,6 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        // SAFETY: The caller guarentees that old_location is valid, so the archetype at it's
-        // archetype ID must exist.
-        let old_archetype = unsafe {
-            archetypes
-                .get_mut(old_location.archetype_id)
-                .debug_checked_unwrap()
-        };
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 world.removed_components.send(component_id, entity);
@@ -1014,7 +1023,8 @@ impl<'w> EntityWorldMut<'w> {
                     // SAFETY: The component ID is guarenteed to be a sparse set component and
                     // entity has a corresponding component.
                     unsafe {
-                        storages
+                        world
+                            .storages
                             .sparse_sets
                             .get_mut(component_id)
                             .debug_checked_unwrap()
@@ -1094,11 +1104,13 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn(self) {
         let world = self.world;
         world.flush_entities();
-        let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
-            let archetype: *const Archetype = archetype;
+            let archetype: *const Archetype = world
+                .archetypes
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap();
             let world = world.as_unsafe_world_cell();
             (&*archetype, world.into_deferred())
         };
