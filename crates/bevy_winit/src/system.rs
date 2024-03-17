@@ -4,13 +4,15 @@ use bevy_ecs::{
     prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Local, NonSendMut, Query, SystemParamItem},
+    system::{NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
 };
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+use bevy_ecs::system::Local;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
