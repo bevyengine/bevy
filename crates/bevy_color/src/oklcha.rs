@@ -175,7 +175,14 @@ impl EuclideanDistance for Oklcha {
 }
 
 impl From<Oklaba> for Oklcha {
-    fn from(Oklaba { lightness, a, b, alpha }: Oklaba) -> Self {
+    fn from(
+        Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Oklaba,
+    ) -> Self {
         let lightness = lightness;
         let chroma = a.hypot(b);
         let hue = b.atan2(a).to_degrees();

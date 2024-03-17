@@ -35,7 +35,12 @@ impl Oklaba {
     /// * `b` - Blue-yellow channel. [-1.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn new(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
-        Self { lightness, a, b, alpha }
+        Self {
+            lightness,
+            a,
+            b,
+            alpha,
+        }
     }
 
     /// Construct a new [`Oklaba`] color from (l, a, b) components, with the default alpha (1.0).
@@ -117,18 +122,30 @@ impl Luminance for Oklaba {
     }
 
     fn darker(&self, amount: f32) -> Self {
-        Self::new((self.lightness - amount).max(0.), self.a, self.b, self.alpha)
+        Self::new(
+            (self.lightness - amount).max(0.),
+            self.a,
+            self.b,
+            self.alpha,
+        )
     }
 
     fn lighter(&self, amount: f32) -> Self {
-        Self::new((self.lightness + amount).min(1.), self.a, self.b, self.alpha)
+        Self::new(
+            (self.lightness + amount).min(1.),
+            self.a,
+            self.b,
+            self.alpha,
+        )
     }
 }
 
 impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
+        (self.lightness - other.lightness).powi(2)
+            + (self.a - other.a).powi(2)
+            + (self.b - other.b).powi(2)
     }
 }
 
@@ -158,7 +175,12 @@ impl From<LinearRgba> for Oklaba {
 #[allow(clippy::excessive_precision)]
 impl From<Oklaba> for LinearRgba {
     fn from(value: Oklaba) -> Self {
-        let Oklaba { lightness, a, b, alpha } = value;
+        let Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        } = value;
 
         // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
         let l_ = lightness + 0.3963377774 * a + 0.2158037573 * b;
