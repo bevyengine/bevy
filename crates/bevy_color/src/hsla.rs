@@ -178,13 +178,6 @@ impl ClampColor for Hsla {
         }
     }
 
-    fn clamp(&mut self) {
-        self.hue = self.hue.rem_euclid(360.);
-        self.saturation = self.saturation.clamp(0., 1.);
-        self.lightness = self.lightness.clamp(0., 1.);
-        self.alpha = self.alpha.clamp(0., 1.);
-    }
-
     fn is_within_bounds(&self) -> bool {
         self.hue >= 0.
             && self.hue <= 360.

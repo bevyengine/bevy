@@ -144,13 +144,6 @@ impl ClampColor for Xyza {
         }
     }
 
-    fn clamp(&mut self) {
-        self.x = self.x.clamp(0., 1.);
-        self.y = self.y.clamp(0., 1.);
-        self.z = self.z.clamp(0., 1.);
-        self.alpha = self.alpha.clamp(0., 1.);
-    }
-
     fn is_within_bounds(&self) -> bool {
         self.x >= 0.
             && self.x <= 1.

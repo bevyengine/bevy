@@ -71,7 +71,9 @@ pub trait ClampColor: Sized {
     fn clamped(&self) -> Self;
 
     /// Changes all the fields of this color to ensure they are within bounds.
-    fn clamp(&mut self);
+    fn clamp(&mut self) {
+        *self = self.clamped();
+    }
 
     /// Are all the fields of this color in bounds?
     fn is_within_bounds(&self) -> bool;

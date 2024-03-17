@@ -121,13 +121,6 @@ impl ClampColor for Laba {
         }
     }
 
-    fn clamp(&mut self) {
-        self.lightness = self.lightness.clamp(0., 1.5);
-        self.a = self.a.clamp(-1.5, 1.5);
-        self.b = self.b.clamp(-1.5, 1.5);
-        self.alpha = self.alpha.clamp(0., 1.);
-    }
-
     fn is_within_bounds(&self) -> bool {
         self.lightness >= 0.
             && self.lightness <= 1.5

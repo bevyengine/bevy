@@ -105,13 +105,6 @@ impl ClampColor for Hwba {
         }
     }
 
-    fn clamp(&mut self) {
-        self.hue = self.hue.rem_euclid(360.);
-        self.whiteness = self.whiteness.clamp(0., 1.);
-        self.blackness = self.blackness.clamp(0., 1.);
-        self.alpha = self.alpha.clamp(0., 1.);
-    }
-
     fn is_within_bounds(&self) -> bool {
         self.hue >= 0.
             && self.hue <= 360.

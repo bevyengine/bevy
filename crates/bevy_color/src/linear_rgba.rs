@@ -268,13 +268,6 @@ impl ClampColor for LinearRgba {
         }
     }
 
-    fn clamp(&mut self) {
-        self.red = self.red.clamp(0., 1.);
-        self.green = self.green.clamp(0., 1.);
-        self.blue = self.blue.clamp(0., 1.);
-        self.alpha = self.alpha.clamp(0., 1.);
-    }
-
     fn is_within_bounds(&self) -> bool {
         self.red >= 0.
             && self.red <= 1.
