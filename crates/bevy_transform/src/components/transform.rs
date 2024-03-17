@@ -122,11 +122,11 @@ impl Transform {
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
     /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
-    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
     /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
-    pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
+    pub fn looking_at(mut self, target: Vec3, up: impl TryInto<Dir3>) -> Self {
         self.look_at(target, up);
         self
     }
@@ -135,12 +135,12 @@ impl Transform {
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` is zero, `Vec3::Z` is used instead
-    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Z` is used instead
+    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
-    pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
+    pub fn looking_to(mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) -> Self {
         self.look_to(direction, up);
         self
     }
@@ -373,10 +373,10 @@ impl Transform {
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
     /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
-    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
     /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
-    pub fn look_at(&mut self, target: Vec3, up: Vec3) {
+    pub fn look_at(&mut self, target: Vec3, up: impl TryInto<Dir3>) {
         self.look_to(target - self.translation, up);
     }
 
@@ -384,19 +384,19 @@ impl Transform {
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` is zero, `Vec3::NEG_Z` is used instead
-    /// * if `up` is zero, `Vec3::Y` is used instead
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::NEG_Z` is used instead
+    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
-    pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let back = -direction.try_normalize().unwrap_or(Vec3::NEG_Z);
-        let up = up.try_normalize().unwrap_or(Vec3::Y);
+    pub fn look_to(&mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) {
+        let back = -direction.try_into().unwrap_or(Dir3::NEG_Z);
+        let up = up.try_into().unwrap_or(Dir3::Y);
         let right = up
-            .cross(back)
+            .cross(back.into())
             .try_normalize()
             .unwrap_or_else(|| up.any_orthonormal_vector());
         let up = back.cross(right);
-        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back));
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back.into()));
     }
 
     /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
