@@ -152,7 +152,7 @@ impl EuclideanDistance for Oklaba {
 impl ClampColor for Oklaba {
     fn clamped(&self) -> Self {
         Self {
-            l: self.l.clamp(0., 1.),
+            lightness: self.lightness.clamp(0., 1.),
             a: self.a.clamp(-1., 1.),
             b: self.b.clamp(-1., 1.),
             alpha: self.alpha.clamp(0., 1.),
@@ -160,15 +160,15 @@ impl ClampColor for Oklaba {
     }
 
     fn clamp(&mut self) {
-        self.l = self.l.clamp(0., 1.);
+        self.lightness = self.lightness.clamp(0., 1.);
         self.a = self.a.clamp(-1., 1.);
         self.b = self.b.clamp(-1., 1.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
 
     fn is_within_bounds(&self) -> bool {
-        self.l >= 0.
-            && self.l <= 1.
+        self.lightness >= 0.
+            && self.lightness <= 1.
             && self.a >= -1.
             && self.a <= 1.
             && self.b >= -1.
@@ -358,17 +358,17 @@ mod tests {
 
     #[test]
     fn test_clamp() {
-        let color_1 = Oklaba::lch(-1., 2., -2.);
-        let color_2 = Oklaba::lch(1., 0.42, -0.4);
-        let mut color_3 = Oklaba::lch(-0.4, 1., 1.);
+        let color_1 = Oklaba::lab(-1., 2., -2.);
+        let color_2 = Oklaba::lab(1., 0.42, -0.4);
+        let mut color_3 = Oklaba::lab(-0.4, 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Oklaba::lch(0., 1., -1.));
+        assert_eq!(color_1.clamped(), Oklaba::lab(0., 1., -1.));
 
         assert!(color_2.is_within_bounds());
 
         color_3.clamp();
         assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Oklaba::lch(0., 1., 1.));
+        assert_eq!(color_3, Oklaba::lab(0., 1., 1.));
     }
 }
