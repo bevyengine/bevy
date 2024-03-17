@@ -681,7 +681,7 @@ impl Triangle3d {
 
     /// Get the normal of the triangle in the direction of the right-hand rule, assuming
     /// the vertices are ordered in a counter-clockwise direction.
-    /// 
+    ///
     /// The normal is computed as the cross product of the vectors `ab` and `ac`.
     #[inline(always)]
     pub fn normal(&self) -> Dir3 {
@@ -689,6 +689,12 @@ impl Triangle3d {
         let ab = b - a;
         let ac = c - a;
         Dir3::new_unchecked(ab.cross(ac).normalize())
+    }
+
+    /// Reverse the order of the vertices in the triangle
+    #[inline(always)]
+    pub fn reverse(&mut self) {
+        self.vertices.swap(1, 2);
     }
 }
 
