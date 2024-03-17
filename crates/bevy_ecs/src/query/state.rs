@@ -188,9 +188,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     ///
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
+    ///
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());

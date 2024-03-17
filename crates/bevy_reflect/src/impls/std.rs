@@ -96,6 +96,7 @@ impl_reflect_value!(::std::path::PathBuf(
     Deserialize,
     Default
 ));
+impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
 impl_reflect_value!(
     ::core::result::Result < T: Clone + Reflect + TypePath,
     E: Clone + Reflect + TypePath > ()
@@ -2102,6 +2103,13 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
+    }
+
+    #[test]
+    fn type_id_should_from_reflect() {
+        let type_id = std::any::TypeId::of::<usize>();
+        let output = <std::any::TypeId as FromReflect>::from_reflect(&type_id).unwrap();
+        assert_eq!(type_id, output);
     }
 
     #[test]

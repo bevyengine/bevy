@@ -52,7 +52,7 @@ fn draw_example_collection(
             // Light gray
             LinearRgba::gray(0.65),
         )
-        .outer_edges(true);
+        .outer_edges();
 
     // Triangle
     gizmos.linestrip_gradient_2d([
