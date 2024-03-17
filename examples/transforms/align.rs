@@ -6,7 +6,7 @@ use bevy::color::{
 };
 use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
 use bevy::prelude::*;
-use rand::random;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
 
 fn main() {
@@ -43,6 +43,9 @@ struct Instructions;
 #[derive(Resource)]
 struct MousePressed(bool);
 
+#[derive(Resource)]
+struct SeededRng(StdRng);
+
 // Setup
 
 fn setup(
@@ -50,6 +53,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let mut seeded_rng = StdRng::seed_from_u64(19878367467712);
+
     // A camera looking at the origin
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -75,8 +80,8 @@ fn setup(
     });
 
     // Initialize random axes
-    let first = random_direction();
-    let second = random_direction();
+    let first = random_direction(&mut seeded_rng);
+    let second = random_direction(&mut seeded_rng);
     commands.spawn(RandomAxes(first, second));
 
     // Finally, our cube that is going to rotate
@@ -119,6 +124,7 @@ fn setup(
     ));
 
     commands.insert_resource(MousePressed(false));
+    commands.insert_resource(SeededRng(seeded_rng));
 }
 
 // Update systems
@@ -172,14 +178,15 @@ fn handle_keypress(
     mut random_axes: Query<&mut RandomAxes>,
     mut instructions: Query<&mut Visibility, With<Instructions>>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut seeded_rng: ResMut<SeededRng>,
 ) {
     let (mut cube, cube_transform) = cube.single_mut();
     let mut random_axes = random_axes.single_mut();
 
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Randomize the target axes
-        let first = random_direction();
-        let second = random_direction();
+        let first = random_direction(&mut seeded_rng.0);
+        let second = random_direction(&mut seeded_rng.0);
         *random_axes = RandomAxes(first, second);
 
         // Stop the cube and set it up to transform from its present orientation to the new one
@@ -236,9 +243,9 @@ fn arrow_ends(transform: &Transform, axis: Vec3, length: f32) -> (Vec3, Vec3) {
     (transform.translation, transform.translation + local_vector)
 }
 
-fn random_direction() -> Vec3 {
-    let height = random::<f32>() * 2. - 1.;
-    let theta = random::<f32>() * 2. * PI;
+fn random_direction(rng: &mut impl Rng) -> Vec3 {
+    let height = rng.gen::<f32>() * 2. - 1.;
+    let theta = rng.gen::<f32>() * 2. * PI;
 
     build_direction(height, theta)
 }
