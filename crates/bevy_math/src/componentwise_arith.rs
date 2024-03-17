@@ -3,8 +3,6 @@
 //! This may be useful for types where there are no agreed upon standards for operators,
 //! e.g. what would it mean to add two HSL-colors?
 
-use glam::{Vec2, Vec3, Vec4};
-
 /// The componentwise + operator
 pub trait ComponentwiseAdd {
     /// The componentwise + operator
@@ -119,25 +117,3 @@ macro_rules! impl_componentwise_scalar_div {
         }
     };
 }
-
-impl_componentwise_add!(Vec2, [x, y]);
-impl_componentwise_add!(Vec3, [x, y, z]);
-impl_componentwise_add!(Vec4, [x, y, z, w]);
-
-impl_componentwise_sub!(Vec2, [x, y]);
-impl_componentwise_sub!(Vec3, [x, y, z]);
-impl_componentwise_sub!(Vec4, [x, y, z, w]);
-
-impl_componentwise_mul!(Vec2, [x, y]);
-impl_componentwise_mul!(Vec3, [x, y, z]);
-impl_componentwise_mul!(Vec4, [x, y, z, w]);
-impl_componentwise_scalar_mul!(Vec2, f32, [x, y]);
-impl_componentwise_scalar_mul!(Vec3, f32, [x, y, z]);
-impl_componentwise_scalar_mul!(Vec4, f32, [x, y, z, w]);
-
-impl_componentwise_div!(Vec2, [x, y]);
-impl_componentwise_div!(Vec3, [x, y, z]);
-impl_componentwise_div!(Vec4, [x, y, z, w]);
-impl_componentwise_scalar_div!(Vec2, f32, [x, y]);
-impl_componentwise_scalar_div!(Vec3, f32, [x, y, z]);
-impl_componentwise_scalar_div!(Vec4, f32, [x, y, z, w]);
