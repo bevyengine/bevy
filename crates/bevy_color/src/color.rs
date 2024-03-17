@@ -266,14 +266,14 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color.
-    pub const fn oklaba(l: f32, a: f32, b: f32, alpha: f32) -> Self {
-        Self::Oklaba(Oklaba { l, a, b, alpha })
+    pub const fn oklaba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self::Oklaba(Oklaba { lightness, a, b, alpha })
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color with an alpha of 1.0.
-    pub const fn oklab(l: f32, a: f32, b: f32) -> Self {
+    pub const fn oklab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Oklaba(Oklaba {
-            l,
+            lightness,
             a,
             b,
             alpha: 1.0,
