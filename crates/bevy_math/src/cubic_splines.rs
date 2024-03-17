@@ -1,33 +1,11 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::{
-    fmt::Debug,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::fmt::Debug;
 
-use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
+use glam::Vec2;
 use thiserror::Error;
 
-/// A point in space of any dimension that supports the math ops needed for cubic spline
-/// interpolation.
-pub trait Point:
-    Mul<f32, Output = Self>
-    + Div<f32, Output = Self>
-    + Add<Self, Output = Self>
-    + Sub<Self, Output = Self>
-    + Default
-    + Debug
-    + Clone
-    + Copy
-{
-}
-
-impl Point for Quat {}
-impl Point for Vec4 {}
-impl Point for Vec3 {}
-impl Point for Vec3A {}
-impl Point for Vec2 {}
-impl Point for f32 {}
+use crate::point::Point;
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -468,7 +446,7 @@ impl<P: Point> CubicNurbs<P> {
         control_points
             .iter_mut()
             .zip(weights.iter())
-            .for_each(|(p, w)| *p = *p * *w);
+            .for_each(|(p, w)| *p = P::point_mul(*p, *w));
 
         Ok(Self {
             control_points,
@@ -610,7 +588,7 @@ impl<P: Point> CubicGenerator<P> for LinearSpline<P> {
                 let a = points[0];
                 let b = points[1];
                 CubicSegment {
-                    coeff: [a, b - a, P::default(), P::default()],
+                    coeff: [a, P::point_sub(b, a), P::default(), P::default()],
                 }
             })
             .collect();
@@ -639,7 +617,13 @@ impl<P: Point> CubicSegment<P> {
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
         // Evaluate `a + bt + ct^2 + dt^3`, avoiding exponentiation
-        a + (b + (c + d * t) * t) * t
+        P::point_add(
+            a,
+            P::point_mul(
+                P::point_add(b, P::point_mul(P::point_add(c, P::point_mul(d, t)), t)),
+                t,
+            ),
+        )
     }
 
     /// Instantaneous velocity of a point at parametric value `t`.
@@ -647,7 +631,13 @@ impl<P: Point> CubicSegment<P> {
     pub fn velocity(&self, t: f32) -> P {
         let [_, b, c, d] = self.coeff;
         // Evaluate the derivative, which is `b + 2ct + 3dt^2`, avoiding exponentiation
-        b + (c * 2.0 + d * 3.0 * t) * t
+        P::point_add(
+            b,
+            P::point_mul(
+                P::point_add(P::point_mul(c, 2.0), P::point_mul(d, 3.0 * t)),
+                t,
+            ),
+        )
     }
 
     /// Instantaneous acceleration of a point at parametric value `t`.
@@ -655,7 +645,7 @@ impl<P: Point> CubicSegment<P> {
     pub fn acceleration(&self, t: f32) -> P {
         let [_, _, c, d] = self.coeff;
         // Evaluate the second derivative, which is `2c + 6dt`
-        c * 2.0 + d * 6.0 * t
+        P::point_add(P::point_mul(c, 2.0), P::point_mul(d, 6.0 * t))
     }
 
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
@@ -665,10 +655,22 @@ impl<P: Point> CubicSegment<P> {
         // These are the polynomial coefficients, computed by multiplying the characteristic
         // matrix by the point matrix.
         let coeff = [
-            p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
-            p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
-            p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
-            p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c0[0]), P::point_mul(p[1], c0[1])),
+                P::point_add(P::point_mul(p[2], c0[2]), P::point_mul(p[3], c0[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c1[0]), P::point_mul(p[1], c1[1])),
+                P::point_add(P::point_mul(p[2], c1[2]), P::point_mul(p[3], c1[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c2[0]), P::point_mul(p[1], c2[1])),
+                P::point_add(P::point_mul(p[2], c2[2]), P::point_mul(p[3], c2[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c3[0]), P::point_mul(p[1], c3[1])),
+                P::point_add(P::point_mul(p[2], c3[2]), P::point_mul(p[3], c3[3])),
+            ),
         ];
         Self { coeff }
     }
@@ -934,11 +936,17 @@ impl<P: Point> RationalSegment<P> {
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
-        // Compute a cubic polynomial for the control points
-        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
+        let numerator = P::point_add(
+            a,
+            P::point_mul(
+                P::point_add(b, P::point_mul(P::point_add(c, P::point_mul(d, t)), t)),
+                t,
+            ),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
-        numerator / denominator
+        P::point_div(numerator, denominator)
     }
 
     /// Instantaneous velocity of a point at parametric value `t` in `[0, knot_span)`.
@@ -949,21 +957,35 @@ impl<P: Point> RationalSegment<P> {
 
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
-        // Compute a cubic polynomial for the control points
-        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
+        let numerator = P::point_add(
+            a,
+            P::point_mul(
+                P::point_add(b, P::point_mul(P::point_add(c, P::point_mul(d, t)), t)),
+                t,
+            ),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
 
-        // Compute the derivative of the control point polynomial
-        let numerator_derivative = b + (c * 2.0 + d * 3.0 * t) * t;
+        // Compute the derivative of the control point polynomial: `b + 2ct + 3dt^2`
+        let numerator_derivative = P::point_add(
+            b,
+            P::point_mul(
+                P::point_add(P::point_mul(c, 2.0), P::point_mul(d, 3.0 * t)),
+                t,
+            ),
+        );
         // Compute the derivative of the weight polynomial
         let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
 
         // Velocity is the first derivative (wrt to the parameter `t`)
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
-        numerator_derivative / denominator
-            - numerator * (denominator_derivative / denominator.powi(2))
+        P::point_sub(
+            P::point_div(numerator_derivative, denominator),
+            P::point_mul(numerator, denominator_derivative / denominator.powi(2)),
+        )
     }
 
     /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
@@ -977,18 +999,31 @@ impl<P: Point> RationalSegment<P> {
 
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
-        // Compute a cubic polynomial for the control points
-        let numerator = a + (b + (c + d * t) * t) * t;
+        // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
+        let numerator = P::point_add(
+            a,
+            P::point_mul(
+                P::point_add(b, P::point_mul(P::point_add(c, P::point_mul(d, t)), t)),
+                t,
+            ),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
 
-        // Compute the derivative of the control point polynomial
-        let numerator_derivative = b + (c * 2.0 + d * 3.0 * t) * t;
+        // Compute the derivative of the control point polynomial: `b + 2ct + 3dt^2`
+        let numerator_derivative = P::point_add(
+            b,
+            P::point_mul(
+                P::point_add(P::point_mul(c, 2.0), P::point_mul(d, 3.0 * t)),
+                t,
+            ),
+        );
         // Compute the derivative of the weight polynomial
         let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
 
-        // Compute the second derivative of the control point polynomial
-        let numerator_second_derivative = c * 2.0 + d * 6.0 * t;
+        // Compute the second derivative of the control point polynomial: `2c + 6dt`
+        let numerator_second_derivative =
+            P::point_add(P::point_mul(c, 2.0), P::point_mul(d, 6.0 * t));
         // Compute the second derivative of the weight polynomial
         let denominator_second_derivative = z * 2.0 + w * 6.0 * t;
 
@@ -996,11 +1031,20 @@ impl<P: Point> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
-        numerator_second_derivative / denominator
-            + numerator_derivative * (-2.0 * denominator_derivative / denominator.powi(2))
-            + numerator
-                * (-denominator_second_derivative / denominator.powi(2)
-                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3))
+        P::point_add(
+            P::point_add(
+                P::point_div(numerator_second_derivative, denominator),
+                P::point_mul(
+                    numerator_derivative,
+                    -2.0 * denominator_derivative / denominator.powi(2),
+                ),
+            ),
+            P::point_mul(
+                numerator,
+                -denominator_second_derivative / denominator.powi(2)
+                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3),
+            ),
+        )
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
@@ -1020,10 +1064,22 @@ impl<P: Point> RationalSegment<P> {
         // These are the control point polynomial coefficients, computed by multiplying the characteristic
         // matrix by the point matrix.
         let coeff = [
-            p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
-            p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
-            p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
-            p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c0[0]), P::point_mul(p[1], c0[1])),
+                P::point_add(P::point_mul(p[2], c0[2]), P::point_mul(p[3], c0[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c1[0]), P::point_mul(p[1], c1[1])),
+                P::point_add(P::point_mul(p[2], c1[2]), P::point_mul(p[3], c1[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c2[0]), P::point_mul(p[1], c2[1])),
+                P::point_add(P::point_mul(p[2], c2[2]), P::point_mul(p[3], c2[3])),
+            ),
+            P::point_add(
+                P::point_add(P::point_mul(p[0], c3[0]), P::point_mul(p[1], c3[1])),
+                P::point_add(P::point_mul(p[2], c3[2]), P::point_mul(p[3], c3[3])),
+            ),
         ];
         // These are the weight polynomial coefficients, computed by multiplying the characteristic
         // matrix by the weight matrix.
@@ -1033,6 +1089,7 @@ impl<P: Point> RationalSegment<P> {
             w[0] * c2[0] + w[1] * c2[1] + w[2] * c2[2] + w[3] * c2[3],
             w[0] * c3[0] + w[1] * c3[1] + w[2] * c3[2] + w[3] * c3[3],
         ];
+
         Self {
             coeff,
             weight_coeff,
