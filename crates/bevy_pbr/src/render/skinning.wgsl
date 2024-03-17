@@ -1,31 +1,32 @@
 #define_import_path bevy_pbr::skinning
 
-#import bevy_pbr::mesh_types::SkinnedMesh
+#import bevy_pbr::mesh_bindings::mesh
 
 #ifdef SKINNED
 
-#ifdef MESH_BINDGROUP_1
-    @group(1) @binding(1) var<storage> joint_matrices: SkinnedMesh;
+#ifdef SKINNED_MESH_STORAGE_BUFFER
+@group(1) @binding(1) var<storage> joint_matrices: array<mat4x4<f32>>;
 #else
-    @group(2) @binding(1) var<storage> joint_matrices: SkinnedMesh;
+@group(1) @binding(1) var<uniform> joint_matrices: array<mat4x4<f32>,256u>;
 #endif
 
 
 fn skin_model(
-    skin_index: u32,
+    instance_index: u32,
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
 #ifdef SKINNED_MESH_STORAGE_BUFFER
-    return weights.x * joint_matrices.data[skin_index + indexes.x]
-        + weights.y * joint_matrices.data[skin_index + indexes.y]
-        + weights.z * joint_matrices.data[skin_index + indexes.z]
-        + weights.w * joint_matrices.data[skin_index + indexes.w];
+    let skin_index=mesh[instance_index].skin_index;
+    return weights.x * joint_matrices[skin_index + indexes.x]
+        + weights.y * joint_matrices[skin_index + indexes.y]
+        + weights.z * joint_matrices[skin_index + indexes.z]
+        + weights.w * joint_matrices[skin_index + indexes.w];
 #else
-    return weights.x * joint_matrices.data[indexes.x]
-        + weights.y * joint_matrices.data[indexes.y]
-        + weights.z * joint_matrices.data[indexes.z]
-        + weights.w * joint_matrices.data[indexes.w];
+    return weights.x * joint_matrices[indexes.x]
+        + weights.y * joint_matrices[indexes.y]
+        + weights.z * joint_matrices[indexes.z]
+        + weights.w * joint_matrices[indexes.w];
 #endif
 }
 

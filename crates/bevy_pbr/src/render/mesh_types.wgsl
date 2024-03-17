@@ -18,15 +18,6 @@ struct Mesh {
     skin_index: u32,
 };
 
-#ifdef SKINNED
-struct SkinnedMesh {
-    #ifdef SKINNED_MESH_STORAGE_BUFFER
-        data: array<mat4x4<f32>>,
-    #else
-        data: array<mat4x4<f32>, 256u>,
-    #endif
-};
-#endif
 
 #ifdef MORPH_TARGETS
 struct MorphWeights {

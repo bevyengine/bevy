@@ -9,9 +9,11 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
+    render::mesh::skinning::SkinnedMesh,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(FromArgs, Resource)]
 /// `many_foxes` stress test
@@ -19,6 +21,10 @@ struct Args {
     /// whether all foxes run in sync.
     #[argh(switch)]
     sync: bool,
+
+    /// whether all foxes run in sync.
+    #[argh(switch)]
+    vary_per_instance: bool,
 
     /// total number of foxes.
     #[argh(option, default = "1000")]
@@ -31,6 +37,7 @@ struct Foxes {
     speed: f32,
     moving: bool,
     sync: bool,
+    vary_per_instance: bool,
 }
 
 fn main() {
@@ -64,6 +71,7 @@ fn main() {
             speed: 2.0,
             moving: true,
             sync: args.sync,
+            vary_per_instance: args.vary_per_instance,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -236,6 +244,8 @@ fn setup_scene_once_loaded(
     foxes: Res<Foxes>,
     mut commands: Commands,
     mut player: Query<(Entity, &mut AnimationPlayer)>,
+    mut material_meshes: Query<&mut Handle<StandardMaterial>, With<SkinnedMesh>>,
+    mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut done: Local<bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
@@ -248,6 +258,17 @@ fn setup_scene_once_loaded(
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
                 playing_animation.seek_to(entity.index() as f32 / 10.0);
+            }
+        }
+
+        if foxes.vary_per_instance {
+            let mut color_rng = StdRng::seed_from_u64(42);
+            for mut material in material_meshes.iter_mut() {
+                let handle = material_assets.add(StandardMaterial {
+                    base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                    ..default()
+                });
+                *material = handle;
             }
         }
         *done = true;
