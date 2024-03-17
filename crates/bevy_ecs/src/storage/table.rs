@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
-    query::DebugCheckedUnwrap,
+    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
@@ -226,8 +226,8 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());
-        self.added_ticks.swap_remove(row.as_usize());
-        self.changed_ticks.swap_remove(row.as_usize());
+        self.added_ticks.swap_remove_unchecked(row.as_usize());
+        self.changed_ticks.swap_remove_unchecked(row.as_usize());
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
@@ -248,8 +248,14 @@ impl Column {
         row: TableRow,
     ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
-        let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
-        let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
+        let added = self
+            .added_ticks
+            .swap_remove_unchecked(row.as_usize())
+            .into_inner();
+        let changed = self
+            .changed_ticks
+            .swap_remove_unchecked(row.as_usize())
+            .into_inner();
         (data, ComponentTicks { added, changed })
     }
 
@@ -275,9 +281,10 @@ impl Column {
         let ptr = self.data.get_unchecked_mut(dst_row.as_usize());
         other.data.swap_remove_unchecked(src_row.as_usize(), ptr);
         *self.added_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.added_ticks.swap_remove(src_row.as_usize());
-        *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.changed_ticks.swap_remove(src_row.as_usize());
+            other.added_ticks.swap_remove_unchecked(src_row.as_usize());
+        *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) = other
+            .changed_ticks
+            .swap_remove_unchecked(src_row.as_usize());
     }
 
     /// Pushes a new value onto the end of the [`Column`].
@@ -576,7 +583,7 @@ impl Table {
             column.swap_remove_unchecked(row);
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
-        self.entities.swap_remove(row.as_usize());
+        self.entities.swap_remove_unchecked(row.as_usize());
         if is_last {
             None
         } else {
@@ -599,7 +606,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
@@ -631,7 +638,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
@@ -662,7 +669,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)

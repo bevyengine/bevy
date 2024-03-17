@@ -23,7 +23,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    query::DebugCheckedUnwrap,
+    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
@@ -510,12 +510,15 @@ impl Archetype {
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
-    /// # Panics
-    /// This function will panic if `index >= self.len()`
+    /// # Safety
+    /// `index < self.len()` must be satisifed.
     #[inline]
-    pub(crate) fn swap_remove(&mut self, row: ArchetypeRow) -> ArchetypeSwapRemoveResult {
+    pub(crate) unsafe fn swap_remove_unchecked(
+        &mut self,
+        row: ArchetypeRow,
+    ) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
-        let entity = self.entities.swap_remove(row.index());
+        let entity = unsafe { self.entities.swap_remove_unchecked(row.index()) };
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None

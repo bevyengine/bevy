@@ -505,6 +505,7 @@ impl BundleInfo {
                 table_components,
                 sparse_set_components,
             );
+
             // add an edge from the old archetype to the new archetype
             // SAFETY:  Caller guarentees that archetype_id is valid.
             unsafe {
@@ -512,8 +513,9 @@ impl BundleInfo {
                     .get_unchecked_mut(archetype_id)
                     .edges_mut()
                     .insert_add_bundle(self.id, new_archetype_id, bundle_status);
-                new_archetype_id
             }
+
+            new_archetype_id
         }
     }
 }
@@ -685,7 +687,7 @@ impl<'w> BundleInserter<'w> {
                     (&mut world.storages.sparse_sets, &mut world.entities)
                 };
 
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -731,7 +733,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.entities,
                     )
                 };
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.

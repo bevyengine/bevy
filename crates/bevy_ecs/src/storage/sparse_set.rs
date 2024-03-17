@@ -1,6 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
+    query::UnsafeVecExtensions,
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -281,7 +282,9 @@ impl ComponentSparseSet {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the entities Vec.
+            unsafe { self.entities.swap_remove_unchecked(dense_index.as_usize()) };
             let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
             let (value, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
@@ -304,7 +307,9 @@ impl ComponentSparseSet {
         if let Some(dense_index) = self.sparse.remove(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the entities Vec.
+            unsafe { self.entities.swap_remove_unchecked(dense_index.as_usize()) };
             let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe {
@@ -496,8 +501,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.sparse.remove(index).map(|dense_index| {
             let index = dense_index.get();
             let is_last = index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(index);
-            self.indices.swap_remove(index);
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the dense Vec.
+            let value = unsafe { self.dense.swap_remove_unchecked(index) };
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the indicies Vec.
+            unsafe { self.indices.swap_remove_unchecked(index) };
             if !is_last {
                 let swapped_index = self.indices[index].clone();
                 *self.sparse.get_mut(swapped_index).unwrap() = dense_index;

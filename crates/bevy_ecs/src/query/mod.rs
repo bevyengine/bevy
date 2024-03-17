@@ -67,6 +67,26 @@ impl<T> DebugCheckedUnwrap for Option<T> {
     }
 }
 
+pub(crate) trait UnsafeVecExtensions<T> {
+    unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T;
+}
+
+impl<T> UnsafeVecExtensions<T> for Vec<T> {
+    unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T {
+        let len = self.len();
+        unsafe {
+            // We replace self[index] with the last element. Note that if the
+            // bounds check above succeeds there must be a last element (which
+            // can be self[index] itself).
+            let value = std::ptr::read(self.as_ptr().add(index));
+            let base_ptr = self.as_mut_ptr();
+            std::ptr::copy(base_ptr.add(len - 1), base_ptr.add(index), 1);
+            self.set_len(len - 1);
+            value
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::{QueryData, QueryFilter};

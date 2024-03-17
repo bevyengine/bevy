@@ -53,6 +53,7 @@ use crate::{
         masks::{IdentifierMask, HIGH_MASK},
         Identifier,
     },
+    query::UnsafeVecExtensions,
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
@@ -617,7 +618,9 @@ impl Entities {
             self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
+            // SAFETY: The returned index means there is at least one item in the pending Vec and that
+            // index is within bounds.
+            unsafe { self.pending.swap_remove_unchecked(index) };
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
@@ -653,7 +656,9 @@ impl Entities {
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
+            // SAFETY: The returned index means there is at least one item in the pending Vec and that
+            // index is within bounds.
+            unsafe { self.pending.swap_remove_unchecked(index) };
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;

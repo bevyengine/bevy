@@ -884,7 +884,7 @@ impl<'w> EntityWorldMut<'w> {
     ) {
         // SAFETY: Caller guarentees that old_archetype ID is valid.
         let old_archetype = unsafe { archetypes.get_unchecked_mut(old_archetype_id) };
-        let remove_result = old_archetype.swap_remove(old_location.archetype_row);
+        let remove_result = old_archetype.swap_remove_unchecked(old_location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
             // SAFETY: The swapped entity must be alive and have a valid location.
@@ -1129,10 +1129,12 @@ impl<'w> EntityWorldMut<'w> {
         let moved_entity;
 
         {
-            // SAFETY: The entity's location is directly fetched from Enttities, so it's guarenteed
+            // SAFETY: The entity's location is directly fetched from Enttities, so it's guaranteed
             // to be valid.
             let archetype = unsafe { world.archetypes.get_unchecked_mut(location.archetype_id) };
-            let remove_result = archetype.swap_remove(location.archetype_row);
+            // SAFETY: The entity's location is directly fetched from Enttities, so it's archetype
+            // row is guaranteed to be valid.
+            let remove_result = unsafe { archetype.swap_remove_unchecked(location.archetype_row) };
             if let Some(swapped_entity) = remove_result.swapped_entity {
                 // SAFETY: The swapped entity must be alive and have a valid location.
                 let swapped_location =
