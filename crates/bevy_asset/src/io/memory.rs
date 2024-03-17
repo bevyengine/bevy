@@ -1,8 +1,9 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use bevy_utils::{BoxedFuture, HashMap};
-use futures_io::AsyncRead;
+use futures_io::{AsyncRead, AsyncSeek};
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
+use std::io::SeekFrom;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -232,6 +233,31 @@ impl AsyncRead for DataReader {
                 ready!(Pin::new(&mut &self.data.value()[self.bytes_read..]).poll_read(cx, buf))?;
             self.bytes_read += n;
             Poll::Ready(Ok(n))
+        }
+    }
+}
+
+impl AsyncSeek for DataReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset as i64,
+            SeekFrom::End(offset) => self.data.value().len() as i64 - offset,
+            SeekFrom::Current(offset) => self.bytes_read as i64 + offset,
+        };
+
+        if new_pos < 0 {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        } else {
+            self.bytes_read = new_pos as _;
+
+            Poll::Ready(Ok(new_pos as _))
         }
     }
 }

@@ -22,8 +22,10 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use source::*;
 
 use bevy_utils::BoxedFuture;
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
+use std::io::SeekFrom;
+use std::task::Context;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -55,7 +57,11 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
-pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
+pub trait AsyncReadAndSeek: AsyncRead + AsyncSeek {}
+
+impl<T: AsyncRead + AsyncSeek> AsyncReadAndSeek for T {}
+
+pub type Reader<'a> = dyn AsyncReadAndSeek + Unpin + Send + Sync + 'a;
 
 /// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
@@ -260,6 +266,88 @@ impl AsyncRead for VecReader {
             let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
             self.bytes_read += n;
             Poll::Ready(Ok(n))
+        }
+    }
+}
+
+impl AsyncSeek for VecReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset as i64,
+            SeekFrom::End(offset) => self.bytes.len() as i64 - offset,
+            SeekFrom::Current(offset) => self.bytes_read as i64 + offset,
+        };
+
+        if new_pos < 0 {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        } else {
+            self.bytes_read = new_pos as _;
+
+            Poll::Ready(Ok(new_pos as _))
+        }
+    }
+}
+
+/// An [`AsyncRead`] implementation capable of reading a [`&[u8]`].
+pub struct SliceReader<'a> {
+    bytes: &'a [u8],
+    bytes_read: usize,
+}
+
+impl<'a> SliceReader<'a> {
+    /// Create a new [`SliceReader`] for `bytes`.
+    pub fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            bytes_read: 0,
+        }
+    }
+}
+
+impl<'a> AsyncRead for SliceReader<'a> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        if self.bytes_read >= self.bytes.len() {
+            Poll::Ready(Ok(0))
+        } else {
+            let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
+            self.bytes_read += n;
+            Poll::Ready(Ok(n))
+        }
+    }
+}
+
+impl<'a> AsyncSeek for SliceReader<'a> {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset as i64,
+            SeekFrom::End(offset) => self.bytes.len() as i64 - offset,
+            SeekFrom::Current(offset) => self.bytes_read as i64 + offset,
+        };
+
+        if new_pos < 0 {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        } else {
+            self.bytes_read = new_pos as _;
+
+            Poll::Ready(Ok(new_pos as _))
         }
     }
 }
