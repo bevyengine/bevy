@@ -231,6 +231,10 @@ let mut groups = RenderGroups::from(0);
 groups.add(RenderLayer(1);
 entity.insert(groups);
 ```
+///
+/// Similarly, if an entity without [`RenderGroups`] inherits from an entity with [`PropagateRenderGroups`] that
+/// doesn't propagate layer 0, then the entity's computed [`InheritedRenderGroups`] won't have layer 0 and the
+/// entity won't be visible to layer 0.
 */
 #[derive(Component, Debug, Clone)]
 pub struct RenderGroups
@@ -357,34 +361,6 @@ impl Default for RenderGroups {
     }
 }
 
-/// Component on an entity that stores the result of merging the entity's [`RenderGroups`]
-/// component with the [`RenderGroups`] of an entity propagated by the entity's parent.
-///
-/// See [`PropagateRenderGroups`].
-///
-/// This is automatically updated in [`PostUpdate`] in the [`VisibilityPropagate`] set.
-/// The component will be automatically added or removed depending on if it is needed.
-///
-/// ### Merge details
-///
-/// The merge direction is 'entity_rendergroups.merge(propagated_rendergroups)`
-/// (see [`RenderGroups::merge`]).
-/// This means the entity's affiliated camera will be prioritized over the propagated affiliated camera.
-#[derive(Component, Debug, Clone)]
-pub struct InheritedRenderGroups
-{
-    /// The entity that propagated [`RenderGroups`] to this entity.
-    ///
-    /// This is cached so children of this entity can update themselves without needing to traverse the
-    /// entire hierarchy.
-    pub propagater: Entity,
-    /// The [`RenderGroups`] computed by merging the [`RenderGroups`] of the `Self::propagater` entity into
-    /// the node's [`RenderGroups`] component.
-    ///
-    /// This is cached for efficient access in the [`check_visibility`] system.
-    pub computed: RenderGroups,
-};
-
 /// Component on camera entities that controls which [`RenderLayers`] are visible to
 /// the camera.
 ///
@@ -476,33 +452,6 @@ impl Default for CameraView {
     fn default() -> Self {
         Self::from(DEFAULT_RENDER_LAYER)
     }
-}
-
-/// Component on an entity that causes it to propagate a [`RenderGroups`] value to its children.
-///
-/// Entities with this component will ignore [`RenderGroups`] propagated by parents.
-///
-/// See [`RenderGroups`] and [`CameraView`].
-#[derive(Component)]
-pub enum PropagateRenderGroups
-{
-    /// If the entity has a [`RenderGroups`] component, that value is propagated.
-    ///
-    /// Note that it is allowed to add a [`RenderGroup`] component to a camera.
-    ///
-    /// Otherwise nothing is propagated and no errors are logged.
-    Auto,
-    /// If the entity has a [`Camera`] component, propagates `RenderGroups::new_with_camera(entity)`.
-    ///
-    /// Otherwise an error will be logged.
-    Camera,
-    /// If the entity has a [`Camera`] component and a [`CameraView`] component, propagates
-    /// `CameraView::get_groups(entity)`.
-    ///
-    /// Otherwise an error will be logged.
-    CameraWithView,
-    /// Propagates a custom [`RenderGroups`].
-    Custom(RenderGroups),
 }
 
 #[cfg(test)]
