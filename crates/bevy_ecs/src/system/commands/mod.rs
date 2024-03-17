@@ -326,7 +326,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    /// 
+    ///
     /// # See also
     ///
     /// - [`entity`](Self::entity) for the panicking version.
