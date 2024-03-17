@@ -122,7 +122,7 @@ impl Transform {
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
     /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
-    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
+    /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
     /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     #[must_use]
