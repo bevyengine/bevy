@@ -1,7 +1,7 @@
 use std::ops::{Div, Mul};
 
 use crate::color_difference::EuclideanDistance;
-use crate::{Alpha, ClampColor, IsWithinBounds, LinearRgba, Luminance, Mix, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -308,7 +308,7 @@ impl EuclideanDistance for Srgba {
 }
 
 impl ClampColor for Srgba {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             red: self.red.clamp(0., 1.),
             green: self.green.clamp(0., 1.),
@@ -317,15 +317,13 @@ impl ClampColor for Srgba {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.red = self.red.clamp(0., 1.);
         self.green = self.green.clamp(0., 1.);
         self.blue = self.blue.clamp(0., 1.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Srgba {
     fn is_within_bounds(&self) -> bool {
         self.red >= 0.
             && self.red <= 1.
@@ -529,11 +527,11 @@ mod tests {
         let mut color_3 = Srgba::rgb(-1., 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Srgba::rgb(1., 0., 0.4));
+        assert_eq!(color_1.clamped(), Srgba::rgb(1., 0., 0.4));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Srgba::rgb(0., 1., 1.));
     }

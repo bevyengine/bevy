@@ -1,5 +1,5 @@
 use crate::{
-    Alpha, ClampColor, Hwba, IsWithinBounds, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
+    Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -94,7 +94,7 @@ impl Alpha for Hsva {
 }
 
 impl ClampColor for Hsva {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             hue: self.hue.rem_euclid(360.),
             saturation: self.saturation.clamp(0., 1.),
@@ -103,15 +103,13 @@ impl ClampColor for Hsva {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.hue = self.hue.rem_euclid(360.);
         self.saturation = self.saturation.clamp(0., 1.);
         self.value = self.value.clamp(0., 1.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Hsva {
     fn is_within_bounds(&self) -> bool {
         self.hue >= 0.
             && self.hue <= 360.
@@ -253,11 +251,11 @@ mod tests {
         let mut color_3 = Hsva::hsv(-50., 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Hsva::hsv(1., 1., 0.));
+        assert_eq!(color_1.clamped(), Hsva::hsv(1., 1., 0.));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Hsva::hsv(310., 1., 1.));
     }

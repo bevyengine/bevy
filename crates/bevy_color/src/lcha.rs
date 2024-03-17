@@ -1,5 +1,5 @@
 use crate::{
-    Alpha, ClampColor, IsWithinBounds, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ClampColor, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -169,7 +169,7 @@ impl Luminance for Lcha {
 }
 
 impl ClampColor for Lcha {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             lightness: self.lightness.clamp(0., 1.5),
             chroma: self.chroma.clamp(0., 1.5),
@@ -178,15 +178,13 @@ impl ClampColor for Lcha {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.lightness = self.lightness.clamp(0., 1.5);
         self.chroma = self.chroma.clamp(0., 1.5);
         self.hue = self.hue.rem_euclid(360.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Lcha {
     fn is_within_bounds(&self) -> bool {
         self.lightness >= 0.
             && self.lightness <= 1.5
@@ -354,11 +352,11 @@ mod tests {
         let mut color_3 = Lcha::lch(-0.4, 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Lcha::lch(0., 1.5, 40.));
+        assert_eq!(color_1.clamped(), Lcha::lch(0., 1.5, 40.));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Lcha::lch(0., 1., 1.));
     }

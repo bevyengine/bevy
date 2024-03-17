@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, IsWithinBounds, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -96,7 +96,7 @@ impl Alpha for Hwba {
 }
 
 impl ClampColor for Hwba {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             hue: self.hue.rem_euclid(360.),
             whiteness: self.whiteness.clamp(0., 1.),
@@ -105,15 +105,13 @@ impl ClampColor for Hwba {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.hue = self.hue.rem_euclid(360.);
         self.whiteness = self.whiteness.clamp(0., 1.);
         self.blackness = self.blackness.clamp(0., 1.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Hwba {
     fn is_within_bounds(&self) -> bool {
         self.hue >= 0.
             && self.hue <= 360.
@@ -284,11 +282,11 @@ mod tests {
         let mut color_3 = Hwba::hwb(-50., 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Hwba::hwb(1., 1., 0.));
+        assert_eq!(color_1.clamped(), Hwba::hwb(1., 1., 0.));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Hwba::hwb(310., 1., 1.));
     }

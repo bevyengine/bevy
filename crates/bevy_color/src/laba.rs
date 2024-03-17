@@ -1,5 +1,5 @@
 use crate::{
-    Alpha, ClampColor, Hsla, Hsva, Hwba, IsWithinBounds, LinearRgba, Luminance, Mix, Oklaba, Srgba,
+    Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba,
     StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -112,7 +112,7 @@ impl Alpha for Laba {
 }
 
 impl ClampColor for Laba {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             lightness: self.lightness.clamp(0., 1.5),
             a: self.a.clamp(-1.5, 1.5),
@@ -121,15 +121,13 @@ impl ClampColor for Laba {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.lightness = self.lightness.clamp(0., 1.5);
         self.a = self.a.clamp(-1.5, 1.5);
         self.b = self.b.clamp(-1.5, 1.5);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Laba {
     fn is_within_bounds(&self) -> bool {
         self.lightness >= 0.
             && self.lightness <= 1.5
@@ -393,11 +391,11 @@ mod tests {
         let mut color_3 = Laba::lab(-0.4, 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Laba::lab(0., 1.5, -1.5));
+        assert_eq!(color_1.clamped(), Laba::lab(0., 1.5, -1.5));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Laba::lab(0., 1., 1.));
     }

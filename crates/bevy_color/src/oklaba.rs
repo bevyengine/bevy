@@ -1,5 +1,5 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, IsWithinBounds, Lcha,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, Lcha,
     LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -133,7 +133,7 @@ impl EuclideanDistance for Oklaba {
 }
 
 impl ClampColor for Oklaba {
-    fn clamp(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self {
             l: self.l.clamp(0., 1.),
             a: self.a.clamp(-1., 1.),
@@ -142,15 +142,13 @@ impl ClampColor for Oklaba {
         }
     }
 
-    fn clamp_self(&mut self) {
+    fn clamp(&mut self) {
         self.l = self.l.clamp(0., 1.);
         self.a = self.a.clamp(-1., 1.);
         self.b = self.b.clamp(-1., 1.);
         self.alpha = self.alpha.clamp(0., 1.);
     }
-}
 
-impl IsWithinBounds for Oklaba {
     fn is_within_bounds(&self) -> bool {
         self.l >= 0.
             && self.l <= 1.
@@ -343,11 +341,11 @@ mod tests {
         let mut color_3 = Oklaba::lch(-0.4, 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamp(), Oklaba::lch(0., 1., -1.));
+        assert_eq!(color_1.clamped(), Oklaba::lch(0., 1., -1.));
 
         assert!(color_2.is_within_bounds());
 
-        color_3.clamp_self();
+        color_3.clamp();
         assert!(color_3.is_within_bounds());
         assert_eq!(color_3, Oklaba::lch(0., 1., 1.));
     }
