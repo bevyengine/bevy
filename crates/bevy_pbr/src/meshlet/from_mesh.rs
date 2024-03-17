@@ -57,27 +57,33 @@ impl MeshletMesh {
                 let meshlet_triangle_edges = triangle_edges_per_meshlet
                     .entry(meshlet_id)
                     .or_insert(HashSet::new());
-                for v in meshlet.triangles.chunks(3) {
-                    meshlet_triangle_edges.insert((v[0].min(v[1]), v[0].max(v[1])));
-                    meshlet_triangle_edges.insert((v[0].min(v[2]), v[0].max(v[2])));
-                    meshlet_triangle_edges.insert((v[1].min(v[2]), v[1].max(v[2])));
+                for i in meshlet.triangles.chunks(3) {
+                    let v0 = meshlet.vertices[i[0] as usize];
+                    let v1 = meshlet.vertices[i[1] as usize];
+                    let v2 = meshlet.vertices[i[2] as usize];
+                    meshlet_triangle_edges.insert((v0.min(v1), v0.max(v1)));
+                    meshlet_triangle_edges.insert((v0.min(v2), v0.max(v2)));
+                    meshlet_triangle_edges.insert((v1.min(v2), v1.max(v2)));
                 }
             }
 
             // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
             let mut connected_meshlets_per_meshlet = HashMap::new();
+            for meshlet_id in simplification_queue.clone() {
+                connected_meshlets_per_meshlet.insert(meshlet_id, Vec::new());
+            }
             for (meshlet_id1, meshlet_id2) in simplification_queue.clone().tuple_combinations() {
                 let shared_edge_count = triangle_edges_per_meshlet[&meshlet_id1]
                     .intersection(&triangle_edges_per_meshlet[&meshlet_id2])
                     .count();
                 if shared_edge_count != 0 {
                     connected_meshlets_per_meshlet
-                        .entry(meshlet_id1)
-                        .or_insert(Vec::new())
+                        .get_mut(&meshlet_id1)
+                        .unwrap()
                         .push((meshlet_id2, shared_edge_count));
                     connected_meshlets_per_meshlet
-                        .entry(meshlet_id2)
-                        .or_insert(Vec::new())
+                        .get_mut(&meshlet_id2)
+                        .unwrap()
                         .push((meshlet_id1, shared_edge_count));
                 }
             }
