@@ -1,6 +1,11 @@
 use crate::{
     Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_point, impl_componentwise_scalar_div, impl_componentwise_scalar_mul,
+    impl_componentwise_sub,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +28,14 @@ pub struct Laba {
 }
 
 impl StandardColor for Laba {}
+
+impl_componentwise_add!(Laba, [lightness, a, b, alpha]);
+impl_componentwise_sub!(Laba, [lightness, a, b, alpha]);
+impl_componentwise_mul!(Laba, [lightness, a, b, alpha]);
+impl_componentwise_scalar_mul!(Laba, f32, [lightness, a, b, alpha]);
+impl_componentwise_div!(Laba, [lightness, a, b, alpha]);
+impl_componentwise_scalar_div!(Laba, f32, [lightness, a, b, alpha]);
+impl_componentwise_point!(Laba);
 
 impl Laba {
     /// Construct a new [`Laba`] color from components.

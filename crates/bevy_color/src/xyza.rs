@@ -1,4 +1,9 @@
 use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_point, impl_componentwise_scalar_div, impl_componentwise_scalar_mul,
+    impl_componentwise_sub,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +26,14 @@ pub struct Xyza {
 }
 
 impl StandardColor for Xyza {}
+
+impl_componentwise_add!(Xyza, [x, y, z, alpha]);
+impl_componentwise_sub!(Xyza, [x, y, z, alpha]);
+impl_componentwise_mul!(Xyza, [x, y, z, alpha]);
+impl_componentwise_scalar_mul!(Xyza, f32, [x, y, z, alpha]);
+impl_componentwise_div!(Xyza, [x, y, z, alpha]);
+impl_componentwise_scalar_div!(Xyza, f32, [x, y, z, alpha]);
+impl_componentwise_point!(Xyza);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.

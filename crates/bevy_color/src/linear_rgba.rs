@@ -1,7 +1,11 @@
 use std::ops::{Div, Mul};
 
 use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
-use bevy_math::Vec4;
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_scalar_div, impl_componentwise_scalar_mul, impl_componentwise_sub,
+};
+use bevy_math::{impl_componentwise_point, Vec4};
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
@@ -26,6 +30,14 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
+
+impl_componentwise_add!(LinearRgba, [red, green, blue, alpha]);
+impl_componentwise_sub!(LinearRgba, [red, green, blue, alpha]);
+impl_componentwise_mul!(LinearRgba, [red, green, blue, alpha]);
+impl_componentwise_scalar_mul!(LinearRgba, f32, [red, green, blue, alpha]);
+impl_componentwise_div!(LinearRgba, [red, green, blue, alpha]);
+impl_componentwise_scalar_div!(LinearRgba, f32, [red, green, blue, alpha]);
+impl_componentwise_point!(LinearRgba);
 
 impl LinearRgba {
     /// A fully black color with full alpha.

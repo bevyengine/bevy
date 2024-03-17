@@ -3,6 +3,11 @@
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_point, impl_componentwise_scalar_div, impl_componentwise_scalar_mul,
+    impl_componentwise_sub,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +31,14 @@ pub struct Hwba {
 }
 
 impl StandardColor for Hwba {}
+
+impl_componentwise_add!(Hwba, [hue, whiteness, blackness, alpha]);
+impl_componentwise_sub!(Hwba, [hue, whiteness, blackness, alpha]);
+impl_componentwise_mul!(Hwba, [hue, whiteness, blackness, alpha]);
+impl_componentwise_scalar_mul!(Hwba, f32, [hue, whiteness, blackness, alpha]);
+impl_componentwise_div!(Hwba, [hue, whiteness, blackness, alpha]);
+impl_componentwise_scalar_div!(Hwba, f32, [hue, whiteness, blackness, alpha]);
+impl_componentwise_point!(Hwba);
 
 impl Hwba {
     /// Construct a new [`Hwba`] color from components.

@@ -36,9 +36,9 @@ pub trait PointDiv {
 }
 
 #[macro_export]
-/// Implements `PointAdd`, `PointSub`, `PointMul`, `PointDiv` and `Point` for the provided type using the 
+/// Implements `PointAdd`, `PointSub`, `PointMul`, `PointDiv` and `Point` for the provided type using the
 /// `ComponentwiseAdd`, `ComponentwiseSub`, `ComponentwiseMul` and `ComponentwiseDiv` implementations of that type.
-/// 
+///
 /// Please note that this macro does not implement any componentwise traits or other bounds introduced by `Point`.
 macro_rules! impl_componentwise_point {
     ($ty: ident) => {
@@ -71,9 +71,9 @@ macro_rules! impl_componentwise_point {
 }
 
 #[macro_export]
-/// Implements `PointAdd`, `PointSub`, `PointMul`, `PointDiv` and `Point` for the provided type using the 
+/// Implements `PointAdd`, `PointSub`, `PointMul`, `PointDiv` and `Point` for the provided type using the
 /// `std::ops::Add`, `std::ops::Sub`, `std::ops::Mul` and `std::ops::Div` implementations of that type.
-/// 
+///
 /// Please note that this macro does not implement any of the `std::ops::*` traits or other bounds introduced by `Point`.
 macro_rules! impl_std_ops_point {
     ($ty: ident) => {

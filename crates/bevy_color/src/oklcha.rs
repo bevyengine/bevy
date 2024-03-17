@@ -2,6 +2,11 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_point, impl_componentwise_scalar_div, impl_componentwise_scalar_mul,
+    impl_componentwise_sub,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +29,14 @@ pub struct Oklcha {
 }
 
 impl StandardColor for Oklcha {}
+
+impl_componentwise_add!(Oklcha, [lightness, chroma, hue, alpha]);
+impl_componentwise_sub!(Oklcha, [lightness, chroma, hue, alpha]);
+impl_componentwise_mul!(Oklcha, [lightness, chroma, hue, alpha]);
+impl_componentwise_scalar_mul!(Oklcha, f32, [lightness, chroma, hue, alpha]);
+impl_componentwise_div!(Oklcha, [lightness, chroma, hue, alpha]);
+impl_componentwise_scalar_div!(Oklcha, f32, [lightness, chroma, hue, alpha]);
+impl_componentwise_point!(Oklcha);
 
 impl Oklcha {
     /// Construct a new [`Oklcha`] color from components.

@@ -1,4 +1,9 @@
 use crate::{Alpha, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use bevy_math::{
+    impl_componentwise_add, impl_componentwise_div, impl_componentwise_mul,
+    impl_componentwise_point, impl_componentwise_scalar_div, impl_componentwise_scalar_mul,
+    impl_componentwise_sub,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +27,14 @@ pub struct Hsla {
 }
 
 impl StandardColor for Hsla {}
+
+impl_componentwise_add!(Hsla, [hue, saturation, lightness, alpha]);
+impl_componentwise_sub!(Hsla, [hue, saturation, lightness, alpha]);
+impl_componentwise_mul!(Hsla, [hue, saturation, lightness, alpha]);
+impl_componentwise_scalar_mul!(Hsla, f32, [hue, saturation, lightness, alpha]);
+impl_componentwise_div!(Hsla, [hue, saturation, lightness, alpha]);
+impl_componentwise_scalar_div!(Hsla, f32, [hue, saturation, lightness, alpha]);
+impl_componentwise_point!(Hsla);
 
 impl Hsla {
     /// Construct a new [`Hsla`] color from components.
