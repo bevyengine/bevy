@@ -114,16 +114,18 @@ impl Alpha for Laba {
 impl ClampColor for Laba {
     fn clamped(&self) -> Self {
         Self {
-            // The a and b fields doesn't have any real bounds, and neither do lightness have a upper bound.
-            lightness: self.lightness.max(0.),
+            lightness: self.lightness.clamp(0., 1.5),
+            a: self.a.clamp(-1.5, 1.5),
+            b: self.b.clamp(-1.5, 1.5),
             alpha: self.alpha.clamp(0., 1.),
-            ..*self
         }
     }
 
     fn is_within_bounds(&self) -> bool {
-        // We only check two bounds, the Laba colorspaces doesn't have real bounds given, and lightness doesn't have a real upper bound.
-        self.lightness >= 0. && (0. ..=1.).contains(&self.alpha)
+        (0. ..=1.5).contains(&self.lightness)
+            && (-1.5..=1.5).contains(&self.a)
+            && (-1.5..=1.5).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -378,7 +380,7 @@ mod tests {
         let mut color_3 = Laba::lab(-0.4, 1., 1.);
 
         assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Laba::lab(0., 2., -2.));
+        assert_eq!(color_1.clamped(), Laba::lab(0., 1.5, -1.5));
 
         assert!(color_2.is_within_bounds());
         assert_eq!(color_2, color_2.clamped());
