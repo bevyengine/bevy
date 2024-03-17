@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, IsWithinBounds, Laba,
+    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -203,6 +203,37 @@ impl From<Oklcha> for Oklaba {
     }
 }
 
+impl ClampColor for Oklcha {
+    fn clamp(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.),
+            chroma: self.chroma.clamp(0., 1.),
+            hue: self.hue.rem_euclid(360.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn clamp_self(&mut self) {
+        self.lightness = self.lightness.clamp(0., 1.);
+        self.chroma = self.chroma.clamp(0., 1.);
+        self.hue = self.hue.rem_euclid(360.);
+        self.alpha = self.alpha.clamp(0., 1.);
+    }
+}
+
+impl IsWithinBounds for Oklcha {
+    fn is_within_bounds(&self) -> bool {
+        self.lightness >= 0.
+            && self.lightness <= 1.
+            && self.chroma >= 0.
+            && self.chroma <= 1.
+            && self.hue >= 0.
+            && self.hue <= 360.
+            && self.alpha >= 0.
+            && self.alpha <= 1.
+    }
+}
+
 // Derived Conversions
 
 impl From<Hsla> for Oklcha {
@@ -348,5 +379,21 @@ mod tests {
         assert_approx_eq!(oklcha.chroma, oklcha2.chroma, 0.001);
         assert_approx_eq!(oklcha.hue, oklcha2.hue, 0.001);
         assert_approx_eq!(oklcha.alpha, oklcha2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Oklcha::lch(-1., 2., 400.);
+        let color_2 = Oklcha::lch(1., 1., 249.54);
+        let mut color_3 = Oklcha::lch(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamp(), Oklcha::lch(0., 1., 40.));
+
+        assert!(color_2.is_within_bounds());
+
+        color_3.clamp_self();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Oklcha::lch(0., 1., 1.));
     }
 }
