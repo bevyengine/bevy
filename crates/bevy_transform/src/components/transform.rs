@@ -30,9 +30,7 @@ use std::ops::Mul;
 /// # Examples
 ///
 /// - [`transform`]
-/// - [`global_vs_local_translation`]
 ///
-/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
