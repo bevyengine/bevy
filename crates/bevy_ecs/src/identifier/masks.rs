@@ -94,7 +94,7 @@ impl IdentifierMask {
         // SAFETY:
         // - The rhs is masked to never be a value greater than the mask, allowing
         //   the overflow to be tracked/accounted for.
-        // - Adding the overflow flag will offet overflows to start at 1 instead of 0
+        // - Adding the overflow flag will offset overflows to start at 1 instead of 0
         // - The sum of 0x3FFF_FFFF + 1 (overflow) == 1
         // - The sum of Ox3FFF_FFFF + 0x3FFF_FFFF == 0x3FFF_FFFF
         // - If the operation doesn't overflow at 30 bits, no offsetting takes place
