@@ -318,10 +318,10 @@ impl ClampColor for Srgba {
     }
 
     fn is_within_bounds(&self) -> bool {
-        (0. ..= 1.).contains(&self.red)
-            && (0. ..= 1.).contains(&self.green)
-            && (0. ..= 1.).contains(&self.blue)
-            && (0. ..= 1.).contains(&self.alpha)
+        (0. ..=1.).contains(&self.red)
+            && (0. ..=1.).contains(&self.green)
+            && (0. ..=1.).contains(&self.blue)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
