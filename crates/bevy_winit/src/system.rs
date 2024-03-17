@@ -98,6 +98,25 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
     }
 }
 
+#[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+pub(crate) fn despawn_windows(
+    mut closed: RemovedComponents<Window>,
+    window_entities: Query<&Window>,
+    mut close_events: EventWriter<WindowClosed>,
+    mut winit_windows: NonSendMut<WinitWindows>,
+) {
+    for window in closed.read() {
+        info!("Closing window {:?}", window);
+        // Guard to verify that the window is in fact actually gone,
+        // rather than having the component added and removed in the same frame.
+        if !window_entities.contains(window) {
+            winit_windows.remove_window(window);
+            close_events.send(WindowClosed { window });
+        }
+    }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
