@@ -33,7 +33,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   Read-only access to arbitrary components on the queried entity.
 /// - **[`EntityMut`].**
 ///   Mutable access to arbitrary components on the queried entity.
-/// - **[`&Archetype`].**
+/// - **[`&Archetype`](Archetype).**
 ///   Read-only access to the archetype-level metadata of the queried entity.
 /// - **[`Option`].**
 ///   By default, a world query only tests entities that have the matching component types.
