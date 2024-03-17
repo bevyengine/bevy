@@ -26,9 +26,8 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Map};
+/// use bevy_reflect::{Map, Reflect};
 /// use bevy_utils::HashMap;
-///
 ///
 /// let foo: &mut dyn Map = &mut HashMap::<u32, bool>::new();
 /// foo.insert_boxed(Box::new(123_u32), Box::new(true));

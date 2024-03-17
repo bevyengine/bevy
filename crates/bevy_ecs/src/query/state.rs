@@ -585,7 +585,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
+    /// let entity_vec: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entity_vec.try_into().unwrap();
     ///
     /// world.spawn(A(73));
@@ -598,7 +598,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_many(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert_eq!(
+    ///     query_state.get_many(&world, [wrong_entity]),
+    ///     Err(QueryEntityError::NoSuchEntity(wrong_entity))
+    /// );
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -656,7 +659,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
+    /// let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn(A(73));
@@ -676,9 +679,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
-    /// assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
-    /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// assert_eq!(
+    ///     query_state
+    ///         .get_many_mut(&mut world, [wrong_entity])
+    ///         .unwrap_err(),
+    ///     QueryEntityError::NoSuchEntity(wrong_entity)
+    /// );
+    /// assert_eq!(
+    ///     query_state
+    ///         .get_many_mut(&mut world, [invalid_entity])
+    ///         .unwrap_err(),
+    ///     QueryEntityError::QueryDoesNotMatch(invalid_entity)
+    /// );
+    /// assert_eq!(
+    ///     query_state
+    ///         .get_many_mut(&mut world, [entities[0], entities[0]])
+    ///         .unwrap_err(),
+    ///     QueryEntityError::AliasedMutability(entities[0])
+    /// );
     /// ```
     #[inline]
     pub fn get_many_mut<'w, const N: usize>(

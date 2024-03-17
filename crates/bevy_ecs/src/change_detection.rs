@@ -91,10 +91,9 @@ pub trait DetectChanges {
 ///         println!("My resource was mutated!");
 ///     }
 ///
-///    resource.0 = 42; // triggers change detection via [`DerefMut`]
+///     resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -646,7 +645,10 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 /// }
 ///
 /// fn how_many_changed_2(query: Query<Ref<MyComponent>>) {
-///     println!("{} changed", query.iter().filter(|c| c.is_changed()).count());
+///     println!(
+///         "{} changed",
+///         query.iter().filter(|c| c.is_changed()).count()
+///     );
 /// }
 /// ```
 pub struct Ref<'w, T: ?Sized> {

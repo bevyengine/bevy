@@ -83,9 +83,7 @@ impl Plugin for ViewPlugin {
 /// ```
 /// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
-/// App::new()
-///     .insert_resource(Msaa::default())
-///     .run();
+/// App::new().insert_resource(Msaa::default()).run();
 /// ```
 #[derive(
     Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,

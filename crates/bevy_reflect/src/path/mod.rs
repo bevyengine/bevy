@@ -123,7 +123,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// # use bevy_reflect::{GetPath, Reflect};
 /// #[derive(Reflect)]
 /// struct MyStruct {
-///   value: u32
+///     value: u32,
 /// }
 ///
 /// let my_struct = MyStruct { value: 123 };
@@ -182,11 +182,9 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// # use bevy_reflect::{GetPath, Reflect};
 /// #[derive(Reflect)]
 /// enum MyEnum {
-///   Unit,
-///   Tuple(bool),
-///   Struct {
-///     value: u32
-///   }
+///     Unit,
+///     Tuple(bool),
+///     Struct { value: u32 },
 /// }
 ///
 /// let tuple_variant = MyEnum::Tuple(true);
@@ -212,16 +210,13 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// # use bevy_reflect::{GetPath, Reflect};
 /// #[derive(Reflect)]
 /// struct MyStruct {
-///   value: Vec<Option<u32>>
+///     value: Vec<Option<u32>>,
 /// }
 ///
 /// let my_struct = MyStruct {
-///   value: vec![None, None, Some(123)],
+///     value: vec![None, None, Some(123)],
 /// };
-/// assert_eq!(
-///   my_struct.path::<u32>(".value[2].0").unwrap(),
-///   &123,
-/// );
+/// assert_eq!(my_struct.path::<u32>(".value[2].0").unwrap(), &123,);
 /// ```
 ///
 /// [`Struct`]: crate::Struct
@@ -345,7 +340,6 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-///
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
@@ -370,21 +364,21 @@ impl ParsedPath {
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
     /// struct Foo {
-    ///   bar: Bar,
+    ///     bar: Bar,
     /// }
     ///
     /// #[derive(Reflect)]
     /// struct Bar {
-    ///   baz: Baz,
+    ///     baz: Baz,
     /// }
     ///
     /// #[derive(Reflect)]
     /// struct Baz(f32, Vec<Option<u32>>);
     ///
     /// let foo = Foo {
-    ///   bar: Bar {
-    ///     baz: Baz(3.14, vec![None, None, Some(123)])
-    ///   },
+    ///     bar: Bar {
+    ///         baz: Baz(3.14, vec![None, None, Some(123)]),
+    ///     },
     /// };
     ///
     /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
@@ -397,7 +391,6 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    ///
     pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {

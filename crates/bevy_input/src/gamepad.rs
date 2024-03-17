@@ -254,10 +254,7 @@ impl GamepadButton {
     /// ```
     /// # use bevy_input::gamepad::{GamepadButton, GamepadButtonType, Gamepad};
     /// #
-    /// let gamepad_button = GamepadButton::new(
-    ///     Gamepad::new(1),
-    ///     GamepadButtonType::South,
-    /// );
+    /// let gamepad_button = GamepadButton::new(Gamepad::new(1), GamepadButtonType::South);
     /// ```
     pub fn new(gamepad: Gamepad, button_type: GamepadButtonType) -> Self {
         Self {
@@ -347,10 +344,7 @@ impl GamepadAxis {
     /// ```
     /// # use bevy_input::gamepad::{GamepadAxis, GamepadAxisType, Gamepad};
     /// #
-    /// let gamepad_axis = GamepadAxis::new(
-    ///     Gamepad::new(1),
-    ///     GamepadAxisType::LeftStickX,
-    /// );
+    /// let gamepad_axis = GamepadAxis::new(Gamepad::new(1), GamepadAxisType::LeftStickX);
     /// ```
     pub fn new(gamepad: Gamepad, axis_type: GamepadAxisType) -> Self {
         Self { gamepad, axis_type }

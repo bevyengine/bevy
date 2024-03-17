@@ -31,29 +31,31 @@ impl SerializationData {
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
-    ///   serialize_me: i32,
-    ///   #[reflect(skip_serializing)]
-    ///   skip_me: i32
+    ///     serialize_me: i32,
+    ///     #[reflect(skip_serializing)]
+    ///     skip_me: i32,
     /// }
     ///
     /// let mut registry = TypeRegistry::new();
     /// registry.register::<MyStruct>();
     ///
     /// let my_struct = MyStruct {
-    ///   serialize_me: 123,
-    ///   skip_me: 321,
+    ///     serialize_me: 123,
+    ///     skip_me: 321,
     /// };
     ///
-    /// let serialization_data = registry.get_type_data::<SerializationData>(TypeId::of::<MyStruct>()).unwrap();
+    /// let serialization_data = registry
+    ///     .get_type_data::<SerializationData>(TypeId::of::<MyStruct>())
+    ///     .unwrap();
     ///
-    /// for (idx, field) in my_struct.iter_fields().enumerate(){
-    ///   if serialization_data.is_field_skipped(idx) {
-    ///     // Skipped!
-    ///     assert_eq!(1, idx);
-    ///   } else {
-    ///     // Not Skipped!
-    ///     assert_eq!(0, idx);
-    ///   }
+    /// for (idx, field) in my_struct.iter_fields().enumerate() {
+    ///     if serialization_data.is_field_skipped(idx) {
+    ///         // Skipped!
+    ///         assert_eq!(1, idx);
+    ///     } else {
+    ///         // Not Skipped!
+    ///         assert_eq!(0, idx);
+    ///     }
     /// }
     /// ```
     pub fn is_field_skipped(&self, index: usize) -> bool {
@@ -71,21 +73,30 @@ impl SerializationData {
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
-    ///   serialize_me: i32,
-    ///   #[reflect(skip_serializing)]
-    ///   #[reflect(default = "skip_me_default")]
-    ///   skip_me: i32
+    ///     serialize_me: i32,
+    ///     #[reflect(skip_serializing)]
+    ///     #[reflect(default = "skip_me_default")]
+    ///     skip_me: i32,
     /// }
     ///
     /// fn skip_me_default() -> i32 {
-    ///   789
+    ///     789
     /// }
     ///
     /// let mut registry = TypeRegistry::new();
     /// registry.register::<MyStruct>();
     ///
-    /// let serialization_data = registry.get_type_data::<SerializationData>(TypeId::of::<MyStruct>()).unwrap();
-    /// assert_eq!(789, serialization_data.generate_default(1).unwrap().take::<i32>().unwrap());
+    /// let serialization_data = registry
+    ///     .get_type_data::<SerializationData>(TypeId::of::<MyStruct>())
+    ///     .unwrap();
+    /// assert_eq!(
+    ///     789,
+    ///     serialization_data
+    ///         .generate_default(1)
+    ///         .unwrap()
+    ///         .take::<i32>()
+    ///         .unwrap()
+    /// );
     /// ```
     pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect>> {
         self.skipped_fields

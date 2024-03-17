@@ -113,9 +113,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
-    ///     gizmos
-    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
-    ///         .segments(64);
+    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 5., RED).segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -152,9 +150,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
-    ///     gizmos
-    ///         .circle_2d(Vec2::ZERO, 5., RED)
-    ///         .segments(64);
+    ///     gizmos.circle_2d(Vec2::ZERO, 5., RED).segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

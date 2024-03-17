@@ -13,11 +13,8 @@ use bevy_utils::Duration;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             tick.run_if(on_timer(Duration::from_secs(1))),
-///         )
-///     .run();
+///         .add_systems(Update, tick.run_if(on_timer(Duration::from_secs(1))))
+///         .run();
 /// }
 /// fn tick() {
 ///     // ran once a second
@@ -53,10 +50,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             tick.run_if(on_real_timer(Duration::from_secs(1))),
-///         )
+///         .add_systems(Update, tick.run_if(on_real_timer(Duration::from_secs(1))))
 ///         .run();
 /// }
 /// fn tick() {
@@ -97,7 +91,7 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 ///             Update,
 ///             tick.run_if(once_after_delay(Duration::from_secs(1))),
 ///         )
-///     .run();
+///         .run();
 /// }
 /// fn tick() {
 ///     // ran once, after a second
@@ -127,7 +121,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 ///             Update,
 ///             tick.run_if(once_after_delay(Duration::from_secs(1))),
 ///         )
-///     .run();
+///         .run();
 /// }
 /// fn tick() {
 ///     // ran once, after a second
@@ -157,7 +151,7 @@ pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) 
 ///             Update,
 ///             tick.run_if(repeating_after_delay(Duration::from_secs(1))),
 ///         )
-///     .run();
+///         .run();
 /// }
 /// fn tick() {
 ///     // ran every frame, after a second
@@ -187,7 +181,7 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
 ///             Update,
 ///             tick.run_if(repeating_after_real_delay(Duration::from_secs(1))),
 ///         )
-///     .run();
+///         .run();
 /// }
 /// fn tick() {
 ///     // ran every frame, after a second
@@ -216,12 +210,9 @@ pub fn repeating_after_real_delay(
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
-///             (
-///                 is_paused.run_if(paused),
-///                 not_paused.run_if(not(paused)),
-///             )
+///             (is_paused.run_if(paused), not_paused.run_if(not(paused))),
 ///         )
-///     .run();
+///         .run();
 /// }
 /// fn is_paused() {
 ///     // ran when time is paused

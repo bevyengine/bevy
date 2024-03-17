@@ -167,8 +167,8 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// fn increment(mut counter: Local<u8>) {
-    ///    *counter += 1;
-    ///    println!("{}", *counter);
+    ///     *counter += 1;
+    ///     println!("{}", *counter);
     /// }
     ///
     /// let mut world = World::default();
@@ -215,11 +215,11 @@ impl World {
     /// struct OpponentScore(i32);
     ///
     /// fn get_player_score(player_score: Res<PlayerScore>) -> i32 {
-    ///   player_score.0
+    ///     player_score.0
     /// }
     ///
     /// fn get_opponent_score(opponent_score: Res<OpponentScore>) -> i32 {
-    ///   opponent_score.0
+    ///     opponent_score.0
     /// }
     ///
     /// let mut world = World::default();
@@ -227,12 +227,15 @@ impl World {
     /// world.insert_resource(OpponentScore(2));
     ///
     /// let scoring_systems = [
-    ///   ("player", world.register_system(get_player_score)),
-    ///   ("opponent", world.register_system(get_opponent_score)),
+    ///     ("player", world.register_system(get_player_score)),
+    ///     ("opponent", world.register_system(get_opponent_score)),
     /// ];
     ///
     /// for (label, scoring_system) in scoring_systems {
-    ///   println!("{label} has score {}", world.run_system(scoring_system).expect("system succeeded"));
+    ///     println!(
+    ///         "{label} has score {}",
+    ///         world.run_system(scoring_system).expect("system succeeded")
+    ///     );
     /// }
     /// ```
     pub fn run_system<O: 'static>(
@@ -255,8 +258,8 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// fn increment(In(increment_by): In<u8>, mut counter: Local<u8>) -> u8 {
-    ///   *counter += increment_by;
-    ///   *counter
+    ///     *counter += increment_by;
+    ///     *counter
     /// }
     ///
     /// let mut world = World::default();

@@ -35,7 +35,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, List};
+/// use bevy_reflect::{List, Reflect};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);

@@ -25,10 +25,7 @@ use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct A;
 /// # #[derive(Component)] pub struct B;
-/// fn disjoint_system(
-///     query1: Query<&mut A>,
-///     query2: Query<EntityRef, Without<A>>,
-/// ) {
+/// fn disjoint_system(query1: Query<&mut A>, query2: Query<EntityRef, Without<A>>) {
 ///     // ...
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
@@ -254,10 +251,7 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct A;
-/// fn disjoint_system(
-///     query1: Query<EntityMut, With<A>>,
-///     query2: Query<EntityMut, Without<A>>,
-/// ) {
+/// fn disjoint_system(query1: Query<EntityMut, With<A>>, query2: Query<EntityMut, Without<A>>) {
 ///     // ...
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
@@ -841,7 +835,6 @@ impl<'w> EntityWorldMut<'w> {
     /// this fn as if the code here was written inline
     ///
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
-    ///
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
     #[allow(clippy::too_many_arguments)]
@@ -1229,7 +1222,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
-    ///
     /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {

@@ -343,13 +343,34 @@ impl<'a> AssetPath<'a> {
     ///
     /// ```
     /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve("c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("./c"), Ok(AssetPath::parse("a/b/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("../c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("c.png"), Ok(AssetPath::parse("a/b/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve("c"),
+    ///     Ok(AssetPath::parse("a/b/c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve("./c"),
+    ///     Ok(AssetPath::parse("a/b/c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve("../c"),
+    ///     Ok(AssetPath::parse("a/c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve("c.png"),
+    ///     Ok(AssetPath::parse("a/b/c.png"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve("/c"),
+    ///     Ok(AssetPath::parse("c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b.png").resolve("#c"),
+    ///     Ok(AssetPath::parse("a/b.png#c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b.png#c").resolve("#d"),
+    ///     Ok(AssetPath::parse("a/b.png#d"))
+    /// );
     /// ```
     ///
     /// There are several cases:
@@ -393,13 +414,34 @@ impl<'a> AssetPath<'a> {
     ///
     /// ```
     /// # use bevy_asset::AssetPath;
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("./c"), Ok(AssetPath::parse("a/c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("../c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("c.png"), Ok(AssetPath::parse("a/c.png")));
-    /// assert_eq!(AssetPath::parse("a/b").resolve_embed("/c"), Ok(AssetPath::parse("c")));
-    /// assert_eq!(AssetPath::parse("a/b.png").resolve_embed("#c"), Ok(AssetPath::parse("a/b.png#c")));
-    /// assert_eq!(AssetPath::parse("a/b.png#c").resolve_embed("#d"), Ok(AssetPath::parse("a/b.png#d")));
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve_embed("c"),
+    ///     Ok(AssetPath::parse("a/c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve_embed("./c"),
+    ///     Ok(AssetPath::parse("a/c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve_embed("../c"),
+    ///     Ok(AssetPath::parse("c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve_embed("c.png"),
+    ///     Ok(AssetPath::parse("a/c.png"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b").resolve_embed("/c"),
+    ///     Ok(AssetPath::parse("c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b.png").resolve_embed("#c"),
+    ///     Ok(AssetPath::parse("a/b.png#c"))
+    /// );
+    /// assert_eq!(
+    ///     AssetPath::parse("a/b.png#c").resolve_embed("#d"),
+    ///     Ok(AssetPath::parse("a/b.png#d"))
+    /// );
     /// ```
     pub fn resolve_embed(&self, path: &str) -> Result<AssetPath<'static>, ParseAssetPathError> {
         self.resolve_internal(path, true)

@@ -174,7 +174,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
 ///     }
-///     
+///
 ///     fn short_type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))

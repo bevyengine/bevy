@@ -121,12 +121,10 @@ pub struct GltfLoader {
 /// # use bevy_asset::{AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
-/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
-///     "my.gltf",
-///     |s: &mut GltfLoaderSettings| {
+/// let gltf_handle: Handle<Gltf> =
+///     asset_server.load_with_settings("my.gltf", |s: &mut GltfLoaderSettings| {
 ///         s.load_cameras = false;
-///     }
-/// );
+///     });
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {

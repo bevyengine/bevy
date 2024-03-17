@@ -267,9 +267,7 @@ pub enum FogFalloff {
     /// # use bevy_math::prelude::*;
     /// # const D: f32 = 0.5;
     /// #
-    /// let exponential = FogFalloff::Exponential {
-    ///     density: D,
-    /// };
+    /// let exponential = FogFalloff::Exponential { density: D };
     ///
     /// let atmospheric = FogFalloff::Atmospheric {
     ///     extinction: Vec3::new(D, D, D),

@@ -83,9 +83,9 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
 /// use bevy_reflect::Reflect;
 /// #[derive(Reflect)]
 /// enum MyEnum {
-///   A,
-///   B (usize),
-///   C {value: i32}
+///     A,
+///     B(usize),
+///     C { value: i32 },
 /// }
 ///
 /// let my_enum: &dyn Reflect = &MyEnum::B(123);

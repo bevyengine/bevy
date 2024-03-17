@@ -50,7 +50,11 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(
+///     mut commands: Commands,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>,
+/// ) {
 ///     commands.spawn(MaterialNodeBundle {
 ///         style: Style {
 ///             width: Val::Percent(100.0),

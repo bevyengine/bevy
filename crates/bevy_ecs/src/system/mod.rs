@@ -20,10 +20,7 @@
 //! # #[derive(Resource)]
 //! # struct Round(u32);
 //! #
-//! fn update_score_system(
-//!     mut query: Query<(&Player, &mut Score)>,
-//!     mut round: ResMut<Round>,
-//! ) {
+//! fn update_score_system(mut query: Query<(&Player, &mut Score)>, mut round: ResMut<Round>) {
 //!     for (player, mut score) in &mut query {
 //!         if player.alive {
 //!             score.0 += round.0;

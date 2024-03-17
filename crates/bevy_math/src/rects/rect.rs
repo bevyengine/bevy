@@ -47,7 +47,7 @@ impl Rect {
     /// # use bevy_math::{Rect, Vec2};
     /// // Unit rect from [0,0] to [1,1]
     /// let r = Rect::from_corners(Vec2::ZERO, Vec2::ONE); // w=1 h=1
-    /// // Same; the points do not need to be ordered
+    ///                                                    // Same; the points do not need to be ordered
     /// let r = Rect::from_corners(Vec2::ONE, Vec2::ZERO); // w=1 h=1
     /// ```
     #[inline]

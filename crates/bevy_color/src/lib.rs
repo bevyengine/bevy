@@ -50,7 +50,6 @@
 //! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
-//!
 #![doc = include_str!("../docs/conversion.md")]
 //! <div>
 #![doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -68,7 +67,7 @@
 //! # Example
 //!
 //! ```
-//! use bevy_color::{Srgba, Hsla};
+//! use bevy_color::{Hsla, Srgba};
 //!
 //! let srgba = Srgba::new(0.5, 0.2, 0.8, 1.0);
 //! let hsla: Hsla = srgba.into();

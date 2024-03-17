@@ -1373,9 +1373,9 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
-/// fn food_entity_system(query: Query<(&Name, Has<IsHungry>) >) {
+/// fn food_entity_system(query: Query<(&Name, Has<IsHungry>)>) {
 ///     for (name, is_hungry) in &query {
-///         if is_hungry{
+///         if is_hungry {
 ///             println!("{} would like some food.", name.name);
 ///         } else {
 ///             println!("{} has had sufficient.", name.name);
@@ -1398,7 +1398,10 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// #
 /// // Unlike `Option<&T>`, `Has<T>` is compatible with `&mut T`
 /// // as it does not actually access any data.
-/// fn alphabet_entity_system(mut alphas: Query<(&mut Alpha, Has<Beta>)>, mut betas: Query<(&mut Beta, Has<Alpha>)>) {
+/// fn alphabet_entity_system(
+///     mut alphas: Query<(&mut Alpha, Has<Beta>)>,
+///     mut betas: Query<(&mut Beta, Has<Alpha>)>,
+/// ) {
 ///     for (mut alpha, has_beta) in alphas.iter_mut() {
 ///         alpha.has_beta = has_beta;
 ///     }

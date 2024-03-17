@@ -278,8 +278,8 @@ impl<T> NodeConfigs<T> {
 ///     Update,
 ///     (
 ///         handle_input,
-///         (update_camera, update_character).after(handle_input)
-///     )
+///         (update_camera, update_character).after(handle_input),
+///     ),
 /// );
 /// ```
 pub trait IntoSystemConfigs<Marker>
@@ -388,7 +388,9 @@ where
     /// # #[derive(SystemSet, Debug, Eq, PartialEq, Hash, Clone, Copy)]
     /// # struct C;
     /// schedule.add_systems((a, b).run_if(condition));
-    /// schedule.add_systems((a, b).in_set(C)).configure_sets(C.run_if(condition));
+    /// schedule
+    ///     .add_systems((a, b).in_set(C))
+    ///     .configure_sets(C.run_if(condition));
     /// ```
     ///
     /// # Note

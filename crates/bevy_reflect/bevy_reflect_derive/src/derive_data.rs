@@ -647,7 +647,6 @@ impl<'a> EnumVariant<'a> {
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
-///
 pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),

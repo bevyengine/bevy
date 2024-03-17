@@ -50,7 +50,9 @@ pub(crate) struct ResultSifter<T> {
 ///
 /// ```
 /// # fn main() {
-/// struct Foo { field: &'static str }
+/// struct Foo {
+///     field: &'static str,
+/// }
 /// struct Bar(&'static str);
 /// let Foo { field } = Foo { field: "hi" };
 /// let Bar { 0: field } = Bar { 0: "hello" };

@@ -288,12 +288,7 @@ impl UiRect {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = UiRect::new(
-    ///     Val::Px(10.0),
-    ///     Val::Px(20.0),
-    ///     Val::Px(30.0),
-    ///     Val::Px(40.0),
-    /// );
+    /// let ui_rect = UiRect::new(Val::Px(10.0), Val::Px(20.0), Val::Px(30.0), Val::Px(40.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(20.0));

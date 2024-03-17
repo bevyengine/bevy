@@ -5,24 +5,21 @@
 ///
 /// #[derive(Default)]
 /// struct Foo {
-///   a: usize,
-///   b: usize,
-///   c: usize,
+///     a: usize,
+///     b: usize,
+///     c: usize,
 /// }
 ///
 /// // Normally you would initialize a struct with defaults using "struct update syntax"
 /// // combined with `Default::default()`. This example sets `Foo::bar` to 10 and the remaining
 /// // values to their defaults.
 /// let foo = Foo {
-///   a: 10,
-///   ..Default::default()
+///     a: 10,
+///     ..Default::default()
 /// };
 ///
 /// // But now you can do this, which is equivalent:
-/// let foo = Foo {
-///   a: 10,
-///   ..default()
-/// };
+/// let foo = Foo { a: 10, ..default() };
 /// ```
 #[inline]
 pub fn default<T: Default>() -> T {

@@ -38,7 +38,7 @@ pub trait ReflectCommandExt {
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
-    /// struct Prefab{
+    /// struct Prefab {
     ///     component: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, Default)]
@@ -49,25 +49,22 @@ pub trait ReflectCommandExt {
     /// #[reflect(Component)]
     /// struct ComponentB(String);
     ///
-    /// fn insert_reflect_component(
-    ///     mut commands: Commands,
-    ///     mut prefab: ResMut<Prefab>
-    ///     ) {
+    /// fn insert_reflect_component(mut commands: Commands, mut prefab: ResMut<Prefab>) {
     ///     // Create a set of new boxed reflect components to use
     ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
-    ///     let boxed_reflect_component_b: Box<dyn Reflect>  = Box::new(ComponentB("NineSixteen".to_string()));
+    ///     let boxed_reflect_component_b: Box<dyn Reflect> =
+    ///         Box::new(ComponentB("NineSixteen".to_string()));
     ///
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
     ///     prefab.component = boxed_reflect_component_a;
     ///     prefab.component = boxed_reflect_component_b;
-    ///     
+    ///
     ///     // No matter which component is in the resource and without knowing the exact type, you can
     ///     // use the insert_reflect entity command to insert that component into an entity.
     ///     commands
     ///         .spawn_empty()
     ///         .insert_reflect(prefab.component.clone_value());
     /// }
-    ///
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self;
 
@@ -109,7 +106,7 @@ pub trait ReflectCommandExt {
     ///
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
-    /// struct Prefab{
+    /// struct Prefab {
     ///     entity: Entity,
     ///     component: Box<dyn Reflect>,
     /// }
@@ -120,17 +117,14 @@ pub trait ReflectCommandExt {
     /// #[reflect(Component)]
     /// struct ComponentB(String);
     ///
-    /// fn remove_reflect_component(
-    ///     mut commands: Commands,
-    ///     prefab: Res<Prefab>
-    ///     ) {
+    /// fn remove_reflect_component(mut commands: Commands, prefab: Res<Prefab>) {
     ///     // Prefab can hold any boxed reflect component. In this case either
     ///     // ComponentA or ComponentB. No matter which component is in the resource though,
     ///     // we can attempt to remove any component of that same type from an entity.
-    ///     commands.entity(prefab.entity)
+    ///     commands
+    ///         .entity(prefab.entity)
     ///         .remove_reflect(prefab.component.reflect_type_path().to_owned());
     /// }
-    ///
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of

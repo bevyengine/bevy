@@ -175,7 +175,9 @@ pub enum Chain {
 /// Here is an example of a `Schedule` running a "Hello world" system:
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn hello_world() { println!("Hello world!") }
+/// fn hello_world() {
+///     println!("Hello world!")
+/// }
 ///
 /// fn main() {
 ///     let mut world = World::new();
@@ -189,10 +191,16 @@ pub enum Chain {
 /// A schedule can also run several systems in an ordered way:
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn system_one() { println!("System 1 works!") }
-/// fn system_two() { println!("System 2 works!") }
-/// fn system_three() { println!("System 3 works!") }
-///    
+/// fn system_one() {
+///     println!("System 1 works!")
+/// }
+/// fn system_two() {
+///     println!("System 2 works!")
+/// }
+/// fn system_three() {
+///     println!("System 3 works!")
+/// }
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();

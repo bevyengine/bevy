@@ -9,9 +9,7 @@ pub enum VariantType {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A {
-    ///     foo: usize
-    ///   }
+    ///     A { foo: usize },
     /// }
     /// ```
     Struct,
@@ -19,7 +17,7 @@ pub enum VariantType {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A(usize)
+    ///     A(usize),
     /// }
     /// ```
     Tuple,
@@ -27,7 +25,7 @@ pub enum VariantType {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A
+    ///     A,
     /// }
     /// ```
     Unit,
@@ -40,9 +38,7 @@ pub enum VariantInfo {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A {
-    ///     foo: usize
-    ///   }
+    ///     A { foo: usize },
     /// }
     /// ```
     Struct(StructVariantInfo),
@@ -50,7 +46,7 @@ pub enum VariantInfo {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A(usize)
+    ///     A(usize),
     /// }
     /// ```
     Tuple(TupleVariantInfo),
@@ -58,7 +54,7 @@ pub enum VariantInfo {
     ///
     /// ```
     /// enum MyEnum {
-    ///   A
+    ///     A,
     /// }
     /// ```
     Unit(UnitVariantInfo),

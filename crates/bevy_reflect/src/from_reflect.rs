@@ -59,7 +59,9 @@ pub trait FromReflect: Reflect + Sized {
 /// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
-/// fn default_value() -> usize { 123 }
+/// fn default_value() -> usize {
+///     123
+/// }
 ///
 /// let reflected = DynamicTupleStruct::default();
 ///

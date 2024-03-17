@@ -76,7 +76,11 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(
+///     mut commands: Commands,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>,
+/// ) {
 ///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: RED.into(),

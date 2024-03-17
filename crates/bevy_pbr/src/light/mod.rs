@@ -247,8 +247,7 @@ impl Default for SpotLight {
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_pbr::DirectionalLightShadowMap;
-/// App::new()
-///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
+/// App::new().insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -307,9 +306,10 @@ impl Default for DirectionalLightShadowMap {
 /// # use bevy_utils::default;
 /// #
 /// let config: CascadeShadowConfig = CascadeShadowConfigBuilder {
-///   maximum_distance: 100.0,
-///   ..default()
-/// }.into();
+///     maximum_distance: 100.0,
+///     ..default()
+/// }
+/// .into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]

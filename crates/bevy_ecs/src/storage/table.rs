@@ -225,7 +225,6 @@ impl Column {
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
-    ///
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());

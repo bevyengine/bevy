@@ -51,13 +51,11 @@ pub(crate) enum AppError {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// fn main() {
-///    App::new()
-///        .add_systems(Update, hello_world_system)
-///        .run();
+///     App::new().add_systems(Update, hello_world_system).run();
 /// }
 ///
 /// fn hello_world_system() {
-///    println!("hello world");
+///     println!("hello world");
 /// }
 /// ```
 pub struct App {
@@ -128,10 +126,13 @@ impl Debug for App {
 /// });
 ///
 /// // add the sub_app to the app
-/// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
-///     // extract the value from the main app to the sub app
-///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
-/// }));
+/// app.insert_sub_app(
+///     ExampleApp,
+///     SubApp::new(sub_app, |main_world, sub_app| {
+///         // extract the value from the main app to the sub app
+///         sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
+///     }),
+/// );
 ///
 /// // This will run the schedules once, since we're using the default runner
 /// app.run();
@@ -526,8 +527,7 @@ impl App {
     ///     counter: usize,
     /// }
     ///
-    /// App::new()
-    ///    .insert_resource(MyCounter { counter: 0 });
+    /// App::new().insert_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
         self.world.insert_resource(resource);
@@ -549,8 +549,7 @@ impl App {
     ///     counter: usize,
     /// }
     ///
-    /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
+    /// App::new().insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.world.insert_non_send_resource(resource);
@@ -578,14 +577,11 @@ impl App {
     ///
     /// impl Default for MyCounter {
     ///     fn default() -> MyCounter {
-    ///         MyCounter {
-    ///             counter: 100
-    ///         }
+    ///         MyCounter { counter: 100 }
     ///     }
     /// }
     ///
-    /// App::new()
-    ///     .init_resource::<MyCounter>();
+    /// App::new().init_resource::<MyCounter>();
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
         self.world.init_resource::<R>();
@@ -623,8 +619,7 @@ impl App {
     ///     }
     /// }
     ///
-    /// App::new()
-    ///     .set_runner(my_runner);
+    /// App::new().set_runner(my_runner);
     /// ```
     pub fn set_runner(&mut self, run_fn: impl FnOnce(App) + 'static + Send) -> &mut Self {
         self.runner = Box::new(run_fn);
@@ -725,10 +720,8 @@ impl App {
     /// # impl Plugin for LogPlugin {
     /// #     fn build(&self, app: &mut App) {}
     /// # }
-    /// App::new()
-    ///     .add_plugins(MinimalPlugins);
-    /// App::new()
-    ///     .add_plugins((MinimalPlugins, LogPlugin));
+    /// App::new().add_plugins(MinimalPlugins);
+    /// App::new().add_plugins((MinimalPlugins, LogPlugin));
     /// ```
     ///
     /// # Panics
@@ -775,7 +768,7 @@ impl App {
     /// # Example
     /// ```
     /// use bevy_app::App;
-    /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
+    /// use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     ///
     /// App::new()
     ///     .register_type::<Option<String>>()
@@ -942,11 +935,11 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
-    ///   ambiguity_detection: LogLevel::Error,
-    ///   ..default()
+    ///     ambiguity_detection: LogLevel::Error,
+    ///     ..default()
     /// });
     ///
-    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.add_systems(Update, (system_1, system_2));
     /// app.allow_ambiguous_component::<A>();
     ///
     /// // running the app does not error.
@@ -980,12 +973,12 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
-    ///   ambiguity_detection: LogLevel::Error,
-    ///   ..default()
+    ///     ambiguity_detection: LogLevel::Error,
+    ///     ..default()
     /// });
     /// app.insert_resource(R);
     ///
-    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.add_systems(Update, (system_1, system_2));
     /// app.allow_ambiguous_resource::<R>();
     ///
     /// // running the app does not error.

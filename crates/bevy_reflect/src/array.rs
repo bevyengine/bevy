@@ -28,7 +28,7 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Array};
+/// use bevy_reflect::{Array, Reflect};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
@@ -92,7 +92,6 @@ impl ArrayInfo {
     /// # Arguments
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
-    ///
     pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
         Self {
             type_path: TypePathTable::of::<TArray>(),
@@ -405,7 +404,6 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
 ///
 /// * Panics if the two arrays have differing lengths.
 /// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
-///
 #[inline]
 pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {

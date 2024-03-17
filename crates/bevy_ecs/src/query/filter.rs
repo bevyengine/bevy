@@ -220,7 +220,7 @@ impl<T: Component> QueryFilter for With<T> {
 /// # struct Name { name: &'static str };
 /// #
 /// fn no_permit_system(query: Query<&Name, Without<Permit>>) {
-///     for name in &query{
+///     for name in &query {
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }

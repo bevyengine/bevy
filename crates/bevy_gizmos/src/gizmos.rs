@@ -266,11 +266,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_gradient([
-    ///         (Vec3::ZERO, GREEN),
-    ///         (Vec3::X, RED),
-    ///         (Vec3::Y, BLUE)
-    ///     ]);
+    ///     gizmos.linestrip_gradient([(Vec3::ZERO, GREEN), (Vec3::X, RED), (Vec3::Y, BLUE)]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -497,11 +493,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_gradient_2d([
-    ///         (Vec2::ZERO, GREEN),
-    ///         (Vec2::X, RED),
-    ///         (Vec2::Y, BLUE)
-    ///     ]);
+    ///     gizmos.linestrip_gradient_2d([(Vec2::ZERO, GREEN), (Vec2::X, RED), (Vec2::Y, BLUE)]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

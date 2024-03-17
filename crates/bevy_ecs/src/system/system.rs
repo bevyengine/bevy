@@ -191,8 +191,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// struct Counter(u8);
 ///
 /// fn increment(mut counter: Local<Counter>) {
-///    counter.0 += 1;
-///    println!("{}", counter.0);
+///     counter.0 += 1;
+///     println!("{}", counter.0);
 /// }
 ///
 /// let mut world = World::default();
@@ -220,9 +220,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystemOnce;
 /// let mut world = World::default();
-/// let entity = world.run_system_once(|mut commands: Commands| {
-///     commands.spawn_empty().id()
-/// });
+/// let entity = world.run_system_once(|mut commands: Commands| commands.spawn_empty().id());
 /// # assert!(world.get_entity(entity).is_some());
 /// ```
 ///
@@ -240,9 +238,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system_once(|query: Query<&T>| {
-///     query.iter().filter(|t| t.0 == 1).count()
-/// });
+/// let count = world.run_system_once(|query: Query<&T>| query.iter().filter(|t| t.0 == 1).count());
 ///
 /// # assert_eq!(count, 2);
 /// ```

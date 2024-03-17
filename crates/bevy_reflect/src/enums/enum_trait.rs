@@ -148,7 +148,6 @@ impl EnumInfo {
     /// # Arguments
     ///
     /// * `variants`: The variants of this enum in the order they are defined
-    ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()

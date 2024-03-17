@@ -24,14 +24,14 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///
 /// // Instantiate the builder using the type signature of the iterator you will consume
 /// let mut query = QueryBuilder::<(Entity, &B)>::new(&mut world)
-/// // Add additional terms through builder methods
+///     // Add additional terms through builder methods
 ///     .with::<A>()
 ///     .without::<C>()
 ///     .build();
 ///
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
-///```
+/// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,

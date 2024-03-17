@@ -144,7 +144,7 @@ use std::{
 /// // This will compile.
 /// #[derive(Component)]
 /// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
+///     counter: SyncCell<RefCell<usize>>,
 /// }
 /// ```
 ///
@@ -659,7 +659,10 @@ impl Components {
     ///
     /// let component_a_id = world.init_component::<ComponentA>();
     ///
-    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// assert_eq!(
+    ///     component_a_id,
+    ///     world.components().component_id::<ComponentA>().unwrap()
+    /// )
     /// ```
     ///
     /// # See also
@@ -697,7 +700,10 @@ impl Components {
     ///
     /// let resource_a_id = world.init_resource::<ResourceA>();
     ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// assert_eq!(
+    ///     resource_a_id,
+    ///     world.components().resource_id::<ResourceA>().unwrap()
+    /// )
     /// ```
     ///
     /// # See also

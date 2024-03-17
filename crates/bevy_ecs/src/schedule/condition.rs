@@ -25,7 +25,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # use bevy_ecs::schedule::Condition;
 /// # use bevy_ecs::system::IntoSystem;
 /// fn not_condition<Marker>(a: impl Condition<Marker>) -> impl Condition<()> {
-///    IntoSystem::into_system(a.map(|x| !x))
+///     IntoSystem::into_system(a.map(|x| !x))
 /// }
 /// ```
 ///
@@ -434,10 +434,10 @@ pub mod common_conditions {
     ///     // given resource was just changed (or added)
     ///     my_system.run_if(
     ///         resource_changed::<Counter>
-    ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
-    ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///             // By default detecting changes will also trigger if the resource was
+    ///             // just added, this won't work with my example so I will add a second
+    ///             // condition to make sure the resource wasn't just added
+    ///             .and_then(not(resource_added::<Counter>)),
     ///     ),
     /// );
     ///
@@ -487,10 +487,10 @@ pub mod common_conditions {
     ///     // given resource exists and was just changed (or added)
     ///     my_system.run_if(
     ///         resource_exists_and_changed::<Counter>
-    ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
-    ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///             // By default detecting changes will also trigger if the resource was
+    ///             // just added, this won't work with my example so I will add a second
+    ///             // condition to make sure the resource wasn't just added
+    ///             .and_then(not(resource_added::<Counter>)),
     ///     ),
     /// );
     ///
@@ -549,10 +549,10 @@ pub mod common_conditions {
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
     ///         resource_changed_or_removed::<Counter>()
-    ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
-    ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///             // By default detecting changes will also trigger if the resource was
+    ///             // just added, this won't work with my example so I will add a second
+    ///             // condition to make sure the resource wasn't just added
+    ///             .and_then(not(resource_added::<Counter>)),
     ///     ),
     /// );
     ///
@@ -839,9 +839,7 @@ pub mod common_conditions {
     /// # world.init_resource::<Events<MyEvent>>();
     /// # app.add_systems(bevy_ecs::event::event_update_system::<MyEvent>.before(my_system));
     ///
-    /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>()),
-    /// );
+    /// app.add_systems(my_system.run_if(on_event::<MyEvent>()));
     ///
     /// #[derive(Event)]
     /// struct MyEvent;
@@ -880,9 +878,7 @@ pub mod common_conditions {
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// app.add_systems(
-    ///     my_system.run_if(any_with_component::<MyComponent>),
-    /// );
+    /// app.add_systems(my_system.run_if(any_with_component::<MyComponent>));
     ///
     /// #[derive(Component)]
     /// struct MyComponent;

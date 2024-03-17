@@ -21,8 +21,8 @@ use super::EntityHashMap;
 /// ## Example
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
 /// use bevy_ecs::entity::MapEntities;
+/// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Component)]
 /// struct Spring {
@@ -37,7 +37,6 @@ use super::EntityHashMap;
 ///     }
 /// }
 /// ```
-///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
@@ -60,7 +59,7 @@ pub trait MapEntities {
 /// # use bevy_ecs::entity::EntityHashMap;
 /// #
 /// pub struct SimpleEntityMapper {
-///   map: EntityHashMap<Entity>,
+///     map: EntityHashMap<Entity>,
 /// }
 ///
 /// // Example implementation of EntityMapper where we map an entity to another entity if it exists

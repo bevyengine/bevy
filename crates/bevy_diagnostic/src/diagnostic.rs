@@ -378,7 +378,7 @@ impl RegisterDiagnostic for App {
     ///
     /// ```
     /// use bevy_app::App;
-    /// use bevy_diagnostic::{Diagnostic, DiagnosticsPlugin, DiagnosticPath, RegisterDiagnostic};
+    /// use bevy_diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsPlugin, RegisterDiagnostic};
     ///
     /// const UNIQUE_DIAG_PATH: DiagnosticPath = DiagnosticPath::const_new("foo/bar");
     ///

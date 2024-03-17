@@ -31,7 +31,8 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN)
+    ///     gizmos
+    ///         .arrow(Vec3::ZERO, Vec3::ONE, GREEN)
     ///         .with_tip_length(3.);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -142,10 +143,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_transform::components::Transform;
     /// # #[derive(Component)]
     /// # struct MyComponent;
-    /// fn draw_axes(
-    ///     mut gizmos: Gizmos,
-    ///     query: Query<&Transform, With<MyComponent>>,
-    /// ) {
+    /// fn draw_axes(mut gizmos: Gizmos, query: Query<&Transform, With<MyComponent>>) {
     ///     for &transform in &query {
     ///         gizmos.axes(transform, 1.);
     ///     }

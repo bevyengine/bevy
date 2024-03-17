@@ -44,12 +44,12 @@ impl Parse for AllTuples {
 /// # Examples
 /// A single parameter.
 /// ```
-/// use std::marker::PhantomData;
 /// use bevy_utils_proc_macros::all_tuples;
+/// use std::marker::PhantomData;
 ///
 /// struct Foo<T> {
 ///     // ..
-///     _phantom: PhantomData<T>
+///     _phantom: PhantomData<T>,
 /// }
 ///
 /// trait WrappedInFoo {

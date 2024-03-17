@@ -121,7 +121,10 @@ impl Srgba {
     /// let color = Srgba::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
     ///
     /// // A standard hex color notation is also available
-    /// assert_eq!(Srgba::hex("#FFFFFF").unwrap(), Srgba::new(1.0, 1.0, 1.0, 1.0));
+    /// assert_eq!(
+    ///     Srgba::hex("#FFFFFF").unwrap(),
+    ///     Srgba::new(1.0, 1.0, 1.0, 1.0)
+    /// );
     /// ```
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Self, HexColorError> {
         let hex = hex.as_ref();
@@ -180,7 +183,6 @@ impl Srgba {
     /// * `b` - Blue channel. [0, 255]
     ///
     /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
-    ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
         Self::rgba_u8(r, g, b, u8::MAX)
     }
@@ -197,7 +199,6 @@ impl Srgba {
     /// * `a` - Alpha channel. [0, 255]
     ///
     /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
-    ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::new(
             r as f32 / u8::MAX as f32,

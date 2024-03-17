@@ -120,7 +120,7 @@ struct EventInstance<E: Event> {
 ///
 /// #[derive(Event)]
 /// struct MyEvent {
-///     value: usize
+///     value: usize,
 /// }
 ///
 /// // setup
@@ -162,7 +162,6 @@ struct EventInstance<E: Event> {
 ///
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
-///
 #[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.

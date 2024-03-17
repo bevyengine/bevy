@@ -230,7 +230,7 @@ impl PluginGroupBuilder {
 /// # use bevy_app::prelude::*;
 /// use bevy_app::NoopPluginGroup as MinimalPlugins;
 ///
-/// fn main(){
+/// fn main() {
 ///     App::new().add_plugins(MinimalPlugins).run();
 /// }
 /// ```

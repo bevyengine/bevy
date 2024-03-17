@@ -19,11 +19,11 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// let task_pool = TaskPool::new();
     /// let counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_chunk_map(&task_pool, 100, |_index, chunk| {
-    ///   let mut results = Vec::new();
-    ///   for count in chunk {
-    ///     results.push(*count + 2);
-    ///   }
-    ///   results
+    ///     let mut results = Vec::new();
+    ///     for count in chunk {
+    ///         results.push(*count + 2);
+    ///     }
+    ///     results
     /// });
     /// # let flattened: Vec<_> = incremented.into_iter().flatten().collect();
     /// # assert_eq!(flattened, (2..10002).collect::<Vec<u32>>());
@@ -66,11 +66,11 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// let task_pool = TaskPool::new();
     /// let counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_splat_map(&task_pool, None, |_index, chunk| {
-    ///   let mut results = Vec::new();
-    ///   for count in chunk {
-    ///     results.push(*count + 2);
-    ///   }
-    ///   results
+    ///     let mut results = Vec::new();
+    ///     for count in chunk {
+    ///         results.push(*count + 2);
+    ///     }
+    ///     results
     /// });
     /// # let flattened: Vec<_> = incremented.into_iter().flatten().collect();
     /// # assert_eq!(flattened, (2..10002).collect::<Vec<u32>>());
@@ -119,12 +119,12 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// let task_pool = TaskPool::new();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_chunk_map_mut(&task_pool, 100, |_index, chunk| {
-    ///   let mut results = Vec::new();
-    ///   for count in chunk {
-    ///     *count += 5;
-    ///     results.push(*count - 2);
-    ///   }
-    ///   results
+    ///     let mut results = Vec::new();
+    ///     for count in chunk {
+    ///         *count += 5;
+    ///         results.push(*count - 2);
+    ///     }
+    ///     results
     /// });
     ///
     /// assert_eq!(counts, (5..10005).collect::<Vec<u32>>());
@@ -169,12 +169,12 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// let task_pool = TaskPool::new();
     /// let mut counts = (0..10000).collect::<Vec<u32>>();
     /// let incremented = counts.par_splat_map_mut(&task_pool, None, |_index, chunk| {
-    ///   let mut results = Vec::new();
-    ///   for count in chunk {
-    ///     *count += 5;
-    ///     results.push(*count - 2);
-    ///   }
-    ///   results
+    ///     let mut results = Vec::new();
+    ///     for count in chunk {
+    ///         *count += 5;
+    ///         results.push(*count - 2);
+    ///     }
+    ///     results
     /// });
     ///
     /// assert_eq!(counts, (5..10005).collect::<Vec<u32>>());

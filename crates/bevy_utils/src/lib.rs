@@ -1,7 +1,6 @@
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
-//!
 
 #[allow(missing_docs)]
 pub mod prelude {

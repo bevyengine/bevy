@@ -126,8 +126,8 @@ impl TypeRegistry {
     /// #[derive(Reflect, Default)]
     /// #[reflect(Default)]
     /// struct Foo {
-    ///   name: Option<String>,
-    ///   value: i32
+    ///     name: Option<String>,
+    ///     value: i32,
     /// }
     ///
     /// let mut type_registry = TypeRegistry::default();
@@ -142,7 +142,9 @@ impl TypeRegistry {
     /// assert!(type_registry.contains(TypeId::of::<i32>()));
     ///
     /// // Its type data
-    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
+    /// assert!(type_registry
+    ///     .get_type_data::<ReflectDefault>(TypeId::of::<Foo>())
+    ///     .is_some());
     /// ```
     pub fn register<T>(&mut self)
     where
@@ -244,7 +246,7 @@ impl TypeRegistry {
     ///
     /// # Example
     /// ```
-    /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
+    /// use bevy_reflect::{ReflectDeserialize, ReflectSerialize, TypeRegistry};
     ///
     /// let mut type_registry = TypeRegistry::default();
     /// type_registry.register::<Option<String>>();
@@ -270,7 +272,6 @@ impl TypeRegistry {
     /// given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
@@ -279,7 +280,6 @@ impl TypeRegistry {
     /// the given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -439,8 +439,14 @@ impl TypeRegistryArc {
 /// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, FromType};
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
-/// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
-/// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
+/// assert_eq!(
+///     "core::option::Option<alloc::string::String>",
+///     registration.type_info().type_path()
+/// );
+/// assert_eq!(
+///     "Option<String>",
+///     registration.type_info().type_path_table().short_path()
+/// );
 ///
 /// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
 /// assert!(registration.data::<ReflectDefault>().is_some())
@@ -462,7 +468,6 @@ impl Debug for TypeRegistration {
 
 impl TypeRegistration {
     /// Returns the [`TypeId`] of the type.
-    ///
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
@@ -636,8 +641,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
+/// use bevy_reflect::{Reflect, ReflectFromPtr, TypeRegistry};
 /// use std::ptr::NonNull;
 ///
 /// #[derive(Reflect)]
@@ -649,7 +654,9 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let mut value = Reflected("Hello world!".to_string());
 /// let value = Ptr::from(&value);
 ///
-/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_data = type_registry
+///     .get(std::any::TypeId::of::<Reflected>())
+///     .unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect(value) };

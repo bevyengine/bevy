@@ -35,9 +35,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
-    ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
-    ///         .segments(64);
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED).segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -149,14 +147,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize());
     ///
     ///     gizmos
-    ///        .arc_3d(
-    ///          270.0_f32.to_radians(),
-    ///          0.25,
-    ///          Vec3::ONE,
-    ///          rotation,
-    ///          ORANGE
-    ///          )
-    ///          .segments(100);
+    ///         .arc_3d(270.0_f32.to_radians(), 0.25, Vec3::ONE, rotation, ORANGE)
+    ///         .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -201,13 +193,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.short_arc_3d_between(
-    ///        Vec3::ONE,
-    ///        Vec3::ONE + Vec3::NEG_ONE,
-    ///        Vec3::ZERO,
-    ///        ORANGE
-    ///        )
-    ///        .segments(100);
+    ///     gizmos
+    ///         .short_arc_3d_between(Vec3::ONE, Vec3::ONE + Vec3::NEG_ONE, Vec3::ZERO, ORANGE)
+    ///         .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -248,13 +236,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.long_arc_3d_between(
-    ///        Vec3::ONE,
-    ///        Vec3::ONE + Vec3::NEG_ONE,
-    ///        Vec3::ZERO,
-    ///        ORANGE
-    ///        )
-    ///        .segments(100);
+    ///     gizmos
+    ///         .long_arc_3d_between(Vec3::ONE, Vec3::ONE + Vec3::NEG_ONE, Vec3::ZERO, ORANGE)
+    ///         .segments(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

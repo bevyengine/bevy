@@ -163,7 +163,11 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_asset::*;
     /// # use bevy_render::prelude::*;
     ///
-    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    /// fn my_system(
+    ///     mut commands: Commands,
+    ///     mut textures: ResMut<Assets<Image>>,
+    ///     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    /// ) {
     ///     // Declare your builder
     ///     let mut builder = TextureAtlasBuilder::default();
     ///     // Customize it
@@ -174,7 +178,10 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
     ///     commands.spawn((
-    ///         SpriteBundle { texture, ..Default::default() },
+    ///         SpriteBundle {
+    ///             texture,
+    ///             ..Default::default()
+    ///         },
     ///         TextureAtlas::from(layout),
     ///     ));
     /// }
