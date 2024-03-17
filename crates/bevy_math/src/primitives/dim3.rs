@@ -679,7 +679,10 @@ impl Triangle3d {
         ab + bc + ca
     }
 
-    /// Get the normal of the triangle
+    /// Get the normal of the triangle in the direction of the right-hand rule, assuming
+    /// the vertices are ordered in a counter-clockwise direction.
+    /// 
+    /// The normal is computed as the cross product of the vectors `ab` and `ac`.
     #[inline(always)]
     pub fn normal(&self) -> Dir3 {
         let [a, b, c] = self.vertices;
