@@ -149,7 +149,9 @@ pub trait RegisterDevTool {
 
 impl RegisterDevTool for App {
     fn register_dev_tool(&mut self, dev_tool: DevTool) -> &mut Self {
-        let mut dev_tools = self.world.get_resource_or_insert_with::<DevToolsStore>(Default::default);
+        let mut dev_tools = self
+            .world
+            .get_resource_or_insert_with::<DevToolsStore>(Default::default);
         dev_tools.add(dev_tool);
         self
     }
