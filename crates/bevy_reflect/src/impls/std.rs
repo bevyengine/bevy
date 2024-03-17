@@ -403,7 +403,6 @@ impl_reflect_for_veclike!(
     VecDeque::<T>
 );
 
-
 macro_rules! impl_reflect_for_hashmap {
     ($ty:path) => {
         impl<K, V, S> Map for $ty
