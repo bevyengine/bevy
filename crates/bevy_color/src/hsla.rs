@@ -388,6 +388,7 @@ mod tests {
         assert_eq!(color_1.clamped(), Hsla::hsl(1., 1., 0.));
 
         assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
 
         color_3.clamp();
         assert!(color_3.is_within_bounds());
