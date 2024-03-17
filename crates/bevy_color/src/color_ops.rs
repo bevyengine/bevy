@@ -70,6 +70,6 @@ pub trait ClampColor: Sized {
     /// Changes all the fields of this color to assert they are within bounds.
     fn clamp(&mut self);
 
-    /// Is all the fields of this color in bounds?
+    /// Are all the fields of this color in bounds?
     fn is_within_bounds(&self) -> bool;
 }
