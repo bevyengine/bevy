@@ -664,7 +664,7 @@ impl Triangle3d {
         let ab = a.distance(b);
         let bc = b.distance(c);
         let ca = c.distance(a);
-        
+
         let s = (ab + bc + ca) / 2.0;
         (s * (s - ab) * (s - bc) * (s - ca)).sqrt()
     }
@@ -677,6 +677,15 @@ impl Triangle3d {
         let bc = b.distance(c);
         let ca = c.distance(a);
         ab + bc + ca
+    }
+
+    /// Get the normal of the triangle
+    #[inline(always)]
+    pub fn normal(&self) -> Dir3 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        Dir3::new_unchecked(ab.cross(ac).normalize())
     }
 }
 
