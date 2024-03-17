@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{Dir3, Vec3};
+use crate::{bounding::Bounded3d, Dir3, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -701,6 +701,57 @@ impl Triangle3d {
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
+    }
+}
+
+impl Bounded3d for Triangle3d {
+    /// Get the bounding box of the triangle
+    fn aabb_3d(&self, translation: Vec3, rotation: glam::Quat) -> crate::bounding::Aabb3d {
+        let [a, b, c] = self.vertices;
+        let a = rotation * a + translation;
+        let b = rotation * b + translation;
+        let c = rotation * c + translation;
+
+        let min_x = a.x.min(b.x).min(c.x);
+        let min_y = a.y.min(b.y).min(c.y);
+        let min_z = a.z.min(b.z).min(c.z);
+        let max_x = a.x.max(b.x).max(c.x);
+        let max_y = a.y.max(b.y).max(c.y);
+        let max_z = a.z.max(b.z).max(c.z);
+
+        let bounding_center = Vec3::new(
+            (min_x + max_x) / 2.0,
+            (min_y + max_y) / 2.0,
+            (min_z + max_z) / 2.0,
+        );
+
+        let half_extents = Vec3::new(
+            (max_x - min_x) / 2.0,
+            (max_y - min_y) / 2.0,
+            (max_z - min_z) / 2.0,
+        );
+
+        crate::bounding::Aabb3d::new(bounding_center, half_extents)
+    }
+
+    /// Get the bounding sphere of the triangle
+    fn bounding_sphere(
+        &self,
+        translation: Vec3,
+        rotation: glam::Quat,
+    ) -> crate::bounding::BoundingSphere {
+        let [a, b, c] = self.vertices;
+        let a = rotation * a + translation;
+        let b = rotation * b + translation;
+        let c = rotation * c + translation;
+
+        let center = (a + b + c) / 3.0;
+        let radius = (a - center)
+            .length()
+            .max((b - center).length())
+            .max((c - center).length());
+
+        crate::bounding::BoundingSphere::new(center, radius)
     }
 }
 
