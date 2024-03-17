@@ -4,12 +4,9 @@ use crate::{
 };
 use ab_glyph::PxScale;
 use bevy_asset::{AssetId, Assets, Handle};
-use bevy_ecs::component::Component;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_ecs::system::Resource;
+use bevy_ecs::{component::Component, prelude::ReflectComponent, system::Resource};
 use bevy_math::Vec2;
-use bevy_reflect::prelude::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;

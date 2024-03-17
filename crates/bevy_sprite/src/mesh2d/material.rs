@@ -5,8 +5,8 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
@@ -29,10 +29,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
-use std::hash::Hash;
-use std::marker::PhantomData;
+use bevy_utils::{tracing::error, FloatOrd, HashMap, HashSet};
+use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,

@@ -1,19 +1,23 @@
-use crate::serde::SerializationData;
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    serde::SerializationData, ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap,
+    DynamicStruct, DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map,
+    MapInfo, NamedField, Reflect, ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo,
+    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
-use serde::de::{
-    DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess, Visitor,
+use serde::{
+    de::{
+        DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess,
+        Visitor,
+    },
+    Deserialize,
 };
-use serde::Deserialize;
-use std::any::TypeId;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::slice::Iter;
+use std::{
+    any::TypeId,
+    fmt,
+    fmt::{Debug, Display, Formatter},
+    slice::Iter,
+};
 
 pub trait DeserializeValue {
     fn deserialize(
@@ -1053,17 +1057,17 @@ fn get_registration<'a, E: Error>(
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::any::TypeId;
-    use std::f32::consts::PI;
+    use std::{any::TypeId, f32::consts::PI};
 
-    use serde::de::DeserializeSeed;
-    use serde::Deserialize;
+    use serde::{de::DeserializeSeed, Deserialize};
 
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
-    use crate::serde::{ReflectSerializer, TypedReflectDeserializer, UntypedReflectDeserializer};
-    use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
+    use crate::{
+        serde::{ReflectSerializer, TypedReflectDeserializer, UntypedReflectDeserializer},
+        DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry,
+    };
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {

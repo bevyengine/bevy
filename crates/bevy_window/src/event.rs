@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Event;
+use bevy_ecs::{entity::Entity, event::Event};
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
 use smol_str::SmolStr;

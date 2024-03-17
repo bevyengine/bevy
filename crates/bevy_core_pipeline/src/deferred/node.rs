@@ -1,14 +1,11 @@
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::render_phase::TrackedRenderPass;
-use bevy_render::render_resource::{CommandEncoderDescriptor, StoreOp};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
-    render_resource::RenderPassDescriptor,
+    render_phase::{RenderPhase, TrackedRenderPass},
+    render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::ViewDepthTexture,
 };

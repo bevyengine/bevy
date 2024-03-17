@@ -1,7 +1,6 @@
 //! This example illustrates how to use logs in bevy.
 
-use bevy::log::once;
-use bevy::prelude::*;
+use bevy::{log::once, prelude::*};
 
 fn main() {
     App::new()

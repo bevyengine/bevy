@@ -19,15 +19,20 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, info};
-use bevy_utils::{CowArc, HashSet};
+use bevy_utils::{
+    tracing::{error, info},
+    CowArc, HashSet,
+};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::path::PathBuf;
-use std::{any::TypeId, path::Path, sync::Arc};
+use std::{
+    any::TypeId,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use thiserror::Error;
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and

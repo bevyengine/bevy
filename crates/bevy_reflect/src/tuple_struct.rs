@@ -4,9 +4,11 @@ use crate::{
     self as bevy_reflect, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
     Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use std::{
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
 ///

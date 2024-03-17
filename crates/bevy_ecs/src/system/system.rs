@@ -1,13 +1,15 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
-use crate::component::Tick;
-use crate::schedule::InternedSystemSet;
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
+use crate::{
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    query::Access,
+    schedule::InternedSystemSet,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
 
-use std::any::TypeId;
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 use super::IntoSystem;
 

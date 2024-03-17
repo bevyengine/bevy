@@ -5,8 +5,7 @@ use crate::{
     Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
     VariantFieldIter, VariantType,
 };
-use std::any::Any;
-use std::fmt::Formatter;
+use std::{any::Any, fmt::Formatter};
 
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default)]

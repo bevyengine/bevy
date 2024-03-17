@@ -2,12 +2,11 @@ use crate::{
     Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
-use serde::ser::{
-    Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
-    SerializeTupleVariant,
-};
 use serde::{
-    ser::{SerializeMap, SerializeSeq},
+    ser::{
+        Error, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
+        SerializeTupleStruct, SerializeTupleVariant,
+    },
     Serialize,
 };
 
@@ -470,12 +469,12 @@ impl<'a> Serialize for ArraySerializer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::ReflectSerializer;
-    use crate::{self as bevy_reflect, Struct};
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{
+        self as bevy_reflect, serde::ReflectSerializer, Reflect, ReflectSerialize, Struct,
+        TypeRegistry,
+    };
     use bevy_utils::HashMap;
-    use ron::extensions::Extensions;
-    use ron::ser::PrettyConfig;
+    use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::Serialize;
     use std::f32::consts::PI;
 

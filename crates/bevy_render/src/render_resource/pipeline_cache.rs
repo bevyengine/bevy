@@ -1,12 +1,17 @@
-use crate::renderer::RenderAdapter;
-use crate::{render_resource::*, renderer::RenderDevice, Extract};
+use crate::{
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice},
+    Extract,
+};
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::{
+    event::EventReader,
+    system::{Res, ResMut, Resource},
+};
 use bevy_tasks::Task;
-use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
+    hashbrown::hash_map::EntryRef,
     tracing::{debug, error},
     HashMap, HashSet,
 };

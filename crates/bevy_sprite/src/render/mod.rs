@@ -10,8 +10,8 @@ use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
 };
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };

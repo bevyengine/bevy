@@ -1,8 +1,7 @@
-use crate::system::{ExclusiveSystemParam, SystemMeta};
 use crate::{
     component::Tick,
     storage::SparseSetIndex,
-    system::{ReadOnlySystemParam, SystemParam},
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
 use std::sync::atomic::{AtomicUsize, Ordering};

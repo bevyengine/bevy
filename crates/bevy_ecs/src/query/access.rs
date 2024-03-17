@@ -664,8 +664,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::AccessFilters;
-    use crate::query::{Access, FilteredAccess, FilteredAccessSet};
+    use crate::query::{access::AccessFilters, Access, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
 

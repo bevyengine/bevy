@@ -1,5 +1,4 @@
-use std::borrow::Cow;
-use std::ops::Not;
+use std::{borrow::Cow, ops::Not};
 
 use crate::system::{
     Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
@@ -1026,13 +1025,14 @@ where
 mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::schedule::IntoSystemConfigs;
-    use crate::schedule::{common_conditions::not, State, States};
-    use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
-    use bevy_ecs_macros::Event;
-    use bevy_ecs_macros::Resource;
+    use crate::{
+        change_detection::ResMut,
+        component::Component,
+        schedule::{common_conditions::not, IntoSystemConfigs, Schedule, State, States},
+        system::Local,
+        world::World,
+    };
+    use bevy_ecs_macros::{Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);

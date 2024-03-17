@@ -4,10 +4,10 @@ use crate::{
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
-use std::fmt::{Debug, Formatter};
 use std::{
     any::{Any, TypeId},
     borrow::Cow,
+    fmt::{Debug, Formatter},
     slice::Iter,
 };
 

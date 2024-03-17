@@ -15,8 +15,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::{default, tracing::warn, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};
@@ -531,40 +530,32 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 
 #[cfg(test)]
 mod tests {
-    use crate::layout::round_layout_coords;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
-    use crate::UiSurface;
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
+    use crate::{
+        layout::round_layout_coords, prelude::*, ui_layout_system,
+        update::update_target_camera_system, ContentSize, UiSurface,
+    };
+    use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
-    use bevy_ecs::schedule::apply_deferred;
-    use bevy_ecs::schedule::IntoSystemConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::system::RunSystemOnce;
-    use bevy_ecs::world::World;
-    use bevy_hierarchy::despawn_with_children_recursive;
-    use bevy_hierarchy::BuildWorldChildren;
-    use bevy_hierarchy::Children;
-    use bevy_math::Vec2;
-    use bevy_math::{vec2, UVec2};
-    use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::OrthographicProjection;
-    use bevy_render::prelude::Camera;
-    use bevy_render::texture::Image;
-    use bevy_utils::prelude::default;
-    use bevy_utils::HashMap;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
+    use bevy_ecs::{
+        entity::Entity,
+        event::Events,
+        prelude::{Commands, Component, In, Query, With},
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        system::RunSystemOnce,
+        world::World,
+    };
+    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children};
+    use bevy_math::{vec2, UVec2, Vec2};
+    use bevy_render::{
+        camera::{ManualTextureViews, OrthographicProjection},
+        prelude::Camera,
+        texture::Image,
+    };
+    use bevy_utils::{prelude::default, HashMap};
+    use bevy_window::{
+        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
+        WindowScaleFactorChanged,
+    };
     use taffy::tree::LayoutTree;
 
     #[test]

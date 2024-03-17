@@ -2,10 +2,10 @@
 
 use bevy_app::App;
 use bevy_ecs::prelude::*;
-use bevy_input::keyboard::KeyboardInput;
-use bevy_input::touch::TouchInput;
 use bevy_input::{
+    keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    touch::TouchInput,
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_reflect::Reflect;

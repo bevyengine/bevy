@@ -5,16 +5,14 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::derive_data::ReflectTraitToImpl;
-use crate::utility;
-use crate::utility::terminated_parser;
+use crate::{derive_data::ReflectTraitToImpl, utility, utility::terminated_parser};
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
-use syn::ext::IdentExt;
-use syn::parse::ParseStream;
-use syn::spanned::Spanned;
-use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
+use syn::{
+    ext::IdentExt, parenthesized, parse::ParseStream, spanned::Spanned, token, Expr, LitBool,
+    MetaList, MetaNameValue, Path, Token, WhereClause,
+};
 
 mod kw {
     syn::custom_keyword!(from_reflect);

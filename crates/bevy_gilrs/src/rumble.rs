@@ -5,8 +5,11 @@ use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_time::{Real, Time};
-use bevy_utils::tracing::{debug, warn};
-use bevy_utils::{synccell::SyncCell, Duration, HashMap};
+use bevy_utils::{
+    synccell::SyncCell,
+    tracing::{debug, warn},
+    Duration, HashMap,
+};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,

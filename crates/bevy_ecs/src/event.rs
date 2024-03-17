@@ -5,13 +5,13 @@ use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
 use bevy_utils::detailed_trace;
-use std::ops::{Deref, DerefMut};
 use std::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
     iter::Chain,
     marker::PhantomData,
+    ops::{Deref, DerefMut},
     slice::Iter,
 };
 

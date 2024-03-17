@@ -4,8 +4,8 @@ use bevy_core_pipeline::{
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -31,13 +31,15 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 
-use crate::render::{
-    morph::{
-        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+use crate::{
+    render::{
+        morph::{
+            extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+        },
+        skin::no_automatic_skin_batching,
     },
-    skin::no_automatic_skin_batching,
+    *,
 };
-use crate::*;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 

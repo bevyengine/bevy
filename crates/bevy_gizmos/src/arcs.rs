@@ -3,8 +3,10 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::DEFAULT_CIRCLE_SEGMENTS,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
 use std::f32::consts::TAU;

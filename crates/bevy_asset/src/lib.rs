@@ -441,9 +441,9 @@ mod tests {
     };
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::prelude::*;
     use bevy_ecs::{
         event::ManualEventReader,
+        prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;

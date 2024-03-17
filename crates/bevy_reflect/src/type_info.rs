@@ -2,8 +2,10 @@ use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
     TypePath, TypePathTable,
 };
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 
 /// A static accessor to compile-time type information.
 ///

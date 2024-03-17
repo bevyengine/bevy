@@ -10,13 +10,8 @@ mod set;
 mod state;
 mod stepping;
 
-pub use self::condition::*;
-pub use self::config::*;
-pub use self::executor::*;
 use self::graph_utils::*;
-pub use self::schedule::*;
-pub use self::set::*;
-pub use self::state::*;
+pub use self::{condition::*, config::*, executor::*, schedule::*, set::*, state::*};
 
 pub use self::graph_utils::NodeId;
 
@@ -26,9 +21,11 @@ mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
-    pub use crate::schedule::{IntoSystemSetConfigs, Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
+    pub use crate::{
+        prelude::World,
+        schedule::{IntoSystemSetConfigs, Schedule, SystemSet},
+        system::{Res, ResMut, Resource},
+    };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSet {
@@ -724,8 +721,7 @@ mod tests {
         use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
-        use crate::event::Events;
-        use crate::prelude::*;
+        use crate::{event::Events, prelude::*};
 
         #[derive(Resource)]
         struct R;

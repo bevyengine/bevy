@@ -1,5 +1,7 @@
-use crate::impls::{impl_type_path, impl_typed};
-use crate::ReflectStruct;
+use crate::{
+    impls::{impl_type_path, impl_typed},
+    ReflectStruct,
+};
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 use syn::{Index, Member};

@@ -56,21 +56,21 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
+        prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
+        num::NonZeroU32,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,

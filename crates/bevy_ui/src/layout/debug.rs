@@ -2,8 +2,7 @@ use crate::UiSurface;
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;
 use std::fmt::Write;
-use taffy::prelude::Node;
-use taffy::tree::LayoutTree;
+use taffy::{prelude::Node, tree::LayoutTree};
 
 /// Prints a debug representation of the computed layout of the UI layout tree for each window.
 pub fn print_ui_layout_tree(ui_surface: &UiSurface) {

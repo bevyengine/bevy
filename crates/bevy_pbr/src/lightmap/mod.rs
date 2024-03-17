@@ -30,10 +30,9 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},

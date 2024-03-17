@@ -1,10 +1,8 @@
-use crate::mesh::MeshVertexBufferLayoutRef;
-use crate::render_resource::CachedComputePipelineId;
 use crate::{
-    mesh::MissingVertexAttributeError,
+    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError},
     render_resource::{
-        CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
-        VertexBufferLayout,
+        CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
+        RenderPipelineDescriptor, VertexBufferLayout,
     },
 };
 use bevy_ecs::system::Resource;

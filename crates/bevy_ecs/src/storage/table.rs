@@ -6,8 +6,8 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
-use std::alloc::Layout;
 use std::{
+    alloc::Layout,
     cell::UnsafeCell,
     ops::{Index, IndexMut},
 };
@@ -915,13 +915,11 @@ impl IndexMut<TableId> for Tables {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::ptr::OwningPtr;
-    use crate::storage::Storages;
     use crate::{
-        component::{Components, Tick},
+        component::{Component, Components, Tick},
         entity::Entity,
-        storage::{TableBuilder, TableRow},
+        ptr::OwningPtr,
+        storage::{Storages, TableBuilder, TableRow},
     };
     #[derive(Component)]
     struct W<T>(T);

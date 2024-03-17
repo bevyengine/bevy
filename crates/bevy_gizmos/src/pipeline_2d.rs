@@ -23,8 +23,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
-use bevy_utils::tracing::error;
-use bevy_utils::FloatOrd;
+use bevy_utils::{tracing::error, FloatOrd};
 
 pub struct LineGizmo2dPlugin;
 

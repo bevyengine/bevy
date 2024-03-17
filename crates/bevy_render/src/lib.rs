@@ -56,9 +56,9 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
-use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::CameraPlugin,
+    deterministic::DeterministicRenderingConfig,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},

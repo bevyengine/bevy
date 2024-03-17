@@ -28,9 +28,12 @@ use bevy_render::{
     Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::marker::PhantomData;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{hash::Hash, num::NonZeroU32};
+use std::{
+    hash::Hash,
+    marker::PhantomData,
+    num::NonZeroU32,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 

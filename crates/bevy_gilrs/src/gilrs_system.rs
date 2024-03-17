@@ -2,17 +2,20 @@ use crate::{
     converter::{convert_axis, convert_button, convert_gamepad_id},
     Gilrs,
 };
-use bevy_ecs::event::EventWriter;
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
-use bevy_ecs::system::{Res, ResMut};
-use bevy_input::gamepad::{
-    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
-    GamepadSettings,
+use bevy_ecs::{
+    event::EventWriter,
+    system::{Res, ResMut},
 };
-use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
-use bevy_input::prelude::{GamepadAxis, GamepadButton};
-use bevy_input::Axis;
+use bevy_input::{
+    gamepad::{
+        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection,
+        GamepadConnectionEvent, GamepadEvent, GamepadInfo, GamepadSettings,
+    },
+    prelude::{GamepadAxis, GamepadButton},
+    Axis,
+};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(

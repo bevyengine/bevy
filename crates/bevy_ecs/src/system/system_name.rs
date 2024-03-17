@@ -1,9 +1,10 @@
-use crate::component::Tick;
-use crate::prelude::World;
-use crate::system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use std::borrow::Cow;
-use std::ops::Deref;
+use crate::{
+    component::Tick,
+    prelude::World,
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
+use std::{borrow::Cow, ops::Deref};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -105,8 +106,7 @@ impl ExclusiveSystemParam for SystemName<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::system::SystemName;
-    use crate::world::World;
+    use crate::{system::SystemName, world::World};
 
     #[test]
     fn test_system_name_regular_param() {

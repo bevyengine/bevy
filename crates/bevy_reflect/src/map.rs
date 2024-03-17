@@ -1,5 +1,7 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use std::{
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
+};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -516,8 +518,7 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicMap;
-    use super::Map;
+    use super::{DynamicMap, Map};
     use crate::reflect::Reflect;
 
     #[test]

@@ -1,12 +1,13 @@
-use std::any::TypeId;
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_label;
-use bevy_utils::intern::Interned;
 pub use bevy_utils::label::DynEq;
+use bevy_utils::{define_label, intern::Interned};
 
 use crate::system::{
     ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,

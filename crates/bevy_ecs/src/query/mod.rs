@@ -71,13 +71,16 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use bevy_ecs_macros::{QueryData, QueryFilter};
 
-    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
-    use crate::schedule::{IntoSystemConfigs, Schedule};
-    use crate::system::{IntoSystem, Query, System, SystemState};
-    use crate::{self as bevy_ecs, component::Component, world::World};
-    use std::any::type_name;
-    use std::collections::HashSet;
+    use crate::{
+        self as bevy_ecs,
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
+        query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData},
+        schedule::{IntoSystemConfigs, Schedule},
+        system::{IntoSystem, Query, System, SystemState},
+        world::World,
+    };
+    use std::{any::type_name, collections::HashSet};
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
     struct A(usize);

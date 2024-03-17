@@ -63,8 +63,7 @@ use bevy_render::{
     texture::{FallbackImage, Image},
 };
 
-use std::num::NonZeroU32;
-use std::ops::Deref;
+use std::{num::NonZeroU32, ops::Deref};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, LightProbe, MAX_VIEW_LIGHT_PROBES,

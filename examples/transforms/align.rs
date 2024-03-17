@@ -1,11 +1,13 @@
 //! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
-use bevy::color::{
-    palettes::basic::{GRAY, RED, WHITE},
-    Color,
+use bevy::{
+    color::{
+        palettes::basic::{GRAY, RED, WHITE},
+        Color,
+    },
+    input::mouse::{MouseButton, MouseButtonInput, MouseMotion},
+    prelude::*,
 };
-use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
-use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
 

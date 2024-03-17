@@ -98,18 +98,10 @@ mod xyza;
 
 /// Commonly used color types and traits.
 pub mod prelude {
-    pub use crate::color::*;
-    pub use crate::color_ops::*;
-    pub use crate::hsla::*;
-    pub use crate::hsva::*;
-    pub use crate::hwba::*;
-    pub use crate::laba::*;
-    pub use crate::lcha::*;
-    pub use crate::linear_rgba::*;
-    pub use crate::oklaba::*;
-    pub use crate::oklcha::*;
-    pub use crate::srgba::*;
-    pub use crate::xyza::*;
+    pub use crate::{
+        color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
+        oklaba::*, oklcha::*, srgba::*, xyza::*,
+    };
 }
 
 pub use color::*;

@@ -1,14 +1,13 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    event::{Event, EventReader, EventWriter},
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::Duration;
-use bevy_utils::{tracing::info, HashMap};
+use bevy_utils::{tracing::info, Duration, HashMap};
 use thiserror::Error;
 
 /// Errors that occur when setting axis settings for gamepad input.

@@ -1,6 +1,5 @@
 use crate as bevy_reflect;
-use crate::prelude::ReflectDefault;
-use crate::{ReflectDeserialize, ReflectSerialize};
+use crate::{prelude::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 use bevy_math::{IRect, IVec2, Rect, URect, UVec2, Vec2};
 use bevy_reflect_derive::impl_reflect;
 

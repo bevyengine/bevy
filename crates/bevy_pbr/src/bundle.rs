@@ -3,8 +3,9 @@ use crate::{
     StandardMaterial,
 };
 use bevy_asset::Handle;
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    bundle::Bundle, component::Component, entity::EntityHashMap, reflect::ReflectComponent,
+};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,

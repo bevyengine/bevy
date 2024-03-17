@@ -181,14 +181,15 @@ unsafe fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-    use bevy_ecs::world::CommandQueue;
+    use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
-    use crate::components::{GlobalTransform, Transform};
-    use crate::systems::*;
-    use crate::TransformBundle;
+    use crate::{
+        components::{GlobalTransform, Transform},
+        systems::*,
+        TransformBundle,
+    };
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
     #[test]

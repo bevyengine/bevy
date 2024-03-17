@@ -13,8 +13,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
-pub use bevy_ecs_macros::Resource;
-pub use bevy_ecs_macros::SystemParam;
+pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{

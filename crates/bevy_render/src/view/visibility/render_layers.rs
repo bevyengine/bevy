@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 type LayerMask = u32;
 

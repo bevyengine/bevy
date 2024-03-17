@@ -1,7 +1,6 @@
 //! Rendering a scene with baked lightmaps.
 
-use bevy::pbr::Lightmap;
-use bevy::prelude::*;
+use bevy::{pbr::Lightmap, prelude::*};
 
 fn main() {
     App::new()

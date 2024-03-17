@@ -1,6 +1,5 @@
 use fixedbitset::FixedBitSet;
-use std::any::TypeId;
-use std::collections::HashMap;
+use std::{any::TypeId, collections::HashMap};
 
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
@@ -827,8 +826,7 @@ impl ScheduleState {
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use crate::{schedule::ScheduleLabel, world::World};
+    use crate::{prelude::*, schedule::ScheduleLabel, world::World};
 
     pub use crate as bevy_ecs;
 

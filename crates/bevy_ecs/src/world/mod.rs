@@ -8,8 +8,10 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 mod world_cell;
 
-pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use crate::world::command_queue::CommandQueue;
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
+};
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,

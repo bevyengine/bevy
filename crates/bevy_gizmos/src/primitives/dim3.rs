@@ -4,11 +4,13 @@ use super::helpers::*;
 use std::f32::consts::TAU;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+use bevy_math::{
+    primitives::{
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    },
+    Dir3, Quat, Vec3,
 };
-use bevy_math::{Dir3, Quat, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 

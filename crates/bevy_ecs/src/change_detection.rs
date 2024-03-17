@@ -6,8 +6,10 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///

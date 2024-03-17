@@ -13,8 +13,10 @@
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
 //! between components (like hierarchies or parent-child links) and need to maintain correctness.
 
-use bevy::ecs::component::{ComponentHooks, StorageType};
-use bevy::prelude::*;
+use bevy::{
+    ecs::component::{ComponentHooks, StorageType},
+    prelude::*,
+};
 use std::collections::HashMap;
 
 #[derive(Debug)]

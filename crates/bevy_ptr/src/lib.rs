@@ -1,9 +1,13 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 
-use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+    cell::UnsafeCell,
+    fmt::{self, Formatter, Pointer},
+    marker::PhantomData,
+    mem::ManuallyDrop,
+    num::NonZeroUsize,
+    ptr::NonNull,
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.

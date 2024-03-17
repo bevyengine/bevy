@@ -1,10 +1,13 @@
 //! The animation graph, which allows animations to be blended together.
 
-use std::io::{self, Write};
-use std::ops::{Index, IndexMut};
+use std::{
+    io::{self, Write},
+    ops::{Index, IndexMut},
+};
 
-use bevy_asset::io::Reader;
-use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
+use bevy_asset::{
+    io::Reader, Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext,
+};
 use bevy_reflect::{Reflect, ReflectSerialize};
 use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};

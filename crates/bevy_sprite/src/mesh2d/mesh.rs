@@ -3,22 +3,21 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayoutRef},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},

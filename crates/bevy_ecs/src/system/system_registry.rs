@@ -1,7 +1,9 @@
-use crate::entity::Entity;
-use crate::system::{BoxedSystem, IntoSystem};
-use crate::world::{Command, World};
-use crate::{self as bevy_ecs};
+use crate::{
+    entity::Entity,
+    system::{BoxedSystem, IntoSystem},
+    world::{Command, World},
+    {self as bevy_ecs},
+};
 use bevy_ecs_macros::Component;
 use thiserror::Error;
 

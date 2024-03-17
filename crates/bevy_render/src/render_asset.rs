@@ -7,8 +7,8 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{
+    std_traits::ReflectDefault,
     utility::{reflect_hasher, NonGenericTypeInfoCell},
     FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
     ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
@@ -148,8 +148,7 @@ impl Reflect for RenderAssetUsages {
         Box::new(*self)
     }
     fn reflect_hash(&self) -> Option<u64> {
-        use std::hash::Hash;
-        use std::hash::Hasher;
+        use std::hash::{Hash, Hasher};
         let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);

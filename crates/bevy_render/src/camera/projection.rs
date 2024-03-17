@@ -1,5 +1,7 @@
-use std::marker::PhantomData;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use std::{
+    marker::PhantomData,
+    ops::{Div, DivAssign, Mul, MulAssign},
+};
 
 use crate::primitives::Frustum;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};

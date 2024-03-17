@@ -5,9 +5,9 @@ use std::{
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, tracing::info};
 use bevy_utils::{
-    tracing::{error, warn},
+    default,
+    tracing::{error, info, warn},
     HashMap, HashSet,
 };
 use fixedbitset::FixedBitSet;

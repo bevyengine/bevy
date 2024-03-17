@@ -2,10 +2,11 @@
 //! Rendering is not deterministic by default.
 //! Note most users don't need rendering to be deterministic, and should rely on depth bias instead.
 
-use bevy::app::App;
-use bevy::app::Startup;
-use bevy::prelude::*;
-use bevy::render::deterministic::DeterministicRenderingConfig;
+use bevy::{
+    app::{App, Startup},
+    prelude::*,
+    render::deterministic::DeterministicRenderingConfig,
+};
 
 fn main() {
     App::new()

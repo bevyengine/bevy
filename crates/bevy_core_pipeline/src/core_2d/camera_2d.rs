@@ -1,5 +1,7 @@
-use crate::core_2d::graph::Core2d;
-use crate::tonemapping::{DebandDither, Tonemapping};
+use crate::{
+    core_2d::graph::Core2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{

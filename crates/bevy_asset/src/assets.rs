@@ -1,6 +1,6 @@
-use crate::{self as bevy_asset};
 use crate::{
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
+    self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
+    LoadState, UntypedHandle,
 };
 use bevy_ecs::{
     prelude::EventWriter,

@@ -1,5 +1,4 @@
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},

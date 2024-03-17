@@ -592,11 +592,12 @@ mod tests {
         marker::PhantomData,
     };
 
-    use super::prelude::*;
-    use super::*;
+    use super::{prelude::*, *};
     use crate as bevy_reflect;
-    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
-    use crate::utility::GenericTypePathCell;
+    use crate::{
+        serde::{ReflectSerializer, UntypedReflectDeserializer},
+        utility::GenericTypePathCell,
+    };
 
     #[test]
     fn reflect_struct() {

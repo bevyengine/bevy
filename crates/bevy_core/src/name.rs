@@ -1,8 +1,6 @@
-use bevy_ecs::query::QueryData;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::Entity, query::QueryData, reflect::ReflectComponent};
 
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,

@@ -6,8 +6,10 @@ use crate::{
     processor::AssetProcessorData,
 };
 use bevy_ecs::system::Resource;
-use bevy_utils::tracing::{error, warn};
-use bevy_utils::{CowArc, Duration, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    CowArc, Duration, HashMap,
+};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 

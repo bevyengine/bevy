@@ -1,9 +1,8 @@
-use crate::container_attributes::ContainerAttributes;
-use crate::derive_data::ReflectTraitToImpl;
-use crate::type_path::CustomPathDef;
-use syn::parse::ParseStream;
-use syn::token::Paren;
-use syn::{parenthesized, Attribute, Generics, Path};
+use crate::{
+    container_attributes::ContainerAttributes, derive_data::ReflectTraitToImpl,
+    type_path::CustomPathDef,
+};
+use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, Path};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///

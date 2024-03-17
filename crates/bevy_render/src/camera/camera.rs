@@ -1,6 +1,5 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -24,8 +23,7 @@ use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::tracing::warn;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,

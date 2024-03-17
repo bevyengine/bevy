@@ -7,9 +7,12 @@ use bevy_macro_utils::{
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::parse::{Parse, ParseStream, Peek};
-use syn::punctuated::Punctuated;
-use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
+use syn::{
+    parse::{Parse, ParseStream, Peek},
+    punctuated::Punctuated,
+    spanned::Spanned,
+    LitStr, Member, Path, Token, Type, WhereClause,
+};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {

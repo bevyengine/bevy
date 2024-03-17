@@ -1,22 +1,22 @@
-use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned, TypeRegistry};
 use crate::{
-    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
-    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectKind, ReflectMut,
-    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, std_traits::ReflectDefault,
+    Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum, EnumInfo, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
+    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration,
+    TypeRegistry, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo,
+    VariantType,
 };
 
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use bevy_reflect_derive::impl_reflect_value;
-use std::fmt;
 use std::{
     any::Any,
     borrow::Cow,
     collections::VecDeque,
+    fmt,
     hash::{BuildHasher, Hash, Hasher},
     path::Path,
 };
@@ -1872,12 +1872,13 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::HashMap;
-    use bevy_utils::{Duration, Instant};
+    use bevy_utils::{Duration, HashMap, Instant};
     use static_assertions::assert_impl_all;
-    use std::collections::BTreeMap;
-    use std::f32::consts::{PI, TAU};
-    use std::path::Path;
+    use std::{
+        collections::BTreeMap,
+        f32::consts::{PI, TAU},
+        path::Path,
+    };
 
     #[test]
     fn can_serialize_duration() {

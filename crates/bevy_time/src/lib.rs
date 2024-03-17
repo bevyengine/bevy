@@ -25,8 +25,10 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{signal_event_update_system, EventUpdateSignal, EventUpdates};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    event::{signal_event_update_system, EventUpdateSignal, EventUpdates},
+    prelude::*,
+};
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};

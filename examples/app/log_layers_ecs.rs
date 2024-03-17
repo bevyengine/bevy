@@ -14,11 +14,12 @@
 use std::sync::mpsc;
 
 use bevy::{
-    log::tracing_subscriber::{self, layer::SubscriberExt, Layer},
-    log::BoxedSubscriber,
+    log::{
+        tracing_subscriber::{self, layer::SubscriberExt, Layer},
+        BoxedSubscriber,
+    },
     prelude::*,
-    utils::tracing,
-    utils::tracing::Subscriber,
+    utils::{tracing, tracing::Subscriber},
 };
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.

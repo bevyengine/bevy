@@ -1,7 +1,6 @@
 use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -192,8 +191,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::EntityHashMap;
-    use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
+    use bevy_ecs::{
+        entity::EntityHashMap,
+        reflect::AppTypeRegistry,
+        world::{Command, World},
+    };
     use bevy_hierarchy::{Parent, PushChild};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;

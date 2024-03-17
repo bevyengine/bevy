@@ -24,9 +24,7 @@ pub use winit_event::*;
 pub use winit_windows::*;
 
 use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
-use bevy_ecs::event::ManualEventReader;
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
+use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
 use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
@@ -48,9 +46,8 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
 
-use winit::event::StartCause;
 use winit::{
-    event::{self, DeviceEvent, Event, WindowEvent},
+    event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 

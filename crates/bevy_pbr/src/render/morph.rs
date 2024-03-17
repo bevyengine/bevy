@@ -1,8 +1,7 @@
 use std::{iter, mem};
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},

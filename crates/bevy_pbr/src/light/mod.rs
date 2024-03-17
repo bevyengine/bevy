@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{
     AspectRatio, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
 };

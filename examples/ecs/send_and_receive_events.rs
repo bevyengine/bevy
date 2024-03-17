@@ -19,9 +19,7 @@
 //!
 //! Let's look at an example of each.
 
-use bevy::core::FrameCount;
-use bevy::ecs::event::ManualEventReader;
-use bevy::prelude::*;
+use bevy::{core::FrameCount, ecs::event::ManualEventReader, prelude::*};
 
 fn main() {
     let mut app = App::new();

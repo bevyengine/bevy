@@ -1,5 +1,4 @@
-use bevy_ecs::prelude::Component;
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use std::fmt::Formatter;

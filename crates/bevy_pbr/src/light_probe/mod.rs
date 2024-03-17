@@ -28,8 +28,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{tracing::error, FloatOrd, HashMap};
 
-use std::hash::Hash;
-use std::ops::Deref;
+use std::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,

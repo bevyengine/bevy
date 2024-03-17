@@ -6,8 +6,7 @@ use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
 
-use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
-use crate::*;
+use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here

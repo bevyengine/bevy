@@ -18,8 +18,10 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{debug, error, trace, warn};
-use bevy_utils::{BoxedFuture, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{debug, error, trace, warn},
+    BoxedFuture, HashMap, HashSet,
+};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;

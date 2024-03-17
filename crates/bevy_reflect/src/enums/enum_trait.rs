@@ -1,7 +1,9 @@
 use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
-use std::any::{Any, TypeId};
-use std::slice::Iter;
+use std::{
+    any::{Any, TypeId},
+    slice::Iter,
+};
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///

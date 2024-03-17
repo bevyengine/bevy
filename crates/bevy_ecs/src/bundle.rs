@@ -19,8 +19,7 @@ use crate::{
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::all_tuples;
-use std::any::TypeId;
-use std::ptr::NonNull;
+use std::{any::TypeId, ptr::NonNull};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///

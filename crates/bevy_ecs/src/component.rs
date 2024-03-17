@@ -14,11 +14,11 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::TypeIdMap;
-use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    cell::UnsafeCell,
     marker::PhantomData,
     mem::needs_drop,
 };

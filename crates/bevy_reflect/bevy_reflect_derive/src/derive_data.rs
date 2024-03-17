@@ -1,22 +1,21 @@
 use core::fmt;
 
-use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
-use crate::field_attributes::FieldAttributes;
-use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{StringExpr, WhereClauseOptions};
+use crate::{
+    container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
+    field_attributes::FieldAttributes,
+    type_path::parse_path_no_leading_colon,
+    utility::{StringExpr, WhereClauseOptions},
+};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
-use crate::serialization::SerializationDataDef;
 use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
-    TYPE_PATH_ATTRIBUTE_NAME,
+    serialization::SerializationDataDef, utility, REFLECT_ATTRIBUTE_NAME,
+    REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
+    GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {

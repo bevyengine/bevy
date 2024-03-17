@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
+use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc, sync::Arc};
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();

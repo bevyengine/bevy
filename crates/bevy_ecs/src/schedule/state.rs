@@ -1,17 +1,12 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::mem;
-use std::ops::Deref;
+use std::{fmt::Debug, hash::Hash, mem, ops::Deref};
 
 use crate as bevy_ecs;
-use crate::change_detection::DetectChangesMut;
-use crate::event::Event;
-use crate::prelude::FromWorld;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
-use crate::schedule::ScheduleLabel;
-use crate::system::Resource;
-use crate::world::World;
+use crate::{
+    change_detection::DetectChangesMut, event::Event, prelude::FromWorld, schedule::ScheduleLabel,
+    system::Resource, world::World,
+};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 

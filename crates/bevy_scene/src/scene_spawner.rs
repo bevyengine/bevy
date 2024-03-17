@@ -1,8 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
     system::Resource,
@@ -440,14 +439,16 @@ pub fn scene_spawner_system(world: &mut World) {
 mod tests {
     use bevy_app::App;
     use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::component::Component;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::EventReader;
-    use bevy_ecs::prelude::ReflectComponent;
-    use bevy_ecs::query::With;
-    use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
-    use bevy_ecs::world::World;
+    use bevy_ecs::{
+        component::Component,
+        entity::Entity,
+        event::EventReader,
+        prelude::ReflectComponent,
+        query::With,
+        reflect::AppTypeRegistry,
+        system::{Commands, Res, ResMut, RunSystemOnce},
+        world::World,
+    };
     use bevy_reflect::Reflect;
 
     use crate::{DynamicScene, DynamicSceneBuilder, SceneInstanceReady, ScenePlugin, SceneSpawner};

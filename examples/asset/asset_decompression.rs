@@ -10,8 +10,7 @@ use bevy::{
     utils::BoxedFuture,
 };
 use flate2::read::GzDecoder;
-use std::io::prelude::*;
-use std::marker::PhantomData;
+use std::{io::prelude::*, marker::PhantomData};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]

@@ -9,11 +9,11 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_resource::*,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet,
+    Render, RenderApp, RenderSet,
 };
-use bevy_render::{render_resource::*, RenderApp};
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.

@@ -10,13 +10,13 @@ use bevy_a11y::{
     accesskit::{
         ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, TreeUpdate,
     },
-    AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
+    AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
+    ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
 };
-use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,

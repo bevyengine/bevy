@@ -2,8 +2,10 @@
 
 use bevy::prelude::*;
 
-use std::io::{self, BufRead};
-use std::time::Duration;
+use std::{
+    io::{self, BufRead},
+    time::Duration,
+};
 
 fn banner() {
     println!("This example is meant to intuitively demonstrate how Time works in Bevy.");

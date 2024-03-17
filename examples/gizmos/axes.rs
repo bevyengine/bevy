@@ -1,6 +1,5 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
-use bevy::prelude::*;
-use bevy::render::primitives::Aabb;
+use bevy::{prelude::*, render::primitives::Aabb};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
 

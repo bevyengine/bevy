@@ -1,9 +1,12 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
-use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_render::{
+    camera::{CameraOutputMode, ExtractedCamera},
+    render_resource::*,
+    view::ViewTarget,
+    Render, RenderApp, RenderSet,
+};
 
 mod node;
 

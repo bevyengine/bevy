@@ -13,8 +13,7 @@ use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 

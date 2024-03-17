@@ -1,9 +1,9 @@
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
-use bevy_ecs::component::{Component, ComponentId};
-use bevy_ecs::system::Resource;
 use bevy_ecs::{
+    component::{Component, ComponentId},
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    system::Resource,
     world::World,
 };
 use bevy_reflect::Reflect;
@@ -351,8 +351,10 @@ impl<'w> DynamicSceneBuilder<'w> {
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
-        component::Component, prelude::Entity, prelude::Resource, query::With,
-        reflect::AppTypeRegistry, reflect::ReflectComponent, reflect::ReflectResource,
+        component::Component,
+        prelude::{Entity, Resource},
+        query::With,
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
         world::World,
     };
 

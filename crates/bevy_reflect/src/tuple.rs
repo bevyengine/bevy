@@ -3,13 +3,14 @@ use bevy_utils::all_tuples;
 
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
-use crate::{ReflectKind, TypePathTable};
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use std::{
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [tuple-like] operations via [reflection].
 ///

@@ -1,7 +1,9 @@
 //! Types that enable reflection support.
 
-use std::any::TypeId;
-use std::ops::{Deref, DerefMut};
+use std::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};

@@ -11,12 +11,12 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::Parallel;
 
-use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
         Projection,
     },
+    deterministic::DeterministicRenderingConfig,
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };

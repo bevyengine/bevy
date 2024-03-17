@@ -6,8 +6,10 @@ use bevy_ecs::{
     prelude::Component,
     query::ROQueryItem,
     storage::SparseSet,
-    system::lifetimeless::{Read, SRes},
-    system::*,
+    system::{
+        lifetimeless::{Read, SRes},
+        *,
+    },
 };
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{

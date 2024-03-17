@@ -1,10 +1,10 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
-use bevy::audio::AddAudioSource;
-use bevy::audio::AudioPlugin;
-use bevy::audio::Source;
-use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use bevy::utils::Duration;
+use bevy::{
+    audio::{AddAudioSource, AudioPlugin, Source},
+    prelude::*,
+    reflect::TypePath,
+    utils::Duration,
+};
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.

@@ -1,7 +1,6 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::DefaultBehavior;
 use crate::{
-    derive_data::{EnumVariantFields, ReflectEnum},
+    derive_data::{EnumVariantFields, ReflectEnum, StructField},
+    field_attributes::DefaultBehavior,
     utility::ident_or_index,
 };
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};

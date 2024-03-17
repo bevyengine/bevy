@@ -1,9 +1,9 @@
 //! The mouse input functionality.
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    entity::Entity,
     event::{Event, EventReader},
     system::ResMut,
 };

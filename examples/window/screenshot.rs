@@ -1,8 +1,6 @@
 //! An example showing how to save screenshots to disk
 
-use bevy::prelude::*;
-use bevy::render::view::screenshot::ScreenshotManager;
-use bevy::window::PrimaryWindow;
+use bevy::{prelude::*, render::view::screenshot::ScreenshotManager, window::PrimaryWindow};
 
 fn main() {
     App::new()

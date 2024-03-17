@@ -1,5 +1,8 @@
-use std::hash::{Hash, Hasher};
-use std::{borrow::Cow, collections::VecDeque};
+use std::{
+    borrow::Cow,
+    collections::VecDeque,
+    hash::{Hash, Hasher},
+};
 
 use bevy_app::App;
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};

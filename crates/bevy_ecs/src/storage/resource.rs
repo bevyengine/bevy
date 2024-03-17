@@ -1,7 +1,9 @@
-use crate::archetype::ArchetypeComponentId;
-use crate::change_detection::{MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
-use crate::storage::{blob_vec::BlobVec, SparseSet};
+use crate::{
+    archetype::ArchetypeComponentId,
+    change_detection::{MutUntyped, TicksMut},
+    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    storage::{blob_vec::BlobVec, SparseSet},
+};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, mem::ManuallyDrop, thread::ThreadId};
 

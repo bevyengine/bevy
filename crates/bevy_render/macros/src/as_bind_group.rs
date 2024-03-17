@@ -1080,7 +1080,7 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut buffer = false;
 
     for meta in metas {
-        use syn::{Meta::List, Meta::Path};
+        use syn::Meta::{List, Path};
         match meta {
             // Parse #[storage(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {

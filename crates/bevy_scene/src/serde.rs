@@ -2,16 +2,17 @@
 
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
-use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
-    serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
+    serde::{
+        TypeRegistrationDeserializer, TypedReflectDeserializer, TypedReflectSerializer,
+        UntypedReflectDeserializer,
+    },
     Reflect, TypeRegistry, TypeRegistryArc,
 };
 use bevy_utils::HashSet;
-use serde::ser::SerializeMap;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
-    ser::SerializeStruct,
+    ser::{SerializeMap, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::fmt::Formatter;
@@ -496,19 +497,21 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ron;
-    use crate::serde::{SceneDeserializer, SceneSerializer};
-    use crate::{DynamicScene, DynamicSceneBuilder};
-    use bevy_ecs::entity::EntityHashMap;
-    use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
-    use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
-    use bevy_ecs::query::{With, Without};
-    use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
-    use bevy_ecs::world::FromWorld;
+    use crate::{
+        ron,
+        serde::{SceneDeserializer, SceneSerializer},
+        DynamicScene, DynamicSceneBuilder,
+    };
+    use bevy_ecs::{
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
+        query::{With, Without},
+        reflect::{AppTypeRegistry, ReflectMapEntities},
+        world::FromWorld,
+    };
     use bevy_reflect::{Reflect, ReflectSerialize};
     use bincode::Options;
-    use serde::de::DeserializeSeed;
-    use serde::Serialize;
+    use serde::{de::DeserializeSeed, Serialize};
     use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]

@@ -4,8 +4,7 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::all_tuples;
-use bevy_utils::synccell::SyncCell;
+use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::marker::PhantomData;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
@@ -114,9 +113,7 @@ all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::schedule::Schedule;
-    use crate::system::Local;
-    use crate::world::World;
+    use crate::{schedule::Schedule, system::Local, world::World};
     use bevy_ecs_macros::Resource;
     use std::marker::PhantomData;
 
