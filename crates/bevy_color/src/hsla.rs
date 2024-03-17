@@ -66,6 +66,35 @@ impl Hsla {
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
+
+    /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
+    /// color from a provided `index`.
+    ///
+    /// This can be helpful for generating debug colors.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_color::Hsla;
+    /// // Unique color for an entity
+    /// # let entity_index = 123;
+    /// // let entity_index = entity.index();
+    /// let color = Hsla::sequential_dispersed(entity_index);
+    ///
+    /// // Palette with 5 distinct hues
+    /// let palette = (0..5).map(Hsla::sequential_dispersed).collect::<Vec<_>>();
+    /// ```
+    pub fn sequential_dispersed(index: u32) -> Self {
+        const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+        const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+
+        // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+        //
+        // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+        // so that the closer the numbers are, the larger the difference of their image.
+        let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+        Self::hsl(hue, 1., 0.5)
+    }
 }
 
 impl Default for Hsla {
@@ -104,6 +133,11 @@ impl Alpha for Hsla {
     #[inline]
     fn alpha(&self) -> f32 {
         self.alpha
+    }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
     }
 }
 
@@ -305,5 +339,22 @@ mod tests {
         assert_approx_eq!(hsla2.mix(&hsla0, 0.25).hue, 355., 0.001);
         assert_approx_eq!(hsla2.mix(&hsla0, 0.5).hue, 0., 0.001);
         assert_approx_eq!(hsla2.mix(&hsla0, 0.75).hue, 5., 0.001);
+    }
+
+    #[test]
+    fn test_from_index() {
+        let references = [
+            Hsla::hsl(0.0, 1., 0.5),
+            Hsla::hsl(222.49225, 1., 0.5),
+            Hsla::hsl(84.984474, 1., 0.5),
+            Hsla::hsl(307.4767, 1., 0.5),
+            Hsla::hsl(169.96895, 1., 0.5),
+        ];
+
+        for (index, reference) in references.into_iter().enumerate() {
+            let color = Hsla::sequential_dispersed(index as u32);
+
+            assert_approx_eq!(color.hue, reference.hue, 0.001);
+        }
     }
 }

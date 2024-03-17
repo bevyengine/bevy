@@ -2,14 +2,12 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, Ref, World, WorldId};
+use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, Ticks, TicksMut},
-    component::{
-        ComponentId, ComponentStorage, ComponentTicks, Components, StorageType, Tick, TickCells,
-    },
+    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     query::DebugCheckedUnwrap,
@@ -18,7 +16,7 @@ use crate::{
     system::{Res, Resource},
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -592,6 +590,18 @@ impl<'w> UnsafeWorldCell<'w> {
             .get(component_id)?
             .get_with_ticks()
     }
+
+    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
+    /// - no mutable references to the queue exist at the same time
+    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+        // SAFETY:
+        // - caller ensures there are no existing mutable references
+        // - caller ensures that we have permission to access the queue
+        unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
+    }
 }
 
 impl Debug for UnsafeWorldCell<'_> {
@@ -711,7 +721,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -738,7 +748,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -768,7 +778,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )
@@ -837,7 +847,7 @@ impl<'w> UnsafeEntityCell<'w> {
             get_component_and_ticks(
                 self.world,
                 component_id,
-                T::Storage::STORAGE_TYPE,
+                T::STORAGE_TYPE,
                 self.entity,
                 self.location,
             )

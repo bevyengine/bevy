@@ -155,7 +155,9 @@ fn update_children_target_camera(
 
     for &child in children {
         // Skip if the child has already been updated or update is not needed
-        if updated_entities.contains(&child) || camera_to_set == node_query.get(child).unwrap() {
+        if updated_entities.contains(&child)
+            || camera_to_set == node_query.get(child).ok().flatten()
+        {
             continue;
         }
 

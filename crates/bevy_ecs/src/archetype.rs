@@ -21,7 +21,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
@@ -110,7 +110,7 @@ impl ArchetypeId {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
@@ -301,6 +301,18 @@ struct ArchetypeComponentInfo {
     archetype_component_id: ArchetypeComponentId,
 }
 
+bitflags::bitflags! {
+    /// Flags used to keep track of metadata about the component in this [`Archetype`]
+    ///
+    /// Used primarily to early-out when there are no [`ComponentHook`] registered for any contained components.
+    #[derive(Clone, Copy)]
+    pub(crate) struct ArchetypeFlags: u32 {
+        const ON_ADD_HOOK    = (1 << 0);
+        const ON_INSERT_HOOK = (1 << 1);
+        const ON_REMOVE_HOOK = (1 << 2);
+    }
+}
+
 /// Metadata for a single archetype within a [`World`].
 ///
 /// For more information, see the *[module level documentation]*.
@@ -313,10 +325,12 @@ pub struct Archetype {
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
+    flags: ArchetypeFlags,
 }
 
 impl Archetype {
     pub(crate) fn new(
+        components: &Components,
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -324,9 +338,13 @@ impl Archetype {
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
-        let mut components = SparseSet::with_capacity(min_table + min_sparse);
+        let mut flags = ArchetypeFlags::empty();
+        let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
         for (component_id, archetype_component_id) in table_components {
-            components.insert(
+            // SAFETY: We are creating an archetype that includes this component so it must exist
+            let info = unsafe { components.get_info_unchecked(component_id) };
+            info.update_archetype_flags(&mut flags);
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
@@ -336,7 +354,10 @@ impl Archetype {
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
-            components.insert(
+            // SAFETY: We are creating an archetype that includes this component so it must exist
+            let info = unsafe { components.get_info_unchecked(component_id) };
+            info.update_archetype_flags(&mut flags);
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
@@ -348,8 +369,9 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: components.into_immutable(),
+            components: archetype_components.into_immutable(),
             edges: Default::default(),
+            flags,
         }
     }
 
@@ -357,6 +379,12 @@ impl Archetype {
     #[inline]
     pub fn id(&self) -> ArchetypeId {
         self.id
+    }
+
+    /// Fetches the flags for the archetype.
+    #[inline]
+    pub(crate) fn flags(&self) -> ArchetypeFlags {
+        self.flags
     }
 
     /// Fetches the archetype's [`Table`] ID.
@@ -545,13 +573,31 @@ impl Archetype {
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
     }
+
+    /// Returns true if any of the components in this archetype have `on_add` hooks
+    #[inline]
+    pub(crate) fn has_on_add(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_ADD_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype have `on_insert` hooks
+    #[inline]
+    pub(crate) fn has_on_insert(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype have `on_remove` hooks
+    #[inline]
+    pub(crate) fn has_on_remove(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
+    }
 }
 
 /// The next [`ArchetypeId`] in an [`Archetypes`] collection.
 ///
 /// This is used in archetype update methods to limit archetype updates to the
 /// ones added since the last time the method ran.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ArchetypeGeneration(ArchetypeId);
 
 impl ArchetypeGeneration {
@@ -627,7 +673,15 @@ impl Archetypes {
             by_components: Default::default(),
             archetype_component_count: 0,
         };
-        archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
+        // SAFETY: Empty archetype has no components
+        unsafe {
+            archetypes.get_id_or_insert(
+                &Components::default(),
+                TableId::empty(),
+                Vec::new(),
+                Vec::new(),
+            );
+        }
         archetypes
     }
 
@@ -727,8 +781,10 @@ impl Archetypes {
     ///
     /// # Safety
     /// [`TableId`] must exist in tables
-    pub(crate) fn get_id_or_insert(
+    /// `table_components` and `sparse_set_components` must exist in `components`
+    pub(crate) unsafe fn get_id_or_insert(
         &mut self,
+        components: &Components,
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
@@ -754,6 +810,7 @@ impl Archetypes {
                 let sparse_set_archetype_components =
                     (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                 archetypes.push(Archetype::new(
+                    components,
                     id,
                     table_id,
                     table_components.into_iter().zip(table_archetype_components),

@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::MeshVertexBufferLayoutRef,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -30,7 +30,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: LegacyColor::BLUE,
+            color: LinearRgba::BLUE,
             is_red: false,
         }),
         ..default()
@@ -41,7 +41,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: LegacyColor::GREEN,
+            color: LinearRgba::GREEN,
             is_red: true,
         }),
         ..default()
@@ -62,7 +62,7 @@ impl Material for CustomMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
@@ -78,7 +78,7 @@ impl Material for CustomMaterial {
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: LegacyColor,
+    color: LinearRgba,
     is_red: bool,
 }
 
