@@ -82,16 +82,14 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(GREEN)),
+            material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         },
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
-        WireframeColor {
-            color: GREEN.into(),
-        },
+        WireframeColor { color: LIME.into() },
     ));
 
     // light
@@ -157,10 +155,10 @@ Color: {:?}
     // Toggle the color of a wireframe using WireframeColor and not the global color
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == GREEN.into() {
+            color.color = if color.color == LIME.into() {
                 RED.into()
             } else {
-                GREEN.into()
+                LIME.into()
             };
         }
     }

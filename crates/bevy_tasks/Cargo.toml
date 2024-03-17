@@ -27,3 +27,6 @@ web-time = { version = "0.2" }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

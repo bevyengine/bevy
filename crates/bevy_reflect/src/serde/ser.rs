@@ -574,12 +574,10 @@ mod tests {
         registry
     }
 
-    #[test]
-    fn should_serialize() {
+    fn get_my_struct() -> MyStruct {
         let mut map = HashMap::new();
         map.insert(64, 32);
-
-        let input = MyStruct {
+        MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
@@ -606,9 +604,14 @@ mod tests {
                 value: 100,
                 inner_struct: SomeSerializableStruct { foo: 101 },
             },
-        };
+        }
+    }
 
+    #[test]
+    fn should_serialize() {
+        let input = get_my_struct();
         let registry = get_registry();
+
         let serializer = ReflectSerializer::new(&input, &registry);
 
         let config = PrettyConfig::default()
@@ -776,38 +779,7 @@ mod tests {
 
     #[test]
     fn should_serialize_non_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let input = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 123 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::from("Struct Variant"),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
-            custom_serialize: CustomSerialize {
-                value: 100,
-                inner_struct: SomeSerializableStruct { foo: 101 },
-            },
-        };
-
+        let input = get_my_struct();
         let registry = get_registry();
 
         let serializer = ReflectSerializer::new(&input, &registry);
@@ -834,38 +806,7 @@ mod tests {
 
     #[test]
     fn should_serialize_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let input = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 123 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::from("Struct Variant"),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
-            custom_serialize: CustomSerialize {
-                value: 100,
-                inner_struct: SomeSerializableStruct { foo: 101 },
-            },
-        };
-
+        let input = get_my_struct();
         let registry = get_registry();
 
         let serializer = ReflectSerializer::new(&input, &registry);

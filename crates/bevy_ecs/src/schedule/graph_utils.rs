@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 
-use bevy_utils::{
-    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 

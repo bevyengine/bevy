@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Color in Oklch color space, with alpha
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Oklcha {
     /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
@@ -175,8 +175,14 @@ impl EuclideanDistance for Oklcha {
 }
 
 impl From<Oklaba> for Oklcha {
-    fn from(Oklaba { l, a, b, alpha }: Oklaba) -> Self {
-        let lightness = l;
+    fn from(
+        Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Oklaba,
+    ) -> Self {
         let chroma = a.hypot(b);
         let hue = b.atan2(a).to_degrees();
 

@@ -155,6 +155,9 @@ bevy_winit = ["bevy_internal/bevy_winit"]
 # Adds support for rendering gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
+# Provides a collection of developer tools
+bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 
@@ -318,6 +321,9 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
+# Enable support for the ios_simulator by downgrading some rendering capabilities
+ios_simulator = ["bevy_internal/ios_simulator"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
@@ -332,6 +338,7 @@ bytemuck = "1.7"
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+thiserror = "1.0"
 
 [[example]]
 name = "hello_world"
@@ -974,6 +981,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "animation_graph"
+path = "examples/animation/animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_graph]
+name = "Animation Graph"
+description = "Blends multiple animations together with a graph"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "morph_targets"
 path = "examples/animation/morph_targets.rs"
 doc-scrape-examples = true
@@ -1106,6 +1124,16 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "log_layers_ecs"
+path = "examples/app/log_layers_ecs.rs"
+
+[package.metadata.example.log_layers_ecs]
+name = "Advanced log layers"
+description = "Illustrate how to transfer data between log layers and Bevy's ECS"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1224,6 +1252,17 @@ doc-scrape-examples = true
 [package.metadata.example.embedded_asset]
 name = "Embedded Asset"
 description = "Embed an asset in the application binary and load it"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "extra_asset_source"
+path = "examples/asset/extra_source.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extra_asset_source]
+name = "Extra asset source"
+description = "Load an asset from a non-standard asset source"
 category = "Assets"
 wasm = true
 
@@ -1677,6 +1716,17 @@ name = "Contributors"
 description = "Displays each contributor as a bouncy bevy-ball!"
 category = "Games"
 wasm = true
+
+[[example]]
+name = "desk_toy"
+path = "examples/games/desk_toy.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.desk_toy]
+name = "Desk Toy"
+description = "Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!"
+category = "Games"
+wasm = false
 
 [[example]]
 name = "game_menu"
@@ -2235,6 +2285,17 @@ category = "Transforms"
 wasm = true
 
 [[example]]
+name = "align"
+path = "examples/transforms/align.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.align]
+name = "Alignment"
+description = "A demonstration of Transform's axis-alignment feature"
+category = "Transforms"
+wasm = true
+
+[[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 doc-scrape-examples = true
@@ -2501,6 +2562,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_atlas_slice"
+path = "examples/ui/ui_texture_atlas_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_atlas_slice]
+name = "UI Texture Atlas Slice"
+description = "Illustrates how to use 9 Slicing for TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -2680,6 +2752,40 @@ description = "A scene showcasing 3D gizmos"
 category = "Gizmos"
 wasm = true
 
+[[example]]
+name = "axes"
+path = "examples/gizmos/axes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.axes]
+name = "Axes"
+description = "Demonstrates the function of axes gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "light_gizmos"
+path = "examples/gizmos/light_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_gizmos]
+name = "Light Gizmos"
+description = "A scene showcasing light gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "fps_overlay"
+path = "examples/dev_tools/fps_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -2693,3 +2799,4 @@ panic = "abort"
 
 [package.metadata.docs.rs]
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+all-features = true

@@ -1,10 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{
-    math::bounding::Aabb2d,
-    prelude::*,
-    utils::{thiserror, HashMap},
-};
+use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
