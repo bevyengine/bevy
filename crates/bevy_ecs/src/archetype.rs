@@ -23,11 +23,14 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
+    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
     hash::Hash,
     ops::{Index, RangeFrom},
+    panic,
+    sync::Arc,
 };
 
 /// An opaque location within a [`Archetype`].
@@ -695,22 +698,22 @@ impl Archetypes {
         self.archetypes.get_mut(id.index())
     }
 
-    /// # Panics
-    ///
-    /// Panics if `a` and `b` are equal.
+    /// # Safety
+    /// `a` and `b` must both be in bounds and not equal to each other.
     #[inline]
-    pub(crate) fn get_2_mut(
+    pub(crate) unsafe fn get_2_unchecked_mut(
         &mut self,
         a: ArchetypeId,
         b: ArchetypeId,
     ) -> (&mut Archetype, &mut Archetype) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
-        } else {
-            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
-        }
+        debug_assert!(
+            a != b && a.index() < self.archetypes.len() && b.index() < self.archetypes.len()
+        );
+        let ptr = self.archetypes.as_mut_ptr();
+        (
+            ptr.add(a.index()).as_mut().debug_checked_unwrap(),
+            ptr.add(b.index()).as_mut().debug_checked_unwrap(),
+        )
     }
 
     /// Returns a read-only iterator over all archetypes.

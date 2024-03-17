@@ -898,9 +898,13 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = if old_table_id == new_archetype.table_id() {
             new_archetype.allocate(entity, old_table_row)
         } else {
-            let (old_table, new_table) = storages
-                .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
+            // SAFETY: Both table  IDs are valid. Both are associated with archetypes that are directly mapped to
+            // valid tables. The if check ensures that they're not the same.
+            let (old_table, new_table) = unsafe {
+                storages
+                    .tables
+                    .get_2_unchecked_mut(old_table_id, new_archetype.table_id())
+            };
 
             let move_result = if DROP {
                 // SAFETY: old_table_row exists

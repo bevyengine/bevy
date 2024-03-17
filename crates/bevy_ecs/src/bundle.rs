@@ -374,7 +374,10 @@ impl BundleInfo {
                 result: InsertBundleResult::SameArchetype,
             }
         } else {
-            let (archetype, new_archetype) = archetypes.get_2_mut(archetype_id, new_archetype_id);
+            // SAFETY: Both archetype IDs are valid. archetype_id assured to be valid by the caller, and new_archetype_id
+            // was either just allocated or fetched from edges. The if check ensures that they're not the same.
+            let (archetype, new_archetype) =
+                unsafe { archetypes.get_2_unchecked_mut(archetype_id, new_archetype_id) };
             let table_id = archetype.table_id();
             if table_id == new_archetype.table_id() {
                 BundleInserter {
@@ -388,9 +391,13 @@ impl BundleInfo {
                     result: InsertBundleResult::NewArchetypeSameTable { new_archetype },
                 }
             } else {
-                let (table, new_table) = storages
-                    .tables
-                    .get_2_mut(table_id, new_archetype.table_id());
+                // SAFETY: Both table  IDs are valid. Both are associated with archetypes that are directly mapped to
+                // valid tables. The if check ensures that they're not the same.
+                let (table, new_table) = unsafe {
+                    storages
+                        .tables
+                        .get_2_unchecked_mut(table_id, new_archetype.table_id())
+                };
                 BundleInserter {
                     bundle_info: self,
                     archetype,
