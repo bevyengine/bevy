@@ -506,6 +506,9 @@ title = \"{}\"
 template = \"example{}.html\"
 weight = {}
 description = \"{}\"
+# This creates redirection pages
+# for the old URLs which used
+# uppercase letters and whitespace.
 aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
