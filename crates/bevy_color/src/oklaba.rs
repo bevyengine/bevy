@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
-    Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, IsWithinBounds, Lcha,
+    LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -129,6 +129,37 @@ impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
         (self.l - other.l).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
+    }
+}
+
+impl ClampColor for Oklaba {
+    fn clamp(&self) -> Self {
+        Self {
+            l: self.l.clamp(0., 1.),
+            a: self.a.clamp(-1., 1.),
+            b: self.b.clamp(-1., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn clamp_self(&mut self) {
+        self.l = self.l.clamp(0., 1.);
+        self.a = self.a.clamp(-1., 1.);
+        self.b = self.b.clamp(-1., 1.);
+        self.alpha = self.alpha.clamp(0., 1.);
+    }
+}
+
+impl IsWithinBounds for Oklaba {
+    fn is_within_bounds(&self) -> bool {
+        self.l >= 0.
+            && self.l <= 1.
+            && self.a >= -1.
+            && self.a <= 1.
+            && self.b >= -1.
+            && self.b <= 1.
+            && self.alpha >= 0.
+            && self.alpha <= 1.
     }
 }
 
@@ -303,5 +334,21 @@ mod tests {
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Oklaba::lch(-1., 2., -2.);
+        let color_2 = Oklaba::lch(1., 0.42, -0.4);
+        let mut color_3 = Oklaba::lch(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamp(), Oklaba::lch(0., 1., -1.));
+
+        assert!(color_2.is_within_bounds());
+
+        color_3.clamp_self();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Oklaba::lch(0., 1., 1.));
     }
 }
