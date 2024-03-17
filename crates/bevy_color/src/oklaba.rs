@@ -45,7 +45,7 @@ impl Oklaba {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `a` - Green-red channel. [-1.0, 1.0]
     /// * `b` - Blue-yellow channel. [-1.0, 1.0]
-    pub const fn lch(l: f32, a: f32, b: f32) -> Self {
+    pub const fn lab(lightness: f32, a: f32, b: f32) -> Self {
         Self {
             lightness,
             a,
