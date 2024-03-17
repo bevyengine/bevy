@@ -1,4 +1,4 @@
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{Alpha, ClampColor, IsWithinBounds, LinearRgba, Luminance, Mix, StandardColor};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -134,6 +134,37 @@ impl Mix for Xyza {
     }
 }
 
+impl ClampColor for Xyza {
+    fn clamp(&self) -> Self {
+        Self {
+            x: self.x.clamp(0., 1.),
+            y: self.y.clamp(0., 1.),
+            z: self.z.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn clamp_self(&mut self) {
+        self.x = self.x.clamp(0., 1.);
+        self.y = self.y.clamp(0., 1.);
+        self.z = self.z.clamp(0., 1.);
+        self.alpha = self.alpha.clamp(0., 1.);
+    }
+}
+
+impl IsWithinBounds for Xyza {
+    fn is_within_bounds(&self) -> bool {
+        self.x >= 0.
+            && self.x <= 1.
+            && self.y >= 0.
+            && self.y <= 1.
+            && self.z >= 0.
+            && self.z <= 1.
+            && self.alpha >= 0.
+            && self.alpha <= 1.
+    }
+}
+
 impl From<LinearRgba> for Xyza {
     fn from(
         LinearRgba {
@@ -207,5 +238,21 @@ mod tests {
             assert_approx_eq!(color.xyz.z, xyz2.z, 0.001);
             assert_approx_eq!(color.xyz.alpha, xyz2.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Xyza::xyz(2., -1., 0.4);
+        let color_2 = Xyza::xyz(0.031, 0.749, 1.);
+        let mut color_3 = Xyza::xyz(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamp(), Xyza::xyz(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+
+        color_3.clamp_self();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Xyza::xyz(0., 1., 1.));
     }
 }
