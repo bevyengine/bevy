@@ -26,7 +26,6 @@ use crate::{
     query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
-use core::arch;
 use std::{
     hash::Hash,
     ops::{Index, RangeFrom},

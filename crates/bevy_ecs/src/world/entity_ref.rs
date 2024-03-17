@@ -1562,8 +1562,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.get_mut().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get_mut().debug_checked_unwrap() }
     }
 
     /// Replaces the component of the entry.
