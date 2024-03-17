@@ -61,3 +61,13 @@ pub trait Alpha: Sized {
         self.alpha() >= 1.0
     }
 }
+
+/// Trait with methods for asserting a colorspace is within bounds.
+pub trait ClampColor: Sized {
+    /// Return a new version of this color clamped, with all fields in bounds.
+    fn clamp(&self) -> Self;
+
+    /// Changes all the fields of this color to assert they are within bounds.
+    fn clamp_self(&mut self);
+}
+
