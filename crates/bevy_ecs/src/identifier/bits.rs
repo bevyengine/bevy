@@ -11,7 +11,7 @@ bitflags! {
         /// [`super::IdKind::Placeholder`] or [`super::IdKind::Entity`].
         const IS_PLACEHOLDER = 0b1000_0000_0000_0000_0000_0000_0000_0000;
         /// Flag for determining whether the [`super::Identifier`] is in a
-        /// `toggeable` state or not.
+        /// `togglable` state or not.
         const IS_TOGGLABLE = 0b0100_0000_0000_0000_0000_0000_0000_0000;
 
         const _ = !0;
@@ -36,7 +36,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn smoke_test() {
+    fn flag_bits_are_correctly_determined() {
         // Both flag bits are set
         let bits: u32 = 0xC0FF_EEEE;
 

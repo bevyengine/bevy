@@ -31,7 +31,7 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    /// Construct a new [`Identifier`]. The `high` parameter is masked so to pack
+    /// Construct a new [`Identifier`]. The `high` parameter is masked so we can pack
     /// the high value and bit flags into the same field.
     #[inline(always)]
     pub const fn new(
@@ -95,7 +95,7 @@ impl Identifier {
         IdentifierMask::extract_kind_from_high(self.high.get())
     }
 
-    /// Returns with the [`Identifier`] is in a `hidden` state.
+    /// Returns with the [`Identifier`] is in a `togglable` state.
     #[inline(always)]
     pub const fn is_togglable(self) -> bool {
         self.flags().contains(IdentifierFlagBits::IS_TOGGLABLE)
@@ -114,16 +114,16 @@ impl Identifier {
         IdentifierMask::extract_flags_from_high(self.high.get())
     }
 
-    /// Returns a `hidden` [`Identifier`].
+    /// Returns a `togglable` [`Identifier`].
     #[inline(always)]
     #[must_use]
-    pub const fn set_hidden(self, state: bool) -> Identifier {
+    pub const fn set_togglable(self, state: bool) -> Identifier {
         Self {
             low: self.low,
             // SAFETY: the high component will always be non-zero due to either the
             // placeholder flag or the value component not being modified and either
             // one guaranteed to be one due to Identifier being initialised with the
-            // correct invariants checked. As such, modifying the hidden bit will
+            // correct invariants checked. As such, modifying the togglable bit will
             // never result in a zero value.
             high: unsafe {
                 NonZeroU32::new_unchecked(IdentifierMask::set_togglable_flag_in_high(
@@ -275,7 +275,7 @@ mod tests {
 
         assert!(id.is_togglable());
 
-        let id = id.set_hidden(false);
+        let id = id.set_togglable(false);
 
         assert_eq!(id.to_bits(), 0x3FFF_FFFF_0000_000C);
         assert!(!id.is_togglable());

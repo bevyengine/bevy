@@ -139,7 +139,7 @@ mod tests {
         // Excludes the most significant bit as that is a flag bit.
         assert_eq!(IdentifierMask::extract_value_from_high(high), HIGH_MASK);
 
-        // Start bit and end bit are ones.
+        // Start two bits and end bit are ones.
         let high: u32 = 0xC000_0001;
 
         assert_eq!(IdentifierMask::extract_value_from_high(high), 0x0000_0001);
@@ -152,12 +152,12 @@ mod tests {
 
     #[test]
     fn pack_flag_bits() {
-        // All bits are ones expect the 2 most significant bits, which are zero
+        // All bits are ones except the 2 most significant bits, which are zero
         let high: u32 = 0x7FFF_FFFF;
 
         assert_eq!(
             IdentifierMask::pack_flags_into_high(high, IdentifierFlagBits::IS_PLACEHOLDER),
-            // The IS_HIDDEN flag is cleared and the IS_PLACEHOLDER flag is enabled
+            // The IS_TOGGLABLE flag is cleared and the IS_PLACEHOLDER flag is enabled
             0xBFFF_FFFF
         );
 
