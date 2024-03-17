@@ -1,6 +1,9 @@
 use std::ops::{Div, Mul};
 
-use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
+use crate::{
+    color_difference::EuclideanDistance, Alpha, ClampColor, IsWithinBounds, Luminance, Mix,
+    StandardColor,
+};
 use bevy_math::Vec4;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bytemuck::{Pod, Zeroable};
@@ -256,6 +259,37 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
+impl ClampColor for LinearRgba {
+    fn clamp(&self) -> Self {
+        Self {
+            red: self.red.clamp(0., 1.),
+            green: self.green.clamp(0., 1.),
+            blue: self.blue.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn clamp_self(&mut self) {
+        self.red = self.red.clamp(0., 1.);
+        self.green = self.green.clamp(0., 1.);
+        self.blue = self.blue.clamp(0., 1.);
+        self.alpha = self.alpha.clamp(0., 1.);
+    }
+}
+
+impl IsWithinBounds for LinearRgba {
+    fn is_within_bounds(&self) -> bool {
+        self.red >= 0.
+            && self.red <= 1.
+            && self.green >= 0.
+            && self.green <= 1.
+            && self.blue >= 0.
+            && self.blue <= 1.
+            && self.alpha >= 0.
+            && self.alpha <= 1.
+    }
+}
+
 impl From<LinearRgba> for [f32; 4] {
     fn from(color: LinearRgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
@@ -454,5 +488,21 @@ mod tests {
         let lighter2 = lighter1.lighter(0.1);
         let twice_as_light = color.lighter(0.2);
         assert!(lighter2.distance_squared(&twice_as_light) < 0.0001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = LinearRgba::rgb(2., -1., 0.4);
+        let color_2 = LinearRgba::rgb(0.031, 0.749, 1.);
+        let mut color_3 = LinearRgba::rgb(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamp(), LinearRgba::rgb(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+
+        color_3.clamp_self();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, LinearRgba::rgb(0., 1., 1.));
     }
 }
