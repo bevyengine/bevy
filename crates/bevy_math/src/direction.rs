@@ -137,8 +137,8 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
-    /// Returning the inner [`Vec2`]
-    pub fn vec2(&self) -> Vec2 {
+    /// Returns the inner [`Vec2`]
+    pub const fn to_vec2(&self) -> Vec2 {
         self.0
     }
 }
@@ -293,8 +293,8 @@ impl Dir3 {
         Self::new(Vec3::new(x, y, z))
     }
 
-    /// Returning the inner [`Vec3`]
-    pub fn vec3(&self) -> Vec3 {
+    /// Returns the inner [`Vec3`]
+    pub const fn to_vec3(&self) -> Vec3 {
         self.0
     }
 }
@@ -458,8 +458,8 @@ impl Dir3A {
         Self::new(Vec3A::new(x, y, z))
     }
 
-    /// Returning the inner [`Vec3A`]
-    pub fn vec3a(&self) -> Vec3A {
+    /// Returns the inner [`Vec3A`]
+    pub const fn to_vec3a(&self) -> Vec3A {
         self.0
     }
 }
