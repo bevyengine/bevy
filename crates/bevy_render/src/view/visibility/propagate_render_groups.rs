@@ -272,10 +272,13 @@ pub fn extract_camera_view(
     )
 }
 
-/// Converts an optional [`InheritedRenderGroups`] and [`RenderGroups`] into [`RenderGroupsRef`].
+/// Derives a [`RenderGroupsRef`] from an optional [`InheritedRenderGroups`] and [`RenderGroups`].
 ///
-/// Returns [`RenderGroups::default`] if both optionals are `None`.
-pub fn render_groups_asref<'a>(
+/// Returns in order of priority:
+/// - [`InheritedRenderGroups::computed`]
+/// - [`RenderGroups`]
+/// - [`RenderGroups::default`]
+pub fn derive_render_groups<'a>(
     inherited: Option<&'a InheritedRenderGroups>,
     render_groups: Option<&'a RenderGroups>,
 ) -> RenderGroupsRef<'a> {
