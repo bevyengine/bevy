@@ -959,7 +959,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
-description = "Meshlet rendering for dense high-poly scenes"
+description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 
