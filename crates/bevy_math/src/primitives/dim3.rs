@@ -713,9 +713,9 @@ impl Bounded3d for Triangle3d {
     /// Get the bounding box of the triangle
     fn aabb_3d(&self, translation: Vec3, rotation: glam::Quat) -> crate::bounding::Aabb3d {
         let [a, b, c] = self.vertices;
-        let a = rotation * a + translation;
-        let b = rotation * b + translation;
-        let c = rotation * c + translation;
+        let a = rotation * a;
+        let b = rotation * b;
+        let c = rotation * c;
 
         let min_x = a.x.min(b.x).min(c.x);
         let min_y = a.y.min(b.y).min(c.y);
@@ -728,7 +728,7 @@ impl Bounded3d for Triangle3d {
             (min_x + max_x) / 2.0,
             (min_y + max_y) / 2.0,
             (min_z + max_z) / 2.0,
-        );
+        ) + translation;
 
         let half_extents = Vec3::new(
             (max_x - min_x) / 2.0,
