@@ -440,14 +440,13 @@ impl<'a> RenderGroupsRef<'a> {
     /// The ref will be in an invalid state after this is called.
     pub(crate) fn reclaim(&mut self, other: &mut RenderGroups) {
         match self {
-            Self::Val(groups) =>
-            {
+            Self::Val(groups) => {
                 if !groups.is_allocated() || other.is_allocated() {
                     return;
                 }
                 std::mem::swap(groups, other);
             }
-            _ => ()
+            _ => (),
         }
     }
 }
@@ -466,7 +465,9 @@ impl<'a> RenderGroupsRef<'a> {
     /// Panices if in state [`Self::None`].
     pub fn get(&self) -> &RenderGroups {
         match self {
-            Self::None => { panic!("RenderGroupsRef cannot be dereferenced when empty"); }
+            Self::None => {
+                panic!("RenderGroupsRef cannot be dereferenced when empty");
+            }
             Self::Ref(groups) => groups,
             Self::Val(groups) => &groups,
         }
@@ -616,16 +617,12 @@ mod rendering_mask_tests {
             "layer 0 + 1 is mask 3"
         );
         assert_eq!(
-            RenderLayers::from(RenderLayer(0))
-                .add(1)
-                .remove(0)
-                .layers[0],
+            RenderLayers::from(RenderLayer(0)).add(1).remove(0).layers[0],
             2,
             "layer 0 + 1 - 0 is mask 2"
         );
         assert!(
-            RenderLayers::from(RenderLayer(1))
-                .intersects(&RenderLayers::from(RenderLayer(1))),
+            RenderLayers::from(RenderLayer(1)).intersects(&RenderLayers::from(RenderLayer(1))),
             "layers match like layers"
         );
         assert!(
@@ -648,8 +645,7 @@ mod rendering_mask_tests {
         );
 
         assert!(
-            !RenderLayers::from(RenderLayer(0))
-                .intersects(&RenderLayers::from(RenderLayer(1))),
+            !RenderLayers::from(RenderLayer(0)).intersects(&RenderLayers::from(RenderLayer(1))),
             "masks with differing layers do not match"
         );
         assert!(
