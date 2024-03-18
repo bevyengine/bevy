@@ -10,6 +10,7 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
@@ -30,7 +31,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
     pub(crate) matched_table_ids: Vec<TableId>,
@@ -95,11 +95,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
-    /// Returns the archetype components accessed by this query.
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
     /// Returns the components accessed by this query.
     pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
         &self.component_access
@@ -119,6 +114,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
+        let mut state = Self::new_uninitialized(world);
+        state.update_archetypes(world);
+        state
+    }
+
+    /// Identical to `new`, but it populates the provided `access` with the matched results.
+    pub(crate) fn new_with_access(
+        world: &mut World,
+        access: &mut Access<ArchetypeComponentId>,
+    ) -> Self {
+        let mut state = Self::new_uninitialized(world);
+        for archetype in world.archetypes.iter() {
+            if state.new_archetype_internal(archetype) {
+                state.update_archetype_component_access(archetype, access);
+            }
+        }
+        state.archetype_generation = world.archetypes.generation();
+        state
+    }
+
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and it's variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
@@ -135,7 +155,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        let mut state = Self {
+        Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -145,16 +165,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 query = std::any::type_name::<D>(),
                 filter = std::any::type_name::<F>(),
             ),
-        };
-        state.update_archetypes(world);
-        state
+        }
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits it's [`FilteredAccess`].
@@ -173,7 +190,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: builder.access().clone(),
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -187,9 +203,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     ///
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
+    ///
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());
@@ -267,7 +291,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype(archetype);
+            self.new_archetype_internal(archetype);
         }
     }
 
@@ -294,25 +318,36 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
-    pub fn new_archetype(&mut self, archetype: &Archetype) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn new_archetype(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        if self.new_archetype_internal(archetype) {
+            self.update_archetype_component_access(archetype, access);
+        }
+    }
+
+    fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
         {
-            self.update_archetype_component_access(archetype);
-
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
-                self.matched_archetypes.grow(archetype_index + 1);
-                self.matched_archetypes.set(archetype_index, true);
+                self.matched_archetypes.grow_and_insert(archetype_index);
                 self.matched_archetype_ids.push(archetype.id());
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
-                self.matched_tables.grow(table_index + 1);
-                self.matched_tables.set(table_index, true);
+                self.matched_tables.grow_and_insert(table_index);
                 self.matched_table_ids.push(archetype.table_id());
             }
+            true
+        } else {
+            false
         }
     }
 
@@ -330,15 +365,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    pub fn update_archetype_component_access(&mut self, archetype: &Archetype) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn update_archetype_component_access(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
         self.component_access.access.reads().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_read(id);
+                access.add_read(id);
             }
         });
         self.component_access.access.writes().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_write(id);
+                access.add_write(id);
             }
         });
     }
@@ -374,7 +415,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
-        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>() );
+        assert!(
+            component_access.is_subset(&self.component_access),
+            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+        );
 
         QueryState {
             world_id: self.world_id,
@@ -386,7 +431,113 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
-            archetype_component_access: self.archetype_component_access.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<NewD>(),
+                filter = std::any::type_name::<NewF>(),
+            ),
+        }
+    }
+
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries. This can be useful for accessing a
+    /// subset of the entities between two queries.
+    ///
+    /// You should not call `update_archetypes` on the returned `QueryState` as the result
+    /// could be unpredictable. You might end up with a mix of archetypes that only matched
+    /// the original query + archetypes that only match the new `QueryState`. Most of the
+    /// safe methods on `QueryState` call [`QueryState::update_archetypes`] internally, so
+    /// this is best used through a `Query`.
+    ///
+    /// ## Performance
+    ///
+    /// This will have similar performance as constructing a new `QueryState` since much of internal state
+    /// needs to be reconstructed. But it will be a little faster as it only needs to compare the intersection
+    /// of matching archetypes rather than iterating over all archetypes.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD>,
+    ) -> QueryState<NewD, ()> {
+        self.join_filtered::<_, (), NewD, ()>(world, other)
+    }
+
+    /// Use this to combine two queries. The data accessed will be the intersection
+    /// of archetypes included in both queries.
+    ///
+    /// ## Panics
+    ///
+    /// Will panic if `NewD` or `NewF` requires accesses not in `Q` or `OtherQ`.
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &self,
+        world: &World,
+        other: &QueryState<OtherD, OtherF>,
+    ) -> QueryState<NewD, NewF> {
+        if self.world_id != other.world_id {
+            panic!("Joining queries initialized on different worlds is not allowed.");
+        }
+
+        let mut component_access = FilteredAccess::default();
+        let mut new_fetch_state = NewD::get_state(world)
+            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let new_filter_state = NewF::get_state(world)
+            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+
+        NewD::set_access(&mut new_fetch_state, &self.component_access);
+        NewD::update_component_access(&new_fetch_state, &mut component_access);
+
+        let mut new_filter_component_access = FilteredAccess::default();
+        NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
+
+        component_access.extend(&new_filter_component_access);
+
+        let mut joined_component_access = self.component_access.clone();
+        joined_component_access.extend(&other.component_access);
+
+        assert!(
+            component_access.is_subset(&joined_component_access),
+            "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
+            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>(), std::any::type_name::<(OtherD, OtherF)>()
+        );
+
+        if self.archetype_generation != other.archetype_generation {
+            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
+        }
+
+        // take the intersection of the matched ids
+        let matched_tables: FixedBitSet = self
+            .matched_tables
+            .intersection(&other.matched_tables)
+            .collect();
+        let matched_table_ids: Vec<TableId> =
+            matched_tables.ones().map(TableId::from_usize).collect();
+        let matched_archetypes: FixedBitSet = self
+            .matched_archetypes
+            .intersection(&other.matched_archetypes)
+            .collect();
+        let matched_archetype_ids: Vec<ArchetypeId> =
+            matched_archetypes.ones().map(ArchetypeId::new).collect();
+
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_table_ids,
+            matched_archetype_ids,
+            fetch_state: new_fetch_state,
+            filter_state: new_filter_state,
+            component_access: joined_component_access,
+            matched_tables,
+            matched_archetypes,
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -730,6 +881,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
         self.update_archetypes(world);
@@ -743,6 +897,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
     /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries.
     #[inline]
@@ -776,6 +933,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
     /// The `iter_combinations` method does not guarantee order of iteration.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
@@ -923,6 +1083,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -939,6 +1102,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -960,6 +1126,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] for the given [`World`], where the last change and
     /// the current change tick are given.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -978,6 +1147,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
     /// the current change tick are given.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -1003,6 +1175,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -1117,7 +1292,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         FN: Fn(D::Item<'w>) + Send + Sync + Clone,
@@ -1633,5 +1808,75 @@ mod tests {
         change_query.single_mut(&mut world).0 = 1;
 
         assert_eq!(entity_a, detection_query.single(&world));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::B>) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+    )]
+    fn cannot_transmute_changed_without_access() {
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        let query = QueryState::<&A>::new(&mut world);
+        let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
+    }
+
+    #[test]
+    fn join() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+        world.spawn((A(4), B(5), C(6)));
+
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+
+        assert_eq!(new_query.single(&world), entity_ab);
+    }
+
+    #[test]
+    fn join_with_get() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        world.spawn(B(1));
+        let entity_ab = world.spawn((A(2), B(3))).id();
+        let entity_abc = world.spawn((A(4), B(5), C(6))).id();
+
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+
+        assert!(new_query.get(&world, entity_ab).is_ok());
+        // should not be able to get entity with c.
+        assert!(new_query.get(&world, entity_abc).is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "Joined state for (&bevy_ecs::query::state::tests::C, ()) \
+            attempts to access terms that are not allowed by state \
+            (&bevy_ecs::query::state::tests::A, ()) joined with (&bevy_ecs::query::state::tests::B, ()).")]
+    fn cannot_join_wrong_fetch() {
+        let mut world = World::new();
+        world.init_component::<C>();
+        let query_1 = QueryState::<&A>::new(&mut world);
+        let query_2 = QueryState::<&B>::new(&mut world);
+        let _query: QueryState<&C> = query_1.join(&world, &query_2);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Joined state for (bevy_ecs::entity::Entity, bevy_ecs::query::filter::Changed<bevy_ecs::query::state::tests::C>) \
+            attempts to access terms that are not allowed by state \
+            (&bevy_ecs::query::state::tests::A, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>) \
+            joined with (&bevy_ecs::query::state::tests::B, bevy_ecs::query::filter::Without<bevy_ecs::query::state::tests::C>)."
+    )]
+    fn cannot_join_wrong_filter() {
+        let mut world = World::new();
+        let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
+        let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
+        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
     }
 }

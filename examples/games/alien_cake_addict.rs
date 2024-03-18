@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
@@ -81,6 +81,9 @@ struct Game {
     camera_is_focus: Vec3,
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct Random(StdRng);
+
 const BOARD_SIZE_I: usize = 14;
 const BOARD_SIZE_J: usize = 21;
 
@@ -105,6 +108,13 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+    let mut rng = if std::env::var("GITHUB_ACTIONS") == Ok("true".to_string()) {
+        // Make the game play out the same way every time, this is useful for testing purposes.
+        StdRng::seed_from_u64(19878367467713)
+    } else {
+        StdRng::from_entropy()
+    };
+
     // reset the game state
     game.cake_eaten = 0;
     game.score = 0;
@@ -129,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rand::thread_rng().gen_range(-0.1..0.1);
+                    let height = rng.gen_range(-0.1..0.1);
                     commands.spawn(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
@@ -169,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             "Score:",
             TextStyle {
                 font_size: 40.0,
-                color: Color::rgb(0.5, 0.5, 1.0),
+                color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
         )
@@ -180,6 +190,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             ..default()
         }),
     );
+
+    commands.insert_resource(Random(rng));
 }
 
 // remove all entities that are not a camera or window
@@ -305,6 +317,7 @@ fn spawn_bonus(
     mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
+    mut rng: ResMut<Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
     if !timer.0.tick(time.delta()).finished() {
@@ -323,8 +336,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }
@@ -343,7 +356,7 @@ fn spawn_bonus(
             .with_children(|children| {
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
-                        color: Color::rgb(1.0, 1.0, 0.0),
+                        color: Color::srgb(1.0, 1.0, 0.0),
                         intensity: 500_000.0,
                         range: 10.0,
                         ..default()
@@ -400,7 +413,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
                     font_size: 80.0,
-                    color: Color::rgb(0.5, 0.5, 1.0),
+                    color: Color::srgb(0.5, 0.5, 1.0),
                     ..default()
                 },
             ));

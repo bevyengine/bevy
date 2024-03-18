@@ -1,16 +1,17 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    color::Color,
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{smallvec::SmallVec, warn_once};
+use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -22,7 +23,7 @@ use thiserror::Error;
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
@@ -1589,8 +1590,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-/// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1609,14 +1609,14 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1625,9 +1625,9 @@ impl From<Color> for BackgroundColor {
 )]
 pub struct BorderColor(pub Color);
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BorderColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
@@ -1655,7 +1655,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1664,10 +1664,10 @@ impl Default for BorderColor {
 ///                 height: Val::Px(100.),
 ///                 ..Default::default()
 ///             },
-///             background_color: Color::BLUE.into(),
+///             background_color: BLUE.into(),
 ///             ..Default::default()
 ///         },
-///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
 /// ```
@@ -1676,7 +1676,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
@@ -1697,7 +1697,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
-/// set `Outline::color` to `Color::NONE` to hide an outline.
+/// set `Outline::color` to [`Color::NONE`] to hide an outline.
 pub struct Outline {
     /// The width of the outline.
     ///
@@ -1709,7 +1709,7 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`Color::NONE`] to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
     pub color: Color,
 }
@@ -1729,6 +1729,8 @@ impl Outline {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
+    /// The tint color used to draw the image
+    pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1743,6 +1745,13 @@ impl UiImage {
             texture,
             ..Default::default()
         }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
     }
 
     /// Flip the image along its x-axis
@@ -1787,7 +1796,7 @@ pub struct CalculatedClip {
 /// `ZIndex::Local(n)` and `ZIndex::Global(n)` for root nodes.
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.

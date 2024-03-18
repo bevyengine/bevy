@@ -1,26 +1,28 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod command_queue;
+mod deferred_world;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
 pub mod unsafe_world_cell;
-mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+pub use crate::world::command_queue::CommandQueue;
+pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
     OccupiedEntry, VacantEntry,
 };
 pub use spawn_batch::*;
-pub use world_cell::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
-        Tick,
+        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
+        Components, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -28,7 +30,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Res, Resource},
+    system::{Commands, Res, Resource},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -41,9 +43,44 @@ use std::{
 };
 mod identifier;
 
+use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub use identifier::WorldId;
 
-use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+/// A [`World`] mutation.
+///
+/// Should be used with [`Commands::add`].
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::Command;
+/// // Our world resource
+/// #[derive(Resource, Default)]
+/// struct Counter(u64);
+///
+/// // Our custom command
+/// struct AddToCounter(u64);
+///
+/// impl Command for AddToCounter {
+///     fn apply(self, world: &mut World) {
+///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+///         counter.0 += self.0;
+///     }
+/// }
+///
+/// fn some_system(mut commands: Commands) {
+///     commands.add(AddToCounter(42));
+/// }
+/// ```
+pub trait Command: Send + 'static {
+    /// Applies this command, causing it to mutate the provided `world`.
+    ///
+    /// This method is used to define what a command "does" when it is ultimately applied.
+    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
+    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    fn apply(self, world: &mut World);
+}
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -72,11 +109,10 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: RemovedComponentEvents,
-    /// Access cache used by [`WorldCell`]. Is only accessed in the `Drop` impl of `WorldCell`.
-    pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    pub(crate) command_queue: CommandQueue,
 }
 
 impl Default for World {
@@ -89,12 +125,12 @@ impl Default for World {
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
-            archetype_component_access: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            command_queue: CommandQueue::default(),
         }
     }
 }
@@ -176,16 +212,37 @@ impl World {
         &self.removed_components
     }
 
-    /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
-    /// time, provided those accesses do not conflict with each other.
+    /// Creates a new [`Commands`] instance that writes to the world's command queue
+    /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
-    pub fn cell(&mut self) -> WorldCell<'_> {
-        WorldCell::new(self)
+    pub fn commands(&mut self) -> Commands {
+        Commands::new_from_entities(&mut self.command_queue, &self.entities)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn init_component<T: Component>(&mut self) -> ComponentId {
         self.components.init_component::<T>(&mut self.storages)
+    }
+
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
+    ///
+    /// Will panic if `T` exists in any archetypes.
+    pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
+        let index = self.init_component::<T>();
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
+        // SAFETY: We just created this component
+        unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
+    }
+
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
+    ///
+    /// Will panic if `id` exists in any archetypes.
+    pub fn register_component_hooks_by_id(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<&mut ComponentHooks> {
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if the component with id {:?} may already be in use", id);
+        self.components.get_hooks_mut(id)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -422,7 +479,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush();
+        self.flush_entities();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
@@ -676,7 +733,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
+        self.flush_entities();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity) }
@@ -742,23 +799,13 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush();
+        self.flush_entities();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
-            let bundle_info = self
-                .bundles
-                .init_info::<B>(&mut self.components, &mut self.storages);
-            let mut spawner = bundle_info.get_bundle_spawner(
-                &mut self.entities,
-                &mut self.archetypes,
-                &self.components,
-                &mut self.storages,
-                change_tick,
-            );
-
+            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { spawner.spawn_non_existent(entity, bundle) }
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -887,7 +934,7 @@ impl World {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", entity);
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", entity);
             false
         }
     }
@@ -1425,7 +1472,7 @@ impl World {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<R>()
             ),
         }
@@ -1447,7 +1494,7 @@ impl World {
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be be added by plugins.",
+                Non-send resources can also be added by plugins.",
                 std::any::type_name::<R>()
             ),
         }
@@ -1534,33 +1581,30 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush();
+        self.flush_entities();
 
         let change_tick = self.change_tick();
 
-        let bundle_info = self
+        let bundle_id = self
             .bundles
             .init_info::<B>(&mut self.components, &mut self.storages);
-        enum SpawnOrInsert<'a, 'b> {
-            Spawn(BundleSpawner<'a, 'b>),
-            Insert(BundleInserter<'a, 'b>, ArchetypeId),
+        enum SpawnOrInsert<'w> {
+            Spawn(BundleSpawner<'w>),
+            Insert(BundleInserter<'w>, ArchetypeId),
         }
 
-        impl<'a, 'b> SpawnOrInsert<'a, 'b> {
+        impl<'w> SpawnOrInsert<'w> {
             fn entities(&mut self) -> &mut Entities {
                 match self {
-                    SpawnOrInsert::Spawn(spawner) => spawner.entities,
-                    SpawnOrInsert::Insert(inserter, _) => inserter.entities,
+                    SpawnOrInsert::Spawn(spawner) => spawner.entities(),
+                    SpawnOrInsert::Insert(inserter, _) => inserter.entities(),
                 }
             }
         }
-        let mut spawn_or_insert = SpawnOrInsert::Spawn(bundle_info.get_bundle_spawner(
-            &mut self.entities,
-            &mut self.archetypes,
-            &self.components,
-            &mut self.storages,
-            change_tick,
-        ));
+        // SAFETY: we initialized this bundle_id in `init_info`
+        let mut spawn_or_insert = SpawnOrInsert::Spawn(unsafe {
+            BundleSpawner::new_with_id(self, bundle_id, change_tick)
+        });
 
         let mut invalid_entities = Vec::new();
         for (entity, bundle) in iter {
@@ -1577,14 +1621,15 @@ impl World {
                             unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
-                            let mut inserter = bundle_info.get_bundle_inserter(
-                                &mut self.entities,
-                                &mut self.archetypes,
-                                &self.components,
-                                &mut self.storages,
-                                location.archetype_id,
-                                change_tick,
-                            );
+                            // SAFETY: we initialized this bundle_id in `init_info`
+                            let mut inserter = unsafe {
+                                BundleInserter::new_with_id(
+                                    self,
+                                    location.archetype_id,
+                                    bundle_id,
+                                    change_tick,
+                                )
+                            };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
@@ -1597,13 +1642,9 @@ impl World {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                     } else {
-                        let mut spawner = bundle_info.get_bundle_spawner(
-                            &mut self.entities,
-                            &mut self.archetypes,
-                            &self.components,
-                            &mut self.storages,
-                            change_tick,
-                        );
+                        // SAFETY: we initialized this bundle_id in `init_info`
+                        let mut spawner =
+                            unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
@@ -1782,7 +1823,7 @@ impl World {
     /// # Panics
     /// Panics if `component_id` is not registered as a `Send` component type in this `World`
     #[inline]
-    fn initialize_resource_internal(
+    pub(crate) fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
@@ -1797,7 +1838,7 @@ impl World {
     /// # Panics
     /// panics if `component_id` is not registered in this world
     #[inline]
-    fn initialize_non_send_internal(
+    pub(crate) fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
@@ -1809,22 +1850,10 @@ impl World {
             })
     }
 
-    pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
-        let component_id = self.components.init_resource::<R>();
-        self.initialize_resource_internal(component_id);
-        component_id
-    }
-
-    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<R>();
-        self.initialize_non_send_internal(component_id);
-        component_id
-    }
-
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
-    pub(crate) fn flush(&mut self) {
+    pub(crate) fn flush_entities(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
@@ -1835,6 +1864,16 @@ impl World {
                 // is empty
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
+        }
+    }
+
+    /// Applies any commands in the world's internal [`CommandQueue`].
+    /// This does not apply commands from any systems, only those stored in the world.
+    #[inline]
+    pub fn flush_commands(&mut self) {
+        if !self.command_queue.is_empty() {
+            // `CommandQueue` application always applies commands from the world queue first so this will apply all stored commands
+            CommandQueue::default().apply(self);
         }
     }
 

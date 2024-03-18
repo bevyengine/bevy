@@ -47,4 +47,34 @@ pub trait Alpha: Sized {
 
     /// Return a the alpha component of this color.
     fn alpha(&self) -> f32;
+
+    /// Sets the alpha component of this color.
+    fn set_alpha(&mut self, alpha: f32);
+
+    /// Is the alpha component of this color less than or equal to 0.0?
+    fn is_fully_transparent(&self) -> bool {
+        self.alpha() <= 0.0
+    }
+
+    /// Is the alpha component of this color greater than or equal to 1.0?
+    fn is_fully_opaque(&self) -> bool {
+        self.alpha() >= 1.0
+    }
+}
+
+/// Trait with methods for asserting a colorspace is within bounds.
+///
+/// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
+/// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
+pub trait ClampColor: Sized {
+    /// Return a new version of this color clamped, with all fields in bounds.
+    fn clamped(&self) -> Self;
+
+    /// Changes all the fields of this color to ensure they are within bounds.
+    fn clamp(&mut self) {
+        *self = self.clamped();
+    }
+
+    /// Are all the fields of this color in bounds?
+    fn is_within_bounds(&self) -> bool;
 }

@@ -3,8 +3,8 @@ use crate::{
     path::AssetPath,
 };
 use async_broadcast::RecvError;
-use bevy_log::{error, warn};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{error, warn};
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
@@ -13,7 +13,7 @@ use thiserror::Error;
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
     type_id_to_loaders: TypeIdMap<Vec<usize>>,
-    extension_to_loaders: HashMap<String, Vec<usize>>,
+    extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_name_to_loader: HashMap<&'static str, usize>,
     preregistered_loaders: HashMap<&'static str, usize>,
 }
@@ -44,7 +44,7 @@ impl AssetLoaders {
             for extension in loader.extensions() {
                 let list = self
                     .extension_to_loaders
-                    .entry(extension.to_string())
+                    .entry((*extension).into())
                     .or_default();
 
                 if !list.is_empty() {
@@ -105,7 +105,7 @@ impl AssetLoaders {
         for extension in extensions {
             let list = self
                 .extension_to_loaders
-                .entry(extension.to_string())
+                .entry((*extension).into())
                 .or_default();
 
             if !list.is_empty() {

@@ -1,5 +1,5 @@
 //! Demonstrates how CSS Grid layout can be used to lay items out in a 2D grid
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -87,7 +87,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::DARK_GRAY),
+                    background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -96,25 +96,22 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // grid cell. The order in which this is performed can be controlled using the grid_auto_flow
                     // style property.
 
-                    item_rect(builder, Color::ORANGE);
-                    item_rect(builder, Color::BISQUE);
-                    item_rect(builder, Color::BLUE);
-                    item_rect(builder, Color::CRIMSON);
-
-                    item_rect(builder, Color::CYAN);
-                    item_rect(builder, Color::ORANGE_RED);
-                    item_rect(builder, Color::DARK_GREEN);
-                    item_rect(builder, Color::FUCHSIA);
-
-                    item_rect(builder, Color::TEAL);
-                    item_rect(builder, Color::ALICE_BLUE);
-                    item_rect(builder, Color::CRIMSON);
-                    item_rect(builder, Color::ANTIQUE_WHITE);
-
-                    item_rect(builder, Color::YELLOW);
-                    item_rect(builder, Color::PINK);
-                    item_rect(builder, Color::YELLOW_GREEN);
-                    item_rect(builder, Color::SALMON);
+                    item_rect(builder, ORANGE);
+                    item_rect(builder, BISQUE);
+                    item_rect(builder, BLUE);
+                    item_rect(builder, CRIMSON);
+                    item_rect(builder, AQUA);
+                    item_rect(builder, ORANGE_RED);
+                    item_rect(builder, DARK_GREEN);
+                    item_rect(builder, FUCHSIA);
+                    item_rect(builder, TEAL);
+                    item_rect(builder, ALICE_BLUE);
+                    item_rect(builder, CRIMSON);
+                    item_rect(builder, ANTIQUE_WHITE);
+                    item_rect(builder, YELLOW);
+                    item_rect(builder, PINK);
+                    item_rect(builder, YELLOW_GREEN);
+                    item_rect(builder, SALMON);
                 });
 
             // Right side bar (auto placed in row 2, column 2)
@@ -135,7 +132,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         row_gap: Val::Px(10.),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::BLACK),
+                    background_color: BackgroundColor(BLACK.into()),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -165,7 +162,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::WHITE),
+                background_color: BackgroundColor(WHITE.into()),
                 ..default()
             });
 
@@ -185,12 +182,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::Rgba {
-                    red: 255.0,
-                    green: 255.0,
-                    blue: 255.0,
-                    alpha: 0.8,
-                }),
+                background_color: BackgroundColor(Color::WHITE.with_alpha(0.8)),
                 ..default()
             });
         });
@@ -199,7 +191,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Create a coloured rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take it's size from the size of the grid area it occupies.
-fn item_rect(builder: &mut ChildBuilder, color: Color) {
+fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
     builder
         .spawn(NodeBundle {
             style: Style {
@@ -207,12 +199,12 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(BLACK.into()),
             ..default()
         })
         .with_children(|builder| {
             builder.spawn(NodeBundle {
-                background_color: BackgroundColor(color),
+                background_color: BackgroundColor(color.into()),
                 ..default()
             });
         });

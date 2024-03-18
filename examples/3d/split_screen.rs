@@ -24,7 +24,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -146,7 +146,7 @@ fn setup(
                         ..default()
                     },
                     border_color: Color::WHITE.into(),
-                    background_color: Color::DARK_GRAY.into(),
+                    image: UiImage::default().with_color(Color::srgb(0.25, 0.25, 0.25)),
                     ..default()
                 },
             ))
@@ -185,7 +185,7 @@ fn set_camera_viewports(
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.read() {
         let window = windows.get(resize_event.window).unwrap();
-        let size = UVec2::new(window.physical_width(), window.physical_height()) / 2;
+        let size = window.physical_size() / 2;
 
         for (camera_position, mut camera) in &mut query {
             camera.viewport = Some(Viewport {

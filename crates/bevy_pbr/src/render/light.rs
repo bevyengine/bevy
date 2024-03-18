@@ -4,9 +4,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    color::Color,
+    diagnostic::RecordDiagnostics,
     mesh::Mesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
@@ -19,17 +19,15 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    nonmax::NonMaxU32,
-    tracing::{error, warn},
-};
+use bevy_utils::tracing::{error, warn};
+use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
-    pub color: Color,
+    pub color: LinearRgba,
     /// luminous intensity in lumens per steradian
     pub intensity: f32,
     pub range: f32,
@@ -43,7 +41,7 @@ pub struct ExtractedPointLight {
 
 #[derive(Component, Debug)]
 pub struct ExtractedDirectionalLight {
-    pub color: Color,
+    pub color: LinearRgba,
     pub illuminance: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
@@ -385,7 +383,7 @@ pub fn extract_lights(
         // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
         let render_cubemap_visible_entities = cubemap_visible_entities.clone();
         let extracted_point_light = ExtractedPointLight {
-            color: point_light.color,
+            color: point_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
@@ -431,7 +429,7 @@ pub fn extract_lights(
                 entity,
                 (
                     ExtractedPointLight {
-                        color: spot_light.color,
+                        color: spot_light.color.into(),
                         // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
                         // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
                         // for details.
@@ -479,7 +477,7 @@ pub fn extract_lights(
         let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
-                color: directional_light.color,
+                color: directional_light.color.into(),
                 illuminance: directional_light.illuminance,
                 transform: *transform,
                 shadows_enabled: directional_light.shadows_enabled,
@@ -872,7 +870,7 @@ pub fn prepare_lights(
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
+            color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
@@ -909,7 +907,7 @@ pub fn prepare_lights(
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
             // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
+            color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
             flags: flags.bits(),
@@ -983,7 +981,7 @@ pub fn prepare_lights(
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
-            ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
+            ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,
@@ -1145,7 +1143,7 @@ pub fn prepare_lights(
                 .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
-            for (cascade_index, ((cascade, frusta), bound)) in cascades
+            for (cascade_index, ((cascade, frustum), bound)) in cascades
                 .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
@@ -1172,6 +1170,11 @@ pub fn prepare_lights(
                         });
                 directional_depth_texture_array_index += 1;
 
+                let mut frustum = *frustum;
+                // Push the near clip plane out to infinity for directional lights
+                frustum.half_spaces[4] =
+                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+
                 let view_light_entity = commands
                     .spawn((
                         ShadowView {
@@ -1192,7 +1195,7 @@ pub fn prepare_lights(
                             hdr: false,
                             color_grading: Default::default(),
                         },
-                       *frusta,
+                        frustum,
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,
@@ -1213,7 +1216,7 @@ pub fn prepare_lights(
                     // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
                     // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
                     #[cfg(all(
-                        not(ios_simulator),
+                        not(feature = "ios_simulator"),
                         any(
                             not(feature = "webgl"),
                             not(target_arch = "wasm32"),
@@ -1222,7 +1225,7 @@ pub fn prepare_lights(
                     ))]
                     dimension: Some(TextureViewDimension::CubeArray),
                     #[cfg(any(
-                        ios_simulator,
+                        feature = "ios_simulator",
                         all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                     ))]
                     dimension: Some(TextureViewDimension::Cube),
@@ -1807,6 +1810,9 @@ impl Node for ShadowPassNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
@@ -1818,6 +1824,7 @@ impl Node for ShadowPassNode {
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
+                let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
                     let _shadow_pass_span = info_span!("shadow_pass").entered();
@@ -1834,15 +1841,21 @@ impl Node for ShadowPassNode {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
                     let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+                    let pass_span =
+                        diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
                     shadow_phase.render(&mut render_pass, world, view_light_entity);
 
+                    pass_span.end(&mut render_pass);
                     drop(render_pass);
                     command_encoder.finish()
                 });
             }
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

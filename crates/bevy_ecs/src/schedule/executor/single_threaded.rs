@@ -8,6 +8,8 @@ use crate::{
     world::World,
 };
 
+use super::__rust_begin_short_backtrace;
+
 /// Runs the schedule using a single thread.
 ///
 /// Useful if you're dealing with a single-threaded environment, saving your threads for
@@ -96,16 +98,26 @@ impl SystemExecutor for SingleThreadedExecutor {
             let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
-            } else {
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    system.run((), world);
-                }));
-                if let Err(payload) = res {
-                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                    std::panic::resume_unwind(payload);
-                }
-                self.unapplied_systems.insert(system_index);
+                continue;
             }
+
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                if system.is_exclusive() {
+                    __rust_begin_short_backtrace::run(&mut **system, world);
+                } else {
+                    // Use run_unsafe to avoid immediately applying deferred buffers
+                    let world = world.as_unsafe_world_cell();
+                    system.update_archetype_component_access(world);
+                    // SAFETY: We have exclusive, single-threaded access to the world and
+                    // update_archetype_component_access is being called immediately before this.
+                    unsafe { __rust_begin_short_backtrace::run_unsafe(&mut **system, world) };
+                }
+            }));
+            if let Err(payload) = res {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                std::panic::resume_unwind(payload);
+            }
+            self.unapplied_systems.insert(system_index);
         }
 
         if self.apply_final_deferred {
@@ -148,6 +160,6 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| condition.run((), world))
+        .map(|condition| __rust_begin_short_backtrace::readonly_run(&mut **condition, world))
         .fold(true, |acc, res| acc && res)
 }

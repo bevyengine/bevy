@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod wireframe;
 
@@ -17,6 +18,7 @@ mod prepass;
 mod render;
 mod ssao;
 
+use bevy_color::{Color, LinearRgba};
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -73,7 +75,6 @@ use bevy_render::{
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
@@ -234,13 +235,9 @@ impl Plugin for PbrPlugin {
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterFarZMode>()
-            .register_type::<ClusterZConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
@@ -250,10 +247,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<FogSettings>()
-            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
-            .register_type::<ParallaxMappingMethod>()
-            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -336,7 +330,7 @@ impl Plugin for PbrPlugin {
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
+                base_color: Color::srgb(1.0, 0.0, 0.5),
                 unlit: true,
                 ..Default::default()
             },

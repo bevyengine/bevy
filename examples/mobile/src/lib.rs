@@ -1,6 +1,7 @@
 //! A 3d Scene with a button and playing sound.
 
 use bevy::{
+    color::palettes::basic::*,
     input::touch::TouchPhase,
     prelude::*,
     window::{ApplicationLifetime, WindowMode},
@@ -65,20 +66,20 @@ fn setup_scene(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3)),
+        material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8)),
+        material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
@@ -103,18 +104,22 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn(ButtonBundle {
-            style: Style {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                position_type: PositionType::Absolute,
-                left: Val::Px(50.0),
-                right: Val::Px(50.0),
-                bottom: Val::Px(50.0),
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(50.0),
+                    right: Val::Px(50.0),
+                    bottom: Val::Px(50.0),
+                    ..default()
+                },
+                image: UiImage::default().with_color(Color::NONE),
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|b| {
             b.spawn(
                 TextBundle::from_section(
@@ -139,13 +144,13 @@ fn button_handler(
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = Color::BLUE.into();
+                *color = BLUE.into();
             }
             Interaction::Hovered => {
-                *color = Color::GRAY.into();
+                *color = GRAY.into();
             }
             Interaction::None => {
-                *color = Color::WHITE.into();
+                *color = WHITE.into();
             }
         }
     }
