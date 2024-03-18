@@ -435,6 +435,42 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 
     /// Returns a parallel iterator over the events this [`EventReader`] has not seen yet.
+    /// See also [`for_each`](EventParIter::for_each).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use crate::prelude::*;
+    /// use std::sync::atomic::{AtomicUsize, Ordering};
+    ///
+    /// #[derive(Event)]
+    /// struct MyEvent {
+    ///     value: usize,
+    /// }
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct Counter(AtomicUsize);
+    ///
+    /// // setup
+    /// let mut world = World::new();
+    /// world.init_resource::<Events<MyEvent>>();
+    /// world.insert_resource(Counter::default());
+    /// 
+    /// let mut schedule = Schedule::default();
+    /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
+    ///     events.par_read().for_each(|MyEvent { value }| {
+    ///         counter.0.fetch_add(*value, Ordering::Relaxed);
+    ///     });
+    /// });
+    /// for value in 0..100 {
+    ///     world.send_event(MyEvent { value });
+    /// }
+    /// schedule.run(&mut world);
+    /// let Counter(counter) = world.remove_resource::<Counter>().unwrap();
+    /// // all events were processed
+    /// assert_eq!(counter.into_inner(), 4950);
+    /// ```
+    ///
     pub fn par_read(&mut self) -> EventParIter<'_, E> {
         self.reader.par_read(&self.events)
     }
@@ -799,13 +835,14 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
+/// An object that enables parallel iteration over `Event`s.
 #[derive(Debug)]
 pub struct EventParIter<'a, E: Event> {
     slices: [&'a [EventInstance<E>]; 2],
 }
 
 impl<'a, E: Event> EventParIter<'a, E> {
-    /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
+    /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
             .last_event_count
@@ -824,10 +861,24 @@ impl<'a, E: Event> EventParIter<'a, E> {
         Self { slices: [a, b] }
     }
 
+    /// Runs the provided closure for each unread event in parallel.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_with_id(move |e, _| func(e))
     }
 
+    /// Runs the provided closure for each unread event in parallelL, like [`for_each`](Self::for_each),
+    /// but additionally provides the `EventId` to the closure.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
         let pool = bevy_tasks::ComputeTaskPool::get();
         let threads = pool.thread_num().max(1);
@@ -1343,7 +1394,7 @@ mod tests {
     fn test_events_par_iter() {
         use std::{collections::HashSet, sync::mpsc};
 
-        use crate::{prelude::World, schedule::Schedule};
+        use crate::prelude::*;
 
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
