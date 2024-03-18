@@ -875,13 +875,14 @@ impl<'a, E: Event> EventParIter<'a, E> {
         self.for_each_with_id(move |e, _| func(e));
     }
 
-    /// Runs the provided closure for each unread event in parallelL, like [`for_each`](Self::for_each),
+    /// Runs the provided closure for each unread event in parallel, like [`for_each`](Self::for_each),
     /// but additionally provides the `EventId` to the closure.
     ///
     /// # Panics
     /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         {
