@@ -130,14 +130,14 @@ The base-line performance cost of this algorithm comes from iterating in order t
 
 use crate::view::{CameraView, RenderGroups};
 
-use bevy_app::{App, PostUpdate, Plugin};
+use crate::prelude::Camera;
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_utils::error_once;
 use bevy_utils::tracing::warn;
-use crate::prelude::Camera;
 
 /// Returned by [`PropagateRenderGroups::get_render_groups`].
 pub enum PropagatingRenderGroups<'a> {
@@ -161,8 +161,7 @@ impl<'a> PropagatingRenderGroups<'a> {
 ///
 /// See [`RenderGroups`] and [`CameraView`].
 #[derive(Component)]
-pub enum PropagateRenderGroups
-{
+pub enum PropagateRenderGroups {
     /// If the entity has a [`RenderGroups`] component, that value is propagated, otherwise a default
     /// [`RenderGroups`] is propagated.
     ///
@@ -190,23 +189,20 @@ impl PropagateRenderGroups {
         is_camera: bool,
     ) -> PropagatingRenderGroups<'a> {
         match self {
-            Self::Auto =>
-            {
+            Self::Auto => {
                 let Some(groups) = groups else {
                     return PropagatingRenderGroups::Val(RenderGroups::default());
                 };
                 PropagatingRenderGroups::Ref(groups)
             }
-            Self::Camera =>
-            {
+            Self::Camera => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::Camera, {entity} doesn't have a camera");
                     PropagatingRenderGroups::Val(RenderGroups::empty());
                 };
                 PropagatingRenderGroups::Val(RenderGroups::new_with_camera(entity))
             }
-            Self::CameraWithView =>
-            {
+            Self::CameraWithView => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::CameraWithView, {entity} doesn't have a camera");
                     PropagatingRenderGroups::Val(RenderGroups::empty());
@@ -215,10 +211,7 @@ impl PropagateRenderGroups {
                 let view = view.unwrap_or(&empty_view);
                 PropagatingRenderGroups::Val(view.get_groups(entity))
             }
-            Self::Custom(groups) =>
-            {
-                PropagatingRenderGroups::Ref(groups)
-            }
+            Self::Custom(groups) => PropagatingRenderGroups::Ref(groups),
         }
     }
 }
@@ -237,8 +230,7 @@ impl PropagateRenderGroups {
 /// (see [`RenderGroups::merge`]).
 /// This means the entity's affiliated camera will be prioritized over the propagated affiliated camera.
 #[derive(Component, Debug, Clone)]
-pub struct InheritedRenderGroups
-{
+pub struct InheritedRenderGroups {
     /// The entity that propagated a [`RenderGroups`] to this entity.
     ///
     /// This is cached so children of this entity can update themselves without needing to traverse the
@@ -253,7 +245,10 @@ pub struct InheritedRenderGroups
 
 impl InheritedRenderGroups {
     fn empty() -> Self {
-        Self{ propagator: Entity::PLACEHOLDER, computed: RenderGroups::empty() }
+        Self {
+            propagator: Entity::PLACEHOLDER,
+            computed: RenderGroups::empty(),
+        }
     }
 }
 
@@ -267,7 +262,8 @@ pub(crate) struct PropagateRenderGroupsPlugin;
 impl Plugin for PropagateRenderGroupsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PropagateRenderGroupsEntityCache>()
-            .add_systems(PostUpdate,
+            .add_systems(
+                PostUpdate,
                 (
                     clean_propagators,
                     propagate_updated_propagators,
@@ -277,10 +273,10 @@ impl Plugin for PropagateRenderGroupsPlugin {
                     handle_new_children_nonpropagator,
                     handle_new_parent_nonpropagator,
                     apply_deferred,
-                    handle_modified_rendergroups,  //does not have deferred commands
+                    handle_modified_rendergroups, //does not have deferred commands
                 )
                     .chain()
-                    .in_set(PropagateRenderGroupsSet)
+                    .in_set(PropagateRenderGroupsSet),
             );
     }
 }
@@ -291,10 +287,12 @@ struct PropagateRenderGroupsEntityCache(EntityHashSet);
 /// Removes InheritedRenderGroups from entities with PropagateRenderGroups.
 fn clean_propagators(
     mut commands: Commands,
-    dirty_propagators: Query<Entity, (With<InheritedRenderGroups>, With<PropagateRenderGroups>)>
-){
+    dirty_propagators: Query<Entity, (With<InheritedRenderGroups>, With<PropagateRenderGroups>)>,
+) {
     for dirty in dirty_propagators.iter() {
-        commands.get_entity(dirty).map(|mut e| { e.remove::<InheritedRenderGroups>(); });
+        commands.get_entity(dirty).map(|mut e| {
+            e.remove::<InheritedRenderGroups>();
+        });
     }
 }
 
@@ -318,22 +316,20 @@ fn propagate_updated_propagators(
             Changed<CameraView>,
             Added<Camera>,
             Changed<PropagateRenderGroups>,
-        )>
+        )>,
     >,
     // Detect removed: RenderGroups, CameraView, Camera.
     mut removed_rendergroups: RemovedComponents<RenderGroups>,
     mut removed_cameraview: RemovedComponents<CameraView>,
     mut removed_camera: RemovedComponents<Camera>,
-    all_propagators: Query<
-        (
-            Entity,
-            &Children,
-            Option<&RenderGroups>,
-            Option<&CameraView>,
-            Has<Camera>,
-            &PropagateRenderGroups,
-        )
-    >,
+    all_propagators: Query<(
+        Entity,
+        &Children,
+        Option<&RenderGroups>,
+        Option<&CameraView>,
+        Has<Camera>,
+        &PropagateRenderGroups,
+    )>,
     // Query for getting Children.
     children_query: Query<&Children>,
     // Query for updating InheritedRenderGroups on non-propagator entities.
@@ -351,25 +347,20 @@ fn propagate_updated_propagators(
     updated_entities.clear();
 
     // Collect aggregate iterator for all propagators that need to propagate.
-    let propagators = changed_propagators.iter()
-        .chain(
-            // IMPORTANT: Removals should be ordered first if propagate_to_new_children is merged
-            //            into changed_propagators.
-            removed_rendergroups.read()
-                .chain(removed_cameraview.read())
-                .chain(removed_camera.read())
-                .filter_map(|e| all_propagators.get(e).ok())
-        );
+    let propagators = changed_propagators.iter().chain(
+        // IMPORTANT: Removals should be ordered first if propagate_to_new_children is merged
+        //            into changed_propagators.
+        removed_rendergroups
+            .read()
+            .chain(removed_cameraview.read())
+            .chain(removed_camera.read())
+            .filter_map(|e| all_propagators.get(e).ok()),
+    );
 
     // Propagate each propagator.
-    for (
-        propagator,
-        children,
-        maybe_render_groups,
-        maybe_camera_view,
-        maybe_camera,
-        propagate,
-    ) in propagators {
+    for (propagator, children, maybe_render_groups, maybe_camera_view, maybe_camera, propagate) in
+        propagators
+    {
         // There can be duplicates due to component removals.
         if updated_entities.contains(&propagator) {
             continue;
@@ -381,7 +372,7 @@ fn propagate_updated_propagators(
             propagator,
             maybe_render_groups,
             maybe_camera_view,
-            maybe_camera
+            maybe_camera,
         );
 
         // Propagate
@@ -395,7 +386,7 @@ fn propagate_updated_propagators(
                 &mut maybe_inherited,
                 propagator,
                 propagated.get(),
-                child
+                child,
             );
         }
     }
@@ -452,7 +443,7 @@ fn apply_full_propagation(
             maybe_inherited,
             propagator,
             propagated,
-            child
+            child,
         );
     }
 }
@@ -485,14 +476,9 @@ fn propagate_to_new_children(
     >,
 ) {
     // Propagate each propagator that has new children.
-    for (
-        propagator,
-        children,
-        maybe_render_groups,
-        maybe_camera_view,
-        maybe_camera,
-        propagate,
-    ) in changed_children.iter() {
+    for (propagator, children, maybe_render_groups, maybe_camera_view, maybe_camera, propagate) in
+        changed_children.iter()
+    {
         // The propagator could have been updated in a previous step.
         if updated_entities.contains(&propagator) {
             continue;
@@ -504,7 +490,7 @@ fn propagate_to_new_children(
             propagator,
             maybe_render_groups,
             maybe_camera_view,
-            maybe_camera
+            maybe_camera,
         );
 
         // Propagate
@@ -518,7 +504,7 @@ fn propagate_to_new_children(
                 &mut maybe_inherited,
                 propagator,
                 propagated.get(),
-                child
+                child,
             );
         }
     }
@@ -544,7 +530,11 @@ fn apply_new_children_propagation(
     };
 
     // Leave if the propagator is already known (implying this is a pre-existing child).
-    if maybe_inherited_groups.as_ref().map(|i| i.propagator == propagator).unwrap_or(false) {
+    if maybe_inherited_groups
+        .as_ref()
+        .map(|i| i.propagator == propagator)
+        .unwrap_or(false)
+    {
         return;
     }
 
@@ -580,7 +570,7 @@ fn apply_new_children_propagation(
             maybe_inherited,
             propagator,
             propagated,
-            child
+            child,
         );
     }
 }
@@ -593,13 +583,23 @@ fn handle_orphaned_nonpropagators(
     mut removed_parents: RemovedComponents<Parent>,
     orphaned: Query<
         (Entity, Option<&Children>),
-        (Without<Parent>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>),
+        (
+            Without<Parent>,
+            With<InheritedRenderGroups>,
+            Without<PropagateRenderGroups>,
+        ),
     >,
     // Query for getting non-propagator children.
     nonpropagators: Query<Option<&Children>, Without<PropagateRenderGroups>>,
 ) {
     for (orphan, maybe_children) in removed_parents.read().filter_map(|r| orphaned.get(r).ok()) {
-        apply_orphan_cleanup(&mut commands, &mut updated_entities, &nonpropagators, orphan, maybe_children);
+        apply_orphan_cleanup(
+            &mut commands,
+            &mut updated_entities,
+            &nonpropagators,
+            orphan,
+            maybe_children,
+        );
     }
 }
 
@@ -610,9 +610,11 @@ fn apply_orphan_cleanup(
     nonpropagators: &Query<Option<&Children>, Without<PropagateRenderGroups>>,
     entity: Entity,
     maybe_children: Option<&Children>,
-){
+) {
     // Remove InheritedRenderGroups.
-    commands.get_entity(entity).map(|mut e| { e.remove::<InheritedRenderGroups>(); });
+    commands.get_entity(entity).map(|mut e| {
+        e.remove::<InheritedRenderGroups>();
+    });
 
     // Mark as updated.
     updated_entities.insert(entity);
@@ -627,7 +629,13 @@ fn apply_orphan_cleanup(
             continue;
         };
 
-        apply_orphan_cleanup(commands, updated_entities, nonpropagators, child, maybe_children);
+        apply_orphan_cleanup(
+            commands,
+            updated_entities,
+            nonpropagators,
+            child,
+            maybe_children,
+        );
     }
 }
 
@@ -639,15 +647,13 @@ fn handle_lost_propagator(
     mut removed_propagate: RemovedComponents<PropagateRenderGroups>,
     unpropagated: Query<(Entity, Option<&Parent>), Without<PropagateRenderGroups>>,
     // Query for accessing propagators
-    all_propagators: Query<
-        (
-            Entity,
-            Option<&RenderGroups>,
-            Option<&CameraView>,
-            Has<Camera>,
-            &PropagateRenderGroups,
-        )
-    >,
+    all_propagators: Query<(
+        Entity,
+        Option<&RenderGroups>,
+        Option<&CameraView>,
+        Has<Camera>,
+        &PropagateRenderGroups,
+    )>,
     // Query for getting Children.
     children_query: Query<&Children>,
     // Query for updating InheritedRenderGroups on non-propagator entities.
@@ -656,7 +662,10 @@ fn handle_lost_propagator(
         Without<PropagateRenderGroups>,
     >,
 ) {
-    for (entity, maybe_parent) in removed_propagate.read().filter_map(|r| unpropagated.get(r).ok()) {
+    for (entity, maybe_parent) in removed_propagate
+        .read()
+        .filter_map(|r| unpropagated.get(r).ok())
+    {
         // Skip already-updated entities.
         if updated_entities.contains(&entity) {
             continue;
@@ -697,7 +706,7 @@ fn handle_lost_propagator(
             if let Ok((propagator, ..)) = all_propagators.get(**parent) {
                 // Case 5
                 Some(propagator)
-            } else if updated_entities.contains(&**parent){
+            } else if updated_entities.contains(&**parent) {
                 // Parent was marked updated (but self was not)
                 if let Ok((_, maybe_inherited)) = maybe_inherited.get(entity) {
                     if let Some(inherited) = maybe_inherited {
@@ -734,20 +743,16 @@ fn handle_lost_propagator(
         // Propagate if possible
         // - Case 3-2, 4-3
         // - Cases 3-1, 4-2 are filtered out here.
-        if let Some((
-            propagator,
-            maybe_render_groups,
-            maybe_camera_view,
-            maybe_camera,
-            propagate
-        )) = propagator.and_then(|p| all_propagators.get(p).ok()) {
+        if let Some((propagator, maybe_render_groups, maybe_camera_view, maybe_camera, propagate)) =
+            propagator.and_then(|p| all_propagators.get(p).ok())
+        {
             // Propagation value
             // TODO: This can allocate spuriously if there are no children that need it.
             let propagated = propagate.get_render_groups(
                 propagator,
                 maybe_render_groups,
                 maybe_camera_view,
-                maybe_camera
+                maybe_camera,
             );
 
             // Pre-update the entity as a hack for case 4-3. If we don't do this then
@@ -764,7 +769,7 @@ fn handle_lost_propagator(
                 &mut maybe_inherited,
                 propagator,
                 propagated.get(),
-                entity
+                entity,
             );
         // In all other cases, remove all InheritedRenderGroups.
         } else {
@@ -773,7 +778,7 @@ fn handle_lost_propagator(
                 &mut updated_entities,
                 &children_query,
                 &maybe_inherited,
-                entity
+                entity,
             );
         }
     }
@@ -834,7 +839,7 @@ fn apply_full_propagation_force_update(
             maybe_inherited,
             propagator,
             propagated,
-            child
+            child,
         );
     }
 }
@@ -872,7 +877,13 @@ fn apply_full_propagation_force_remove(
         return;
     };
     for child in children.iter().copied() {
-        apply_full_propagation_force_remove(commands, updated_entities, children_query, maybe_inherited, child);
+        apply_full_propagation_force_remove(
+            commands,
+            updated_entities,
+            children_query,
+            maybe_inherited,
+            child,
+        );
     }
 }
 
@@ -883,18 +894,16 @@ fn handle_new_children_nonpropagator(
     // Entities with InheritedRenderGroups that changed children
     inherited_with_children: Query<
         (Entity, &Children, &InheritedRenderGroups),
-        (Changed<Children>, Without<PropagateRenderGroups>)
+        (Changed<Children>, Without<PropagateRenderGroups>),
     >,
     // Query for accessing propagators
-    all_propagators: Query<
-        (
-            Entity,
-            Option<&RenderGroups>,
-            Option<&CameraView>,
-            Has<Camera>,
-            &PropagateRenderGroups,
-        )
-    >,
+    all_propagators: Query<(
+        Entity,
+        Option<&RenderGroups>,
+        Option<&CameraView>,
+        Has<Camera>,
+        &PropagateRenderGroups,
+    )>,
     // Query for getting Children.
     children_query: Query<&Children>,
     // Query for updating InheritedRenderGroups on non-propagator entities.
@@ -909,13 +918,9 @@ fn handle_new_children_nonpropagator(
             continue;
         }
 
-        let Ok((
-            propagator,
-            maybe_render_groups,
-            maybe_camera_view,
-            maybe_camera,
-            propagate
-        )) = all_propagators.get(inherited.propagator) else {
+        let Ok((propagator, maybe_render_groups, maybe_camera_view, maybe_camera, propagate)) =
+            all_propagators.get(inherited.propagator)
+        else {
             // Remove InheritedRenderGroups from descendents if the propagator is missing
             // - This is either an error caused by manually modifying InheritedRenderGroups, or is caused by a
             // reparenting + propagator despawn.
@@ -934,7 +939,7 @@ fn handle_new_children_nonpropagator(
                     &mut updated_entities,
                     &children_query,
                     &maybe_inherited,
-                    child
+                    child,
                 );
             }
 
@@ -947,7 +952,7 @@ fn handle_new_children_nonpropagator(
             propagator,
             maybe_render_groups,
             maybe_camera_view,
-            maybe_camera
+            maybe_camera,
         );
 
         // Iterate children
@@ -968,7 +973,7 @@ fn handle_new_children_nonpropagator(
                 &mut maybe_inherited,
                 propagator,
                 propagated.get(),
-                child
+                child,
             );
         }
     }
@@ -987,7 +992,11 @@ fn handle_new_parent_nonpropagator(
     // Entities with InheritedRenderGroups that changed parents
     inherited_with_parent: Query<
         (Entity, Option<&Children>, &Parent),
-        (Changed<Parent>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+        (
+            Changed<Parent>,
+            With<InheritedRenderGroups>,
+            Without<PropagateRenderGroups>,
+        ),
     >,
     // Query for Children
     children_query: Query<&Children>,
@@ -1026,7 +1035,7 @@ fn handle_new_parent_nonpropagator(
                 &mut updated_entities,
                 &children_query,
                 &maybe_inherited,
-                child
+                child,
             );
         }
     }
@@ -1038,20 +1047,22 @@ fn handle_modified_rendergroups(
     // Entities with InheritedRenderGroups that changed RenderGroups
     inherited_changed: Query<
         Entity,
-        (Changed<RenderGroups>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+        (
+            Changed<RenderGroups>,
+            With<InheritedRenderGroups>,
+            Without<PropagateRenderGroups>,
+        ),
     >,
     // RenderGroups removals.
     mut removed_rendergroups: RemovedComponents<RenderGroups>,
     // Query for accessing propagators
-    all_propagators: Query<
-        (
-            Entity,
-            Option<&RenderGroups>,
-            Option<&CameraView>,
-            Has<Camera>,
-            &PropagateRenderGroups,
-        )
-    >,
+    all_propagators: Query<(
+        Entity,
+        Option<&RenderGroups>,
+        Option<&CameraView>,
+        Has<Camera>,
+        &PropagateRenderGroups,
+    )>,
     // Query for updating InheritedRenderGroups on non-propagator entities.
     mut maybe_inherited: Query<
         (Option<&RenderGroups>, &mut InheritedRenderGroups),
@@ -1071,13 +1082,9 @@ fn handle_modified_rendergroups(
 
         // Skip entity if propagator is missing.
         // - This is an error, hierarchy steps should have marked this entity as updated.
-        let Ok((
-            propagator,
-            maybe_render_groups,
-            maybe_camera_view,
-            maybe_camera,
-            propagate
-        )) = all_propagators.get(inherited.propagator) else {
+        let Ok((propagator, maybe_render_groups, maybe_camera_view, maybe_camera, propagate)) =
+            all_propagators.get(inherited.propagator)
+        else {
             error_once!("hierarchy error: propagator missing for {entity} in `handle_modified_rendergroups`");
             continue;
         };
@@ -1087,11 +1094,13 @@ fn handle_modified_rendergroups(
             propagator,
             maybe_render_groups,
             maybe_camera_view,
-            maybe_camera
+            maybe_camera,
         );
 
         // Update entity value.
-        inherited.computed.set_from(entity_render_groups.unwrap_or(&RenderGroups::default()));
+        inherited
+            .computed
+            .set_from(entity_render_groups.unwrap_or(&RenderGroups::default()));
         inherited.computed.merge(propagated.get());
 
         // Mark updated (in case of duplicates due to removals).
