@@ -155,7 +155,7 @@ where
 /// Implements `LinearConvexSpace<f32>` for a given type `T` using
 /// coponentwise arithmetic operations on the provided properties of `T`.
 ///
-/// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` seperately.
+/// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` separately.
 macro_rules! impl_color_linear_convex_space {
     ($ty: ident, [$($element: ident),+]) => {
         impl bevy_math::linear_convex_space::LinearConvexSpace<f32> for $ty {

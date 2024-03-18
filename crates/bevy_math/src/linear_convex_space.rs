@@ -9,7 +9,7 @@ use glam::{DVec2, DVec3, DVec4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Ve
 ///
 /// The space should also be linear, meaning that `A*t + B*(1 - t)` with any points `A`, `B` and `t` element `0..1` should represent a straight line.
 ///
-/// By implementing this trait, you garantee that the above conditions hold true.
+/// By implementing this trait, you guarantee that the above conditions hold true.
 pub trait LinearConvexSpace<Scalar>: Default + Copy + Clone {
     /// Adds two elements of the space.
     fn add(self, rhs: Self) -> Self;
@@ -25,7 +25,7 @@ pub trait LinearConvexSpace<Scalar>: Default + Copy + Clone {
 /// Implements `LinearConvexSpace<Scalar>` for a given type `T` using the
 /// `Add`, `Sub`, `Mul` and `Div` implementations of `T`.
 ///
-/// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` seperately.
+/// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` separately.
 macro_rules! impl_linear_convex_space {
     ($ty: ident, $scalar_ty: ident) => {
         impl $crate::linear_convex_space::LinearConvexSpace<$scalar_ty> for $ty {
