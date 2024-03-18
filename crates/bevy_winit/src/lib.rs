@@ -762,7 +762,12 @@ fn run_app_update_if_should(
 
             if !has_gl_context(&window) {
                 app.world.send_event(WindowGlContextLost { window: entity });
-                return;
+
+                // Pauses sub-apps to stop WGPU from crashing when there's no OpenGL context.
+                // Ensures that the rest of the systems in the main app keep running (i.e. physics).
+                app.pause_sub_apps();
+            } else {
+                app.resume_sub_apps();
             }
         }
     }
