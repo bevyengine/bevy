@@ -1,5 +1,6 @@
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
+use bevy_log::warn;
 use thiserror::Error;
 
 use crate::{
@@ -18,6 +19,8 @@ pub struct ImageLoader {
 }
 
 pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
+    // special extension that doesn't map to any particular format. useful for loading assets of unknown format with ImageFormatSetting::FromContent
+    "image",
     #[cfg(feature = "basis-universal")]
     "basis",
     #[cfg(feature = "bmp")]
@@ -46,10 +49,17 @@ pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     "ppm",
 ];
 
+/// The method for determining the [`ImageFormat`] of the loaded image.
+///
+/// By default we attempt to determine the format automatically from the header block of the binary data.
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
+    /// Determine the image format by inspecting the header block of the image binary data.
     #[default]
+    FromContent,
+    /// Determine the image format from the filename extension.
     FromExtension,
+    /// Specify an explicit format for the image.
     Format(ImageFormat),
 }
 
@@ -98,6 +108,29 @@ impl AssetLoader for ImageLoader {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let image_type = match settings.format {
+                ImageFormatSetting::FromContent => {
+                    let image_crate_format =
+                        image::guess_format(&bytes).map_err(|err| FileTextureError {
+                            error: TextureError::ImageError(err),
+                            path: load_context.path().display().to_string(),
+                        })?;
+
+                    let format = image_crate_format
+                        .try_into()
+                        .map_err(|_| FileTextureError {
+                            error: TextureError::InvalidImageContentType(image_crate_format),
+                            path: load_context.path().display().to_string(),
+                        })?;
+
+                    // validate that the file format matches the content
+                    if let Some(ext_format) = ImageFormat::from_extension(ext) {
+                        if ext_format != format {
+                            warn!("mismatched format for {}, filename extension `{}` has content of type {:?}", load_context.path().display(), ext, format);
+                        }
+                    }
+
+                    ImageType::Format(format)
+                }
                 ImageFormatSetting::FromExtension => ImageType::Extension(ext),
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
@@ -113,7 +146,7 @@ impl AssetLoader for ImageLoader {
             )
             .map_err(|err| FileTextureError {
                 error: err,
-                path: format!("{}", load_context.path().display()),
+                path: load_context.path().display().to_string(),
             })?)
         })
     }

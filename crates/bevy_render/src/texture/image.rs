@@ -24,7 +24,7 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub enum ImageFormat {
     Avif,
     Basis,
@@ -45,6 +45,9 @@ pub enum ImageFormat {
 }
 
 impl ImageFormat {
+    /// Returns the image format for the given mime type.
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
             "image/avif" => ImageFormat::Avif,
@@ -68,6 +71,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the image format for the given extension.
+    ///
+    /// Unsupported formats will become [`None`].
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
             "avif" => ImageFormat::Avif,
@@ -89,9 +95,13 @@ impl ImageFormat {
             _ => return None,
         })
     }
+}
 
-    pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
-        Some(match self {
+impl TryFrom<ImageFormat> for image::ImageFormat {
+    type Error = ();
+
+    fn try_from(value: ImageFormat) -> Result<Self, Self::Error> {
+        Ok(match value {
             ImageFormat::Avif => image::ImageFormat::Avif,
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             ImageFormat::Dds => image::ImageFormat::Dds,
@@ -106,7 +116,31 @@ impl ImageFormat {
             ImageFormat::Tga => image::ImageFormat::Tga,
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             ImageFormat::WebP => image::ImageFormat::WebP,
-            ImageFormat::Basis | ImageFormat::Ktx2 => return None,
+            ImageFormat::Basis | ImageFormat::Ktx2 => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<image::ImageFormat> for ImageFormat {
+    type Error = ();
+
+    fn try_from(value: image::ImageFormat) -> Result<Self, Self::Error> {
+        Ok(match value {
+            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Bmp => ImageFormat::Bmp,
+            image::ImageFormat::Dds => ImageFormat::Dds,
+            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
+            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::OpenExr => ImageFormat::OpenExr,
+            image::ImageFormat::Hdr => ImageFormat::Hdr,
+            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Jpeg => ImageFormat::Jpeg,
+            image::ImageFormat::Png => ImageFormat::Png,
+            image::ImageFormat::Pnm => ImageFormat::Pnm,
+            image::ImageFormat::Tga => ImageFormat::Tga,
+            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::WebP => ImageFormat::WebP,
+            _ => return Err(()),
         })
     }
 }
@@ -688,8 +722,8 @@ impl Image {
             }
             _ => {
                 let image_crate_format = format
-                    .as_image_crate_format()
-                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
+                    .try_into()
+                    .map_err(|_| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
                 let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
@@ -744,6 +778,8 @@ pub enum TextureError {
     InvalidImageMimeType(String),
     #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
+    #[error("invalid image content type: {0:?}")]
+    InvalidImageContentType(image::ImageFormat),
     #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
     #[error("unsupported texture format: {0}")]
