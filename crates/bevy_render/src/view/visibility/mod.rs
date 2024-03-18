@@ -3,7 +3,7 @@ mod render_layers;
 use bevy_derive::Deref;
 pub use propagate_render_groups::*;
 pub use render_groups::*;
-//pub use render_layers::*;
+pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
@@ -215,7 +215,14 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
+/*
+        app.configure_sets(
+                PostUpdate,
+                PropagateRenderGroupsSet
+                    .in_set(VisibilityPropagate),
+            )
+*/
+app            .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
@@ -240,11 +247,7 @@ impl Plugin for VisibilityPlugin {
                     .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
-                (visibility_propagate_system, propagate_render_groups, reset_view_visibility).in_set(VisibilityPropagate),
-                // Use apply_deferred to process InheritedRenderGroups component additions/removals.
-                apply_deferred
-                    .after(VisibilityPropagate)
-                    .before(CheckVisibility),
+                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility
                     .in_set(CheckVisibility)
                     .after(CalculateBounds)
@@ -378,32 +381,35 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
-    mut commands: Commands,
     mut view_query: Query<(
-        Entity,
+//        Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&CameraView>,
+        Option<&RenderLayers>,
+//        Option<&CameraView>,
         &Camera,
     )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        Option<&RenderGroups>,
-        Option<&InheritedRenderGroups>,
+        Option<&RenderLayers>,
+//        Option<&RenderGroups>,
+//        Option<&InheritedRenderGroups>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
+//    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
+        for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
             continue;
         }
 
-        let camera_view = maybe_camera_view.unwrap_or(&CameraView::default());
+        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+//        let camera_view = maybe_camera_view.unwrap_or(&CameraView::default());
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each(|query_item| {
@@ -411,8 +417,9 @@ pub fn check_visibility(
                 entity,
                 inherited_visibility,
                 mut view_visibility,
-                maybe_groups,
-                maybe_inherited_groups,
+                maybe_entity_mask,
+//                maybe_groups,
+//                maybe_inherited_groups,
                 maybe_model_aabb,
                 transform,
                 no_frustum_culling,
@@ -424,11 +431,14 @@ pub fn check_visibility(
                 return;
             }
 
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+/*
             // Check render groups.
             let entity_groups = maybe_inherited_groups.map(|i| &i.computed)
                 .or(maybe_groups)
                 .unwrap_or(&RenderGroups::default());
-            if !camera_view.entity_is_visible(camera_entity, entity_groups) {
+            if !camera_view.entity_is_visible(camera_entity, entity_groups) { */
                 return;
             }
 
