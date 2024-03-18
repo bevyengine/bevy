@@ -577,9 +577,9 @@ pub trait StateSet: sealed::StateSetSealed {
 /// needing to use only [`Option<S>`] via the (removed) StateSet::OptionalStateSet associated type.
 /// 
 /// Originally, that was done because [`State<S>`] resources can be removed from the world,
-/// and we do not want our systems panicing when they attempt to compute based on a removed/missing state.
+/// and we do not want our systems panicking when they attempt to compute based on a removed/missing state.
 /// 
-/// But beyond that - some [`ComputedStates`]'s might need to exist in different states based on the existance
+/// But beyond that - some [`ComputedStates`]'s might need to exist in different states based on the existence
 /// of other states. So we needed the ability to use[`Option<S>`] when appropriate.
 /// 
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the [`RawState`] associated type
