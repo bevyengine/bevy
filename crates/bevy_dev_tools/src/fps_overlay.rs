@@ -12,6 +12,7 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res},
 };
+use bevy_reflect::Reflect;
 use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
@@ -55,20 +56,13 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
 }
 
-impl DevTool for FpsOverlayConfig {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-}
+impl DevTool for FpsOverlayConfig {}
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {

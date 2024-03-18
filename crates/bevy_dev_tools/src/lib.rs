@@ -4,11 +4,9 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::system::Resource;
+use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
-use std::{
-    any::{Any, TypeId},
-    fmt::Debug,
-};
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
@@ -53,12 +51,7 @@ impl Plugin for DevToolsPlugin {
 }
 
 /// Trait implemented for every dev tool.
-pub trait DevTool: Sync + Send + Debug + 'static {
-    /// Casts to `&dyn Any`.
-    fn as_any(&self) -> &dyn Any;
-    /// Casts to `&mut dyn Any`.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
+pub trait DevTool: Sync + Send + Debug + Reflect + 'static {}
 
 /// Information about dev tool.
 #[derive(Debug)]
