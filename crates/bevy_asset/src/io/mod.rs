@@ -59,7 +59,7 @@ pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
 
 /// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
-/// `path`.
+/// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
 /// Also see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
@@ -168,7 +168,7 @@ pub enum AssetWriterError {
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
-/// `path`.
+/// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
 /// Also see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
