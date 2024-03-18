@@ -2,11 +2,10 @@ use crate::core_3d::Transparent3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor, StoreOp,
-    },
+    render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
@@ -18,7 +17,7 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
@@ -28,7 +27,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewData>,
+        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -39,50 +38,42 @@ impl ViewNode for MainTransparentPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            let diagnostics = render_context.diagnostic_recorder();
+
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
-                // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                }))],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth.view,
-                    // NOTE: For the transparent pass we load the depth buffer. There should be no
-                    // need to write to it, but store is set to `true` as a workaround for issue #3776,
-                    // https://github.com/bevyengine/bevy/issues/3776
-                    // so that wgpu does not clear the depth buffer.
-                    // As the opaque and alpha mask passes run first, opaque meshes can occlude
-                    // transparent ones.
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Load,
-                        store: StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
+                color_attachments: &[Some(target.get_color_attachment())],
+                // NOTE: For the transparent pass we load the depth buffer. There should be no
+                // need to write to it, but store is set to `true` as a workaround for issue #3776,
+                // https://github.com/bevyengine/bevy/issues/3776
+                // so that wgpu does not clear the depth buffer.
+                // As the opaque and alpha mask passes run first, opaque meshes can occlude
+                // transparent ones.
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
+
+            pass_span.end(&mut render_pass);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                }))],
+                color_attachments: &[Some(target.get_color_attachment())],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,

@@ -26,7 +26,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::URect;
     /// let r = URect::new(0, 4, 10, 6); // w=10 h=2
     /// let r = URect::new(2, 4, 5, 0); // w=3 h=4
@@ -43,7 +43,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// // Unit rect from [0,0] to [1,1]
     /// let r = URect::from_corners(UVec2::ZERO, UVec2::ONE); // w=1 h=1
@@ -70,7 +70,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::from_center_size(UVec2::ONE, UVec2::splat(2)); // w=2 h=2
     /// assert_eq!(r.min, UVec2::splat(0));
@@ -91,7 +91,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::from_center_half_size(UVec2::ONE, UVec2::ONE); // w=2 h=2
     /// assert_eq!(r.min, UVec2::splat(0));
@@ -110,7 +110,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::from_corners(UVec2::ZERO, UVec2::new(0, 1)); // w=0 h=1
     /// assert!(r.is_empty());
@@ -124,7 +124,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::URect;
     /// let r = URect::new(0, 0, 5, 1); // w=5 h=1
     /// assert_eq!(r.width(), 5);
@@ -138,7 +138,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::URect;
     /// let r = URect::new(0, 0, 5, 1); // w=5 h=1
     /// assert_eq!(r.height(), 1);
@@ -152,7 +152,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(0, 0, 5, 1); // w=5 h=1
     /// assert_eq!(r.size(), UVec2::new(5, 1));
@@ -170,7 +170,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(0, 0, 4, 2); // w=4 h=2
     /// assert_eq!(r.half_size(), UVec2::new(2, 1));
@@ -188,7 +188,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(0, 0, 4, 2); // w=4 h=2
     /// assert_eq!(r.center(), UVec2::new(2, 1));
@@ -202,7 +202,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::URect;
     /// let r = URect::new(0, 0, 5, 1); // w=5 h=1
     /// assert!(r.contains(r.center()));
@@ -220,7 +220,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r1 = URect::new(0, 0, 5, 1); // w=5 h=1
     /// let r2 = URect::new(1, 0, 3, 8); // w=2 h=4
@@ -243,7 +243,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(0, 0, 5, 1); // w=5 h=1
     /// let u = r.union_point(UVec2::new(3, 6));
@@ -266,7 +266,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r1 = URect::new(0, 0, 2, 2); // w=2 h=2
     /// let r2 = URect::new(1, 1, 3, 3); // w=2 h=2
@@ -294,7 +294,7 @@ impl URect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(4, 4, 6, 6); // w=2 h=2
     /// let r2 = r.inset(1); // w=4 h=4

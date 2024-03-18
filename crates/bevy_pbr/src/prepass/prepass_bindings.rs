@@ -64,19 +64,12 @@ pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<T
     };
     let depth_view = prepass_textures
         .and_then(|x| x.depth.as_ref())
-        .map(|texture| texture.texture.create_view(&depth_desc));
+        .map(|texture| texture.texture.texture.create_view(&depth_desc));
 
-    let normal_view = prepass_textures
-        .and_then(|x| x.normal.as_ref())
-        .map(|texture| texture.default_view.clone());
-
-    let motion_vectors_view = prepass_textures
-        .and_then(|x| x.motion_vectors.as_ref())
-        .map(|texture| texture.default_view.clone());
-
-    let deferred_view = prepass_textures
-        .and_then(|x| x.deferred.as_ref())
-        .map(|texture| texture.default_view.clone());
-
-    [depth_view, normal_view, motion_vectors_view, deferred_view]
+    [
+        depth_view,
+        prepass_textures.and_then(|pt| pt.normal_view().cloned()),
+        prepass_textures.and_then(|pt| pt.motion_vectors_view().cloned()),
+        prepass_textures.and_then(|pt| pt.deferred_view().cloned()),
+    ]
 }

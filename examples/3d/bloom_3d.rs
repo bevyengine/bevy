@@ -1,6 +1,7 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
+    color::palettes::basic::GRAY,
     core_pipeline::{
         bloom::{BloomCompositeMode, BloomSettings},
         tonemapping::Tonemapping,
@@ -35,37 +36,33 @@ fn setup_scene(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::default(), // 3. Enable bloom for the camera
+        // 3. Enable bloom for the camera
+        BloomSettings::NATURAL,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: Color::linear_rgb(23000.0, 9000.0, 3000.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(2.0, 13.99, 5.32),
+        emissive: Color::linear_rgb(3000.0, 23000.0, 9000.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.32, 2.0, 13.99),
+        emissive: Color::linear_rgb(9000.0, 3000.0, 23000.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
-        base_color: Color::GRAY,
+        base_color: GRAY.into(),
         ..default()
     });
 
-    let mesh = meshes.add(
-        shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 5,
-        }
-        .try_into()
-        .unwrap(),
-    );
+    let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {
+            // This generates a pseudo-random integer between `[0, 6)`, but deterministically so
+            // the same spheres are always the same colors.
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -96,7 +93,7 @@ fn setup_scene(
             "",
             TextStyle {
                 font_size: 20.0,
-                color: Color::BLACK,
+                color: Color::WHITE,
                 ..default()
             },
         )
@@ -225,7 +222,7 @@ fn update_bloom_settings(
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::default());
+                commands.entity(entity).insert(BloomSettings::NATURAL);
             }
         }
     }

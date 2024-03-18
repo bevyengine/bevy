@@ -18,7 +18,6 @@ pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 use std::{
-    borrow::Cow,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -37,6 +36,35 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
+/// The following list shows the most common [`SystemParam`]s and which lifetime they require
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// # #[derive(Event)]
+/// # struct SomeEvent;
+/// # #[derive(Resource)]
+/// # struct SomeOtherResource;
+/// # use bevy_ecs::system::SystemParam;
+/// # #[derive(SystemParam)]
+/// # struct ParamsExample<'w, 's> {
+/// #    query:
+/// Query<'w, 's, Entity>,
+/// #    res:
+/// Res<'w, SomeResource>,
+/// #    res_mut:
+/// ResMut<'w, SomeOtherResource>,
+/// #    local:
+/// Local<'s, u8>,
+/// #    commands:
+/// Commands<'w, 's>,
+/// #    eventreader:
+/// EventReader<'w, 's, SomeEvent>,
+/// #    eventwriter:
+/// EventWriter<'w, SomeEvent>
+/// # }
+///```
 /// ## `PhantomData`
 ///
 /// [`PhantomData`] is a special type of `SystemParam` that does nothing.
@@ -165,7 +193,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new(world);
+        let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<D>(),
@@ -177,17 +205,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta
             .component_access_set
             .add(state.component_access.clone());
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
         state
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        state.new_archetype(archetype);
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
+        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
     #[inline]
@@ -200,7 +222,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        Query::new(world, state, system_meta.last_run, change_tick, false)
+        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 
@@ -221,7 +243,7 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.");
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/#b0001");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -414,11 +436,13 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = world.components.init_resource::<T>();
+        world.initialize_resource_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
+            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
@@ -504,15 +528,17 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = world.components.init_resource::<T>();
+        world.initialize_resource_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
@@ -626,7 +652,7 @@ unsafe impl SystemParam for &'_ World {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Read-only access to the entire world was registered in `init_state`.
-        world.world()
+        unsafe { world.world() }
     }
 }
 
@@ -669,8 +695,8 @@ unsafe impl SystemParam for &'_ World {
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
 /// #[derive(Resource)]
-/// struct Myu32Wrapper(u32);
-/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
+/// struct MyU32Wrapper(u32);
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<MyU32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
@@ -891,6 +917,14 @@ impl<'a, T: SystemBuffer> DerefMut for Deferred<'a, T> {
     }
 }
 
+impl<T: SystemBuffer> Deferred<'_, T> {
+    /// Returns a [`Deferred<T>`] with a smaller lifetime.
+    /// This is useful if you have `&mut Deferred<T>` but need `Deferred<T>`.
+    pub fn reborrow(&mut self) -> Deferred<T> {
+        Deferred(self.0)
+    }
+}
+
 // SAFETY: Only local state is accessed.
 unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
 
@@ -991,11 +1025,13 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.initialize_non_send_resource::<T>();
+        let component_id = world.components.init_non_send::<T>();
+        world.initialize_non_send_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
+            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
@@ -1078,15 +1114,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.initialize_non_send_resource::<T>();
+        let component_id = world.components.init_non_send::<T>();
+        world.initialize_non_send_internal(component_id);
+
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
@@ -1287,91 +1325,6 @@ unsafe impl SystemParam for SystemChangeTick {
     }
 }
 
-/// [`SystemParam`] that returns the name of the system which it is used in.
-///
-/// This is not a reliable identifier, it is more so useful for debugging or logging.
-///
-/// # Examples
-///
-/// ```
-/// # use bevy_ecs::system::SystemName;
-/// # use bevy_ecs::system::SystemParam;
-///
-/// #[derive(SystemParam)]
-/// struct Logger<'s> {
-///     system_name: SystemName<'s>,
-/// }
-///
-/// impl<'s> Logger<'s> {
-///     fn log(&mut self, message: &str) {
-///         eprintln!("{}: {}", self.system_name, message);
-///     }
-/// }
-///
-/// fn system1(mut logger: Logger) {
-///     // Prints: "crate_name::mod_name::system1: Hello".
-///     logger.log("Hello");
-/// }
-/// ```
-#[derive(Debug)]
-pub struct SystemName<'s>(&'s str);
-
-impl<'s> SystemName<'s> {
-    /// Gets the name of the system.
-    pub fn name(&self) -> &str {
-        self.0
-    }
-}
-
-impl<'s> Deref for SystemName<'s> {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        self.name()
-    }
-}
-
-impl<'s> AsRef<str> for SystemName<'s> {
-    fn as_ref(&self) -> &str {
-        self.name()
-    }
-}
-
-impl<'s> From<SystemName<'s>> for &'s str {
-    fn from(name: SystemName<'s>) -> &'s str {
-        name.0
-    }
-}
-
-impl<'s> std::fmt::Display for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
-    }
-}
-
-// SAFETY: no component value access
-unsafe impl SystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'w, 's> = SystemName<'s>;
-
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        name: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemName(name)
-    }
-}
-
-// SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
-
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
         // SAFETY: tuple consists only of ReadOnlySystemParams
@@ -1549,7 +1502,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
-        StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
+        StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
     }
 }
 

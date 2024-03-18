@@ -1,6 +1,7 @@
-use crate::container_attributes::ReflectTraits;
+use crate::container_attributes::ContainerAttributes;
+use crate::derive_data::ReflectTraitToImpl;
 use crate::type_path::CustomPathDef;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::ParseStream;
 use syn::token::Paren;
 use syn::{parenthesized, Attribute, Generics, Path};
 
@@ -10,7 +11,7 @@ use syn::{parenthesized, Attribute, Generics, Path};
 ///
 /// This takes the form:
 ///
-/// ```ignore
+/// ```ignore (Method expecting TokenStream is better represented with raw tokens)
 /// // Standard
 /// ::my_crate::foo::Bar(TraitA, TraitB)
 ///
@@ -28,12 +29,20 @@ pub(crate) struct ReflectValueDef {
     pub attrs: Vec<Attribute>,
     pub type_path: Path,
     pub generics: Generics,
-    pub traits: Option<ReflectTraits>,
+    pub traits: Option<ContainerAttributes>,
     pub custom_path: Option<CustomPathDef>,
 }
 
-impl Parse for ReflectValueDef {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+impl ReflectValueDef {
+    pub fn parse_reflect(input: ParseStream) -> syn::Result<Self> {
+        Self::parse(input, ReflectTraitToImpl::Reflect)
+    }
+
+    pub fn parse_from_reflect(input: ParseStream) -> syn::Result<Self> {
+        Self::parse(input, ReflectTraitToImpl::FromReflect)
+    }
+
+    fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
 
         let custom_path = CustomPathDef::parse_parenthesized(input)?;
@@ -46,7 +55,7 @@ impl Parse for ReflectValueDef {
         if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(content.parse::<ReflectTraits>()?);
+            traits = Some(ContainerAttributes::parse_terminated(&content, trait_)?);
         }
         Ok(ReflectValueDef {
             attrs,

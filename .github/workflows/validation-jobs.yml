@@ -7,6 +7,11 @@ on:
     branches:
       - main
 
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+
 env:
   CARGO_TERM_COLOR: always
   NIGHTLY_TOOLCHAIN: nightly
@@ -21,7 +26,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             target
@@ -42,7 +47,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -74,11 +79,11 @@ jobs:
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/kisak-mesa -y
+          sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -105,22 +110,66 @@ jobs:
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
-          name: example-traces.zip
-          path: traces.zip
+          name: example-traces-linux
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots.zip
-          path: screenshots.zip
+          name: screenshots-linux
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
-          name: example-run
+          name: example-run-linux
+          path: example-run/
+
+  run-examples-on-windows-dx12:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build bevy
+        shell: bash
+        # this uses the same command as when running the example to ensure build is reused
+        run: |
+          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+      - name: Run examples
+        shell: bash
+        run: |
+          for example in .github/example-run/*.ron; do
+            example_name=`basename $example .ron`
+            echo -n $example_name > last_example_run
+            echo "running $example_name - "`date`
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            sleep 10
+            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
+              mkdir screenshots-$example_name
+              mv screenshot-*.png screenshots-$example_name/
+            fi
+          done
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
+      - name: save traces
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-traces-windows
+          path: traces
+      - name: save screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-windows
+          path: screenshots
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: example-run-windows
           path: example-run/
 
   run-examples-on-wasm:
@@ -134,7 +183,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -148,7 +197,7 @@ jobs:
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/kisak-mesa -y
+          sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
@@ -177,7 +226,7 @@ jobs:
       - name: Save screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: screenshots-wasm
           path: .github/start-wasm-example/screenshot-*.png
 
   build-without-default-features:
@@ -219,7 +268,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -237,3 +286,31 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Run cargo udeps
         run: cargo udeps
+
+  check-example-showcase-patches-still-work:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Installs cargo-udeps
+        run: cargo install --force cargo-udeps
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Apply patches
+        run: |
+          for patch in tools/example-showcase/*.patch; do
+            git apply --ignore-whitespace $patch
+          done
+      - name: Build with patches
+        run: cargo build

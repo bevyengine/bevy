@@ -1,4 +1,8 @@
-use std::{fmt, num::ParseIntError, str::from_utf8_unchecked};
+use std::{
+    fmt::{self, Write},
+    num::ParseIntError,
+    str::from_utf8_unchecked,
+};
 
 use thiserror::Error;
 
@@ -102,12 +106,15 @@ impl<'a> Iterator for PathParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token()?;
         let offset = self.offset();
-        let err = |error| ReflectPathError::ParseError {
+        Some((
+            self.access_following(token)
+                .map_err(|error| ReflectPathError::ParseError {
+                    offset,
+                    path: self.path,
+                    error: ParseError(error),
+                }),
             offset,
-            path: self.path,
-            error: ParseError(error),
-        };
-        Some((self.access_following(token).map_err(err), offset))
+        ))
     }
 }
 
@@ -141,14 +148,13 @@ enum Token<'a> {
 }
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = match self {
-            Token::Dot => ".",
-            Token::Pound => "#",
-            Token::OpenBracket => "[",
-            Token::CloseBracket => "]",
-            Token::Ident(ident) => ident.0,
-        };
-        f.write_str(text)
+        match self {
+            Token::Dot => f.write_char('.'),
+            Token::Pound => f.write_char('#'),
+            Token::OpenBracket => f.write_char('['),
+            Token::CloseBracket => f.write_char(']'),
+            Token::Ident(ident) => f.write_str(ident.0),
+        }
     }
 }
 impl<'a> Token<'a> {

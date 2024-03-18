@@ -1,28 +1,20 @@
 use std::marker::PhantomData;
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
+use crate::primitives::Frustum;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::prelude::*;
 use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
+use bevy_transform::components::GlobalTransform;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
-pub struct CameraProjectionPlugin<T: CameraProjection>(PhantomData<T>);
-
-impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// Label for [`camera_system<T>`], shared across all `T`.
-///
-/// [`camera_system<T>`]: crate::camera::camera_system
-#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystem;
-
+pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
+    PhantomData<T>,
+);
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
@@ -46,6 +38,17 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             );
     }
 }
+impl<T: CameraProjection + Component + GetTypeRegistration> Default for CameraProjectionPlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// Label for [`camera_system<T>`], shared across all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct CameraUpdateSystem;
 
 /// Trait to control the projection matrix of a camera.
 ///
@@ -59,6 +62,21 @@ pub trait CameraProjection {
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
+
+    /// Compute camera frustum for camera with given projection and transform.
+    ///
+    /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
+    /// for each camera to update its frustum.
+    fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
+        let view_projection =
+            self.get_projection_matrix() * camera_transform.compute_matrix().inverse();
+        Frustum::from_view_projection_custom_far(
+            &view_projection,
+            &camera_transform.translation(),
+            &camera_transform.back(),
+            self.far(),
+        )
+    }
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
@@ -192,7 +210,20 @@ impl Default for PerspectiveProjection {
     }
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
+/// Scaling mode for [`OrthographicProjection`].
+///
+/// # Examples
+///
+/// Configure the orthographic projection to two world units per window height:
+///
+/// ```
+/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// let projection = Projection::Orthographic(OrthographicProjection {
+///    scaling_mode: ScalingMode::FixedVertical(2.0),
+///    ..OrthographicProjection::default()
+/// });
+/// ```
+#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
@@ -215,6 +246,60 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
+impl Mul<f32> for ScalingMode {
+    type Output = ScalingMode;
+
+    /// Scale the `ScalingMode`. For example, multiplying by 2 makes the viewport twice as large.
+    fn mul(self, rhs: f32) -> ScalingMode {
+        match self {
+            ScalingMode::Fixed { width, height } => ScalingMode::Fixed {
+                width: width * rhs,
+                height: height * rhs,
+            },
+            ScalingMode::WindowSize(pixels_per_world_unit) => {
+                ScalingMode::WindowSize(pixels_per_world_unit / rhs)
+            }
+            ScalingMode::AutoMin {
+                min_width,
+                min_height,
+            } => ScalingMode::AutoMin {
+                min_width: min_width * rhs,
+                min_height: min_height * rhs,
+            },
+            ScalingMode::AutoMax {
+                max_width,
+                max_height,
+            } => ScalingMode::AutoMax {
+                max_width: max_width * rhs,
+                max_height: max_height * rhs,
+            },
+            ScalingMode::FixedVertical(size) => ScalingMode::FixedVertical(size * rhs),
+            ScalingMode::FixedHorizontal(size) => ScalingMode::FixedHorizontal(size * rhs),
+        }
+    }
+}
+
+impl MulAssign<f32> for ScalingMode {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
+    }
+}
+
+impl Div<f32> for ScalingMode {
+    type Output = ScalingMode;
+
+    /// Scale the `ScalingMode`. For example, dividing by 2 makes the viewport half as large.
+    fn div(self, rhs: f32) -> ScalingMode {
+        self * (1.0 / rhs)
+    }
+}
+
+impl DivAssign<f32> for ScalingMode {
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs;
+    }
+}
+
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
 /// the size of objects remains the same regardless of their distance to the camera.
 ///
@@ -223,6 +308,18 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
+///
+/// # Examples
+///
+/// Configure the orthographic projection to one world unit per 100 window pixels:
+///
+/// ```
+/// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
+/// let projection = Projection::Orthographic(OrthographicProjection {
+///     scaling_mode: ScalingMode::WindowSize(100.0),
+///     ..OrthographicProjection::default()
+/// });
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
@@ -255,11 +352,16 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
-    /// Scales the projection in world units.
+    /// Scales the projection.
     ///
     /// As scale increases, the apparent size of objects decreases, and vice versa.
     ///
-    /// Defaults to `1.0`
+    /// Note: scaling can be set by [`scaling_mode`](Self::scaling_mode) as well.
+    /// This parameter scales on top of that.
+    ///
+    /// This property is particularly useful in implementing zoom functionality.
+    ///
+    /// Defaults to `1.0`.
     pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///

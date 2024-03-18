@@ -1,7 +1,9 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
+use bevy_render::{
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
+};
 
 use crate::render::skin::MAX_JOINTS;
 
@@ -17,9 +19,9 @@ mod layout_entry {
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
-            binding_types::{texture_3d, uniform_buffer_sized},
-            BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, ShaderStages,
-            TextureSampleType,
+            binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
+            BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
+            ShaderStages, TextureSampleType,
         },
         renderer::RenderDevice,
     };
@@ -37,6 +39,12 @@ mod layout_entry {
     pub(super) fn targets() -> BindGroupLayoutEntryBuilder {
         texture_3d(TextureSampleType::Float { filterable: false })
     }
+    pub(super) fn lightmaps_texture_view() -> BindGroupLayoutEntryBuilder {
+        texture_2d(TextureSampleType::Float { filterable: true }).visibility(ShaderStages::FRAGMENT)
+    }
+    pub(super) fn lightmaps_sampler() -> BindGroupLayoutEntryBuilder {
+        sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT)
+    }
 }
 
 /// Individual [`BindGroupEntry`]
@@ -44,7 +52,7 @@ mod layout_entry {
 mod entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use bevy_render::render_resource::{
-        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, TextureView,
+        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
     };
 
     fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
@@ -72,6 +80,18 @@ mod entry {
             resource: BindingResource::TextureView(texture),
         }
     }
+    pub(super) fn lightmaps_texture_view(binding: u32, texture: &TextureView) -> BindGroupEntry {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::TextureView(texture),
+        }
+    }
+    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::Sampler(sampler),
+        }
+    }
 }
 
 /// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
@@ -79,6 +99,9 @@ mod entry {
 pub struct MeshLayouts {
     /// The mesh model uniform (transform) and nothing else.
     pub model_only: BindGroupLayout,
+
+    /// Includes the lightmap texture and uniform.
+    pub lightmapped: BindGroupLayout,
 
     /// Also includes the uniform for skinning
     pub skinned: BindGroupLayout,
@@ -102,6 +125,7 @@ impl MeshLayouts {
     pub fn new(render_device: &RenderDevice) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),
+            lightmapped: Self::lightmapped_layout(render_device),
             skinned: Self::skinned_layout(render_device),
             morphed: Self::morphed_layout(render_device),
             morphed_skinned: Self::morphed_skinned_layout(render_device),
@@ -158,6 +182,19 @@ impl MeshLayouts {
             ),
         )
     }
+    fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "lightmapped_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (4, layout_entry::lightmaps_texture_view()),
+                    (5, layout_entry::lightmaps_sampler()),
+                ),
+            ),
+        )
+    }
 
     // ---------- BindGroup methods ----------
 
@@ -166,6 +203,22 @@ impl MeshLayouts {
             "model_only_mesh_bind_group",
             &self.model_only,
             &[entry::model(0, model.clone())],
+        )
+    }
+    pub fn lightmapped(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        lightmap: &GpuImage,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "lightmapped_mesh_bind_group",
+            &self.lightmapped,
+            &[
+                entry::model(0, model.clone()),
+                entry::lightmaps_texture_view(4, &lightmap.texture_view),
+                entry::lightmaps_sampler(5, &lightmap.sampler),
+            ],
         )
     }
     pub fn skinned(

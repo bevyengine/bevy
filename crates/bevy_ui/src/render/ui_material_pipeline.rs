@@ -1,16 +1,13 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
-use bevy_app::{App, Plugin};
 use bevy_asset::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, EventReader},
-    query::{ROQueryItem, With},
-    schedule::IntoSystemConfigs,
+    prelude::Component,
+    query::ROQueryItem,
     storage::SparseSet,
     system::lifetimeless::{Read, SRes},
     system::*,
-    world::{FromWorld, World},
 };
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
@@ -22,7 +19,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
     view::*,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -77,7 +74,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
                     ),
                 )
                 .add_systems(
@@ -120,6 +117,7 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub size: [f32; 2],
     pub border_widths: [f32; 4],
 }
 
@@ -155,6 +153,8 @@ where
                 // position
                 VertexFormat::Float32x3,
                 // uv
+                VertexFormat::Float32x2,
+                // size
                 VertexFormat::Float32x2,
                 // border_widths
                 VertexFormat::Float32x4,
@@ -263,13 +263,13 @@ pub type DrawUiMaterial<M> = (
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = Read<ViewUniformOffset>;
-    type ItemData = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -287,16 +287,19 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type Param = SRes<RenderUiMaterials<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     fn render<'w>(
         _item: &P,
         _view: (),
-        material_handle: ROQueryItem<'_, Self::ItemData>,
+        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(material_handle) = material_handle else {
+            return RenderCommandResult::Failure;
+        };
         let Some(material) = materials.into_inner().get(&material_handle.material) else {
             return RenderCommandResult::Failure;
         };
@@ -308,17 +311,21 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     type Param = SRes<UiMaterialMeta<M>>;
-    type ViewData = ();
-    type ItemData = Read<UiMaterialBatch<M>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiMaterialBatch<M>,
+        batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
@@ -332,6 +339,10 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub border: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
+    // Camera to render this UI node to. By the time it is extracted,
+    // it is defaulted to a single camera if only one exists.
+    // Nodes with ambiguous camera will be ignored.
+    pub camera_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -351,6 +362,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
             (
@@ -361,6 +373,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 &Handle<M>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
+                Option<&TargetCamera>,
             ),
             Without<BackgroundColor>,
         >,
@@ -370,15 +383,24 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
+
+    // If there is only one camera, we use it as default
+    let default_single_camera = default_ui_camera.get();
+
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip)) =
+        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip, camera)) =
             uinode_query.get(*entity)
         {
+            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
+            else {
+                continue;
+            };
+
             // skip invisible nodes
             if !view_visibility.get() {
                 continue;
@@ -421,6 +443,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     },
                     border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
+                    camera_entity,
                 },
             );
         };
@@ -558,6 +581,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
+                            size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
                         });
                     }
@@ -615,6 +639,7 @@ pub fn extract_ui_materials<M: UiMaterial>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.read() {
+        #[allow(clippy::match_same_arms)]
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
@@ -623,8 +648,9 @@ pub fn extract_ui_materials<M: UiMaterial>(
                 changed_assets.remove(id);
                 removed.push(*id);
             }
+            AssetEvent::Unused { .. } => {}
             AssetEvent::LoadedWithDependencies { .. } => {
-                // not implemented
+                // TODO: handle this
             }
         }
     }
@@ -665,6 +691,10 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match prepare_ui_material(
             &material,
             &render_device,
@@ -737,29 +767,32 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(&extracted_uinode.material) else {
             continue;
         };
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                UiMaterialKey {
-                    hdr: view.hdr,
-                    bind_group_data: material.key.clone(),
-                },
-            );
-            transparent_phase
-                .items
-                .reserve(extracted_uinodes.uinodes.len());
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: *entity,
-                sort_key: (
-                    FloatOrd(extracted_uinode.stack_index as f32),
-                    entity.index(),
-                ),
-                batch_range: 0..0,
-                dynamic_offset: None,
-            });
-        }
+        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
+            continue;
+        };
+
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_material_pipeline,
+            UiMaterialKey {
+                hdr: view.hdr,
+                bind_group_data: material.key.clone(),
+            },
+        );
+        transparent_phase
+            .items
+            .reserve(extracted_uinodes.uinodes.len());
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: *entity,
+            sort_key: (
+                FloatOrd(extracted_uinode.stack_index as f32),
+                entity.index(),
+            ),
+            batch_range: 0..0,
+            dynamic_offset: None,
+        });
     }
 }

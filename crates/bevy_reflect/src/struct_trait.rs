@@ -1,9 +1,9 @@
 use crate::{
-    self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathTable,
+    self as bevy_reflect, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::{
     any::{Any, TypeId},
@@ -300,29 +300,23 @@ impl DynamicStruct {
     /// Inserts a field named `name` with value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert_boxed(&mut self, name: &str, value: Box<dyn Reflect>) {
-        let name = Cow::Owned(name.to_string());
-        match self.field_indices.entry(name) {
-            Entry::Occupied(entry) => {
-                self.fields[*entry.get()] = value;
-            }
-            Entry::Vacant(entry) => {
-                self.fields.push(value);
-                self.field_names.push(entry.key().clone());
-                entry.insert(self.fields.len() - 1);
-            }
+    pub fn insert_boxed<'a>(&mut self, name: impl Into<Cow<'a, str>>, value: Box<dyn Reflect>) {
+        let name: Cow<str> = name.into();
+        if let Some(index) = self.field_indices.get(&name) {
+            self.fields[*index] = value;
+        } else {
+            self.fields.push(value);
+            self.field_indices
+                .insert(Cow::Owned(name.clone().into_owned()), self.fields.len() - 1);
+            self.field_names.push(Cow::Owned(name.into_owned()));
         }
     }
 
     /// Inserts a field named `name` with the typed value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert<T: Reflect>(&mut self, name: &str, value: T) {
-        if let Some(index) = self.field_indices.get(name) {
-            self.fields[*index] = Box::new(value);
-        } else {
-            self.insert_boxed(name, Box::new(value));
-        }
+    pub fn insert<'a, T: Reflect>(&mut self, name: impl Into<Cow<'a, str>>, value: T) {
+        self.insert_boxed(name, Box::new(value));
     }
 
     /// Gets the index of the field with the given name.
@@ -442,6 +436,11 @@ impl Reflect for DynamicStruct {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Struct
     }
 
     #[inline]

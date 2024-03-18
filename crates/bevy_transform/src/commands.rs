@@ -1,25 +1,25 @@
 //! Extension to [`EntityCommands`] to modify `bevy_hierarchy` hierarchies
 //! while preserving [`GlobalTransform`].
 
-use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
-use bevy_hierarchy::{AddChild, RemoveParent};
+use bevy_ecs::{prelude::Entity, system::EntityCommands, world::Command, world::World};
+use bevy_hierarchy::{PushChild, RemoveParent};
 
 use crate::{GlobalTransform, Transform};
 
-/// Command similar to [`AddChild`], but updating the child transform to keep
+/// Command similar to [`PushChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct AddChildInPlace {
+pub struct PushChildInPlace {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for AddChildInPlace {
+impl Command for PushChildInPlace {
     fn apply(self, world: &mut World) {
-        let hierarchy_command = AddChild {
+        let hierarchy_command = PushChild {
             child: self.child,
             parent: self.parent,
         };
@@ -85,10 +85,10 @@ pub trait BuildChildrenTransformExt {
     /// (during [`apply_deferred`](bevy_ecs::schedule::apply_deferred)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
-impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
+impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildInPlace { child, parent });
+        self.commands().add(PushChildInPlace { child, parent });
         self
     }
 

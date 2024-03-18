@@ -28,6 +28,8 @@ impl WinitSettings {
     ///
     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
     /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
@@ -52,10 +54,7 @@ impl WinitSettings {
 
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        }
+        WinitSettings::game()
     }
 }
 
@@ -75,8 +74,9 @@ pub enum UpdateMode {
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
     /// events have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
@@ -87,13 +87,14 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window events](`winit::event::WindowEvent`) have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     ///
     /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
     /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
     /// Use this mode if, for example, you only want your app to update when the mouse cursor is
     /// moving over a window, not just moving in general. This can greatly reduce power consumption.
     ReactiveLowPower {
-        /// The minimum time from the start of one update to the next.
+        /// The approximate time from the start of one update to the next.
         ///
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].

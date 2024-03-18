@@ -1,7 +1,8 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{prelude::*, text::FontAtlasSets};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
@@ -30,11 +31,13 @@ impl Default for State {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct SeededRng(StdRng);
+
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_sets: Res<FontAtlasSets>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
@@ -42,12 +45,10 @@ fn atlas_render_system(
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
+            let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
             commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
+                image: font_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
@@ -60,10 +61,15 @@ fn atlas_render_system(
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
+fn text_update_system(
+    mut state: ResMut<State>,
+    time: Res<Time>,
+    mut query: Query<&mut Text>,
+    mut seeded_rng: ResMut<SeededRng>,
+) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
-            let c = rand::random::<u8>() as char;
+            let c = seeded_rng.gen::<u8>() as char;
             let string = &mut text.sections[0].value;
             if !string.contains(c) {
                 string.push(c);
@@ -94,8 +100,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 TextStyle {
                     font: font_handle,
                     font_size: 60.0,
-                    color: Color::YELLOW,
+                    color: YELLOW.into(),
                 },
             ));
         });
+    commands.insert_resource(SeededRng(StdRng::seed_from_u64(19878367467713)));
 }

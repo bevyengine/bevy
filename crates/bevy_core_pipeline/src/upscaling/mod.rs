@@ -27,7 +27,7 @@ pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
@@ -48,6 +48,9 @@ fn prepare_view_upscaling_pipelines(
             samples: 1,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+
+        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
+        pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands
             .entity(entity)

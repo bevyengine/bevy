@@ -10,7 +10,7 @@ use futures_lite::Future;
 /// can spawn `Send` tasks from other threads.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
 /// use bevy_tasks::ThreadExecutor;
 ///
@@ -106,7 +106,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     }
 
     /// Synchronously try to tick a task on the executor.
-    /// Returns false if if does not find a task to tick.
+    /// Returns false if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
         self.executor.executor.try_tick()
     }
