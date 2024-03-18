@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2021"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"

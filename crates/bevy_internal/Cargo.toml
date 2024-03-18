@@ -1,6 +1,6 @@
 [package]
 name = "bevy_internal"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2021"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
 homepage = "https://bevyengine.org"
@@ -162,41 +162,41 @@ bevy_debug_stepping = [
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.13.0" }
-bevy_app = { path = "../bevy_app", version = "0.13.0" }
-bevy_core = { path = "../bevy_core", version = "0.13.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.13.0" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.13.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.0" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.13.0" }
-bevy_input = { path = "../bevy_input", version = "0.13.0" }
-bevy_log = { path = "../bevy_log", version = "0.13.0" }
-bevy_math = { path = "../bevy_math", version = "0.13.0" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.13.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
+bevy_a11y = { path = "../bevy_a11y", version = "0.13.1" }
+bevy_app = { path = "../bevy_app", version = "0.13.1" }
+bevy_core = { path = "../bevy_core", version = "0.13.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.13.1" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.13.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.13.1" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.13.1" }
+bevy_input = { path = "../bevy_input", version = "0.13.1" }
+bevy_log = { path = "../bevy_log", version = "0.13.1" }
+bevy_math = { path = "../bevy_math", version = "0.13.1" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.13.1" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.13.1", features = [
   "bevy",
 ] }
-bevy_time = { path = "../bevy_time", version = "0.13.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.13.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
-bevy_window = { path = "../bevy_window", version = "0.13.0" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.13.0" }
+bevy_time = { path = "../bevy_time", version = "0.13.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.13.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.13.1" }
+bevy_window = { path = "../bevy_window", version = "0.13.1" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.13.1" }
 # bevy (optional)
-bevy_animation = { path = "../bevy_animation", optional = true, version = "0.13.0" }
-bevy_asset = { path = "../bevy_asset", optional = true, version = "0.13.0" }
-bevy_audio = { path = "../bevy_audio", optional = true, version = "0.13.0" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.13.0" }
-bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.13.0" }
-bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.13.0" }
-bevy_render = { path = "../bevy_render", optional = true, version = "0.13.0" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.13.0" }
-bevy_scene = { path = "../bevy_scene", optional = true, version = "0.13.0" }
-bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.13.0" }
-bevy_text = { path = "../bevy_text", optional = true, version = "0.13.0" }
-bevy_ui = { path = "../bevy_ui", optional = true, version = "0.13.0" }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.13.0" }
-bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.13.0" }
-bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.13.0", default-features = false }
+bevy_animation = { path = "../bevy_animation", optional = true, version = "0.13.1" }
+bevy_asset = { path = "../bevy_asset", optional = true, version = "0.13.1" }
+bevy_audio = { path = "../bevy_audio", optional = true, version = "0.13.1" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.13.1" }
+bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.13.1" }
+bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.13.1" }
+bevy_render = { path = "../bevy_render", optional = true, version = "0.13.1" }
+bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.13.1" }
+bevy_scene = { path = "../bevy_scene", optional = true, version = "0.13.1" }
+bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.13.1" }
+bevy_text = { path = "../bevy_text", optional = true, version = "0.13.1" }
+bevy_ui = { path = "../bevy_ui", optional = true, version = "0.13.1" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.13.1" }
+bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.13.1" }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.13.1", default-features = false }
 
 [lints]
 workspace = true
