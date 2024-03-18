@@ -439,7 +439,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                render_groups: 0u32//maybe_groups.cloned().unwrap_or(RenderGroups::default()),
+                render_groups: 0u32, //maybe_groups.cloned().unwrap_or(RenderGroups::default()),
             }),
         };
 

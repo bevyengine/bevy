@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{RenderLayer, RenderXXLayersXX, RenderGroups},
+        view::{RenderGroups, RenderLayer, RenderXXLayersXX},
     },
 };
 

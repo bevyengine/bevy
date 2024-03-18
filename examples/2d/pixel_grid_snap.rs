@@ -7,7 +7,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{CameraView, RenderLayer, RenderGroups},
+        view::{CameraView, RenderGroups, RenderLayer},
     },
     sprite::MaterialMesh2dBundle,
     window::WindowResized,
@@ -149,7 +149,11 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYER` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, CameraView::from(HIGH_RES_LAYER)));
+    commands.spawn((
+        Camera2dBundle::default(),
+        OuterCamera,
+        CameraView::from(HIGH_RES_LAYER),
+    ));
 }
 
 /// Rotates entities to demonstrate grid snapping.

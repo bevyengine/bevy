@@ -253,7 +253,7 @@ pub fn extract_render_groups(
             .map(|i| &i.computed)
             .or(render_groups)
             .cloned()
-            .unwrap_or(RenderGroups::default())
+            .unwrap_or(RenderGroups::default()),
     )
 }
 
@@ -268,7 +268,7 @@ pub fn extract_camera_view(
     ExtractedRenderGroups(
         camera_view
             .map(|i| i.get_groups(camera))
-            .unwrap_or(RenderGroups::default_with_camera(camera))
+            .unwrap_or(RenderGroups::default_with_camera(camera)),
     )
 }
 
