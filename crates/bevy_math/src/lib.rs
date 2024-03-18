@@ -10,6 +10,7 @@ mod aspect_ratio;
 pub mod bounding;
 pub mod cubic_splines;
 mod direction;
+pub mod linear_convex_space;
 pub mod primitives;
 mod ray;
 mod rects;
