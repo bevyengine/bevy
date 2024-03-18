@@ -158,7 +158,9 @@ where
 /// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` separately.
 macro_rules! impl_color_linear_convex_space {
     ($ty: ident, [$($element: ident),+]) => {
-        impl bevy_math::linear_convex_space::LinearConvexSpace<f32> for $ty {
+        impl bevy_math::linear_convex_space::LinearConvexSpace for $ty {
+            type Scalar = f32;
+
             #[inline]
             fn add(self, rhs: Self) -> Self {
                 Self {

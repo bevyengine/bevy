@@ -10,15 +10,18 @@ use glam::{DVec2, DVec3, DVec4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Ve
 /// The space should also be linear, meaning that `A*t + B*(1 - t)` with any points `A`, `B` and `t` element `0..1` should represent a straight line.
 ///
 /// By implementing this trait, you guarantee that the above conditions hold true.
-pub trait LinearConvexSpace<Scalar>: Default + Copy + Clone {
+pub trait LinearConvexSpace: Default + Copy + Clone {
+    /// The scalar type to be used with this space.
+    type Scalar: Copy + Clone;
+
     /// Adds two elements of the space.
     fn add(self, rhs: Self) -> Self;
     /// Subtracts one element in the space from another one.
     fn sub(self, rhs: Self) -> Self;
     /// Multiplies an element of the space by a scalar.
-    fn mul(self, rhs: Scalar) -> Self;
+    fn mul(self, rhs: Self::Scalar) -> Self;
     /// Divides an element of the space by a scalar.
-    fn div(self, rhs: Scalar) -> Self;
+    fn div(self, rhs: Self::Scalar) -> Self;
 }
 
 #[macro_export]
@@ -28,7 +31,9 @@ pub trait LinearConvexSpace<Scalar>: Default + Copy + Clone {
 /// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` separately.
 macro_rules! impl_linear_convex_space {
     ($ty: ident, $scalar_ty: ident) => {
-        impl $crate::linear_convex_space::LinearConvexSpace<$scalar_ty> for $ty {
+        impl $crate::linear_convex_space::LinearConvexSpace for $ty {
+            type Scalar = $scalar_ty;
+
             #[inline]
             fn add(self, rhs: Self) -> Self {
                 self + rhs

@@ -41,11 +41,11 @@ use crate::linear_convex_space::LinearConvexSpace;
 /// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-pub struct CubicBezier<P: LinearConvexSpace<f32>> {
+pub struct CubicBezier<P: LinearConvexSpace<Scalar = f32>> {
     control_points: Vec<[P; 4]>,
 }
 
-impl<P: LinearConvexSpace<f32>> CubicBezier<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
     pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
         Self {
@@ -53,7 +53,7 @@ impl<P: LinearConvexSpace<f32>> CubicBezier<P> {
         }
     }
 }
-impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicBezier<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
@@ -112,10 +112,10 @@ impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
-pub struct CubicHermite<P: LinearConvexSpace<f32>> {
+pub struct CubicHermite<P: LinearConvexSpace<Scalar = f32>> {
     control_points: Vec<(P, P)>,
 }
-impl<P: LinearConvexSpace<f32>> CubicHermite<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
     pub fn new(
         control_points: impl IntoIterator<Item = P>,
@@ -126,7 +126,7 @@ impl<P: LinearConvexSpace<f32>> CubicHermite<P> {
         }
     }
 }
-impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicHermite<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicGenerator<P> for CubicHermite<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -177,12 +177,12 @@ impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
-pub struct CubicCardinalSpline<P: LinearConvexSpace<f32>> {
+pub struct CubicCardinalSpline<P: LinearConvexSpace<Scalar = f32>> {
     tension: f32,
     control_points: Vec<P>,
 }
 
-impl<P: LinearConvexSpace<f32>> CubicCardinalSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -199,7 +199,7 @@ impl<P: LinearConvexSpace<f32>> CubicCardinalSpline<P> {
         }
     }
 }
-impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let s = self.tension;
@@ -246,10 +246,10 @@ impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
-pub struct CubicBSpline<P: LinearConvexSpace<f32>> {
+pub struct CubicBSpline<P: LinearConvexSpace<Scalar = f32>> {
     control_points: Vec<P>,
 }
-impl<P: LinearConvexSpace<f32>> CubicBSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicBSpline<P> {
     /// Build a new B-Spline.
     pub fn new(control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -257,7 +257,7 @@ impl<P: LinearConvexSpace<f32>> CubicBSpline<P> {
         }
     }
 }
-impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
@@ -363,12 +363,12 @@ pub enum CubicNurbsError {
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
-pub struct CubicNurbs<P: LinearConvexSpace<f32>> {
+pub struct CubicNurbs<P: LinearConvexSpace<Scalar = f32>> {
     control_points: Vec<P>,
     weights: Vec<f32>,
     knots: Vec<f32>,
 }
-impl<P: LinearConvexSpace<f32>> CubicNurbs<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights must be the same length as the control points. Defaults to equal weights.
@@ -528,7 +528,7 @@ impl<P: LinearConvexSpace<f32>> CubicNurbs<P> {
         ]
     }
 }
-impl<P: LinearConvexSpace<f32>> RationalGenerator<P> for CubicNurbs<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> RationalGenerator<P> for CubicNurbs<P> {
     #[inline]
     fn to_curve(&self) -> RationalCurve<P> {
         let segments = self
@@ -567,10 +567,10 @@ impl<P: LinearConvexSpace<f32>> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
-pub struct LinearSpline<P: LinearConvexSpace<f32>> {
+pub struct LinearSpline<P: LinearConvexSpace<Scalar = f32>> {
     points: Vec<P>,
 }
-impl<P: LinearConvexSpace<f32>> LinearSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> LinearSpline<P> {
     /// Create a new linear spline
     pub fn new(points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -578,7 +578,7 @@ impl<P: LinearConvexSpace<f32>> LinearSpline<P> {
         }
     }
 }
-impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for LinearSpline<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicGenerator<P> for LinearSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let segments = self
@@ -597,7 +597,7 @@ impl<P: LinearConvexSpace<f32>> CubicGenerator<P> for LinearSpline<P> {
 }
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
-pub trait CubicGenerator<P: LinearConvexSpace<f32>> {
+pub trait CubicGenerator<P: LinearConvexSpace<Scalar = f32>> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> CubicCurve<P>;
 }
@@ -607,11 +607,11 @@ pub trait CubicGenerator<P: LinearConvexSpace<f32>> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct CubicSegment<P: LinearConvexSpace<f32>> {
+pub struct CubicSegment<P: LinearConvexSpace<Scalar = f32>> {
     coeff: [P; 4],
 }
 
-impl<P: LinearConvexSpace<f32>> CubicSegment<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -777,11 +777,11 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
-pub struct CubicCurve<P: LinearConvexSpace<f32>> {
+pub struct CubicCurve<P: LinearConvexSpace<Scalar = f32>> {
     segments: Vec<CubicSegment<P>>,
 }
 
-impl<P: LinearConvexSpace<f32>> CubicCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> CubicCurve<P> {
     /// Compute the position of a point on the cubic curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -882,13 +882,13 @@ impl<P: LinearConvexSpace<f32>> CubicCurve<P> {
     }
 }
 
-impl<P: LinearConvexSpace<f32>> Extend<CubicSegment<P>> for CubicCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
-impl<P: LinearConvexSpace<f32>> IntoIterator for CubicCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> IntoIterator for CubicCurve<P> {
     type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = CubicSegment<P>;
@@ -899,7 +899,7 @@ impl<P: LinearConvexSpace<f32>> IntoIterator for CubicCurve<P> {
 }
 
 /// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
-pub trait RationalGenerator<P: LinearConvexSpace<f32>> {
+pub trait RationalGenerator<P: LinearConvexSpace<Scalar = f32>> {
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> RationalCurve<P>;
 }
@@ -909,7 +909,7 @@ pub trait RationalGenerator<P: LinearConvexSpace<f32>> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct RationalSegment<P: LinearConvexSpace<f32>> {
+pub struct RationalSegment<P: LinearConvexSpace<Scalar = f32>> {
     /// The coefficients matrix of the cubic curve.
     coeff: [P; 4],
     /// The homogeneous weight coefficients.
@@ -918,7 +918,7 @@ pub struct RationalSegment<P: LinearConvexSpace<f32>> {
     knot_span: f32,
 }
 
-impl<P: LinearConvexSpace<f32>> RationalSegment<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, knot_span)`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1059,11 +1059,11 @@ impl<P: LinearConvexSpace<f32>> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct RationalCurve<P: LinearConvexSpace<f32>> {
+pub struct RationalCurve<P: LinearConvexSpace<Scalar = f32>> {
     segments: Vec<RationalSegment<P>>,
 }
 
-impl<P: LinearConvexSpace<f32>> RationalCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> RationalCurve<P> {
     /// Compute the position of a point on the curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -1183,13 +1183,13 @@ impl<P: LinearConvexSpace<f32>> RationalCurve<P> {
     }
 }
 
-impl<P: LinearConvexSpace<f32>> Extend<RationalSegment<P>> for RationalCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> Extend<RationalSegment<P>> for RationalCurve<P> {
     fn extend<T: IntoIterator<Item = RationalSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
-impl<P: LinearConvexSpace<f32>> IntoIterator for RationalCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> IntoIterator for RationalCurve<P> {
     type IntoIter = <Vec<RationalSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = RationalSegment<P>;
@@ -1199,7 +1199,7 @@ impl<P: LinearConvexSpace<f32>> IntoIterator for RationalCurve<P> {
     }
 }
 
-impl<P: LinearConvexSpace<f32>> From<CubicSegment<P>> for RationalSegment<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> From<CubicSegment<P>> for RationalSegment<P> {
     fn from(value: CubicSegment<P>) -> Self {
         Self {
             coeff: value.coeff,
@@ -1209,7 +1209,7 @@ impl<P: LinearConvexSpace<f32>> From<CubicSegment<P>> for RationalSegment<P> {
     }
 }
 
-impl<P: LinearConvexSpace<f32>> From<CubicCurve<P>> for RationalCurve<P> {
+impl<P: LinearConvexSpace<Scalar = f32>> From<CubicCurve<P>> for RationalCurve<P> {
     fn from(value: CubicCurve<P>) -> Self {
         Self {
             segments: value.segments.into_iter().map(Into::into).collect(),
