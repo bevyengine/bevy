@@ -418,17 +418,25 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,
 ) {
-    touch_state.just_pressed.clear();
-    touch_state.just_released.clear();
-    touch_state.just_canceled.clear();
-
-    for touch in touch_state.pressed.values_mut() {
-        touch.previous_position = touch.position;
-        touch.previous_force = touch.force;
+    if !touch_state.just_pressed.is_empty() {
+        touch_state.just_pressed.clear();
+    }
+    if !touch_state.just_released.is_empty() {
+        touch_state.just_released.clear();
+    }
+    if !touch_state.just_canceled.is_empty() {
+        touch_state.just_canceled.clear();
     }
 
-    for event in touch_input_events.read() {
-        touch_state.process_touch_event(event);
+    if !touch_input_events.is_empty() {
+        for touch in touch_state.pressed.values_mut() {
+            touch.previous_position = touch.position;
+            touch.previous_force = touch.force;
+        }
+
+        for event in touch_input_events.read() {
+            touch_state.process_touch_event(event);
+        }
     }
 }
 
