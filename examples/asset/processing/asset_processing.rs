@@ -12,8 +12,8 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
     utils::thiserror,
+    utils::BoxedFuture,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
