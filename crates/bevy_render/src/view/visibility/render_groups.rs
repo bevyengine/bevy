@@ -1,4 +1,5 @@
-use bevy_ecs::Entity;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::{Component, Entity};
 
 use smallvec::SmallVec;
 
@@ -9,7 +10,7 @@ pub const DEFAULT_RENDER_LAYER: RenderLayer = RenderLayer(0);
 ///
 /// Stores an index into the [`RenderLayersXX`] internal bitmask.
 //todo: Upper limit policy for render layer indices.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Deref, DerefMut)]
 pub struct RenderLayer(pub usize);
 
 impl RenderLayer
@@ -20,9 +21,15 @@ impl RenderLayer
     }
 }
 
+impl From<usize> for RenderLayer {
+    fn from(layer: usize) -> Self {
+        Self(layer)
+    }
+}
+
 impl Default for RenderLayer {
     fn default() -> Self {
-        Self(DEFAULT_RENDER_LAYER)
+        DEFAULT_RENDER_LAYER
     }
 }
 
@@ -41,7 +48,7 @@ impl Default for RenderLayer {
 ///
 /// `RenderLayersXX` can store up to `RenderLayer(63)` without allocating. Allocations occur in 8-byte
 /// increments, so the second allocation will occur after `RenderLayer(127)`, and so on.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RenderLayersXX
 {
     layers: SmallVec<[u64; 1]>,
@@ -53,11 +60,17 @@ impl RenderLayersXX {
         Self{ layers: SmallVec::default() }
     }
 
+    /// Makes a new `RenderLayersXX` from a slice.
+    pub fn from_layers<T: Into<RenderLayer> + Copy>(layers: &[T]) -> Self {
+        layers.iter().map(|l| (*l).into()).collect()
+    }
+
     /// Adds a [`RenderLayer`].
-    pub fn add(&mut self, layer: RenderLayer) {
-        let (buffer_index, bit) = Self::layer_info(layer);
+    pub fn add(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
+        let (buffer_index, bit) = Self::layer_info(*(layer.into()));
         self.extend_buffer(buffer_index + 1);
         self.layers[buffer_index] |= bit;
+        self
     }
 
     /// Removes a [`RenderLayer`].
@@ -65,12 +78,13 @@ impl RenderLayersXX {
     /// Does not shrink the internal buffer even if doing so is possible after
     /// removing the layer. We assume if you added a large layer then it is
     /// possible you may re-add another large layer.
-    pub fn remove(&mut self, layer: RenderLayer) {
-        let (buffer_index, bit) = Self::layer_info(layer);
+    pub fn remove(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
+        let (buffer_index, bit) = Self::layer_info(*(layer.into()));
         if buffer_index >= self.layers.len() {
-            return;
+            return self;
         }
-        self.layers[buffer_index] &= ~bit;
+        self.layers[buffer_index] &= !bit;
+        self
     }
 
     /// Clears all stored render layers without deallocating.
@@ -84,7 +98,7 @@ impl RenderLayersXX {
     /// that is potentially allocated.
     pub fn set_from(&mut self, other: &Self) {
         self.layers.clear();
-        self.layers.reserve_exact(other.len());
+        self.layers.reserve_exact(other.layers.len());
         self.layers.extend_from_slice(other.layers.as_slice());
     }
 
@@ -94,7 +108,7 @@ impl RenderLayersXX {
     ///
     /// Will allocate if necessary to include all set bits of `other`.
     pub fn merge(&mut self, other: &Self) {
-        self.extend_buffer(other.len());
+        self.extend_buffer(other.layers.len());
 
         for (self_layer, other_layer) in self.layers
             .iter_mut()
@@ -102,6 +116,13 @@ impl RenderLayersXX {
         {
             *self_layer |= *other_layer;
         }
+    }
+
+    /// Gets the number of stored layers.
+    ///
+    /// Equivalent to `self.iter().count()`.
+    pub fn num_layers(&self) -> usize {
+        self.iter().count()
     }
 
     /// Iterates the internal render layers.
@@ -114,8 +135,8 @@ impl RenderLayersXX {
     }
 
     /// Returns `true` if the specified render layer is included in this `RenderLayersXX`.
-    pub fn contains(&self, layer: RenderLayer) -> bool {
-        let (buffer_index, bit) = Self::layer_info(layer);
+    pub fn contains(&self, layer: impl Into<RenderLayer>) -> bool {
+        let (buffer_index, bit) = Self::layer_info(*(layer.into()));
         if buffer_index >= self.layers.len() {
             return false;
         }
@@ -156,37 +177,33 @@ impl RenderLayersXX {
         self.layers.resize(new_size, 0u64);
     }
 
-    fn iter_layers(mut buffer: u64) -> impl Iterator<Item = RenderLayer> + '_ {
-        let mut layer = 0;
+    fn iter_layers(mut buffer: u64) -> impl Iterator<Item = RenderLayer> + 'static {
+        let mut layer: usize = 0;
         std::iter::from_fn(
-            move {
+            move || {
                 if buffer == 0 {
                     return None;
                 }
-                let next = buffer.trailing_zeroes() + 1;
+                let next = buffer.trailing_zeros() + 1;
                 buffer >>= next;
-                layer += next;
-                Some(layer - 1)
+                layer += next as usize;
+                Some(RenderLayer(layer - 1))
             }
         )
     }
 }
 
-impl From<RenderLayer> for RenderLayersXX {
-    fn from(layer: RenderLayer) -> Self {
+impl<T: Into<RenderLayer>> From<T> for RenderLayersXX {
+    fn from(layer: T) -> Self {
         let mut layers = Self{ layers: SmallVec::default() };
         layers.add(layer);
         layers
     }
 }
 
-impl From<&[RenderLayer]> for RenderLayersXX {
-    fn from(layers: &[RenderLayer]) -> Self {
-        let mut layers = Self{ layers: SmallVec::default() };
-        for layer in layers {
-            layers.add(layer);
-        }
-        layers
+impl<R: Into<RenderLayer>> FromIterator<R> for RenderLayersXX {
+    fn from_iter<T: IntoIterator<Item = R>>(i: T) -> Self {
+        i.into_iter().fold(Self::empty(), |mut mask, g| { mask.add(g); mask })
     }
 }
 
@@ -257,7 +274,7 @@ impl RenderGroups {
     /// Adds a [`RenderLayer`].
     ///
     /// See [`RenderLayersXX::add`].
-    pub fn add(&mut self, layer: RenderLayer) -> &mut Self {
+    pub fn add(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.add(layer);
         self
     }
@@ -265,7 +282,7 @@ impl RenderGroups {
     /// Removes a [`RenderLayer`].
     ///
     /// See [`RenderLayersXX::remove`].
-    pub fn remove(&mut self, layer: RenderLayer) -> &mut Self {
+    pub fn remove(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.remove(layer);
         self
     }
@@ -301,7 +318,7 @@ impl RenderGroups {
     ///
     /// Returns the previous camera.
     pub fn set_camera(&mut self, camera: Entity) -> Option<Entity> {
-        self.camera.replace(Some(camera))
+        self.camera.replace(camera)
     }
 
     /// Removes the current camera affiliation.
@@ -312,13 +329,13 @@ impl RenderGroups {
     }
 
     /// Returns an iterator over [`RenderLayer`].
-    pub fn iter_layers(&self) -> Impl Iterator<Item = RenderLayer> + '_ {
+    pub fn iter_layers(&self) -> impl Iterator<Item = RenderLayer> + '_ {
         self.layers.iter()
     }
 
     /// Returns `true` if the specified render layer is included in this
     /// `RenderGroups`.
-    pub fn contains_layer(&self, layer: RenderLayer) -> bool {
+    pub fn contains_layer(&self, layer: impl Into<RenderLayer>) -> bool {
         self.layers.contains(layer)
     }
 
@@ -392,7 +409,7 @@ impl CameraView {
     /// Adds a [`RenderLayer`].
     ///
     /// See [`RenderLayersXX::add`].
-    pub fn add(&mut self, layer: RenderLayer) -> &mut Self {
+    pub fn add(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.add(layer);
         self
     }
@@ -400,7 +417,7 @@ impl CameraView {
     /// Removes a [`RenderLayer`].
     ///
     /// See [`RenderLayersXX::remove`].
-    pub fn remove(&mut self, layer: RenderLayer) -> &mut Self {
+    pub fn remove(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.remove(layer);
         self
     }
@@ -411,12 +428,12 @@ impl CameraView {
     }
 
     /// Returns an iterator over [`RenderLayer`].
-    pub fn iter_layers(&self) -> Impl Iterator<Item = RenderLayer> + '_ {
+    pub fn iter_layers(&self) -> impl Iterator<Item = RenderLayer> + '_ {
         self.layers.iter()
     }
 
     /// Returns `true` if the specified render layer is included in this `CameraView`.
-    pub fn contains_layer(&self, layer: RenderLayer) -> bool {
+    pub fn contains_layer(&self, layer: impl Into<RenderLayer>) -> bool {
         self.layers.contains(layer)
     }
 
@@ -456,37 +473,36 @@ impl Default for CameraView {
 
 #[cfg(test)]
 mod rendering_mask_tests {
-    use super::{RenderLayer, RenderLayersXX};
+    use smallvec::SmallVec;
+    use super::{DEFAULT_RENDER_LAYER, RenderLayer, RenderLayersXX};
 
     #[test]
     fn rendering_mask_sanity() {
-        assert_eq!(RenderLayersXX::default().len(), 1, "default layer contains only one layer");
+        assert_eq!(RenderLayersXX::default().num_layers(), 1, "default layer contains only one layer");
         assert!(RenderLayersXX::default().contains(DEFAULT_RENDER_LAYER), "default layer contains default");
-        assert_eq!(RenderLayersXX::from(RenderLayer(1)).len(), 1, "from contains 1 layer");
+        assert_eq!(RenderLayersXX::from(RenderLayer(1)).num_layers(), 1, "from contains 1 layer");
         assert!(RenderLayersXX::from(RenderLayer(1)).contains(RenderLayer(1)), "contains is accurate");
         assert!(!RenderLayersXX::from(RenderLayer(1)).contains(RenderLayer(2)), "contains fails when expected");
 
-
-
-        assert_eq!(RenderLayersXX::layer(0).with(1).0, 3, "layer 0 + 1 is mask 3");
+        assert_eq!(RenderLayersXX::from(RenderLayer(0)).add(1).layers[0], 3, "layer 0 + 1 is mask 3");
         assert_eq!(
-            RenderLayersXX::layer(0).with(1).without(0).0,
+            RenderLayersXX::from(RenderLayer(0)).add(1).remove(0).layers[0],
             2,
             "layer 0 + 1 - 0 is mask 2"
         );
         assert!(
-            RenderLayersXX::layer(1).intersects(&RenderLayersXX::layer(1)),
+            RenderLayersXX::from(RenderLayer(1)).intersects(&RenderLayersXX::from(RenderLayer(1))),
             "layers match like layers"
         );
         assert!(
-            RenderLayersXX::layer(0).intersects(&RenderLayersXX(1)),
+            RenderLayersXX::from(RenderLayer(0)).intersects(&RenderLayersXX{ layers: SmallVec::from_slice(&[1]) }),
             "a layer of 0 means the mask is just 1 bit"
         );
 
         assert!(
-            RenderLayersXX::layer(0)
-                .with(3)
-                .intersects(&RenderLayersXX::layer(3)),
+            RenderLayersXX::from(RenderLayer(0))
+                .add(3)
+                .intersects(&RenderLayersXX::from(RenderLayer(3))),
             "a mask will match another mask containing any similar layers"
         );
 
@@ -496,19 +512,19 @@ mod rendering_mask_tests {
         );
 
         assert!(
-            !RenderLayersXX::layer(0).intersects(&RenderLayersXX::layer(1)),
+            !RenderLayersXX::from(RenderLayer(0)).intersects(&RenderLayersXX::from(RenderLayer(1))),
             "masks with differing layers do not match"
         );
         assert!(
-            !RenderLayersXX(0).intersects(&RenderLayersXX(0)),
+            !RenderLayersXX::empty().intersects(&RenderLayersXX::empty()),
             "empty masks don't match"
         );
         assert_eq!(
             RenderLayersXX::from_layers(&[0, 2, 16, 30])
                 .iter()
                 .collect::<Vec<_>>(),
-            vec![0, 2, 16, 30],
-            "from_layers and get_layers should roundtrip"
+            vec![RenderLayer(0), RenderLayer(2), RenderLayer(16), RenderLayer(30)],
+            "from and get_layers should roundtrip"
         );
         assert_eq!(
             format!("{:?}", RenderLayersXX::from_layers(&[0, 1, 2, 3])).as_str(),
@@ -517,7 +533,7 @@ mod rendering_mask_tests {
         );
         assert_eq!(
             RenderLayersXX::from_layers(&[0, 1, 2]),
-            <RenderLayersXX as FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
+            <RenderLayersXX as FromIterator<usize>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
         );
     }

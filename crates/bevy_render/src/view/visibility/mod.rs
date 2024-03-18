@@ -1,7 +1,9 @@
+//mod propagate_render_groups;
+mod render_groups;
 mod render_layers;
 
 use bevy_derive::Deref;
-pub use propagate_render_groups::*;
+//pub use propagate_render_groups::*;
 pub use render_groups::*;
 pub use render_layers::*;
 
