@@ -46,10 +46,9 @@ impl Plugin for PanicHandlerPlugin {
         {
             console_error_panic_hook::set_once();
         }
-
-        #[cfg(target_os = "android")]
+        #[cfg(not(target_arch = "wasm32"))]
         {
-            // TODO - How should panics occur on android?
+            // Use the default target panic hook - Do nothing.
         }
     }
 }
