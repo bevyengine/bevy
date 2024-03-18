@@ -685,10 +685,7 @@ impl Triangle3d {
     #[inline(always)]
     pub fn perimeter(&self) -> f32 {
         let [a, b, c] = self.vertices;
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-        ab + bc + ca
+        a.distance(b) + b.distance(c) + c.distance(a)
     }
 
     /// Get the normal of the triangle in the direction of the right-hand rule, assuming
