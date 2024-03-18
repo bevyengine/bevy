@@ -19,19 +19,19 @@ described below.
 
 Dimensions:
 - InheritedRenderGroups and PropagateRenderGroups should not exist on the same entity
-- Add/remove/change RenderGroups
-- Add/remove/change CameraView
-- Add/remove/change PropagateRenderGroups
-- Add/remove Camera
-- Gain parent with PropagateRenderGroups
-- Gain parent without PropagateRenderGroups
-    - Entity with InheritedRenderGroups
-    - Entity without InheritedRenderGroups
-- Become un-parented
+- RenderGroups can be added/changed/removed
+- CameraView can be added/changed/removed
+- PropagateRenderGroups can be added/changed/removed
+- Camera can be added/removed (changes don't matter)
+- Entities can gain a parent with PropagateRenderGroups
+- Entities can gain a parent without PropagateRenderGroups
+    - The entity may or may not have InheritedRenderGroups already
+    - The parent may or may not have InheritedRenderGroups already
+- Entities can become un-parented
 
 Actions:
-- Add/remove/change InheritedRenderGroups
-    - When updating an entity, always compute a fresh InheritedRenderGroups::computed value.
+- This algorithm can: add/remove/change InheritedRenderGroups
+    - When updating an entity, we always compute a fresh InheritedRenderGroups::computed value.
 
 
 ## Propagation algorithm
@@ -120,12 +120,15 @@ its InheritedRenderGroups::computed field. Skip already-updated entities.
 
 ## Performance
 
-The base-line performance cost of this algorithm comes from iterating in order to detect changes.
+The base-line performance cost of this algorithm comes from detecting changes, which requires iterating queries.
 - All entities with `Children` and `PropagateRenderGroups` are iterated twice (can potentially be reduced to once).
+- All entities with `Children` and `InheritedRenderGroups` are iterated once.
+- All entities with `Parent` and `InheritedRenderGroups` are iterated once.
+- All entities with `RenderGroups` and `InheritedRenderGroups` are iterated once.
 - `RemovedComponents<RenderGroups>` is iterated twice.
 - `RemovedComponents<CameraView>` is iterated once.
 - `RemovedComponents<Camera>` is iterated once.
-- `RemovedComponents<Parents>` is iterated once.
+- `RemovedComponents<Parent>` is iterated once.
 */
 
 use crate::view::*;
@@ -141,6 +144,8 @@ use bevy_utils::tracing::warn;
 
 /// System set that applies [`PropagateRenderGroups`] by updating [`InheritedRenderGroups`] components on
 /// entities.
+///
+/// Runs in [`PostUpdate`] in the [`VisibilityPropagate`] set.
 #[derive(SystemSet, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PropagateRenderGroupsSet;
 
@@ -245,7 +250,7 @@ impl PropagateRenderGroups {
 ///
 /// See [`PropagateRenderGroups`].
 ///
-/// This is automatically updated in [`PostUpdate`] in the [`VisibilityPropagate`] set.
+/// This is updated in [`PostUpdate`] in the [`PropagateRenderGroupsSet`].
 /// The component will be automatically added or removed depending on if it is needed.
 ///
 /// ### Merge details

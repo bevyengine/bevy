@@ -222,7 +222,7 @@ impl Default for RenderLayers {
 /// There are two kinds of render groups:
 /// - [`RenderLayers`]: These are grouping categories that many cameras can view (see [`CameraView`]).
 /// - *Camera entity*: This is a specific camera that the entity is affiliated with. This is especially
-///   useful for UI in combination with [`PropagateRenderGroups`].
+/// useful for UI in combination with [`PropagateRenderGroups`].
 ///
 /// An entity can be a member of multiple [`RenderLayers`] in addition to having a camera affiliation.
 ///
@@ -486,7 +486,7 @@ impl<'a> RenderGroupsRef<'a> {
 /// view the [`DEFAULT_RENDER_LAYER`] layer.
 ///
 /// A camera without the `CameraView` component will see the [`DEFAULT_RENDER_LAYER`]
-/// layer, in addition to relevant [`RenderGroups`] camera affiliations.
+/// layer, in addition to any affiliated entities.
 ///
 /// A default `CameraView` will include the [`DEFAULT_RENDER_LAYER`].
 #[derive(Component, Debug, Clone, PartialEq, Reflect)]
