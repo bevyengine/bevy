@@ -5,6 +5,7 @@ use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_reflect::prelude::ReflectDefault;
 
+use std::ops::Deref;
 use smallvec::SmallVec;
 
 /// The default [`RenderLayer`].
@@ -402,6 +403,32 @@ impl Default for RenderGroups {
     /// Equivalent to `Self::from(DEFAULT_RENDER_LAYER)`.
     fn default() -> Self {
         Self::from(DEFAULT_RENDER_LAYER)
+    }
+}
+
+/// Stores a [`RenderGroups`] reference or value.
+///
+/// Useful for unwrapping an optional reference with fallback to a default value.
+pub enum RenderGroupsRef<'a> {
+    Ref(&'a RenderGroups),
+    Val(RenderGroups),
+}
+
+impl<'a> Deref for RenderGroupsRef<'a> {
+    type Target = RenderGroups;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<'a> RenderGroupsRef<'a> {
+    /// Gets a reference to the internal [`RenderGroups`].
+    pub fn get(&self) -> &RenderGroups {
+        match self {
+            Self::Ref(groups) => groups,
+            Self::Val(groups) => &groups,
+        }
     }
 }
 

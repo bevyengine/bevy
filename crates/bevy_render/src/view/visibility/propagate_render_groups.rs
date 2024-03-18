@@ -139,32 +139,6 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_utils::error_once;
 use bevy_utils::tracing::warn;
 
-use std::ops::Deref;
-
-/// Returned by [`PropagateRenderGroups::get_render_groups`].
-pub enum RenderGroupsRef<'a> {
-    Ref(&'a RenderGroups),
-    Val(RenderGroups),
-}
-
-impl<'a> Deref for RenderGroupsRef<'a> {
-    type Target = RenderGroups;
-
-    fn deref(&self) -> &Self::Target {
-        self.get()
-    }
-}
-
-impl<'a> RenderGroupsRef<'a> {
-    /// Gets a reference to the internal [`RenderGroups`].
-    pub fn get(&self) -> &RenderGroups {
-        match self {
-            Self::Ref(groups) => groups,
-            Self::Val(groups) => &groups,
-        }
-    }
-}
-
 /// Component on an entity that causes it to propagate a [`RenderGroups`] value to its children.
 ///
 /// Entities with this component will ignore [`RenderGroups`] propagated by parents.
