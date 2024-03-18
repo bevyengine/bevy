@@ -1,5 +1,5 @@
 //! This module provides the `LinearConvexSpace` trait and some related objects
-use glam::{Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
+use glam::{DVec2, DVec3, DVec4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
 
 /// A trait providing methods for spanning a linear, convex space.
 ///
@@ -57,6 +57,11 @@ impl_linear_convex_space!(Vec3, f32);
 impl_linear_convex_space!(Vec3A, f32);
 impl_linear_convex_space!(Vec4, f32);
 impl_linear_convex_space!(Quat, f32);
+
+impl_linear_convex_space!(f64, f64);
+impl_linear_convex_space!(DVec2, f64);
+impl_linear_convex_space!(DVec3, f64);
+impl_linear_convex_space!(DVec4, f64);
 
 impl_linear_convex_space!(u32, u32);
 impl_linear_convex_space!(UVec2, u32);
