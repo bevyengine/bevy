@@ -188,7 +188,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh prepass fragment shader will be used.
     ///
-    /// This is part of an experimental feature, and is unnecessary to implement unless you are using MeshletMesh's.
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
