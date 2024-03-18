@@ -434,12 +434,9 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read_with_id(&self.events)
     }
 
+    /// Returns a parallel iterator over the events this [`EventReader`] has not seen yet.
     pub fn par_read(&mut self) -> EventParIter<'_, E> {
         self.reader.par_read(&self.events)
-    }
-
-    pub fn par_read_with_id(&mut self) -> EventParIterWithId<'_, E> {
-        self.reader.par_read_with_id(&self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
@@ -636,12 +633,7 @@ impl<E: Event> ManualEventReader<E> {
 
     /// See [`EventReader::par_read`]
     pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
-        self.par_read_with_id(events).without_id()
-    }
-
-    /// See [`EventReader::par_read_with_id`]
-    pub fn par_read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventParIterWithId<'a, E> {
-        EventParIterWithId::new(self, events)
+        EventParIter::new(self, events)
     }
 
     /// See [`EventReader::len`]
@@ -808,11 +800,11 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 }
 
 #[derive(Debug)]
-pub struct EventParIterWithId<'a, E: Event> {
+pub struct EventParIter<'a, E: Event> {
     slices: [&'a [EventInstance<E>]; 2],
 }
 
-impl<'a, E: Event> EventParIterWithId<'a, E> {
+impl<'a, E: Event> EventParIter<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
@@ -832,7 +824,11 @@ impl<'a, E: Event> EventParIterWithId<'a, E> {
         Self { slices: [a, b] }
     }
 
-    pub fn for_each<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
+        self.for_each_with_id(move |e, _| func(e))
+    }
+
+    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
         let pool = bevy_tasks::ComputeTaskPool::get();
         let threads = pool.thread_num().max(1);
         let count: usize = self.slices.iter().map(|s| s.len()).sum();
@@ -864,22 +860,6 @@ impl<'a, E: Event> EventParIterWithId<'a, E> {
                 })
             }
         });
-    }
-    /// Iterate over only the events.
-    pub fn without_id(self) -> EventParIter<'a, E> {
-        EventParIter { iter: self }
-    }
-}
-
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
-#[derive(Debug)]
-pub struct EventParIter<'a, E: Event> {
-    iter: EventParIterWithId<'a, E>,
-}
-
-impl<'a, E: Event> EventParIter<'a, E> {
-    pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
-        self.iter.for_each(move |e, _| func(e))
     }
 }
 
