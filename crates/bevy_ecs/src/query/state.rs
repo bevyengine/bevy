@@ -53,14 +53,14 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
 
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut debug = f.debug_struct("QueryState");
-        debug.field("world_id", &self.world_id);
-        if D::IS_DENSE && F::IS_DENSE {
-            debug.field("matched_table_count", &self.matched_storage_ids.len());
-        } else {
-            debug.field("matched_archetype_count", &self.matched_storage_ids.len());
-        }
-        debug.finish_non_exhaustive()
+        f.debug_struct("QueryState")
+            .field("world_id", &self.world_id)
+            .field("matched_table_count", &self.matched_tables.count_ones(..))
+            .field(
+                "matched_archetype_count",
+                &self.matched_archetypes.count_ones(..),
+            )
+            .finish_non_exhaustive()
     }
 }
 
@@ -123,7 +123,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn matched_archetypes(&self) -> impl Iterator<Item = ArchetypeId> + '_ {
         self.matched_archetypes
             .ones()
-            .map(|index| ArchetypeId::new(ibndex))
+            .map(|index| ArchetypeId::new(index))
     }
 }
 
