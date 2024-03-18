@@ -1,9 +1,9 @@
 use std::ops::{Div, Mul};
 
 use crate::color_difference::EuclideanDistance;
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,7 +13,7 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Srgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,
@@ -307,6 +307,24 @@ impl EuclideanDistance for Srgba {
     }
 }
 
+impl ClampColor for Srgba {
+    fn clamped(&self) -> Self {
+        Self {
+            red: self.red.clamp(0., 1.),
+            green: self.green.clamp(0., 1.),
+            blue: self.blue.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.red)
+            && (0. ..=1.).contains(&self.green)
+            && (0. ..=1.).contains(&self.blue)
+            && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
 impl From<LinearRgba> for Srgba {
     #[inline]
     fn from(value: LinearRgba) -> Self {
@@ -489,5 +507,22 @@ mod tests {
 
         assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
         assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Srgba::rgb(2., -1., 0.4);
+        let color_2 = Srgba::rgb(0.031, 0.749, 1.);
+        let mut color_3 = Srgba::rgb(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Srgba::rgb(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Srgba::rgb(0., 1., 1.));
     }
 }

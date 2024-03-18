@@ -3,8 +3,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_app::prelude::*;
+
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
+pub mod fps_overlay;
 
 #[cfg(feature = "bevy_ui_debug")]
 pub mod debug_overlay;

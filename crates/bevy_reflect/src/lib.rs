@@ -493,6 +493,7 @@ mod impls {
         mod primitives2d;
         mod primitives3d;
         mod rect;
+        mod rotation2d;
     }
     #[cfg(feature = "petgraph")]
     mod petgraph;

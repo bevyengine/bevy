@@ -942,6 +942,3 @@ pub type DrawPrepass<M> = (
     SetMaterialBindGroup<M, 2>,
     DrawMesh,
 );
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-struct PrepassLightsViewFlush;
