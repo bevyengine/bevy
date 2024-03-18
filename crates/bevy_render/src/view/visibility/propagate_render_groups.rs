@@ -115,6 +115,7 @@ to a non-propagator.
 
 - If a non-propagator entity with InheritedRenderGroups has an added/removed/changed RenderGroups, then recompute
 its InheritedRenderGroups::computed field. Skip already-updated entities.
+    - SYSTEM: handle_modified_rendergroups
 
 
 ## Performance
@@ -238,7 +239,34 @@ pub struct InheritedRenderGroups
     pub computed: RenderGroups,
 };
 
-//todo: insert resource
+/// System set that applies [`PropagateRenderGroups`] by updating [`InheritedRenderGroups`] components on
+/// entities.
+#[derive(SystemSet, Debug, Hash, Eq, PartialEq)]
+pub struct PropagateRenderGroupsSet;
+
+pub(crate) struct PropagateRenderGroupsPlugin;
+
+impl Plugin for PropagateRenderGroupsPlugin {
+    fn build(app: &mut App) {
+        app.init_resource::<PropagateRenderGroupsEntityCache>()
+            .add_systems(PostUpdate,
+                (
+                    clean_propagators,
+                    propagate_updated_propagators,
+                    propagate_to_new_children,
+                    handle_orphaned_nonpropagators,
+                    handle_lost_propagator,
+                    handle_new_children_nonpropagator,
+                    handle_new_parent_nonpropagator,
+                    apply_deferred,
+                    handle_modified_rendergroups,  //does not have deferred commands
+                )
+                    .chain()
+                    .in_set(PropagateRenderGroupsSet)
+            );
+    }
+}
+
 #[derive(Resource, Default, Deref, DerefMut)]
 struct PropagateRenderGroupsEntityCache(EntityHashMap);
 
@@ -983,7 +1011,65 @@ fn handle_new_parent_nonpropagator(
     }
 }
 
-/*
-- If a non-propagator entity with InheritedRenderGroups has an added/removed/changed RenderGroups, then recompute
-its InheritedRenderGroups::computed field. Skip already-updated entities.
-*/
+/// Handles added/removed/changed RenderGroups for entities with existing InheritedRenderGroups.
+fn handle_modified_rendergroups(
+    mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
+    // Entities with InheritedRenderGroups that changed RenderGroups
+    inherited_changed: Query<
+        Entity,
+        (Changed<RenderGroups>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // RenderGroups removals.
+    mut removed_rendergroups: RemovedComponents<RenderGroups>,
+    // Query for accessing propagators
+    all_propagators: Query<
+        (
+            Entity,
+            Option<&RenderGroups>,
+            Option<&CameraView>,
+            Has<Camera>,
+            &PropagateRenderGroups,
+        )
+    >,
+    // Query for updating InheritedRenderGroups on non-propagator entities.
+    maybe_inherited: &mut Query<
+        (Option<&RenderGroups>, &mut InheritedRenderGroups),
+        Without<PropagateRenderGroups>,
+    >,
+) {
+    for entity in inherited_changed.iter().zip(removed_rendergroups.read()) {
+        // Skip entity if already updated.
+        if updated_entities.contains(entity) {
+            continue;
+        }
+
+        // Skip entity if it's a propagator or doesn't exist.
+        let Ok((maybe_render_groups, mut inherited)) = maybe_inherited.get(entity) else {
+            continue;
+        };
+
+        // Skip entity if propagator is missing.
+        // - This is an error, hierarchy steps should have marked this entity as updated.
+        let Some((
+            propagator,
+            maybe_render_groups,
+            maybe_camera_view,
+            maybe_camera,
+            propagate
+        )) = all_propagators.get(inherited.propagator) else {
+            error_once!("hierarchy error: propagator missing for {entity} in `handle_modified_rendergroups`");
+            continue;
+        };
+
+        // Get propagated value.
+        let propagated = propagate.get_render_groups(
+            propagator,
+            maybe_render_groups,
+            maybe_camera_view,
+            maybe_camera
+        );
+
+        // Update entity value.
+        inherited.computed.merge(propagated);
+    }
+}
