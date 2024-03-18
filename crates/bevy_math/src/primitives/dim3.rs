@@ -640,13 +640,13 @@ pub struct Triangle3d {
 impl Primitive3d for Triangle3d {}
 
 impl Default for Triangle3d {
-    /// Returns the default [`Triangle3d`] with vertices at the `[-0.5, 0.0, 0.0]`, `[0.5, 0.0, 0.0]`, and `[0.0, 0.5, 0.0]`
+    /// Returns the default [`Triangle3d`] with the vertices `[0.5, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]
     fn default() -> Self {
         Self {
             vertices: [
-                Vec3::new(-0.5, 0.0, 0.0),
-                Vec3::new(0.5, 0.0, 0.0),
-                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(0.5, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
             ],
         }
     }
