@@ -136,14 +136,26 @@ impl DevToolsStore {
     }
 }
 
-/// Extend [`App`] with new `register_dev_tool` function.
-pub trait RegisterDevTool {
-    /// Registers a new [`DevTool`].
-    fn register_dev_tool(&mut self, dev_tool: DevToolConfig) -> &mut Self;
+/// Extends [`App`] with new `init_dev_tool` and `insert_dev_tool` functions.
+pub trait DevToolApp {
+    /// Initialize a new [`DevTool`].
+    fn init_dev_tool<D: DevTool + Default>(&mut self) -> &mut Self;
+    /// Insert a new [`DevTool`] with configuration.
+    fn insert_dev_tool<D: DevTool>(&mut self, value: D) -> &mut Self;
 }
 
-impl RegisterDevTool for App {
-    fn register_dev_tool(&mut self, dev_tool: DevToolConfig) -> &mut Self {
+impl DevToolApp for App {
+    fn init_dev_tool<D: DevTool + Default>(&mut self) -> &mut Self {
+        let dev_tool = DevToolConfig::new(TypeId::of::<D>(), D::default());
+        let mut dev_tools = self
+            .world
+            .get_resource_or_insert_with::<DevToolsStore>(Default::default);
+        dev_tools.add(dev_tool);
+        self
+    }
+
+    fn insert_dev_tool<D: DevTool>(&mut self, value: D) -> &mut Self {
+        let dev_tool = DevToolConfig::new(TypeId::of::<D>(), value);
         let mut dev_tools = self
             .world
             .get_resource_or_insert_with::<DevToolsStore>(Default::default);

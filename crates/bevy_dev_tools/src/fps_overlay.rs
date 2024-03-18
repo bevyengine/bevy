@@ -16,7 +16,7 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
-use crate::{DevTool, DevToolConfig, DevToolsStore, RegisterDevTool};
+use crate::{DevTool, DevToolApp, DevToolsStore};
 
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
@@ -38,10 +38,7 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
         app.insert_resource(self.config.clone())
-            .register_dev_tool(DevToolConfig::new(
-                TypeId::of::<FpsOverlayConfig>(),
-                FpsOverlayConfig::default(),
-            ))
+            .init_dev_tool::<FpsOverlayConfig>()
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
