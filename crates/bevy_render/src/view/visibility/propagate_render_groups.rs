@@ -41,7 +41,7 @@ an entity has been updated it won't be updated again (unless explicitly specifie
 
 We take note of a couple 'problems' that are challenging edge cases, and how they are handled.
 
-### Propagators
+### Propagator Repair
 
 - If an entity has both InheritedRenderGroups and PropagateRenderGroups, then remove its InheritedRenderGroups.
     - SYSTEM: clean_propagators
@@ -62,7 +62,7 @@ propagator is encountered.
     since its insertion is deferred.
         - SOLUTION: See "If a non-propagator entity is parented to a non-propagator".
 
-### Non-Propagators
+### Non-Propagator Hierarchy Repair
 
 - If a non-propagator entity with InheritedRenderGroups is un-parented, then remove InheritedRenderGroups from the
 entity and its children (stopping at propagators).
@@ -72,10 +72,14 @@ entity and its children (stopping at propagators).
     descendent of an un-parented entity will want to pull inheritance from its parent, but removal of
     InheritedRenderGroups is deferred so the component it would access would be stale.
 - If an entity loses a PropagateRenderGroups component, then inherit its parent's propagator entity, and propagate
-that to its own children (stopping when a propagator is encountered). If the parent isn't a propagator and doesn't
+that to its own children (stopping when a propagator is encountered or if an entity is non-updated and has an
+InheritedRenderGroups that matches the propagator). If the parent isn't a propagator and doesn't
 have InheritedRenderGroups (or there is no parent), then remove InheritedRenderGroups from the entity and its
-children (stopping at propagators). Skip already-updated entities that lost PropagateRenderGroups.
+children (stopping at propagators and non-updated descendents without InheritedRenderGroups). Skip already-updated
+entities that lost PropagateRenderGroups.
     - SYSTEM: handle_lost_propagator
+    - The goal of this step is to update the span of entities starting at the entity that lost a
+    PropagateRenderGroups component, and ending at entities that aren't potentially-invalid.
     - If the parent is marked updated (but the entity is not marked updated), then this entity's propagator
     stays the same (see "If a propagator gains non-propagator children") (this can only happen if InheritedRenderGroups
     was manually inserted by a user, since the entity would not have had InheritedRenderGroups in the previous tick
@@ -89,13 +93,26 @@ children (stopping at propagators). Skip already-updated entities that lost Prop
             the desired policy (regardless of it the entity has InheritedRenderGroups), in case previous deferred
             updates of this type need to be overwritten.
 - If a non-propagator entity is parented to a non-propagator, then propagate the parent's InheritedRenderGroups
-propagator entity (stopping at propagators). If the parent doesn't have
-InheritedRenderGroups, then remove InheritedRenderGroups from the entity and its children (stopping at propagators).
-Skip already-updated entities that were parented to a non-propagator.
+propagator entity (stopping at propagators and descendents that share the parent's propagator). If the parent doesn't
+have InheritedRenderGroups, then remove InheritedRenderGroups from the entity and its children (stopping at propagators
+and children that don't have InheritedRenderGroups and aren't updated). Skip already-updated entities that were parented
+to a non-propagator.
+    - SYSTEMS: handle_new_children_nonpropagator, handle_new_parent_nonpropagator
+    - The goal of this step is to update the span of entities starting at the entity that was reparented, and ending
+    at entities that aren't potentially-invalid.
     - If the parent is marked updated (but the entity is not marked updated), then this entity's propagator
     stays the same (see "If a propagator gains non-propagator children"). In that case, do not mark the entity updated
     and simply skip it.
     - Force-update children for the same reason as "If an entity loses a PropagateRenderGroups component".
+    - The implementation does not iterate non-propagator entities without InheritedRenderGroups that were parented
+    to entities without InheritedRenderGroups. Issues that can arise from that case, such as other hierarchy moves
+    below or above an entity, will be handled correctly by this and previous steps.
+    - Note that the challenging hierarchy reasoning used here is necessary to allow efficient queries. A careless
+    solution would require iterating all entities with Parent or Children changes, and traversing the hierarchy many
+    times redundantly.
+
+### Non-Propagator Targeted Repair
+
 - If a non-propagator entity with InheritedRenderGroups has an added/removed/changed RenderGroups, then recompute
 its InheritedRenderGroups::computed field. Skip already-updated entities.
 
@@ -313,7 +330,7 @@ fn propagate_updated_propagators(
         }
 
         // Get value to propagate.
-        // Note: This can allocate spuriously if there are no children that need it.
+        // TODO: This can allocate spuriously if there are no children that need it.
         let propagated = propagate.get_render_groups(
             propagator,
             maybe_render_groups,
@@ -435,7 +452,7 @@ fn propagate_to_new_children(
         }
 
         // Get value to propagate.
-        // Note: This can allocate spuriously if there are no children that need it.
+        // TODO: This can allocate spuriously if there are no children that need it.
         let propagated = propagate.get_render_groups(
             propagator,
             maybe_render_groups,
@@ -617,7 +634,7 @@ fn handle_lost_propagator(
         //   - Policy: remove all
         // - Subcase 2: Propagator stored in self's InheritedRenderGroups doesn't exist
         //   - Policy: remove all
-        // - Subcase 3: Recalculate InheritedRenderGroups with stored propagator
+        // - Subcase 3: Recalculate InheritedRenderGroups with self-stored propagator
         //   - Policy: propagate value derived from propagator
 
         // Case 5: parent is a propagator
@@ -636,10 +653,10 @@ fn handle_lost_propagator(
                 // Parent was marked updated (but self was not)
                 let Ok((_, maybe_inherited)) = maybe_inherited.get(entity) {
                     let Some(inherited) = maybe_inherited {
-                        // Case 4-1, 4-2
+                        // Case 4-2, 4-3
                         Some(inherited.propagator)
                     } else {
-                        // Case 4-3
+                        // Case 4-1
                         None
                     }
                 } else {
@@ -667,8 +684,8 @@ fn handle_lost_propagator(
         };
 
         // Propagate if possible
-        // - Case 3-2, 4-2
-        // - Cases 3-1, 4-1 are filtered out here.
+        // - Case 3-2, 4-3
+        // - Cases 3-1, 4-2 are filtered out here.
         let Some((
             propagator,
             maybe_render_groups,
@@ -677,12 +694,20 @@ fn handle_lost_propagator(
             propagate
         )) = propagator.filter_map(|p| all_propagators.get(p)) {
             // Propagation value
+            // TODO: This can allocate spuriously if there are no children that need it.
             let propagated = propagate.get_render_groups(
                 propagator,
                 maybe_render_groups,
                 maybe_camera_view,
                 maybe_camera
             );
+
+            // Pre-update the entity as a hack for case 4-3. If we don't do this then
+            // the entity will be caught in "Leave if entity is non-updated and inherits a matching propagator."
+            // - Note: Case 4-3 is compensating for users manually inserting InheritedRenderGroups
+            // components, so this could be simplified if that's deemed overkill (we don't fully compensate for
+            // manual messing with InheritedRenderGroups anyway, so there is no real reliability for doing so).
+            updated_entities.insert(entity);
 
             apply_full_propagation_force_update(
                 &mut commands,
@@ -706,9 +731,7 @@ fn handle_lost_propagator(
     }
 }
 
-/// Applies propagation to entities for `handle_lost_propagator`.
-// Note: This does not require checking updated_entities because we force-update children regardless of
-// previous updates.
+/// Applies propagation to entities for `handle_lost_propagator` and `handle_new_children_nonpropagator`.
 fn apply_full_propagation_force_update(
     commands: &mut Commands,
     updated_entities: &mut PropagateRenderGroupsEntityCache,
@@ -724,6 +747,13 @@ fn apply_full_propagation_force_update(
     // Leave if entity doesn't exist or has PropagateRenderGroups.
     let Ok((maybe_render_groups, mut maybe_inherited_groups)) = maybe_inherited.get_mut(entity) else {
         return;
+    }
+
+    // Leave if entity is non-updated and inherits a matching propagator.
+    if let Some(inherited) = maybe_inherited_groups {
+        if (inherited.propagator == propagator) && !updated_entities.contains(entity) {
+            return;
+        }
     }
 
     // Force-update
@@ -760,9 +790,8 @@ fn apply_full_propagation_force_update(
     }
 }
 
-/// Applies InheritedRenderGroups-removal to entities for `handle_lost_propagator`.
-// Note: This does not require checking updated_entities because we force-update children regardless of
-// previous updates.
+/// Applies InheritedRenderGroups removal to entities for `handle_lost_propagator`,
+/// `handle_new_children_nonpropagator`, and `handle_new_parent_nonpropagator`.
 fn apply_full_propagation_force_remove(
     commands: &mut Commands,
     updated_entities: &mut PropagateRenderGroupsEntityCache,
@@ -774,7 +803,12 @@ fn apply_full_propagation_force_remove(
     entity: Entity,
 ) {
     // Leave if entity doesn't exist or has PropagateRenderGroups.
-    let Ok(_) = maybe_inherited.get_mut(entity) else {
+    let Ok((_, maybe_inherited: Option<&mut InheritedRenderGroups>)) = maybe_inherited.get(entity) else {
+        return;
+    }
+
+    // Leave if entity is non-updated and doesn't have InheritedRenderGroups.
+    if maybe_inherited.is_none() && !updated_entities.contains(entity) {
         return;
     }
 
@@ -793,202 +827,163 @@ fn apply_full_propagation_force_remove(
     }
 }
 
-/*
-
-fn propagate_render_groups_updated_propagators(
-    mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
+/// Handles non-propagator entities with InheritedRenderGroups whose children changed.
+fn handle_new_children_nonpropagator(
     mut commands: Commands,
-    // Query for entities with PropagateRenderGroups that InheritedRenderGroups needs to be removed from.
-    dirty_propagators: Query<Entity, (With<InheritedRenderGroups>, With<PropagateRenderGroups>)>,
-    // Query for all propagators with changed PropagateRenderGroups.
-    // This does a 'full propagation' to push changes all the way down the tree.
-    changed_propagate_cameras_query: Query<
-        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups),
-        Changed<PropagateRenderGroups>
+    mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
+    // Entities with InheritedRenderGroups that changed children
+    inherited_with_children: Query<
+        (Entity, &Children, &InheritedRenderGroups),
+        (Changed<Children>, Without<PropagateRenderGroups>)
     >,
-    // Query for camera propagator entities with changed CameraView.
-    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
-    changed_view_cameras_query: Query<
-        (Entity, &CameraView, Option<&RenderGroups>, &PropagateRenderGroups),
-        (With<Camera>, Changed<CameraView>),
+    // Query for accessing propagators
+    all_propagators: Query<
+        (
+            Entity,
+            Option<&RenderGroups>,
+            Option<&CameraView>,
+            Has<Camera>,
+            &PropagateRenderGroups,
+        )
     >,
-    // Tracker to identify entities that lost CameraView.
-    mut removed_cameraview: RemovedComponents<CameraView>,
-    // Query for all propagators with removed CameraView.
-    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
-    removed_cameraview_propagator_query: Query<
-        (Entity, Option<&RenderGroups>, Option<&Camera>, &PropagateRenderGroups),
-        Without<CameraView>
-    >,
-    // Query for all propagator entities with updated RenderGroups.
-    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
-    changed_rendergroups_propagator_query: Query<
-        (Entity, &RenderGroups, &PropagateRenderGroups),
-        (Changed<RenderGroups>)
-    >,
-    // Tracker to identify entities that lost RenderGroups.
-    mut removed_rendergroups: RemovedComponents<RenderGroups>,
-    // Query for propagator entities with removed RenderGroups.
-    // This does a 'full propagation' (depending on propagation mode) to push changes all the way down the tree.
-    removed_rendergroups_propagator_query: Query<
-        (Entity, Option<&CameraView>, Option<&Camera>, &PropagateRenderGroups),
-        Without<RenderGroups>
-    >,
-
     // Query for getting Children.
     children_query: Query<&Children>,
-    // Query for updating InheritedRenderGroups on entities.
-    mut maybe_inherited_query: Query<(Entity, Option<&RenderGroups>, Option<&mut InheritedRenderGroups>)>,
+    // Query for updating InheritedRenderGroups on non-propagator entities.
+    mut maybe_inherited: Query<
+        (Option<&RenderGroups>, Option<&mut InheritedRenderGroups>),
+        Without<PropagateRenderGroups>,
+    >,
 ) {
-    // Track updated entities to prevent redundant updates, as `Commands` changes are deferred.
-    //
-    // Using this ensures that once mutations to entities with PropagateRenderGroups have been
-    // propagated, all entities affected by those changes won't be mutated again. This makes it
-    // safe to read parent InheritedRenderGroups (in the other cases that need to be handled) in
-    // order to 'pull in' inherited changes when needed.
-    updated_entities.clear();
-}
-
-//todo: chain after propagate_render_groups_full
-fn propagate_render_groups_targeted(
-    mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
-    mut commands: Commands,
-    // Query for all propagators with changed children.
-    // This does a 'propagator enity propagation' to push changes to only descendents with different propagator
-    // entities.
-    changed_children_propagator_query: Query<
-        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups),
-        Changed<Children>,
-    >,
-    // Tracker to identify entities that lost PropagateRenderGroups.
-    // - Takes into account where the entity has a parent.
-    // - Takes into account whether the parent is a propagator or non-propagator.
-    // These entities and their children will be 'repropagated' from the lost entities' parents.
-    mut removed_propagate: RemovedComponents<PropagateRenderGroups>,
-    removed_propagate_entities: Query<&Children, Without<PropagateRenderGroups>>,
-    // Query for entities with InheritedRenderGroups who gained a new parent.
-    // - Ignores entities whose parents have PropagateRenderGroups, since that case is handled by
-    //   changed_children_propagator_query.
-    // - If the parent doesn't have InheritedRenderGroups, then the entity and its children will be 'unpropagated'.
-    // - If the parent does have InheritedRenderGroups, then propagation will be applied to the entity and
-    //   its children.
-    // This does a 'propagator enity propagation' to push changes to only descendents with different propagator
-    // entities.
-    changed_parents_query: Query<
-        (Entity, Option<&Children>),
-        (Changed<Parent>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
-    >,
-    // Query for entities with InheritedRenderGroups whose children changed.
-    // - Ignores children with InheritedRenderGroups, those are handled by changed_parents_query.
-    // This does a 'propagator enity propagation' to push changes to only descendents with different propagator
-    // entities.
-    changed_children_query: Query<
-        (Entity, &Children),
-        (Changed<Children>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
-    >,
-    // Query for non-propagator entities with updated RenderGroups.
-    // This updates the entity's InheritedRenderGroups.
-    changed_rendergroups_query: Query<
-        (Entity, &RenderGroups),
-        (Changed<RenderGroups>, Without<PropagateRenderGroups>)
-    >,
-    // Tracker to identify entities that lost RenderGroups.
-    mut removed_rendergroups: RemovedComponents<RenderGroups>,
-    // Query for non-propagator entities with InheritedRenderGroups and removed RenderGroups.
-    // This updates the entity's InheritedRenderGroups.
-    removed_rendergroups_query: Query<
-        Entity,
-        (With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
-    >,
-
-    // Query for getting Children.
-    children_query: Query<&Children>,
-    // Query for entities that propagate.
-    // Used when pulling inheritance information from the parent.
-    propagators: Query<
-        (Entity, Option<&CameraView>, Option<&Camera>, Option<&RenderGroups>, &PropagateRenderGroups)
-    >,
-    // Query for entities that inherited and don't propagate.
-    // Used when pulling inheritance information from the parent.
-    nonpropagators: Query<(), (With<InheritedRenderGroups>, Without<PropagateRenderGroups>)>,
-    // Query for updating InheritedRenderGroups on entities.
-    mut maybe_inherited_query: Query<(Entity, Option<&RenderGroups>, Option<&mut InheritedRenderGroups>)>,
-) {
-
-    let camera_view = maybe_camera_view.unwrap_or(&CameraView::default());
-
-    let mut propagated = if let Some(propagate) = maybe_propagate_groups {
-        Some(propagate.get_from_camera(entity, camera_view))
-    } else {
-        None
-    };
-
-    // Assuming that TargetCamera is manually set on the root node only,
-    // update root nodes first, since it implies the biggest change
-    for (root_node, target_camera) in &changed_root_nodes_query {
-        update_children_render_groups(
-            root_node,
-            target_camera,
-            &node_query,
-            &children_query,
-            &mut commands,
-            &mut updated_entities,
-        );
-    }
-
-    // If the root node TargetCamera was changed, then every child is updated
-    // by this point, and iteration will be skipped.
-    // Otherwise, update changed children
-    for (parent, target_camera) in &changed_children_query {
-        update_children_render_groups(
-            parent,
-            target_camera,
-            &node_query,
-            &children_query,
-            &mut commands,
-            &mut updated_entities,
-        );
-    }
-}
-
-fn update_children_render_groups(
-    updated_entities: &mut HashSet<Entity>,
-    entity: Entity,
-    camera_to_set: Option<&TargetCamera>,
-    node_query: &Query<Option<&TargetCamera>, With<Node>>,
-    children_query: &Query<&Children, With<Node>>,
-    commands: &mut Commands,
-) {
-    let Ok(children) = children_query.get(entity) else {
-        return;
-    };
-
-    for &child in children {
-        // Skip if the child has already been updated or update is not needed
-        if updated_entities.contains(&child)
-            || camera_to_set == node_query.get(child).ok().flatten()
-        {
+    for (entity, children, inherited) in inherited_with_children.iter() {
+        // Skip entity if already updated, which implies children are already in an accurate state.
+        if updated_entities.contains(entity) {
             continue;
         }
 
-        match camera_to_set {
-            Some(camera) => {
-                commands.entity(child).insert(camera.clone());
-            }
-            None => {
-                commands.entity(child).remove::<TargetCamera>();
-            }
-        }
-        updated_entities.insert(child);
+        let Some((
+            propagator,
+            maybe_render_groups,
+            maybe_camera_view,
+            maybe_camera,
+            propagate
+        )) = inherited.propagator.filter_map(|p| all_propagators.get(p)) else {
+            // Remove InheritedRenderGroups from descendents if the propagator is missing
+            // - This is either an error caused by manually modifying InheritedRenderGroups, or is caused by a
+            // reparenting + propagator despawn.
 
-        update_children_render_groups(
-            child,
-            camera_to_set,
-            node_query,
-            children_query,
-            commands,
-            updated_entities,
+            // Iterate children
+            for child in children.iter() {
+                // Skip children that were already updated.
+                // - Note that this can happen e.g. because the child lost the PropagateRenderGroups component.
+                if updated_entities.contains(child) {
+                    continue;
+                }
+
+                // Propagate
+                apply_full_propagation_force_remove(
+                    commands,
+                    updated_entities,
+                    children_query,
+                    maybe_inherited,
+                    child
+                );
+            }
+
+            continue;
+        };
+
+        // Get value to propagate.
+        // TODO: This can allocate spuriously if there are no children that need it.
+        let propagated = propagate.get_render_groups(
+            propagator,
+            maybe_render_groups,
+            maybe_camera_view,
+            maybe_camera
         );
+
+        // Iterate children
+        for child in children.iter() {
+            // Skip children that were already updated. We only skip updated children of this initial high-level
+            // loop, not children within the recursion which need to be force-updated. The 'span' of entities
+            // we update in this step starts at non-updated children of an entity with InheritedRenderGroups.
+            // - Note that this can happen e.g. because the child lost the PropagateRenderGroups component.
+            if updated_entities.contains(child) {
+                continue;
+            }
+
+            // Propagate
+            apply_full_propagation_force_update(
+                commands,
+                updated_entities,
+                children_query,
+                maybe_inherited,
+                propagator,
+                propagated,
+                child
+            );
+        }
     }
 }
+
+/// Handles non-propagator entities with InheritedRenderGroups whose parents changed.
+/// - Since handle_new_children_nonpropagator handles all cases where the parent has InheritedRenderGroups, this
+/// system just needs to remove InheritedRenderGroups from non-updated entities and their non-updated descendents
+/// that have InheritedRenderGroups (stopping at propagators and non-updated descendents without
+/// InheritedRenderGroups).
+/// - We skip non-updated entities whose parents are updated, because that implies the current InheritedRenderGroups
+/// propagator is accurate.
+fn handle_new_parent_nonpropagator(
+    mut commands: Commands,
+    mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
+    // Entities with InheritedRenderGroups that changed parents
+    inherited_with_parent: Query<
+        (Entity, Option<&Children>, &Parent),
+        (Changed<Parent>, With<InheritedRenderGroups>, Without<PropagateRenderGroups>)
+    >,
+    // Query for Children
+    children_query: &Query<&Children>,
+    // Query for updating InheritedRenderGroups on non-propagator entities.
+    maybe_inherited: &mut Query<
+        (Option<&RenderGroups>, Option<&mut InheritedRenderGroups>),
+        Without<PropagateRenderGroups>,
+    >,
+) {
+    for (entity, maybe_children, parent) in inherited_with_parent.iter() {
+        // Skip entity if already updated
+        if updated_entities.contains(entity) {
+            continue;
+        }
+
+        // Skip entity if parent was updated
+        if updated_entities.contains(*parent) {
+            continue;
+        }
+
+        // Remove from self.
+        commands.get(entity).remove::<InheritedRenderGroups>();
+
+        // Mark as updated.
+        updated_entities.insert(entity);
+
+        // Iterate children.
+        // - We assume the parent of this entity does NOT have InheritedRenderGroups, so neither should its
+        // descendents.
+        let Some(children) = maybe_children else {
+            continue;
+        };
+        for child in children.iter() {
+            apply_full_propagation_force_remove(
+                &mut commands,
+                &mut updated_entities,
+                &children_query,
+                &maybe_inherited,
+                child
+            );
+        }
+    }
+}
+
+/*
+- If a non-propagator entity with InheritedRenderGroups has an added/removed/changed RenderGroups, then recompute
+its InheritedRenderGroups::computed field. Skip already-updated entities.
 */
