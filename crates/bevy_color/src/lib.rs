@@ -156,7 +156,7 @@ where
 /// coponentwise arithmetic operations on the provided properties of `T`.
 ///
 /// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` seperately.
-macro_rules! impl_componentwise_linear_convex_space {
+macro_rules! impl_color_linear_convex_space {
     ($ty: ident, [$($element: ident),+]) => {
         impl bevy_math::linear_convex_space::LinearConvexSpace<f32> for $ty {
             #[inline]
@@ -187,4 +187,4 @@ macro_rules! impl_componentwise_linear_convex_space {
     };
 }
 
-pub(crate) use impl_componentwise_linear_convex_space;
+pub(crate) use impl_color_linear_convex_space;

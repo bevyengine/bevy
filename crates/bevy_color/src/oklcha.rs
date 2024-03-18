@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_linear_convex_space, Alpha, ClampColor,
-    Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_color_linear_convex_space, Alpha, ClampColor, Hsla,
+    Hsva, Hwba, Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ pub struct Oklcha {
 
 impl StandardColor for Oklcha {}
 
-impl_componentwise_linear_convex_space!(Oklcha, [lightness, chroma, hue, alpha]);
+impl_color_linear_convex_space!(Oklcha, [lightness, chroma, hue, alpha]);
 
 impl Oklcha {
     /// Construct a new [`Oklcha`] color from components.

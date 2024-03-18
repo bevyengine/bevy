@@ -3,8 +3,7 @@
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{
-    impl_componentwise_linear_convex_space, Alpha, ClampColor, Lcha, LinearRgba, Srgba,
-    StandardColor, Xyza,
+    impl_color_linear_convex_space, Alpha, ClampColor, Lcha, LinearRgba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -30,7 +29,7 @@ pub struct Hwba {
 
 impl StandardColor for Hwba {}
 
-impl_componentwise_linear_convex_space!(Hwba, [hue, whiteness, blackness, alpha]);
+impl_color_linear_convex_space!(Hwba, [hue, whiteness, blackness, alpha]);
 
 impl Hwba {
     /// Construct a new [`Hwba`] color from components.
