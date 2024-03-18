@@ -446,7 +446,7 @@ impl<P: LinearConvexSpace<Scalar = f32>> CubicNurbs<P> {
         control_points
             .iter_mut()
             .zip(weights.iter())
-            .for_each(|(p, w)| *p = P::mul(*p, *w));
+            .for_each(|(p, w)| *p = P::scale(*p, *w));
 
         Ok(Self {
             control_points,
@@ -617,7 +617,10 @@ impl<P: LinearConvexSpace<Scalar = f32>> CubicSegment<P> {
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
         // Evaluate `a + bt + ct^2 + dt^3`, avoiding exponentiation
-        P::add(a, P::mul(P::add(b, P::mul(P::add(c, P::mul(d, t)), t)), t))
+        P::add(
+            a,
+            P::scale(P::add(b, P::scale(P::add(c, P::scale(d, t)), t)), t),
+        )
     }
 
     /// Instantaneous velocity of a point at parametric value `t`.
@@ -625,7 +628,10 @@ impl<P: LinearConvexSpace<Scalar = f32>> CubicSegment<P> {
     pub fn velocity(&self, t: f32) -> P {
         let [_, b, c, d] = self.coeff;
         // Evaluate the derivative, which is `b + 2ct + 3dt^2`, avoiding exponentiation
-        P::add(b, P::mul(P::add(P::mul(c, 2.0), P::mul(d, 3.0 * t)), t))
+        P::add(
+            b,
+            P::scale(P::add(P::scale(c, 2.0), P::scale(d, 3.0 * t)), t),
+        )
     }
 
     /// Instantaneous acceleration of a point at parametric value `t`.
@@ -633,7 +639,7 @@ impl<P: LinearConvexSpace<Scalar = f32>> CubicSegment<P> {
     pub fn acceleration(&self, t: f32) -> P {
         let [_, _, c, d] = self.coeff;
         // Evaluate the second derivative, which is `2c + 6dt`
-        P::add(P::mul(c, 2.0), P::mul(d, 6.0 * t))
+        P::add(P::scale(c, 2.0), P::scale(d, 6.0 * t))
     }
 
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
@@ -644,20 +650,20 @@ impl<P: LinearConvexSpace<Scalar = f32>> CubicSegment<P> {
         // matrix by the point matrix.
         let coeff = [
             P::add(
-                P::add(P::mul(p[0], c0[0]), P::mul(p[1], c0[1])),
-                P::add(P::mul(p[2], c0[2]), P::mul(p[3], c0[3])),
+                P::add(P::scale(p[0], c0[0]), P::scale(p[1], c0[1])),
+                P::add(P::scale(p[2], c0[2]), P::scale(p[3], c0[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c1[0]), P::mul(p[1], c1[1])),
-                P::add(P::mul(p[2], c1[2]), P::mul(p[3], c1[3])),
+                P::add(P::scale(p[0], c1[0]), P::scale(p[1], c1[1])),
+                P::add(P::scale(p[2], c1[2]), P::scale(p[3], c1[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c2[0]), P::mul(p[1], c2[1])),
-                P::add(P::mul(p[2], c2[2]), P::mul(p[3], c2[3])),
+                P::add(P::scale(p[0], c2[0]), P::scale(p[1], c2[1])),
+                P::add(P::scale(p[2], c2[2]), P::scale(p[3], c2[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c3[0]), P::mul(p[1], c3[1])),
-                P::add(P::mul(p[2], c3[2]), P::mul(p[3], c3[3])),
+                P::add(P::scale(p[0], c3[0]), P::scale(p[1], c3[1])),
+                P::add(P::scale(p[2], c3[2]), P::scale(p[3], c3[3])),
             ),
         ];
         Self { coeff }
@@ -925,10 +931,13 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
         // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
-        let numerator = P::add(a, P::mul(P::add(b, P::mul(P::add(c, P::mul(d, t)), t)), t));
+        let numerator = P::add(
+            a,
+            P::scale(P::add(b, P::scale(P::add(c, P::scale(d, t)), t)), t),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
-        P::div(numerator, denominator)
+        P::scale_recip(numerator, denominator)
     }
 
     /// Instantaneous velocity of a point at parametric value `t` in `[0, knot_span)`.
@@ -940,12 +949,18 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
         // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
-        let numerator = P::add(a, P::mul(P::add(b, P::mul(P::add(c, P::mul(d, t)), t)), t));
+        let numerator = P::add(
+            a,
+            P::scale(P::add(b, P::scale(P::add(c, P::scale(d, t)), t)), t),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
 
         // Compute the derivative of the control point polynomial: `b + 2ct + 3dt^2`
-        let numerator_derivative = P::add(b, P::mul(P::add(P::mul(c, 2.0), P::mul(d, 3.0 * t)), t));
+        let numerator_derivative = P::add(
+            b,
+            P::scale(P::add(P::scale(c, 2.0), P::scale(d, 3.0 * t)), t),
+        );
         // Compute the derivative of the weight polynomial
         let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
 
@@ -953,8 +968,8 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         P::sub(
-            P::div(numerator_derivative, denominator),
-            P::mul(numerator, denominator_derivative / denominator.powi(2)),
+            P::scale_recip(numerator_derivative, denominator),
+            P::scale(numerator, denominator_derivative / denominator.powi(2)),
         )
     }
 
@@ -970,17 +985,23 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
         // Compute a cubic polynomial for the control points: `a + bt + ct^2 + dt^3``
-        let numerator = P::add(a, P::mul(P::add(b, P::mul(P::add(c, P::mul(d, t)), t)), t));
+        let numerator = P::add(
+            a,
+            P::scale(P::add(b, P::scale(P::add(c, P::scale(d, t)), t)), t),
+        );
         // Compute a cubic polynomial for the weights
         let denominator = x + (y + (z + w * t) * t) * t;
 
         // Compute the derivative of the control point polynomial: `b + 2ct + 3dt^2`
-        let numerator_derivative = P::add(b, P::mul(P::add(P::mul(c, 2.0), P::mul(d, 3.0 * t)), t));
+        let numerator_derivative = P::add(
+            b,
+            P::scale(P::add(P::scale(c, 2.0), P::scale(d, 3.0 * t)), t),
+        );
         // Compute the derivative of the weight polynomial
         let denominator_derivative = y + (z * 2.0 + w * 3.0 * t) * t;
 
         // Compute the second derivative of the control point polynomial: `2c + 6dt`
-        let numerator_second_derivative = P::add(P::mul(c, 2.0), P::mul(d, 6.0 * t));
+        let numerator_second_derivative = P::add(P::scale(c, 2.0), P::scale(d, 6.0 * t));
         // Compute the second derivative of the weight polynomial
         let denominator_second_derivative = z * 2.0 + w * 6.0 * t;
 
@@ -990,13 +1011,13 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
         P::add(
             P::add(
-                P::div(numerator_second_derivative, denominator),
-                P::mul(
+                P::scale_recip(numerator_second_derivative, denominator),
+                P::scale(
                     numerator_derivative,
                     -2.0 * denominator_derivative / denominator.powi(2),
                 ),
             ),
-            P::mul(
+            P::scale(
                 numerator,
                 -denominator_second_derivative / denominator.powi(2)
                     + 2.0 * denominator_derivative.powi(2) / denominator.powi(3),
@@ -1022,20 +1043,20 @@ impl<P: LinearConvexSpace<Scalar = f32>> RationalSegment<P> {
         // matrix by the point matrix.
         let coeff = [
             P::add(
-                P::add(P::mul(p[0], c0[0]), P::mul(p[1], c0[1])),
-                P::add(P::mul(p[2], c0[2]), P::mul(p[3], c0[3])),
+                P::add(P::scale(p[0], c0[0]), P::scale(p[1], c0[1])),
+                P::add(P::scale(p[2], c0[2]), P::scale(p[3], c0[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c1[0]), P::mul(p[1], c1[1])),
-                P::add(P::mul(p[2], c1[2]), P::mul(p[3], c1[3])),
+                P::add(P::scale(p[0], c1[0]), P::scale(p[1], c1[1])),
+                P::add(P::scale(p[2], c1[2]), P::scale(p[3], c1[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c2[0]), P::mul(p[1], c2[1])),
-                P::add(P::mul(p[2], c2[2]), P::mul(p[3], c2[3])),
+                P::add(P::scale(p[0], c2[0]), P::scale(p[1], c2[1])),
+                P::add(P::scale(p[2], c2[2]), P::scale(p[3], c2[3])),
             ),
             P::add(
-                P::add(P::mul(p[0], c3[0]), P::mul(p[1], c3[1])),
-                P::add(P::mul(p[2], c3[2]), P::mul(p[3], c3[3])),
+                P::add(P::scale(p[0], c3[0]), P::scale(p[1], c3[1])),
+                P::add(P::scale(p[2], c3[2]), P::scale(p[3], c3[3])),
             ),
         ];
         // These are the weight polynomial coefficients, computed by multiplying the characteristic

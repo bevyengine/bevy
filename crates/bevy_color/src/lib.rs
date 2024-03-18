@@ -174,13 +174,13 @@ macro_rules! impl_color_linear_convex_space {
                 }
             }
             #[inline]
-            fn mul(self, rhs: f32) -> Self {
+            fn scale(self, rhs: f32) -> Self {
                 Self {
                     $($element: self.$element * rhs,)+
                 }
             }
             #[inline]
-            fn div(self, rhs: f32) -> Self {
+            fn scale_recip(self, rhs: f32) -> Self {
                 Self {
                     $($element: self.$element / rhs,)+
                 }

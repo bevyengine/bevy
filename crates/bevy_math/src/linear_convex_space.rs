@@ -18,10 +18,10 @@ pub trait LinearConvexSpace: Default + Copy + Clone {
     fn add(self, rhs: Self) -> Self;
     /// Subtracts one element in the space from another one.
     fn sub(self, rhs: Self) -> Self;
-    /// Multiplies an element of the space by a scalar.
-    fn mul(self, rhs: Self::Scalar) -> Self;
-    /// Divides an element of the space by a scalar.
-    fn div(self, rhs: Self::Scalar) -> Self;
+    /// Scales an element of the space by a scalar.
+    fn scale(self, rhs: Self::Scalar) -> Self;
+    /// Scales an element of the space by the reciprocal of a scalar, effectifely dividing by that scalar.
+    fn scale_recip(self, rhs: Self::Scalar) -> Self;
 }
 
 #[macro_export]
@@ -43,11 +43,11 @@ macro_rules! impl_linear_convex_space {
                 self - rhs
             }
             #[inline]
-            fn mul(self, rhs: $scalar_ty) -> Self {
+            fn scale(self, rhs: $scalar_ty) -> Self {
                 self * rhs
             }
             #[inline]
-            fn div(self, rhs: $scalar_ty) -> Self {
+            fn scale_recip(self, rhs: $scalar_ty) -> Self {
                 self / rhs
             }
         }
