@@ -14,8 +14,8 @@ use bevy_render::{
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{
-        extract_render_groups, InheritedRenderGroups, InheritedVisibility, derive_render_groups, RenderGroups,
-        ViewVisibility, VisibleEntities
+        derive_render_groups, extract_render_groups, InheritedRenderGroups, InheritedVisibility,
+        RenderGroups, ViewVisibility, VisibleEntities,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -1099,7 +1099,7 @@ pub(crate) fn assign_lights_to_clusters(
                         shadows_enabled: point_light.shadows_enabled,
                         range: point_light.range,
                         spot_light_angle: None,
-                        render_groups: 0u32//extract_render_groups(maybe_inherited, maybe_groups),
+                        render_groups: 0u32, //extract_render_groups(maybe_inherited, maybe_groups),
                     }
                 },
             ),
@@ -1116,7 +1116,7 @@ pub(crate) fn assign_lights_to_clusters(
                         shadows_enabled: spot_light.shadows_enabled,
                         range: spot_light.range,
                         spot_light_angle: Some(spot_light.outer_angle),
-                        render_groups: 0u32//extract_render_groups(maybe_inherited, maybe_groups),
+                        render_groups: 0u32, //extract_render_groups(maybe_inherited, maybe_groups),
                     }
                 },
             ),
@@ -1415,7 +1415,8 @@ pub(crate) fn assign_lights_to_clusters(
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
             for light in &lights {
                 // check if the light layers overlap the view layers
-                if !view_groups.intersects(&RenderGroups::default()) {//&light.render_groups) {
+                if !view_groups.intersects(&RenderGroups::default()) {
+                    //&light.render_groups) {
                     continue;
                 }
 
@@ -1884,8 +1885,14 @@ pub fn check_light_mesh_visibility(
     }
 
     // Directional lights
-    for (directional_light, frusta, mut visible_entities, maybe_view_mask, maybe_vm_inherited, light_view_visibility) in
-        &mut directional_lights
+    for (
+        directional_light,
+        frusta,
+        mut visible_entities,
+        maybe_view_mask,
+        maybe_vm_inherited,
+        light_view_visibility,
+    ) in &mut directional_lights
     {
         // Re-use already allocated entries where possible.
         let mut views_to_remove = Vec::new();
@@ -2016,7 +2023,9 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    if !view_mask.intersects(&derive_render_groups(maybe_em_inherited, maybe_entity_mask)) {
+                    if !view_mask
+                        .intersects(&derive_render_groups(maybe_em_inherited, maybe_entity_mask))
+                    {
                         continue;
                     }
 
@@ -2051,8 +2060,14 @@ pub fn check_light_mesh_visibility(
             }
 
             // Spot lights
-            if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask, maybe_vm_inherited)) =
-                spot_lights.get_mut(light_entity)
+            if let Ok((
+                point_light,
+                transform,
+                frustum,
+                mut visible_entities,
+                maybe_view_mask,
+                maybe_vm_inherited,
+            )) = spot_lights.get_mut(light_entity)
             {
                 visible_entities.entities.clear();
 
@@ -2081,7 +2096,9 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    if !view_mask.intersects(&derive_render_groups(maybe_em_inherited, maybe_entity_mask)) {
+                    if !view_mask
+                        .intersects(&derive_render_groups(maybe_em_inherited, maybe_entity_mask))
+                    {
                         continue;
                     }
 

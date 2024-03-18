@@ -6,7 +6,10 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    view::{CameraView, ColorGrading, extract_camera_view, ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{
+        extract_camera_view, CameraView, ColorGrading, ExtractedView, ExtractedWindows,
+        VisibleEntities,
+    },
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};

@@ -218,11 +218,10 @@ impl Plugin for VisibilityPlugin {
         use VisibilitySystems::*;
 
         app.configure_sets(
-                PostUpdate,
-                PropagateRenderGroupsSet
-                    .in_set(VisibilityPropagate),
-            )
-            .add_systems(
+            PostUpdate,
+            PropagateRenderGroupsSet.in_set(VisibilityPropagate),
+        )
+        .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
@@ -400,7 +399,8 @@ pub fn check_visibility(
     )>,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
+    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query
+    {
         if !camera.is_active {
             continue;
         }
@@ -431,7 +431,8 @@ pub fn check_visibility(
             // - If there is no RenderGroups in the entity, use the *default* value because the
             // entity is in the DEFAULT_RENDER_LAYER.
             let default_render_groups = RenderGroups::default();
-            let entity_groups = maybe_inherited_groups.map(|i| &i.computed)
+            let entity_groups = maybe_inherited_groups
+                .map(|i| &i.computed)
                 .or(maybe_groups)
                 .unwrap_or(&default_render_groups);
             if !camera_view.entity_is_visible(camera_entity, entity_groups) {

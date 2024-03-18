@@ -15,8 +15,9 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        extract_render_groups, ExtractedView, ExtractedRenderGroups, InheritedRenderGroups, RenderGroups,
-        ViewVisibility, VisibleEntities},
+        extract_render_groups, ExtractedRenderGroups, ExtractedView, InheritedRenderGroups,
+        RenderGroups, ViewVisibility, VisibleEntities,
+    },
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -921,7 +922,7 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
-            render_groups: 0u32//light.render_groups.bits(),
+            render_groups: 0u32, //light.render_groups.bits(),
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;

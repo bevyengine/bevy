@@ -2,11 +2,11 @@ use crate::view::ExtractedRenderGroups;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
-use bevy_reflect::Reflect;
 use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 
-use std::ops::Deref;
 use smallvec::SmallVec;
+use std::ops::Deref;
 
 /// The default [`RenderLayer`].
 pub static DEFAULT_RENDER_LAYER: RenderLayer = RenderLayer(0);
@@ -564,12 +564,16 @@ mod rendering_mask_tests {
             "layer 0 + 1 is mask 3"
         );
         assert_eq!(
-            RenderXXLayersXX::from(RenderLayer(0)).add(1).remove(0).layers[0],
+            RenderXXLayersXX::from(RenderLayer(0))
+                .add(1)
+                .remove(0)
+                .layers[0],
             2,
             "layer 0 + 1 - 0 is mask 2"
         );
         assert!(
-            RenderXXLayersXX::from(RenderLayer(1)).intersects(&RenderXXLayersXX::from(RenderLayer(1))),
+            RenderXXLayersXX::from(RenderLayer(1))
+                .intersects(&RenderXXLayersXX::from(RenderLayer(1))),
             "layers match like layers"
         );
         assert!(
@@ -592,7 +596,8 @@ mod rendering_mask_tests {
         );
 
         assert!(
-            !RenderXXLayersXX::from(RenderLayer(0)).intersects(&RenderXXLayersXX::from(RenderLayer(1))),
+            !RenderXXLayersXX::from(RenderLayer(0))
+                .intersects(&RenderXXLayersXX::from(RenderLayer(1))),
             "masks with differing layers do not match"
         );
         assert!(
