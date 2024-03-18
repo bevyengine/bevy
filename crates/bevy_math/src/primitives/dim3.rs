@@ -692,6 +692,18 @@ impl Triangle3d {
         Dir3::new_unchecked(ab.cross(ac).normalize())
     }
 
+    /// Checks if the triangle is degenerate, meaning it has zero area.
+    ///
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `f32::EPSILON`.
+    /// This indicates that the three vertices are collinear or nearly collinear.
+    #[inline(always)]
+    pub fn is_degenerate(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() < f32::EPSILON
+    }
+
     /// Reverse the order of the vertices in the triangle
     #[inline(always)]
     pub fn reverse(&mut self) {
