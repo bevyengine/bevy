@@ -121,8 +121,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             type SourceStates = #source_state_type;
 
-            fn exists(sources: Option<#source_state_type>) -> Option<Self> {
-                if sources == Some(#source_state_value) {
+            fn exists(sources: #source_state_type) -> Option<Self> {
+                if sources == #source_state_value {
                     Some(Self::default())
                 } else {
                     None
