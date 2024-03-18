@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{RenderGroups, RenderLayer, RenderXXLayersXX},
+        view::{RenderGroups, RenderLayer, RenderLayers},
     },
 };
 
@@ -94,7 +94,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             ..default()
         },
-        RenderGroups::from(RenderXXLayersXX::from_layers(&[0, 1])),
+        RenderGroups::from(RenderLayers::from_layers(&[0, 1])),
     ));
 
     commands.spawn((

@@ -11,9 +11,9 @@ use std::ops::Deref;
 /// The default [`RenderLayer`].
 pub static DEFAULT_RENDER_LAYER: RenderLayer = RenderLayer(0);
 
-/// Wraps a specific render layer that can be stored in [`RenderXXLayersXX`].
+/// Wraps a specific render layer that can be stored in [`RenderLayers`].
 ///
-/// Stores an index into the [`RenderXXLayersXX`] internal bitmask.
+/// Stores an index into the [`RenderLayers`] internal bitmask.
 //todo: Upper limit policy for render layer indices.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Deref, DerefMut)]
 pub struct RenderLayer(pub usize);
@@ -41,32 +41,32 @@ impl Default for RenderLayer {
 /// are visible to which cameras.
 ///
 /// Individual render layers can be defined with [`RenderLayer`], which is an index
-/// into the internal `RenderXXLayersXX` bitmask.
+/// into the internal `RenderLayers` bitmask.
 ///
-/// `RenderXXLayersXX::default()` starts with [`DEFAULT_RENDER_LAYER`], which is the global default
+/// `RenderLayers::default()` starts with [`DEFAULT_RENDER_LAYER`], which is the global default
 /// layer.
 ///
 /// ### Performance
 ///
-/// `RenderXXLayersXX` occupies 24 bytes on the stack.
+/// `RenderLayers` occupies 24 bytes on the stack.
 ///
-/// `RenderXXLayersXX` can store up to `RenderLayer(63)` without allocating. Allocations occur in 8-byte
+/// `RenderLayers` can store up to `RenderLayer(63)` without allocating. Allocations occur in 8-byte
 /// increments, so the second allocation will occur after `RenderLayer(127)`, and so on.
 #[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq)]
-pub struct RenderXXLayersXX {
+pub struct RenderLayers {
     layers: SmallVec<[u64; 1]>,
 }
 
-impl RenderXXLayersXX {
-    /// Makes a new `RenderXXLayersXX` with no layers.
+impl RenderLayers {
+    /// Makes a new `RenderLayers` with no layers.
     pub fn empty() -> Self {
         Self {
             layers: SmallVec::default(),
         }
     }
 
-    /// Makes a new `RenderXXLayersXX` from a slice.
+    /// Makes a new `RenderLayers` from a slice.
     pub fn from_layers<T: Into<RenderLayer> + Copy>(layers: &[T]) -> Self {
         layers.iter().map(|l| (*l).into()).collect()
     }
@@ -100,7 +100,7 @@ impl RenderXXLayersXX {
 
     /// Copies `other` into `Self`.
     ///
-    /// This is more efficient than cloning `other` if you want to reuse a `RenderXXLayersXX`
+    /// This is more efficient than cloning `other` if you want to reuse a `RenderLayers`
     /// that is potentially allocated.
     pub fn set_from(&mut self, other: &Self) {
         self.layers.clear();
@@ -133,7 +133,7 @@ impl RenderXXLayersXX {
         self.layers.iter().copied().map(Self::iter_layers).flatten()
     }
 
-    /// Returns `true` if the specified render layer is included in this `RenderXXLayersXX`.
+    /// Returns `true` if the specified render layer is included in this `RenderLayers`.
     pub fn contains(&self, layer: impl Into<RenderLayer>) -> bool {
         let (buffer_index, bit) = Self::layer_info(*(layer.into()));
         if buffer_index >= self.layers.len() {
@@ -192,7 +192,7 @@ impl RenderXXLayersXX {
     }
 }
 
-impl<T: Into<RenderLayer>> From<T> for RenderXXLayersXX {
+impl<T: Into<RenderLayer>> From<T> for RenderLayers {
     fn from(layer: T) -> Self {
         let mut layers = Self {
             layers: SmallVec::default(),
@@ -202,7 +202,7 @@ impl<T: Into<RenderLayer>> From<T> for RenderXXLayersXX {
     }
 }
 
-impl<R: Into<RenderLayer>> FromIterator<R> for RenderXXLayersXX {
+impl<R: Into<RenderLayer>> FromIterator<R> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = R>>(i: T) -> Self {
         i.into_iter().fold(Self::empty(), |mut mask, g| {
             mask.add(g);
@@ -211,7 +211,7 @@ impl<R: Into<RenderLayer>> FromIterator<R> for RenderXXLayersXX {
     }
 }
 
-impl Default for RenderXXLayersXX {
+impl Default for RenderLayers {
     fn default() -> Self {
         Self::from(DEFAULT_RENDER_LAYER)
     }
@@ -220,11 +220,11 @@ impl Default for RenderXXLayersXX {
 /// Component on an entity that controls which cameras can see it.
 ///
 /// There are two kinds of render groups:
-/// - [`RenderXXLayersXX`]: These are grouping categories that many cameras can view (see [`CameraView`]).
+/// - [`RenderLayers`]: These are grouping categories that many cameras can view (see [`CameraView`]).
 /// - *Camera entity*: This is a specific camera that the entity is affiliated with. This is especially
 ///   useful for UI in combination with [`PropagateRenderGroups`].
 ///
-/// An entity can be a member of multiple [`RenderXXLayersXX`] in addition to having a camera affiliation.
+/// An entity can be a member of multiple [`RenderLayers`] in addition to having a camera affiliation.
 ///
 /// ### Default behavior
 ///
@@ -260,7 +260,7 @@ entity.insert(groups);
 #[derive(Component, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq)]
 pub struct RenderGroups {
-    layers: RenderXXLayersXX,
+    layers: RenderLayers,
     camera: Option<Entity>,
 }
 
@@ -268,7 +268,7 @@ impl RenderGroups {
     /// Makes a new `RenderGroups` with no groups.
     pub fn empty() -> Self {
         Self {
-            layers: RenderXXLayersXX::empty(),
+            layers: RenderLayers::empty(),
             camera: None,
         }
     }
@@ -276,7 +276,7 @@ impl RenderGroups {
     /// Makes a new `RenderGroups` with just a camera.
     pub fn new_with_camera(camera: Entity) -> Self {
         Self {
-            layers: RenderXXLayersXX::empty(),
+            layers: RenderLayers::empty(),
             camera: Some(camera),
         }
     }
@@ -284,14 +284,14 @@ impl RenderGroups {
     /// Makes a new `RenderGroups` with a camera and the [`DEFAULT_RENDER_LAYER`].
     pub fn default_with_camera(camera: Entity) -> Self {
         Self {
-            layers: RenderXXLayersXX::default(),
+            layers: RenderLayers::default(),
             camera: Some(camera),
         }
     }
 
     /// Adds a [`RenderLayer`].
     ///
-    /// See [`RenderXXLayersXX::add`].
+    /// See [`RenderLayers::add`].
     pub fn add(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.add(layer);
         self
@@ -299,7 +299,7 @@ impl RenderGroups {
 
     /// Removes a [`RenderLayer`].
     ///
-    /// See [`RenderXXLayersXX::remove`].
+    /// See [`RenderLayers::remove`].
     pub fn remove(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.remove(layer);
         self
@@ -313,11 +313,11 @@ impl RenderGroups {
 
     /// Merges `other` into `Self`.
     ///
-    /// After merging, `Self` will include all [`RenderXXLayersXX`] from `other` and `Self`.
+    /// After merging, `Self` will include all [`RenderLayers`] from `other` and `Self`.
     /// If both `Self` and `other` have a camera affiliation, then the `Self` camera
     /// will be in the merged result. Otherwise the `other` camera will be in the result.
     ///
-    /// Will allocate if necessary to include all [`RenderXXLayersXX`] of `other`.
+    /// Will allocate if necessary to include all [`RenderLayers`] of `other`.
     pub fn merge(&mut self, other: &Self) {
         self.layers.merge(&other.layers);
         self.camera = self.camera.or(other.camera);
@@ -334,9 +334,9 @@ impl RenderGroups {
 
     /// Overwrites self with internal parts.
     ///
-    /// This is more efficient than cloning `other` if you want to reuse a `RenderGroups`
+    /// This is more efficient than cloning `layers` if you want to reuse a `RenderLayers`
     /// that is potentially allocated.
-    pub fn set_from_parts(&mut self, camera: Option<Entity>, layers: &RenderXXLayersXX) {
+    pub fn set_from_parts(&mut self, camera: Option<Entity>, layers: &RenderLayers) {
         self.layers.set_from(layers);
         self.camera = camera;
     }
@@ -368,7 +368,7 @@ impl RenderGroups {
 
     /// Returns `true` if `Self` intersects with `other`.
     ///
-    /// Checks both camera affiliation and [`RenderXXLayersXX`] intersection.
+    /// Checks both camera affiliation and [`RenderLayers`] intersection.
     pub fn intersects(&self, other: &Self) -> bool {
         if let (Some(a), Some(b)) = (self.camera, other.camera) {
             if a == b {
@@ -402,15 +402,15 @@ impl From<RenderLayer> for RenderGroups {
     /// Makes a new `RenderGroups` from a specific [`RenderLayer`].
     fn from(layer: RenderLayer) -> Self {
         Self {
-            layers: RenderXXLayersXX::from(layer),
+            layers: RenderLayers::from(layer),
             camera: None,
         }
     }
 }
 
-impl From<RenderXXLayersXX> for RenderGroups {
-    /// Makes a new `RenderGroups` from a [`RenderXXLayersXX`].
-    fn from(layers: RenderXXLayersXX) -> Self {
+impl From<RenderLayers> for RenderGroups {
+    /// Makes a new `RenderGroups` from a [`RenderLayers`].
+    fn from(layers: RenderLayers) -> Self {
         Self {
             layers,
             camera: None,
@@ -473,7 +473,7 @@ impl<'a> RenderGroupsRef<'a> {
     }
 }
 
-/// Component on camera entities that controls which [`RenderXXLayersXX`] are visible to
+/// Component on camera entities that controls which [`RenderLayers`] are visible to
 /// the camera.
 ///
 /// A camera will see any entity that satisfies either of these conditions:
@@ -489,22 +489,23 @@ impl<'a> RenderGroupsRef<'a> {
 /// layer, in addition to relevant [`RenderGroups`] camera affiliations.
 ///
 /// A default `CameraView` will include the [`DEFAULT_RENDER_LAYER`].
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component, Default, PartialEq)]
 pub struct CameraView {
-    layers: RenderXXLayersXX,
+    layers: RenderLayers,
 }
 
 impl CameraView {
     /// Makes a new `CameraView` with no visible [`RenderLayer`].
     pub fn empty() -> Self {
         Self {
-            layers: RenderXXLayersXX::empty(),
+            layers: RenderLayers::empty(),
         }
     }
 
     /// Adds a [`RenderLayer`].
     ///
-    /// See [`RenderXXLayersXX::add`].
+    /// See [`RenderLayers::add`].
     pub fn add(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.add(layer);
         self
@@ -512,7 +513,7 @@ impl CameraView {
 
     /// Removes a [`RenderLayer`].
     ///
-    /// See [`RenderXXLayersXX::remove`].
+    /// See [`RenderLayers::remove`].
     pub fn remove(&mut self, layer: impl Into<RenderLayer>) -> &mut Self {
         self.layers.remove(layer);
         self
@@ -524,7 +525,7 @@ impl CameraView {
     }
 
     /// Returns a reference to the internal [`RenderLayers`].
-    pub fn layers(&self) -> &RenderXXLayersXX {
+    pub fn layers(&self) -> &RenderLayers {
         &self.layers
     }
 
@@ -541,7 +542,7 @@ impl CameraView {
     /// Returns `true` if the entity with the specified [`RenderGroups`] is visible
     /// to the `camera` that has this `CameraView`.
     ///
-    /// Checks both camera affiliation and [`RenderXXLayersXX`] intersection.
+    /// Checks both camera affiliation and [`RenderLayers`] intersection.
     pub fn entity_is_visible(&self, camera: Entity, groups: &RenderGroups) -> bool {
         if Some(camera) == groups.camera {
             return true;
@@ -549,7 +550,7 @@ impl CameraView {
         self.layers.intersects(&groups.layers)
     }
 
-    /// Converts the internal [`RenderXXLayersXX`] into a [`RenderGroups`] affiliated
+    /// Converts the internal [`RenderLayers`] into a [`RenderGroups`] affiliated
     /// with the camera that has this `CameraView`.
     pub fn get_groups(&self, camera: Entity) -> RenderGroups {
         let mut groups = RenderGroups::from(self.layers.clone());
@@ -567,7 +568,7 @@ impl From<RenderLayer> for CameraView {
     /// Makes a new `CameraView` from a specific [`RenderLayer`].
     fn from(layer: RenderLayer) -> Self {
         Self {
-            layers: RenderXXLayersXX::from(layer),
+            layers: RenderLayers::from(layer),
         }
     }
 }
@@ -581,41 +582,41 @@ impl Default for CameraView {
 
 #[cfg(test)]
 mod rendering_mask_tests {
-    use super::{RenderLayer, RenderXXLayersXX, DEFAULT_RENDER_LAYER};
+    use super::{RenderLayer, RenderLayers, DEFAULT_RENDER_LAYER};
     use smallvec::SmallVec;
 
     #[test]
     fn rendering_mask_sanity() {
         assert_eq!(
-            RenderXXLayersXX::default().num_layers(),
+            RenderLayers::default().num_layers(),
             1,
             "default layer contains only one layer"
         );
         assert!(
-            RenderXXLayersXX::default().contains(DEFAULT_RENDER_LAYER),
+            RenderLayers::default().contains(DEFAULT_RENDER_LAYER),
             "default layer contains default"
         );
         assert_eq!(
-            RenderXXLayersXX::from(RenderLayer(1)).num_layers(),
+            RenderLayers::from(RenderLayer(1)).num_layers(),
             1,
             "from contains 1 layer"
         );
         assert!(
-            RenderXXLayersXX::from(RenderLayer(1)).contains(RenderLayer(1)),
+            RenderLayers::from(RenderLayer(1)).contains(RenderLayer(1)),
             "contains is accurate"
         );
         assert!(
-            !RenderXXLayersXX::from(RenderLayer(1)).contains(RenderLayer(2)),
+            !RenderLayers::from(RenderLayer(1)).contains(RenderLayer(2)),
             "contains fails when expected"
         );
 
         assert_eq!(
-            RenderXXLayersXX::from(RenderLayer(0)).add(1).layers[0],
+            RenderLayers::from(RenderLayer(0)).add(1).layers[0],
             3,
             "layer 0 + 1 is mask 3"
         );
         assert_eq!(
-            RenderXXLayersXX::from(RenderLayer(0))
+            RenderLayers::from(RenderLayer(0))
                 .add(1)
                 .remove(0)
                 .layers[0],
@@ -623,40 +624,40 @@ mod rendering_mask_tests {
             "layer 0 + 1 - 0 is mask 2"
         );
         assert!(
-            RenderXXLayersXX::from(RenderLayer(1))
-                .intersects(&RenderXXLayersXX::from(RenderLayer(1))),
+            RenderLayers::from(RenderLayer(1))
+                .intersects(&RenderLayers::from(RenderLayer(1))),
             "layers match like layers"
         );
         assert!(
-            RenderXXLayersXX::from(RenderLayer(0)).intersects(&RenderXXLayersXX {
+            RenderLayers::from(RenderLayer(0)).intersects(&RenderLayers {
                 layers: SmallVec::from_slice(&[1])
             }),
             "a layer of 0 means the mask is just 1 bit"
         );
 
         assert!(
-            RenderXXLayersXX::from(RenderLayer(0))
+            RenderLayers::from(RenderLayer(0))
                 .add(3)
-                .intersects(&RenderXXLayersXX::from(RenderLayer(3))),
+                .intersects(&RenderLayers::from(RenderLayer(3))),
             "a mask will match another mask containing any similar layers"
         );
 
         assert!(
-            RenderXXLayersXX::default().intersects(&RenderXXLayersXX::default()),
+            RenderLayers::default().intersects(&RenderLayers::default()),
             "default masks match each other"
         );
 
         assert!(
-            !RenderXXLayersXX::from(RenderLayer(0))
-                .intersects(&RenderXXLayersXX::from(RenderLayer(1))),
+            !RenderLayers::from(RenderLayer(0))
+                .intersects(&RenderLayers::from(RenderLayer(1))),
             "masks with differing layers do not match"
         );
         assert!(
-            !RenderXXLayersXX::empty().intersects(&RenderXXLayersXX::empty()),
+            !RenderLayers::empty().intersects(&RenderLayers::empty()),
             "empty masks don't match"
         );
         assert_eq!(
-            RenderXXLayersXX::from_layers(&[0, 2, 16, 30])
+            RenderLayers::from_layers(&[0, 2, 16, 30])
                 .iter()
                 .collect::<Vec<_>>(),
             vec![
@@ -668,13 +669,13 @@ mod rendering_mask_tests {
             "from and get_layers should roundtrip"
         );
         assert_eq!(
-            format!("{:?}", RenderXXLayersXX::from_layers(&[0, 1, 2, 3])).as_str(),
-            "RenderXXLayersXX([0, 1, 2, 3])",
+            format!("{:?}", RenderLayers::from_layers(&[0, 1, 2, 3])).as_str(),
+            "RenderLayers([0, 1, 2, 3])",
             "Debug instance shows layers"
         );
         assert_eq!(
-            RenderXXLayersXX::from_layers(&[0, 1, 2]),
-            <RenderXXLayersXX as FromIterator<usize>>::from_iter(vec![0, 1, 2]),
+            RenderLayers::from_layers(&[0, 1, 2]),
+            <RenderLayers as FromIterator<usize>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
         );
     }

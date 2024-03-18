@@ -19,11 +19,11 @@ const RES_WIDTH: u32 = 160;
 /// In-game resolution height.
 const RES_HEIGHT: u32 = 90;
 
-/// Default render groups for pixel-perfect rendering.
+/// Default render layer for pixel-perfect rendering.
 /// You can skip adding this component, as this is the default.
 const PIXEL_PERFECT_LAYER: RenderLayer = RenderLayer(0);
 
-/// Render groups for high-resolution rendering.
+/// Render layer for high-resolution rendering.
 const HIGH_RES_LAYER: RenderLayer = RenderLayer(1);
 
 fn main() {
