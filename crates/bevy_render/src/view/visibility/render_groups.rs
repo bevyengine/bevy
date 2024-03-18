@@ -159,6 +159,11 @@ impl RenderXXLayersXX {
         self.layers.as_slice()
     }
 
+    /// Returns `true` if the internal bitmask is on the heap.
+    pub fn is_allocated(&self) -> bool {
+        self.layers.spilled()
+    }
+
     fn layer_info(layer: usize) -> (usize, u64) {
         let buffer_index = layer / 64;
         let bit_index = layer % 64;
@@ -327,6 +332,15 @@ impl RenderGroups {
         self.camera = other.camera;
     }
 
+    /// Overwrites self with internal parts.
+    ///
+    /// This is more efficient than cloning `other` if you want to reuse a `RenderGroups`
+    /// that is potentially allocated.
+    pub fn set_from_parts(&mut self, camera: Option<Entity>, layers: &RenderXXLayersXX) {
+        self.layers.set_from(layers);
+        self.camera = camera;
+    }
+
     /// Sets the camera affiliation.
     ///
     /// Returns the previous camera.
@@ -377,6 +391,11 @@ impl RenderGroups {
     pub fn camera(&self) -> Option<Entity> {
         self.camera
     }
+
+    /// Returns `true` if the internal [`RenderLayers`] is on the heap.
+    pub fn is_allocated(&self) -> bool {
+        self.layers.is_allocated()
+    }
 }
 
 impl From<RenderLayer> for RenderGroups {
@@ -410,8 +429,27 @@ impl Default for RenderGroups {
 ///
 /// Useful for unwrapping an optional reference with fallback to a default value.
 pub enum RenderGroupsRef<'a> {
+    None,
     Ref(&'a RenderGroups),
     Val(RenderGroups),
+}
+
+impl<'a> RenderGroupsRef<'a> {
+    /// Passes [`RenderLists`] to `other` if `self` is on the heap.
+    ///
+    /// The ref will be in an invalid state after this is called.
+    pub(crate) fn reclaim(&mut self, other: &mut RenderGroups) {
+        match self {
+            Self::Val(groups) =>
+            {
+                if !groups.is_allocated() || other.is_allocated() {
+                    return;
+                }
+                std::mem::swap(groups, other);
+            }
+            _ => ()
+        }
+    }
 }
 
 impl<'a> Deref for RenderGroupsRef<'a> {
@@ -424,8 +462,11 @@ impl<'a> Deref for RenderGroupsRef<'a> {
 
 impl<'a> RenderGroupsRef<'a> {
     /// Gets a reference to the internal [`RenderGroups`].
+    ///
+    /// Panices if in state [`Self::None`].
     pub fn get(&self) -> &RenderGroups {
         match self {
+            Self::None => { panic!("RenderGroupsRef cannot be dereferenced when empty"); }
             Self::Ref(groups) => groups,
             Self::Val(groups) => &groups,
         }
@@ -482,6 +523,11 @@ impl CameraView {
         self.layers.clear();
     }
 
+    /// Returns a reference to the internal [`RenderLayers`].
+    pub fn layers(&self) -> &RenderXXLayersXX {
+        &self.layers
+    }
+
     /// Returns an iterator over [`RenderLayer`].
     pub fn iter_layers(&self) -> impl Iterator<Item = RenderLayer> + '_ {
         self.layers.iter()
@@ -509,6 +555,11 @@ impl CameraView {
         let mut groups = RenderGroups::from(self.layers.clone());
         groups.set_camera(camera);
         groups
+    }
+
+    /// Returns `true` if the internal [`RenderLayers`] is on the heap.
+    pub fn is_allocated(&self) -> bool {
+        self.layers.is_allocated()
     }
 }
 
