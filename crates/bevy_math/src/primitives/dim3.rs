@@ -637,6 +637,17 @@ pub struct Triangle3d {
     pub vertices: [Vec3; 3],
 }
 
+/// An error that occurs when a triangle is degenerate, meaning it has zero area.
+/// This can happen when the three vertices are collinear or nearly collinear.
+#[derive(Debug, Clone)]
+pub struct DegenerateTriangleError;
+
+impl std::fmt::Display for DegenerateTriangleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Triangle is degenerate")
+    }
+}
+
 impl Primitive3d for Triangle3d {}
 
 impl Default for Triangle3d {
@@ -684,12 +695,20 @@ impl Triangle3d {
     /// the vertices are ordered in a counter-clockwise direction.
     ///
     /// The normal is computed as the cross product of the vectors `ab` and `ac`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DegenerateTriangleError`] if the triangle is degenerate, meaning it has zero area.
     #[inline(always)]
-    pub fn normal(&self) -> Dir3 {
+    pub fn normal(&self) -> Result<Dir3, DegenerateTriangleError> {
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
-        Dir3::new_unchecked(ab.cross(ac).normalize())
+        let cross_product = ab.cross(ac);
+        if cross_product.length() < f32::EPSILON {
+            return Err(DegenerateTriangleError);
+        }
+        Ok(Dir3::new_unchecked(cross_product.normalize()))
     }
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
