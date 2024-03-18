@@ -3,11 +3,14 @@ use glam::{DVec2, DVec3, DVec4, Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Ve
 
 /// A trait providing methods for spanning a linear, convex space.
 ///
+/// These are a generally useful set of properties, but in particular, are needed to ensure spline interpolation is well-behaved.
 /// A convex space or convex set is a set of points (think points in 3d or 2d space) in which every point on a line between two points A and B in that set
 /// is also a part of that set. For example the set of all points inside a square is a convex set as you can draw a line between any two points in the square and never leave it.
 /// For more information, please see [this wikipedia article](https://en.wikipedia.org/wiki/Convex_set).
 ///
-/// The space should also be linear, meaning that `A*t + B*(1 - t)` with any points `A`, `B` and `t` element `0..1` should represent a straight line.
+/// The space must also be linear,  allowing you to interpolate between any two points `A` and `B` via the parameter
+/// `t`  according to the formula `A*t + B*(1-t)`. This formula produces a new point on the straight line joining `A` and `B`,
+/// no matter what value of `t` between 0 (yielding B) and 1 (yielding A) is selected.
 ///
 /// By implementing this trait, you guarantee that the above conditions hold true.
 pub trait LinearConvexSpace: Default + Copy + Clone {
