@@ -375,7 +375,7 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
-        Option<&RenderGroups>,
+        Option<&ExtractedRenderGroups>,
     )>,
 ) {
     let view_iter = views.iter();

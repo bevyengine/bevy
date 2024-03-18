@@ -139,13 +139,23 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_utils::error_once;
 use bevy_utils::tracing::warn;
 
+use std::ops::Deref;
+
 /// Returned by [`PropagateRenderGroups::get_render_groups`].
-pub enum PropagatingRenderGroups<'a> {
+pub enum RenderGroupsRef<'a> {
     Ref(&'a RenderGroups),
     Val(RenderGroups),
 }
 
-impl<'a> PropagatingRenderGroups<'a> {
+impl<'a> Deref for RenderGroupsRef<'a> {
+    type Target = RenderGroups;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<'a> RenderGroupsRef<'a> {
     /// Gets a reference to the internal [`RenderGroups`].
     pub fn get(&self) -> &RenderGroups {
         match self {
@@ -187,31 +197,31 @@ impl PropagateRenderGroups {
         groups: Option<&'a RenderGroups>,
         view: Option<&CameraView>,
         is_camera: bool,
-    ) -> PropagatingRenderGroups<'a> {
+    ) -> RenderGroupsRef<'a> {
         match self {
             Self::Auto => {
                 let Some(groups) = groups else {
-                    return PropagatingRenderGroups::Val(RenderGroups::default());
+                    return RenderGroupsRef::Val(RenderGroups::default());
                 };
-                PropagatingRenderGroups::Ref(groups)
+                RenderGroupsRef::Ref(groups)
             }
             Self::Camera => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::Camera, {entity} doesn't have a camera");
-                    PropagatingRenderGroups::Val(RenderGroups::empty());
+                    RenderGroupsRef::Val(RenderGroups::empty());
                 };
-                PropagatingRenderGroups::Val(RenderGroups::new_with_camera(entity))
+                RenderGroupsRef::Val(RenderGroups::new_with_camera(entity))
             }
             Self::CameraWithView => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::CameraWithView, {entity} doesn't have a camera");
-                    PropagatingRenderGroups::Val(RenderGroups::empty());
+                    RenderGroupsRef::Val(RenderGroups::empty());
                 };
                 let empty_camera_view = CameraView::empty();
                 let view = view.unwrap_or(&empty_camera_view);
-                PropagatingRenderGroups::Val(view.get_groups(entity))
+                RenderGroupsRef::Val(view.get_groups(entity))
             }
-            Self::Custom(groups) => PropagatingRenderGroups::Ref(groups),
+            Self::Custom(groups) => RenderGroupsRef::Ref(groups),
         }
     }
 }
@@ -249,6 +259,58 @@ impl InheritedRenderGroups {
             propagator: Entity::PLACEHOLDER,
             computed: RenderGroups::empty(),
         }
+    }
+}
+
+/// Contains the final [`RenderGroups`] of an entity for extraction to the render world.
+#[derive(Component, Debug, Deref)]
+pub struct ExtractedRenderGroups(RenderGroups);
+
+/// Evaluates an entity's possible `RenderGroups` and `InheritedRenderGroups` components to get a
+/// final [`ExtractedRenderGroups`] for the render world.
+///
+/// Potentially allocates if [`InheritedRenderGroups`] or [`RenderGroups`] is allocated.
+pub fn extract_render_groups(
+    inherited: Option<&InheritedRenderGroups>,
+    render_groups: Option<&RenderGroups>,
+) -> ExtractedRenderGroups {
+    ExtractedRenderGroups(
+        inherited
+            .map(|i| &i.computed)
+            .or(render_groups)
+            .cloned()
+            .unwrap_or(RenderGroups::default())
+    )
+}
+
+/// Evaluates a camera's possible `CameraView` and `InheritedRenderGroups` components to get a
+/// final [`ExtractedRenderGroups`] for the render world.
+///
+/// Potentially allocates if [`InheritedRenderGroups`] or [`RenderGroups`] is allocated.
+pub fn extract_camera_view(
+    camera: Entity,
+    camera_view: Option<&CameraView>,
+) -> ExtractedRenderGroups {
+    ExtractedRenderGroups(
+        camera_view
+            .map(|i| i.get_groups(camera))
+            .unwrap_or(RenderGroups::default_with_camera(camera))
+    )
+}
+
+/// Converts an optional [`InheritedRenderGroups`] and [`RenderGroups`] into [`RenderGroupsRef`].
+///
+/// Returns [`RenderGroups::default`] if both optionals are `None`.
+pub fn render_groups_asref<'a>(
+    inherited: Option<&'a InheritedRenderGroups>,
+    render_groups: Option<&'a RenderGroups>,
+) -> RenderGroupsRef<'a> {
+    if let Some(inherited) = inherited {
+        RenderGroupsRef::Ref(&inherited.computed)
+    } else if let Some(render_groups) = render_groups {
+        RenderGroupsRef::Ref(render_groups)
+    } else {
+        RenderGroupsRef::Val(RenderGroups::default())
     }
 }
 
@@ -368,7 +430,7 @@ fn propagate_updated_propagators(
 
         // Get value to propagate.
         // TODO: This can allocate spuriously if there are no children that need it.
-        let propagated: PropagatingRenderGroups<'_> = propagate.get_render_groups(
+        let propagated: RenderGroupsRef<'_> = propagate.get_render_groups(
             propagator,
             maybe_render_groups,
             maybe_camera_view,
@@ -385,7 +447,7 @@ fn propagate_updated_propagators(
                 &children_query,
                 &mut maybe_inherited,
                 propagator,
-                propagated.get(),
+                &propagated,
                 child,
             );
         }
@@ -503,7 +565,7 @@ fn propagate_to_new_children(
                 &children_query,
                 &mut maybe_inherited,
                 propagator,
-                propagated.get(),
+                &propagated,
                 child,
             );
         }
@@ -768,7 +830,7 @@ fn handle_lost_propagator(
                 &children_query,
                 &mut maybe_inherited,
                 propagator,
-                propagated.get(),
+                &propagated,
                 entity,
             );
         // In all other cases, remove all InheritedRenderGroups.
@@ -972,7 +1034,7 @@ fn handle_new_children_nonpropagator(
                 &children_query,
                 &mut maybe_inherited,
                 propagator,
-                propagated.get(),
+                &propagated,
                 child,
             );
         }
@@ -1101,7 +1163,7 @@ fn handle_modified_rendergroups(
         inherited
             .computed
             .set_from(entity_render_groups.unwrap_or(&RenderGroups::default()));
-        inherited.computed.merge(propagated.get());
+        inherited.computed.merge(&propagated);
 
         // Mark updated (in case of duplicates due to removals).
         updated_entities.insert(entity);

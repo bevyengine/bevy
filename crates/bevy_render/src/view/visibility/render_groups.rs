@@ -1,3 +1,5 @@
+use crate::view::ExtractedRenderGroups;
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
 use bevy_reflect::Reflect;
@@ -273,6 +275,14 @@ impl RenderGroups {
         }
     }
 
+    /// Makes a new `RenderGroups` with a camera and the [`DEFAULT_RENDER_LAYER`].
+    pub fn default_with_camera(camera: Entity) -> Self {
+        Self {
+            layers: RenderXXLayersXX::default(),
+            camera: Some(camera),
+        }
+    }
+
     /// Adds a [`RenderLayer`].
     ///
     /// See [`RenderXXLayersXX::add`].
@@ -351,6 +361,15 @@ impl RenderGroups {
             }
         }
         self.layers.intersects(&other.layers)
+    }
+
+    /// Returns `true` if `Self` intersects with an [`ExtractedRenderGroups`].
+    ///
+    /// If `extracted` is `None`, then intersections is tested using [`RenderGroups::default`].
+    pub fn intersects_extracted(&self, extracted: Option<&ExtractedRenderGroups>) -> bool {
+        let default_render_groups = RenderGroups::default();
+        let render_groups = extracted.map(|i| &**i).unwrap_or(&default_render_groups);
+        self.intersects(render_groups)
     }
 
     /// Gets the camera affiliation.

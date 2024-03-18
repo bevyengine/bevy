@@ -14,7 +14,9 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderGroups, ViewVisibility, VisibleEntities},
+    view::{
+        extract_render_groups, ExtractedView, ExtractedRenderGroups, InheritedRenderGroups, RenderGroups,
+        ViewVisibility, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -51,7 +53,7 @@ pub struct ExtractedDirectionalLight {
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
-    pub render_groups: RenderGroups,
+    pub render_groups: ExtractedRenderGroups,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -346,6 +348,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&RenderGroups>,
+                Option<&InheritedRenderGroups>,
             ),
             Without<SpotLight>,
         >,
@@ -468,6 +471,7 @@ pub fn extract_lights(
         transform,
         view_visibility,
         maybe_groups,
+        maybe_inherited,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -488,7 +492,7 @@ pub fn extract_lights(
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
-                render_groups: maybe_groups.cloned().unwrap_or(RenderGroups::default()),
+                render_groups: extract_render_groups(maybe_inherited, maybe_groups),
             },
             render_visible_entities,
         ));
