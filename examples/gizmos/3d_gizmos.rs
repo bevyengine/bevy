@@ -59,8 +59,7 @@ fn setup(
             Hold 'Up' or 'Down' to change the line width of round gizmos\n\
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
             Press 'A' to show all AABB boxes\n\
-            Press 'K' or 'J' to cycle through primitives rendered with gizmos\n\
-            Press 'H' or 'L' to decrease/increase the amount of segments in the primitives",
+            Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -170,6 +169,14 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
+    if keyboard.just_pressed(KeyCode::KeyJ) {
+        config.line_joints = match config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
+        };
+    }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
@@ -182,6 +189,14 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        my_config.line_joints = match my_config.line_joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
+            GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
+            GizmoLineJoint::Round(_) => GizmoLineJoint::None,
+            GizmoLineJoint::None => GizmoLineJoint::Bevel,
+        };
     }
 
     if keyboard.just_pressed(KeyCode::KeyA) {

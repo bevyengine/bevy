@@ -23,7 +23,7 @@ use thiserror::Error;
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
@@ -1590,7 +1590,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1616,7 +1616,7 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1796,7 +1796,7 @@ pub struct CalculatedClip {
 /// `ZIndex::Local(n)` and `ZIndex::Global(n)` for root nodes.
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.

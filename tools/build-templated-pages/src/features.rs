@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fs::File};
 
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 use crate::Command;
 
@@ -27,7 +27,7 @@ impl PartialOrd for Feature {
 
 fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
 
     let features = manifest["features"].as_table().unwrap();
     let default: Vec<_> = features

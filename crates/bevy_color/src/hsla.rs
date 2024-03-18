@@ -1,5 +1,7 @@
-use crate::{Alpha, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use crate::{
+    Alpha, ClampColor, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
@@ -9,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Hsla {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -175,6 +177,24 @@ impl Luminance for Hsla {
             lightness: (self.lightness + amount).min(1.),
             ..*self
         }
+    }
+}
+
+impl ClampColor for Hsla {
+    fn clamped(&self) -> Self {
+        Self {
+            hue: self.hue.rem_euclid(360.),
+            saturation: self.saturation.clamp(0., 1.),
+            lightness: self.lightness.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.saturation)
+            && (0. ..=1.).contains(&self.lightness)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -368,5 +388,22 @@ mod tests {
 
             assert_approx_eq!(color.hue, reference.hue, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Hsla::hsl(361., 2., -1.);
+        let color_2 = Hsla::hsl(250.2762, 1., 0.67);
+        let mut color_3 = Hsla::hsl(-50., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Hsla::hsl(1., 1., 0.));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Hsla::hsl(310., 1., 1.));
     }
 }

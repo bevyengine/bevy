@@ -193,7 +193,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new(world);
+        let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<D>(),
@@ -205,17 +205,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta
             .component_access_set
             .add(state.component_access.clone());
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
         state
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        state.new_archetype(archetype);
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
+        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
     #[inline]
