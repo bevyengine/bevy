@@ -111,6 +111,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
         &self.component_access
     }
+
+    /// Returns the tables matched by this query.
+    pub fn matched_tables(&self) -> impl Iterator<Item = TableId> + '_ {
+        self.matched_tables
+            .ones()
+            .map(|index| TableId::from_usize(index))
+    }
+
+    /// Returns the archetypes matched by this query.
+    pub fn matched_archetypes(&self) -> impl Iterator<Item = ArchetypeId> + '_ {
+        self.matched_archetypes
+            .ones()
+            .map(|index| ArchetypeId::new(ibndex))
+    }
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
