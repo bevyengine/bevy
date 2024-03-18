@@ -12,8 +12,6 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::thiserror,
-    utils::BoxedFuture,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
@@ -86,9 +84,9 @@ impl AssetLoader for TextLoader {
     type Error = std::io::Error;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a TextSettings,
-        _load_context: &'a mut LoadContext,
+        _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Text, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -139,9 +137,9 @@ impl AssetLoader for CoolTextLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
+        load_context: &'a mut LoadContext<'_>,
     ) -> Result<CoolText, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
