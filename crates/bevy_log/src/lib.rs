@@ -11,7 +11,7 @@
 //! `DefaultPlugins` during app initialization.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-#[cfg(feature = "trace")]
+#[cfg(any(feature = "trace", target_arch = "wasm32"))]
 use std::panic;
 
 #[cfg(target_os = "android")]
@@ -205,7 +205,13 @@ impl Plugin for LogPlugin {
 
         #[cfg(target_arch = "wasm32")]
         {
-            console_error_panic_hook::set_once();
+            use wasm_bindgen::{throw_val, JsError};
+
+            let old_handler = panic::take_hook();
+            panic::set_hook(Box::new(move |info| {
+                throw_val(JsError::new(&info.to_string()).into())
+            }));
+
             finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
