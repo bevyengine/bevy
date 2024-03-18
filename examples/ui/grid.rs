@@ -109,7 +109,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     item_rect(builder, CRIMSON);
                     item_rect(builder, ANTIQUE_WHITE);
                     item_rect(builder, YELLOW);
-                    item_rect(builder, PINK);
+                    item_rect(builder, DEEP_PINK);
                     item_rect(builder, YELLOW_GREEN);
                     item_rect(builder, SALMON);
                 });
