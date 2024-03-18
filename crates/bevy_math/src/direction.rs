@@ -138,7 +138,7 @@ impl Dir2 {
     }
 
     /// Returns the inner [`Vec2`]
-    pub const fn to_vec2(&self) -> Vec2 {
+    pub const fn as_vec2(&self) -> Vec2 {
         self.0
     }
 }
@@ -294,7 +294,7 @@ impl Dir3 {
     }
 
     /// Returns the inner [`Vec3`]
-    pub const fn to_vec3(&self) -> Vec3 {
+    pub const fn as_vec3(&self) -> Vec3 {
         self.0
     }
 }
@@ -459,7 +459,7 @@ impl Dir3A {
     }
 
     /// Returns the inner [`Vec3A`]
-    pub const fn to_vec3a(&self) -> Vec3A {
+    pub const fn as_vec3a(&self) -> Vec3A {
         self.0
     }
 }
