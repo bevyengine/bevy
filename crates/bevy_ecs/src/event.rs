@@ -434,6 +434,14 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read_with_id(&self.events)
     }
 
+    pub fn par_read(&mut self) -> EventParIter<'_, E> {
+        self.reader.par_read(&self.events)
+    }
+
+    pub fn par_read_with_id(&mut self) -> EventParIterWithId<'_, E> {
+        self.reader.par_read_with_id(&self.events)
+    }
+
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
     pub fn len(&self) -> usize {
         self.reader.len(&self.events)
@@ -614,7 +622,7 @@ impl<E: Event> Default for ManualEventReader<E> {
     }
 }
 
-#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
+#[allow(clippy::len_without_is_empty)]// Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::read`]
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
@@ -624,6 +632,16 @@ impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::read_with_id`]
     pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
         EventIteratorWithId::new(self, events)
+    }
+
+    /// See [`EventReader::par_read`]
+    pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
+        self.par_read_with_id(events).without_id()
+    }
+
+    /// See [`EventReader::par_read_with_id`]
+    pub fn par_read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventParIterWithId<'a, E> {
+        EventParIterWithId::new(self, events)
     }
 
     /// See [`EventReader::len`]
@@ -786,6 +804,82 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
 impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
+    }
+}
+
+#[derive(Debug)]
+pub struct EventParIterWithId<'a, E: Event> {
+    slices: [&'a [EventInstance<E>]; 2],
+}
+
+impl<'a, E: Event> EventParIterWithId<'a, E> {
+    /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
+    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+        let a_index = reader
+            .last_event_count
+            .saturating_sub(events.events_a.start_event_count);
+        let b_index = reader
+            .last_event_count
+            .saturating_sub(events.events_b.start_event_count);
+        let a = events.events_a.get(a_index..).unwrap_or_default();
+        let b = events.events_b.get(b_index..).unwrap_or_default();
+
+        let unread_count = a.len() + b.len();
+        // Ensure `len` is implemented correctly
+        debug_assert_eq!(unread_count, reader.len(events));
+        reader.last_event_count = events.event_count - unread_count;
+
+        Self { slices: [a, b] }
+    }
+
+    pub fn for_each<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
+        let pool = bevy_tasks::ComputeTaskPool::get();
+        let threads = pool.thread_num().max(1);
+        let count: usize = self.slices.iter().map(|s| s.len()).sum();
+        let batch_size = (count + threads - 1) / threads;
+
+        if count == 0 {
+            return;
+        }
+
+        let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
+        // slightly nicer with `array::each_ref`
+        let remainder = [0, 1].map(|i| chunks[i].remainder());
+
+        pool.scope(|scope| {
+            for batch in chunks.into_iter().flatten() {
+                let func = func.clone();
+                scope.spawn(async move {
+                    for event in batch {
+                        func(&event.event, event.event_id)
+                    }
+                });
+            }
+            // batch the remainders together so we don't spawn more than `thread_num` tasks
+            if !remainder.iter().all(|x| x.is_empty()) {
+                scope.spawn(async move {
+                    for event in remainder.into_iter().flatten() {
+                        func(&event.event, event.event_id)
+                    }
+                })
+            }
+        });
+    }
+    /// Iterate over only the events.
+    pub fn without_id(self) -> EventParIter<'a, E> {
+        EventParIter { iter: self }
+    }
+}
+
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
+#[derive(Debug)]
+pub struct EventParIter<'a, E: Event> {
+    iter: EventParIterWithId<'a, E>,
+}
+
+impl<'a, E: Event> EventParIter<'a, E> {
+    pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
+        self.iter.for_each(move |e, _| func(e))
     }
 }
 
@@ -1262,5 +1356,33 @@ mod tests {
             event_ids.next().is_none(),
             "Only sent two events; got more than two IDs"
         );
+    }
+
+    #[cfg(feature = "multi-threaded")]
+    #[test]
+    fn test_events_par_iter() {
+        use std::{collections::HashSet, sync::mpsc};
+
+        use crate::{prelude::World, schedule::Schedule};
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+        for i in 0..100 {
+            world.send_event(TestEvent { i });
+        }
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+            let (tx, rx) = mpsc::channel();
+            events.par_read().for_each(|event| {
+                tx.send(event.i).unwrap();
+            });
+            drop(tx);
+
+            let observed: HashSet<_> = rx.into_iter().collect();
+            assert_eq!(observed, HashSet::from_iter(0..100));
+        });
+        schedule.run(&mut world);
     }
 }
