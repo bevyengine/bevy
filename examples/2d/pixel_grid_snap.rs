@@ -7,7 +7,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::RenderLayers,
+        view::{CameraView, RenderLayer, RenderGroups},
     },
     sprite::MaterialMesh2dBundle,
     window::WindowResized,
@@ -19,12 +19,12 @@ const RES_WIDTH: u32 = 160;
 /// In-game resolution height.
 const RES_HEIGHT: u32 = 90;
 
-/// Default render layers for pixel-perfect rendering.
+/// Default render groups for pixel-perfect rendering.
 /// You can skip adding this component, as this is the default.
-const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
+const PIXEL_PERFECT_LAYER: RenderLayer = RenderLayer(0);
 
-/// Render layers for high-resolution rendering.
-const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
+/// Render groups for high-resolution rendering.
+const HIGH_RES_LAYER: RenderLayer = RenderLayer(1);
 
 fn main() {
     App::new()
@@ -44,7 +44,7 @@ struct Canvas;
 #[derive(Component)]
 struct InGameCamera;
 
-/// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
+/// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYER`]) to the screen.
 #[derive(Component)]
 struct OuterCamera;
 
@@ -60,7 +60,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Rotate,
-        PIXEL_PERFECT_LAYERS,
+        RenderGroups::from(PIXEL_PERFECT_LAYER),
     ));
 
     // the sample sprite that will be rendered to the high-res "outer world"
@@ -71,7 +71,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Rotate,
-        HIGH_RES_LAYERS,
+        RenderGroups::from(HIGH_RES_LAYER),
     ));
 }
 
@@ -89,7 +89,7 @@ fn setup_mesh(
             ..default()
         },
         Rotate,
-        PIXEL_PERFECT_LAYERS,
+        RenderGroups::from(PIXEL_PERFECT_LAYER),
     ));
 }
 
@@ -122,7 +122,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     let image_handle = images.add(canvas);
 
-    // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
+    // this camera renders whatever is on `PIXEL_PERFECT_LAYER` to the canvas
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
@@ -134,7 +134,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         InGameCamera,
-        PIXEL_PERFECT_LAYERS,
+        CameraView::from(PIXEL_PERFECT_LAYER),
     ));
 
     // spawn the canvas
@@ -144,12 +144,12 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         Canvas,
-        HIGH_RES_LAYERS,
+        RenderGroups::from(HIGH_RES_LAYER),
     ));
 
-    // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
+    // the "outer" camera renders whatever is on `HIGH_RES_LAYER` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
+    commands.spawn((Camera2dBundle::default(), OuterCamera, CameraView::from(HIGH_RES_LAYER)));
 }
 
 /// Rotates entities to demonstrate grid snapping.

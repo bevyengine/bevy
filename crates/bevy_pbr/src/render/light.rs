@@ -13,7 +13,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, RenderGroups, ViewVisibility, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -50,7 +50,7 @@ pub struct ExtractedDirectionalLight {
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
-    pub render_layers: RenderLayers,
+    pub render_groups: RenderGroups,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -172,7 +172,7 @@ pub struct GpuDirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
-    render_layers: u32,
+    render_groups: u32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -344,7 +344,7 @@ pub fn extract_lights(
                 &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
-                Option<&RenderLayers>,
+                Option<&RenderGroups>,
             ),
             Without<SpotLight>,
         >,
@@ -466,7 +466,7 @@ pub fn extract_lights(
         frusta,
         transform,
         view_visibility,
-        maybe_layers,
+        maybe_groups,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -487,7 +487,7 @@ pub fn extract_lights(
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
-                render_layers: maybe_layers.copied().unwrap_or_default(),
+                render_groups: maybe_groups.cloned().unwrap_or(RenderGroups::default()),
             },
             render_visible_entities,
         ));
@@ -916,7 +916,7 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
-            render_layers: light.render_layers.bits(),
+            render_groups: 0u32//light.render_groups.bits(),
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;

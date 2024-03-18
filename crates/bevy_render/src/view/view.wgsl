@@ -22,5 +22,5 @@ struct View {
     frustum: array<vec4<f32>, 6>,
     color_grading: ColorGrading,
     mip_bias: f32,
-    render_layers: u32,
+    render_group: u32,
 };

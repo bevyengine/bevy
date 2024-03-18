@@ -5,7 +5,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 use bevy_ecs::{component::Component, reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_render::view::RenderLayers;
+use bevy_render::view::RenderGroups;
 use bevy_utils::TypeIdMap;
 use core::panic;
 use std::{
@@ -164,7 +164,7 @@ pub struct GizmoConfig {
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
-    pub render_layers: RenderLayers,
+    pub render_groups: RenderGroups,
 
     /// Describe how lines should join
     pub line_joints: GizmoLineJoint,
@@ -178,7 +178,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             line_style: GizmoLineStyle::Solid,
             depth_bias: 0.,
-            render_layers: Default::default(),
+            render_groups: Default::default(),
 
             line_joints: GizmoLineJoint::None,
         }
@@ -189,7 +189,7 @@ impl Default for GizmoConfig {
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
-    pub render_layers: RenderLayers,
+    pub render_groups: RenderGroups,
 }
 
 impl From<&GizmoConfig> for GizmoMeshConfig {
@@ -197,7 +197,7 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
         GizmoMeshConfig {
             line_perspective: item.line_perspective,
             line_style: item.line_style,
-            render_layers: item.render_layers,
+            render_groups: item.render_groups.clone(),
         }
     }
 }

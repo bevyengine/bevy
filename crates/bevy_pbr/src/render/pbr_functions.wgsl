@@ -280,7 +280,7 @@ fn apply_pbr_lighting(
         // check the directional light render layers intersect the view render layers
         // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+        if ((*light).render_groups & view_bindings::view.render_groups) == 0u {
             continue;
         }
 
