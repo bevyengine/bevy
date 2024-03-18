@@ -1,7 +1,12 @@
 //! Showcase how to use and configure FPS overlay.
 
+use std::any::TypeId;
+
 use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    dev_tools::{
+        fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+        DevToolsStore,
+    },
     prelude::*,
 };
 
@@ -54,12 +59,22 @@ fn setup(mut commands: Commands) {
     );
 }
 
-fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+fn customize_config(input: Res<ButtonInput<KeyCode>>, mut dev_tools: ResMut<DevToolsStore>) {
+    // We try to get mutable reference to fps overlay dev tool. Otherwise we don't do anything
+    let Some(dev_tool) = dev_tools.get_mut(&TypeId::of::<FpsOverlayConfig>()) else {
+        return;
+    };
+
+    // We try to access configuration struct that is specific to this dev tool.
+    let Some(tool_config) = dev_tool.get_tool_config_mut::<FpsOverlayConfig>() else {
+        return;
+    };
+
     if input.just_pressed(KeyCode::Digit1) {
-        // Changing resource will affect overlay
-        overlay.text_config.color = Color::srgb(1.0, 0.0, 0.0);
+        // Changing tool_config will affect overlay
+        tool_config.text_config.color = Color::srgb(1.0, 0.0, 0.0);
     }
     if input.just_pressed(KeyCode::Digit2) {
-        overlay.text_config.font_size -= 2.0;
+        tool_config.text_config.font_size -= 2.0;
     }
 }

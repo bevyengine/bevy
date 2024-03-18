@@ -10,11 +10,12 @@ use bevy_ecs::{
     component::Component,
     query::With,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
-    system::{Commands, Query, Res, Resource},
+    system::{Commands, Query, Res},
 };
 use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
+use bevy_utils::warn_once;
 
 use crate::{DevTool, DevToolApp, DevToolsStore};
 
@@ -27,7 +28,7 @@ use crate::{DevTool, DevToolApp, DevToolsStore};
 /// - **Metal**: setting env variable `MTL_HUD_ENABLED=1`
 #[derive(Default)]
 pub struct FpsOverlayPlugin {
-    /// Starting configuration of overlay, this can be later be changed through [`FpsOverlayConfig`] resource.
+    /// Starting configuration of overlay, this can be later be changed through [`DevToolsStore`] resource.
     pub config: FpsOverlayConfig,
 }
 
@@ -37,15 +38,13 @@ impl Plugin for FpsOverlayPlugin {
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
-        app.insert_resource(self.config.clone())
-            .init_dev_tool::<FpsOverlayConfig>()
+        app.insert_dev_tool(self.config.clone())
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
                 (
-                    customize_text.run_if(resource_changed::<FpsOverlayConfig>),
                     change_visibility.run_if(resource_changed::<DevToolsStore>),
-                    update_text.run_if(|dev_tools: Res<DevToolsStore>| {
+                    (customize_text, update_text).run_if(|dev_tools: Res<DevToolsStore>| {
                         dev_tools
                             .get(&TypeId::of::<FpsOverlayConfig>())
                             .is_some_and(|dev_tool| dev_tool.is_enabled)
@@ -56,13 +55,20 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
 }
 
-impl DevTool for FpsOverlayConfig {}
+impl DevTool for FpsOverlayConfig {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
@@ -79,11 +85,19 @@ impl Default for FpsOverlayConfig {
 #[derive(Component)]
 struct FpsText;
 
-fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
+fn setup(mut commands: Commands, dev_tools: Res<DevToolsStore>) {
+    let Some(dev_tool) = dev_tools.get(&TypeId::of::<FpsOverlayConfig>()) else {
+        warn_once!("Dev tool with TypeId of FpsOverlayConfig does not exist in DevToolsStore. Fps overlay won't be created");
+        return;
+    };
+    let Some(tool_config) = dev_tool.get_tool_config::<FpsOverlayConfig>() else {
+        warn_once!("Failed to get tool config from dev tool. Fps overlay won't be created");
+        return;
+    };
     commands.spawn((
         TextBundle::from_sections([
-            TextSection::new("FPS: ", overlay_config.text_config.clone()),
-            TextSection::from_style(overlay_config.text_config.clone()),
+            TextSection::new("FPS: ", tool_config.text_config.clone()),
+            TextSection::from_style(tool_config.text_config.clone()),
         ]),
         FpsText,
     ));
@@ -99,13 +113,18 @@ fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, Wi
     }
 }
 
-fn customize_text(
-    overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Text, With<FpsText>>,
-) {
+fn customize_text(dev_tools: Res<DevToolsStore>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
         for section in text.sections.iter_mut() {
-            section.style = overlay_config.text_config.clone();
+            let Some(dev_tool) = dev_tools.get(&TypeId::of::<FpsOverlayConfig>()) else {
+                warn_once!("Dev tool with TypeId of FpsOverlayConfig does not exist in DevToolsStore. You won't be able to customize the overlay");
+                return;
+            };
+            let Some(tool_config) = dev_tool.get_tool_config::<FpsOverlayConfig>() else {
+                warn_once!("Failed to get tool config from dev tool. Fps overlay won't be created. You won't be able to customize the overlay");
+                return;
+            };
+            section.style = tool_config.text_config.clone();
         }
     }
 }

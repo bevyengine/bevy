@@ -5,7 +5,10 @@
 use bevy_app::prelude::*;
 use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
-use std::{any::TypeId, fmt::Debug};
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
@@ -50,7 +53,12 @@ impl Plugin for DevToolsPlugin {
 }
 
 /// Trait implemented for every dev tool.
-pub trait DevTool: Sync + Send + Debug + 'static {}
+pub trait DevTool: Sync + Send + Debug + 'static {
+    /// Casts to `&dyn Any`.
+    fn as_any(&self) -> &dyn Any;
+    /// Casts to `&mut dyn Any`.
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
 
 /// Information about dev tool.
 #[derive(Debug)]
@@ -58,7 +66,7 @@ pub struct DevToolConfig {
     /// Identifier of a dev tool.
     pub id: TypeId,
     /// Tool specific configuration.
-    pub tool_config: Box<dyn DevTool>,
+    tool_config: Box<dyn DevTool>,
     is_enabled: bool,
 }
 
@@ -93,6 +101,16 @@ impl DevToolConfig {
             tool_config: Box::new(tool_config),
             is_enabled: true,
         }
+    }
+
+    /// Returns a tool specific configuration.
+    pub fn get_tool_config<D: DevTool + 'static>(&self) -> Option<&D> {
+        self.tool_config.as_any().downcast_ref::<D>()
+    }
+
+    /// Returns a mutable tool specific configuration.
+    pub fn get_tool_config_mut<D: DevTool + 'static>(&mut self) -> Option<&mut D> {
+        self.tool_config.as_any_mut().downcast_mut::<D>()
     }
 }
 
