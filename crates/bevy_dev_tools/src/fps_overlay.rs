@@ -1,5 +1,7 @@
 //! Module containing logic for FPS overlay.
 
+use std::any::TypeId;
+
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::Handle;
 use bevy_color::Color;
@@ -14,7 +16,7 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
-use crate::{DevToolConfig, DevToolId, DevToolsStore, RegisterDevTool, DevTool};
+use crate::{DevTool, DevToolConfig, DevToolsStore, RegisterDevTool};
 
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
@@ -29,12 +31,6 @@ pub struct FpsOverlayPlugin {
     pub config: FpsOverlayConfig,
 }
 
-impl FpsOverlayPlugin {
-    /// [`DevToolId`] of the `FpsOverlayPlugin`.
-    pub const FPS_OVERLAY_ID: DevToolId =
-        DevToolId::from_u128(66095722480681667677084752066997432964);
-}
-
 impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
@@ -42,7 +38,10 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
         app.insert_resource(self.config.clone())
-            .register_dev_tool(DevToolConfig::new(Self::FPS_OVERLAY_ID, FpsOverlayConfig::default()))
+            .register_dev_tool(DevToolConfig::new(
+                TypeId::of::<FpsOverlayConfig>(),
+                FpsOverlayConfig::default(),
+            ))
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
@@ -51,7 +50,7 @@ impl Plugin for FpsOverlayPlugin {
                     change_visibility.run_if(resource_changed::<DevToolsStore>),
                     update_text.run_if(|dev_tools: Res<DevToolsStore>| {
                         dev_tools
-                            .get(&Self::FPS_OVERLAY_ID)
+                            .get(&TypeId::of::<FpsOverlayConfig>())
                             .is_some_and(|dev_tool| dev_tool.is_enabled)
                     }),
                 ),
@@ -119,7 +118,7 @@ fn change_visibility(
     dev_tools: Res<DevToolsStore>,
 ) {
     if dev_tools
-        .get(&FpsOverlayPlugin::FPS_OVERLAY_ID)
+        .get(&TypeId::of::<FpsOverlayConfig>())
         .is_some_and(|dev_tool| dev_tool.is_enabled)
     {
         for mut visibility in query.iter_mut() {

@@ -2,11 +2,10 @@
 //! focused on improving developer experience.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-use std::fmt::Debug;
 use bevy_app::prelude::*;
 use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
-use uuid::Uuid;
+use std::{any::TypeId, fmt::Debug};
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
@@ -50,17 +49,6 @@ impl Plugin for DevToolsPlugin {
     }
 }
 
-/// Unique identifier for [`DevTool`].
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct DevToolId(pub Uuid);
-
-impl DevToolId {
-    /// Creates a [`DevToolId`] from u128.
-    pub const fn from_u128(value: u128) -> DevToolId {
-        DevToolId(Uuid::from_u128(value))
-    }
-}
-
 /// Trait implemented for every dev tool.
 pub trait DevTool: Sync + Send + Debug + 'static {}
 
@@ -68,7 +56,7 @@ pub trait DevTool: Sync + Send + Debug + 'static {}
 #[derive(Debug)]
 pub struct DevToolConfig {
     /// Identifier of a dev tool.
-    pub id: DevToolId,
+    pub id: TypeId,
     /// Tool specific configuration.
     pub tool_config: Box<dyn DevTool>,
     is_enabled: bool,
@@ -99,7 +87,7 @@ impl DevToolConfig {
 impl DevToolConfig {
     /// Creates a new [`DevTool`] from a specified [`DevToolId`].
     /// New tool is enabled by default.
-    pub fn new(id: DevToolId, tool_config: impl DevTool) -> DevToolConfig {
+    pub fn new(id: TypeId, tool_config: impl DevTool) -> DevToolConfig {
         DevToolConfig {
             id,
             tool_config: Box::new(tool_config),
@@ -109,9 +97,9 @@ impl DevToolConfig {
 }
 
 /// A collection of [`DevTool`]s.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct DevToolsStore {
-    dev_tools: HashMap<DevToolId, DevToolConfig>,
+    dev_tools: HashMap<TypeId, DevToolConfig>,
 }
 
 impl DevToolsStore {
@@ -123,17 +111,17 @@ impl DevToolsStore {
     }
 
     /// Removes a [`DevTool`].
-    pub fn remove(&mut self, id: &DevToolId) {
+    pub fn remove(&mut self, id: &TypeId) {
         self.dev_tools.remove(id);
     }
 
     /// Returns a reference to the given [`DevTool`] if present.
-    pub fn get(&self, id: &DevToolId) -> Option<&DevToolConfig> {
+    pub fn get(&self, id: &TypeId) -> Option<&DevToolConfig> {
         self.dev_tools.get(id)
     }
 
     /// Returns a mutable reference to the given [`DevTool`] if present.
-    pub fn get_mut(&mut self, id: &DevToolId) -> Option<&mut DevToolConfig> {
+    pub fn get_mut(&mut self, id: &TypeId) -> Option<&mut DevToolConfig> {
         self.dev_tools.get_mut(id)
     }
 
