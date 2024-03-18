@@ -47,7 +47,7 @@ impl Plugin for ViewPlugin {
             .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
+            //.register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
@@ -177,7 +177,7 @@ pub struct ViewUniform {
     frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
-    render_layers: u32,
+    render_groups: u32,
 }
 
 #[derive(Resource, Default)]
@@ -375,7 +375,7 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
-        Option<&RenderLayers>,
+        Option<&RenderGroups>,
     )>,
 ) {
     let view_iter = views.iter();
@@ -394,7 +394,7 @@ pub fn prepare_view_uniforms(
         frustum,
         temporal_jitter,
         mip_bias,
-        maybe_layers,
+        _maybe_groups,
     ) in &views
     {
         let viewport = extracted_view.viewport.as_vec4();
@@ -439,7 +439,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                render_layers: maybe_layers.copied().unwrap_or_default().bits(),
+                render_groups: 0u32//maybe_groups.cloned().unwrap_or(RenderGroups::default()),
             }),
         };
 

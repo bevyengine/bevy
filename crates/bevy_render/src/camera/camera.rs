@@ -6,7 +6,7 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
+    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderGroups, VisibleEntities},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -811,7 +811,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
-            Option<&RenderLayers>,
+            Option<&RenderGroups>,
             Option<&Projection>,
         )>,
     >,
@@ -828,7 +828,7 @@ pub fn extract_cameras(
         color_grading,
         exposure,
         temporal_jitter,
-        render_layers,
+        render_groups,
         projection,
     ) in query.iter()
     {
@@ -894,8 +894,8 @@ pub fn extract_cameras(
                 commands.insert(temporal_jitter.clone());
             }
 
-            if let Some(render_layers) = render_layers {
-                commands.insert(*render_layers);
+            if let Some(render_groups) = render_groups {
+                commands.insert(render_groups.clone());
             }
 
             if let Some(perspective) = projection {

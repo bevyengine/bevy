@@ -128,7 +128,7 @@ The base-line performance cost of this algorithm comes from iterating in order t
 - `RemovedComponents<Parents>` is iterated once.
 */
 
-use crate::view::{CameraView, RenderGroups};
+use crate::view::*;
 
 use crate::prelude::Camera;
 use bevy_app::{App, Plugin, PostUpdate};
@@ -207,8 +207,8 @@ impl PropagateRenderGroups {
                     warn!("failed propagating PropagateRenderGroups::CameraWithView, {entity} doesn't have a camera");
                     PropagatingRenderGroups::Val(RenderGroups::empty());
                 };
-                let empty_view = CameraView::empty();
-                let view = view.unwrap_or(&empty_view);
+                let empty_camera_view = CameraView::empty();
+                let view = view.unwrap_or(&empty_camera_view);
                 PropagatingRenderGroups::Val(view.get_groups(entity))
             }
             Self::Custom(groups) => PropagatingRenderGroups::Ref(groups),
@@ -412,8 +412,8 @@ fn apply_full_propagation(
     };
 
     // Update inherited value or insert a new one.
-    let empty_render_groups = RenderGroups::empty();
-    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
+    let default_render_groups = RenderGroups::default();
+    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
     let apply_changes = |groups: &mut InheritedRenderGroups| {
         groups.propagator = propagator;
         groups.computed.set_from(initial_groups);
@@ -539,8 +539,8 @@ fn apply_new_children_propagation(
     }
 
     // Update inherited value or insert a new one.
-    let empty_render_groups = RenderGroups::empty();
-    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
+    let default_render_groups = RenderGroups::default();
+    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
     let apply_changes = |groups: &mut InheritedRenderGroups| {
         groups.propagator = propagator;
         groups.computed.set_from(initial_groups);
@@ -810,8 +810,8 @@ fn apply_full_propagation_force_update(
     }
 
     // Force-update
-    let empty_render_groups = RenderGroups::empty();
-    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
+    let default_render_groups = RenderGroups::default();
+    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
 
     let mut new = InheritedRenderGroups::empty();
     if let Some(mut inherited) = maybe_inherited_groups {
