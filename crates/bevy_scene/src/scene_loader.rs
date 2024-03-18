@@ -5,7 +5,6 @@ use crate::DynamicScene;
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
-use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
@@ -14,14 +13,14 @@ use thiserror::Error;
 /// [`AssetLoader`] for loading serialized Bevy scene files as [`DynamicScene`].
 #[derive(Debug)]
 pub struct SceneLoader {
-    type_registry: TypeRegistryArc,
+    type_registry: AppTypeRegistry,
 }
 
 impl FromWorld for SceneLoader {
     fn from_world(world: &mut World) -> Self {
         let type_registry = world.resource::<AppTypeRegistry>();
         SceneLoader {
-            type_registry: type_registry.0.clone(),
+            type_registry: type_registry.clone(),
         }
     }
 }

@@ -53,6 +53,15 @@ pub mod prelude {
     };
 }
 
+#[cfg(feature = "bevy_reflect")]
+#[doc(hidden)]
+pub mod private {
+    pub mod bevy_reflect {
+        pub use crate::reflect::register_type_shim;
+        pub use bevy_reflect::TypeRegistryArc;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;

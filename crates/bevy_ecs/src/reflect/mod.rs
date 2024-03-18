@@ -1,11 +1,58 @@
 //! Types that enable reflection support.
+//!
+//! # Automatic Reflect Type Registration
+//! The [`Component`] and [`Resource`] resource derive macros will automatically register
+//! its types that implement [`Reflect`] into the [`AppTypeRegistry`] resource when first
+//! seen by the ECS [`World`].
+//!
+//! If you find that your component or resource is not registered, they may need to be manually
+//! registered. There are a few exceptions:
+//!
+//!  * Automatic registration is only supported via the derive macros. Manual implementations of
+//!    `Component`, `Resource`, or `Reflect` must be manually registered.
+//!  * The associated ECS trait must be reflected (via `reflect(Component)` or `reflect(Resource)`).
+//!  * Generic types are not supported, and must be manually registered.
+//!  * Types are registered when the World first initializes the type. This may cause registrations
+//!    to be missing due to mistiming. These initialization points include but are not limited to:
+//!    - spawning an entity with the component or inserting the resource
+//!    - inserting the component existing entity
+//!    - attempting to remove the component or resource, even if it's not present.
+//!    - a system that references the component or resource is added to a schedule
+//!
+//! ```rust
+//! use bevy_ecs::prelude::*;
+//! use bevy_reflect::Reflect;
+//!
+//! // This will automatically register upon first use!
+//! #[derive(Component, Reflect)]
+//! #[reflect(Component)]
+//! pub struct MyComponent {
+//!     a: usize,
+//!     b: (u32, u8)
+//! }
+//!
+//! // This won't!
+//! #[derive(Component, Reflect)]
+//! #[reflect(Component)]
+//! pub struct GenericComponent<T>(T);
+//!
+//! // This won't!
+//! #[derive(Component, Reflect)]
+//! pub struct NoReflectComponent;
+//! ```
+//!
+//! [`Component`]: crate::prelude::Component
+//! [`Resource`]: crate::prelude::Resource
 
 use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
-use crate::{system::Resource, world::World};
-use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
+use crate::{
+    system::Resource,
+    world::{FromWorld, World},
+};
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
 mod component;
@@ -21,10 +68,27 @@ pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 
+#[doc(hidden)]
+pub fn register_type_shim<T: GetTypeRegistration>(registry: &TypeRegistryArc) {
+    if let Ok(mut registry) = registry.internal.try_write() {
+        registry.register::<T>();
+        return;
+    }
+    if let Ok(registry) = registry.internal.try_read() {
+        if registry.contains(::core::any::TypeId::of::<T>()) {
+            return;
+        }
+    }
+    panic!(
+        "Deadlock while registering <{}>.",
+        ::std::any::type_name::<T>()
+    );
+}
+
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
-#[derive(Resource, Clone, Default)]
-pub struct AppTypeRegistry(pub TypeRegistryArc);
+#[derive(Resource, Clone, Debug)]
+pub struct AppTypeRegistry(TypeRegistryArc);
 
 impl Deref for AppTypeRegistry {
     type Target = TypeRegistryArc;
@@ -39,6 +103,12 @@ impl DerefMut for AppTypeRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl FromWorld for AppTypeRegistry {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.type_registry().clone())
     }
 }
 
