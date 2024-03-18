@@ -746,9 +746,6 @@ impl Bounded3d for Triangle3d {
         rotation: glam::Quat,
     ) -> crate::bounding::BoundingSphere {
         let [a, b, c] = self.vertices;
-        let a = rotation * a + translation;
-        let b = rotation * b + translation;
-        let c = rotation * c + translation;
 
         let center = (a + b + c) / 3.0;
         let radius = (a - center)
@@ -756,6 +753,7 @@ impl Bounded3d for Triangle3d {
             .max((b - center).length())
             .max((c - center).length());
 
+        let center = rotation * center + translation;
         crate::bounding::BoundingSphere::new(center, radius)
     }
 }
