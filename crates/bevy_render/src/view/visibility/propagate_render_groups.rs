@@ -139,6 +139,35 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_utils::error_once;
 use bevy_utils::tracing::warn;
 
+/// System set that applies [`PropagateRenderGroups`] by updating [`InheritedRenderGroups`] components on
+/// entities.
+#[derive(SystemSet, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct PropagateRenderGroupsSet;
+
+pub(crate) struct PropagateRenderGroupsPlugin;
+
+impl Plugin for PropagateRenderGroupsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PropagateRenderGroupsEntityCache>()
+            .add_systems(
+                PostUpdate,
+                (
+                    clean_propagators,
+                    propagate_updated_propagators,
+                    propagate_to_new_children,
+                    handle_orphaned_nonpropagators,
+                    handle_lost_propagator,
+                    handle_new_children_nonpropagator,
+                    handle_new_parent_nonpropagator,
+                    apply_deferred,
+                    handle_modified_rendergroups, //does not have deferred commands
+                )
+                    .chain()
+                    .in_set(PropagateRenderGroupsSet),
+            );
+    }
+}
+
 /// Component on an entity that causes it to propagate a [`RenderGroups`] value to its children.
 ///
 /// Entities with this component will ignore [`RenderGroups`] propagated by parents.
@@ -302,40 +331,13 @@ pub fn derive_render_groups<'a>(
     }
 }
 
-/// System set that applies [`PropagateRenderGroups`] by updating [`InheritedRenderGroups`] components on
-/// entities.
-#[derive(SystemSet, Debug, Clone, Hash, Eq, PartialEq)]
-pub struct PropagateRenderGroupsSet;
-
-pub(crate) struct PropagateRenderGroupsPlugin;
-
-impl Plugin for PropagateRenderGroupsPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<PropagateRenderGroupsEntityCache>()
-            .add_systems(
-                PostUpdate,
-                (
-                    clean_propagators,
-                    propagate_updated_propagators,
-                    propagate_to_new_children,
-                    handle_orphaned_nonpropagators,
-                    handle_lost_propagator,
-                    handle_new_children_nonpropagator,
-                    handle_new_parent_nonpropagator,
-                    apply_deferred,
-                    handle_modified_rendergroups, //does not have deferred commands
-                )
-                    .chain()
-                    .in_set(PropagateRenderGroupsSet),
-            );
-    }
-}
-
 #[derive(Resource, Default)]
 struct PropagateRenderGroupsEntityCache {
-    /// Buffered to absorb spurious allocations during traversals.
+    /// Buffered to absorb spurious allocations of propagated values during traversals.
     saved: RenderGroups,
     /// Updated entities.
+    ///
+    /// This is cleared at the start of [`PropagateRenderGroupsSet`].
     entities: EntityHashSet,
 }
 
