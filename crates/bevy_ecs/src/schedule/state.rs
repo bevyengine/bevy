@@ -475,18 +475,18 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 /// struct InGame;
 ///
 /// impl ComputedStates for InGame {
-///     /// We set the source state to be the state, or set of states,
-///     /// we want to depend on.
+///     /// We set the source state to be the state, or a tuple of states,
+///     /// we want to depend on. You can also wrap each state in an Option,
+///     /// if you want the computed state to execute even if the state doesn't
+///     /// currently exist in the world.
 ///     type SourceStates = AppState;
 ///
 ///     /// We then define the compute function, which takes in
-///     /// either a single optional state, or a tuple of optional
-///     /// states based on whether our source is one state
-///     /// or many.
-///     fn compute(sources: Option<AppState>) -> Option<Self> {
+///     /// your SourceStates
+///     fn compute(sources: AppState) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, we want to return the InGame state
-///             Some(AppState::InGame { .. }) => Some(InGame),
+///             AppState::InGame { .. } => Some(InGame),
 ///             /// Otherwise, we don't want the `State<InGame>` resource to exist,
 ///             /// so we return None.
 ///             _ => None
@@ -516,17 +516,18 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
     ///
-    /// This can either be a single type that implements [`States`], or a tuple
-    /// containing multiple types that implement [`States`].
+    /// This can either be a single type that implements [`States`], an Option of a type
+    /// that implements [`States`], or a tuple
+    /// containing multiple types that implement [`States`] or Optional versions of them.
+    ///
+    /// For example, `(MapState, EnemyState)` is valid, as is `(MapState, Option<EnemyState>)`
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     /// The result is used to set the value of [`State<Self>`].
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
-    fn compute(
-        sources: <<Self as ComputedStates>::SourceStates as StateSet>::OptionalStateSet,
-    ) -> Option<Self>;
+    fn compute(sources: Self::SourceStates) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
@@ -559,13 +560,6 @@ pub trait StateSet: sealed::StateSetSealed {
     /// computed states.
     const SET_DEPENDENCY_DEPTH: usize;
 
-    /// The set of states converted into a set of optional states.
-    ///
-    /// If `StateSet` is a single type, it is wrapped in an `Option`;
-    /// If `StateSet` is a tuple, each element within the tuple is wrapped instead:
-    /// `(S1, S2, S3)` becomes `(Option<S1>, Option<S2>, Option<S3>)`.
-    type OptionalStateSet;
-
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
@@ -579,19 +573,63 @@ pub trait StateSet: sealed::StateSetSealed {
     );
 }
 
-impl<S: States> StateSetSealed for S {}
+/// The [`InnnerStateSet`] trait is used to isolate [`ComputedStates`] & [`SubStates`] from
+/// needing to use only [`Option<S>`] via the (removed) StateSet::OptionalStateSet associated type.
+/// 
+/// Originally, that was done because [`State<S>`] resources can be removed from the world,
+/// and we do not want our systems panicing when they attempt to compute based on a removed/missing state.
+/// 
+/// But beyond that - some [`ComputedStates`]'s might need to exist in different states based on the existance
+/// of other states. So we needed the ability to use[`Option<S>`] when appropriate.
+/// 
+/// The isolation works because it is implemented for both S & [`Option<S>`], and has the [`RawState`] associated type
+/// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
+/// `StateSet` implementation - and the behaviour of that unwrapping will depend on the arguments expected by the
+/// the [`ComputedStates`] & [`SubStates]`.
+trait InnerStateSet: Sized {
+    type RawState: States;
 
-impl<S: States> StateSet for S {
+    const DEPENDENCY_DEPTH: usize;
+
+    fn convert_to_usable_state(wrapped: Option<&State<Self::RawState>>) -> Option<Self>;
+}
+
+impl<S: States> InnerStateSet for S {
+    type RawState = Self;
+
+    const DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
+
+    fn convert_to_usable_state(wrapped: Option<&State<Self::RawState>>) -> Option<Self> {
+        wrapped.map(|v| v.0.clone())
+    }
+}
+
+impl<S: States> InnerStateSet for Option<S> {
+    type RawState = S;
+
+    const DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
+
+    fn convert_to_usable_state(wrapped: Option<&State<Self::RawState>>) -> Option<Self> {
+        Some(wrapped.map(|v| v.0.clone()))
+    }
+}
+
+impl<S: InnerStateSet> StateSetSealed for S {}
+
+impl<S: InnerStateSet> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
-    type OptionalStateSet = Option<S>;
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
         schedules: &mut Schedules,
     ) {
         {
             let system = |world: &mut World| {
-                let state_set = world.get_resource::<State<Self>>();
-                let new_state = T::compute(state_set.map(|v| v.0.clone()));
+                let state_set = world.get_resource::<State<S::RawState>>();
+                let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set) {
+                    T::compute(state_set)
+                } else {
+                    None
+                };
                 internal_apply_state_transition(world, new_state);
             };
             let label = ComputeComputedState::<T>::default();
@@ -606,11 +644,11 @@ impl<S: States> StateSet for S {
             let system = |mut transitions: ResMut<StateTransitionSchedules>| {
                 transitions
                     .dependant_schedules
-                    .entry(T::DEPENDENCY_DEPTH)
+                    .entry(<T as InnerStateSet>::DEPENDENCY_DEPTH)
                     .or_default()
                     .insert(ComputeComputedState::<T>::default().intern());
             };
-            let label = ComputeDependantStates::<S>::default();
+            let label = ComputeDependantStates::<S::RawState>::default();
             match schedules.get_mut(label.clone()) {
                 Some(schedule) => {
                     schedule.add_systems(system);
@@ -629,8 +667,12 @@ impl<S: States> StateSet for S {
     ) {
         {
             let system = |world: &mut World| {
-                let state_set = world.get_resource::<State<Self>>();
-                let new_state = T::exists(state_set.map(|v| v.0.clone()));
+                let state_set = world.get_resource::<State<S::RawState>>();
+                let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set) {
+                    T::exists(state_set)
+                } else {
+                    None
+                };
                 match new_state {
                     Some(value) => {
                         if !world.contains_resource::<State<T>>() {
@@ -656,7 +698,7 @@ impl<S: States> StateSet for S {
                     .or_default()
                     .insert(ComputeComputedState::<T>::default().intern());
             };
-            let label = ComputeDependantStates::<S>::default();
+            let label = ComputeDependantStates::<S::RawState>::default();
             match schedules.get_mut(label.clone()) {
                 Some(schedule) => {
                     schedule.add_systems(system);
@@ -670,7 +712,6 @@ impl<S: States> StateSet for S {
         }
     }
 }
-
 /// Trait defining a state that is automatically derived from other [`States`].
 ///
 /// A Sub State is a state that exists only when the source state meet certain conditions,
@@ -742,13 +783,10 @@ impl<S: States> StateSet for S {
 ///
 /// impl ComputedStates for InGame {
 ///     /// We set the source state to be the state, or set of states,
-///     /// we want to depend on.
-///     type SourceStates = AppState;
+///     /// we want to depend on. Any of the states can be wrapped in an Option.
+///     type SourceStates = Option<AppState>;
 ///
-///     /// We then define the compute function, which takes in
-///     /// either a single optional state, or a tuple of optional
-///     /// states based on whether our source is one state
-///     /// or many.
+///     /// We then define the compute function, which takes in the AppState
 ///     fn compute(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, we want to return the InGame state
@@ -795,13 +833,10 @@ impl<S: States> StateSet for S {
 ///
 /// impl SubStates for GamePhase {
 ///     /// We set the source state to be the state, or set of states,
-///     /// we want to depend on.
-///     type SourceStates = AppState;
+///     /// we want to depend on. Any of the states can be wrapped in an Option.
+///     type SourceStates = Option<AppState>;
 ///
-///     /// We then define the compute function, which takes in
-///     /// either a single optional state, or a tuple of optional
-///     /// states based on whether our source is one state
-///     /// or many.
+///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
 ///     fn exists(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, so we want a GamePhase state to exist, and the default is
@@ -824,7 +859,8 @@ pub trait SubStates: States + FreelyMutableState {
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single type that implements [`States`], or a tuple
-    /// containing multiple types that implement [`States`].
+    /// containing multiple types that implement [`States`], or any combination of
+    /// types implementing [`States`] and Options of types implementing [`States`]
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
@@ -832,9 +868,7 @@ pub trait SubStates: States + FreelyMutableState {
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world, otherwise
     /// if the [`State<Self>`] resource doesn't exist - it will be created with the [`Some`] value.
-    fn exists(
-        sources: <<Self as SubStates>::SourceStates as StateSet>::OptionalStateSet,
-    ) -> Option<Self>;
+    fn exists(sources: Self::SourceStates) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
@@ -846,20 +880,22 @@ pub trait SubStates: States + FreelyMutableState {
 
 macro_rules! impl_state_set_sealed_tuples {
     ($(($param: ident, $val: ident)), *) => {
-        impl<$($param: States),*> StateSetSealed for  ($($param,)*) {}
+        impl<$($param: InnerStateSet),*> StateSetSealed for  ($($param,)*) {}
 
-        impl<$($param: States),*> StateSet for  ($($param,)*) {
+        impl<$($param: InnerStateSet),*> StateSet for  ($($param,)*) {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
-
-            type OptionalStateSet = ($(Option<$param>,)*);
 
             fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(schedules: &mut Schedules) {
                 {
                     let system =  |world: &mut World| {
-                        let ($($val),*,) = ($(world.get_resource::<State<$param>>()),*,);
+                        let ($($val),*,) = ($(world.get_resource::<State<$param::RawState>>()),*,);
 
-                        let new_state = T::compute(($($val.map(|v| v.0.clone())),*, ));
+                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val)),*,) {
+                            T::compute(($($val),*, ))
+                        } else {
+                            None
+                        };
                         internal_apply_state_transition(world, new_state);
                     };
 
@@ -873,10 +909,10 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 {
                     let system = |mut transitions: ResMut<StateTransitionSchedules>| {
-                        transitions.dependant_schedules.entry(T::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
+                        transitions.dependant_schedules.entry(<T as InnerStateSet>::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
                     };
 
-                    $(let label = ComputeDependantStates::<$param>::default();
+                    $(let label = ComputeDependantStates::<$param::RawState>::default();
                     match schedules.get_mut(label.clone()) {
                         Some(schedule) => {
                             schedule.add_systems(system);
@@ -894,9 +930,13 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(schedules: &mut Schedules) {
                 {
                     let system =  |world: &mut World| {
-                        let ($($val),*,) = ($(world.get_resource::<State<$param>>()),*,);
+                        let ($($val),*,) = ($(world.get_resource::<State<$param::RawState>>()),*,);
 
-                        let new_state = T::exists(($($val.map(|v| v.0.clone())),*, ));
+                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val)),*,) {
+                            T::exists(($($val),*, ))
+                        } else {
+                            None
+                        };
                         match new_state {
                             Some(value) => {
                                 if !world.contains_resource::<State<T>>() {
@@ -920,7 +960,7 @@ macro_rules! impl_state_set_sealed_tuples {
                         transitions.dependant_schedules.entry(T::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
                     };
 
-                    $(let label = ComputeDependantStates::<$param>::default();
+                    $(let label = ComputeDependantStates::<$param::RawState>::default();
                     match schedules.get_mut(label.clone()) {
                         Some(schedule) => {
                             schedule.add_systems(system);
@@ -962,7 +1002,7 @@ mod tests {
     }
 
     impl ComputedStates for TestComputedState {
-        type SourceStates = SimpleState;
+        type SourceStates = Option<SimpleState>;
 
         fn compute(sources: Option<SimpleState>) -> Option<Self> {
             sources.and_then(|source| match source {
@@ -1152,11 +1192,9 @@ mod tests {
     }
 
     impl ComputedStates for ComplexComputedState {
-        type SourceStates = (SimpleState, OtherState);
+        type SourceStates = (Option<SimpleState>, Option<OtherState>);
 
-        fn compute(
-            sources: <<Self as ComputedStates>::SourceStates as StateSet>::OptionalStateSet,
-        ) -> Option<Self> {
+        fn compute(sources: (Option<SimpleState>, Option<OtherState>)) -> Option<Self> {
             match sources {
                 (Some(simple), Some(complex)) => {
                     if simple == SimpleState::A
@@ -1256,7 +1294,7 @@ mod tests {
     }
 
     impl ComputedStates for TestNewcomputedState {
-        type SourceStates = (SimpleState, SimpleState2);
+        type SourceStates = (Option<SimpleState>, Option<SimpleState2>);
 
         fn compute((s1, s2): (Option<SimpleState>, Option<SimpleState2>)) -> Option<Self> {
             match (s1, s2) {

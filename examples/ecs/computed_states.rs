@@ -52,13 +52,13 @@ impl ComputedStates for InGame {
     // Our computed state depends on `AppState`, so we need to specify it as the SourceStates type.
     type SourceStates = AppState;
 
-    // The compute function takes in the `SourceStates` wrapped in `Option`'s.
-    fn compute(sources: Option<AppState>) -> Option<Self> {
+    // The compute function takes in the `SourceStates`
+    fn compute(sources: AppState) -> Option<Self> {
         // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
         // if the `compute` function would return `Some` - so only when we are in game.
         match sources {
             // No matter what the value of `paused` or `turbo` is, we're still in the game rather than a menu
-            Some(AppState::InGame { .. }) => Some(Self),
+            AppState::InGame { .. } => Some(Self),
             _ => None,
         }
     }
@@ -79,9 +79,9 @@ struct TurboMode;
 impl ComputedStates for TurboMode {
     type SourceStates = AppState;
 
-    fn compute(sources: Option<AppState>) -> Option<Self> {
+    fn compute(sources: AppState) -> Option<Self> {
         match sources {
-            Some(AppState::InGame { turbo: true, .. }) => Some(Self),
+            AppState::InGame { turbo: true, .. } => Some(Self),
             _ => None,
         }
     }
@@ -106,11 +106,11 @@ enum IsPaused {
 impl ComputedStates for IsPaused {
     type SourceStates = AppState;
 
-    fn compute(sources: Option<AppState>) -> Option<Self> {
+    fn compute(sources: AppState) -> Option<Self> {
         // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
         match sources {
-            Some(AppState::InGame { paused: true, .. }) => Some(Self::Paused),
-            Some(AppState::InGame { paused: false, .. }) => Some(Self::NotPaused),
+            AppState::InGame { paused: true, .. } => Some(Self::Paused),
+            AppState::InGame { paused: false, .. } => Some(Self::NotPaused),
             // If `AppState` is not `InGame`, pausing is meaningless, and so we set it to `None`.
             _ => None,
         }
@@ -137,22 +137,21 @@ impl ComputedStates for Tutorial {
     // then we would need to duplicate the derivation logic for [`InGame`] and [`IsPaused`].
     // In this example that is not a significant undertaking, but as a rule it is likely more
     // effective to rely on the already derived states to avoid the logic drifting apart.
-    type SourceStates = (TutorialState, InGame, IsPaused);
+    //
+    // Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
+    // the the computation will get called even if the state does not exist.
+    type SourceStates = (TutorialState, InGame, Option<IsPaused>);
 
+    // Notice that we aren't using InGame - we're just using it as a source state to
+    // prevent the computation from executing if we're not in game. Instead - this
+    // ComputedState will just not exist in that situation.
     fn compute(
-        (tutorial_state, in_game, is_paused): (
-            Option<TutorialState>,
-            Option<InGame>,
-            Option<IsPaused>,
-        ),
+        (tutorial_state, _in_game, is_paused): (TutorialState, InGame, Option<IsPaused>),
     ) -> Option<Self> {
-        // If the tutorial is inactive or non-existent, we don't need to worry about it.
-        if !matches!(tutorial_state, Some(TutorialState::Active)) {
+        // If the tutorial is inactive we don't need to worry about it.
+        if !matches!(tutorial_state, TutorialState::Active) {
             return None;
         }
-
-        // If we aren't in game, that means we're still in the menu and don't need a tutorial.
-        in_game?;
 
         // If we're paused, we're in the PauseInstructions tutorial
         // Otherwise, we're in the MovementInstructions tutorial
@@ -331,19 +330,20 @@ fn menu(
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &MenuButton),
+        (&Interaction, &mut UiImage, &MenuButton),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color, menu_button) in &mut interaction_query {
+    for (interaction, mut image, menu_button) in &mut interaction_query {
+        let color = &mut image.color;
         match *interaction {
             Interaction::Pressed => {
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    PRESSED_ACTIVE_BUTTON.into()
+                    PRESSED_ACTIVE_BUTTON
                 } else {
-                    PRESSED_BUTTON.into()
+                    PRESSED_BUTTON
                 };
 
                 match menu_button {
@@ -361,18 +361,18 @@ fn menu(
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = HOVERED_ACTIVE_BUTTON.into();
+                    *color = HOVERED_ACTIVE_BUTTON;
                 } else {
-                    *color = HOVERED_BUTTON.into();
+                    *color = HOVERED_BUTTON;
                 }
             }
             Interaction::None => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = ACTIVE_BUTTON.into();
+                    *color = ACTIVE_BUTTON;
                 } else {
-                    *color = NORMAL_BUTTON.into();
+                    *color = NORMAL_BUTTON;
                 }
             }
         }
@@ -399,6 +399,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn clear_state_bound_entities<S: States>(
     state: S,
 ) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
+    info!("Clearing entities for {state:?}");
     move |mut commands, query| {
         for (entity, bound) in &query {
             if bound.0 == state {
@@ -455,6 +456,7 @@ fn toggle_pause(
 }
 
 fn setup_paused_screen(mut commands: Commands) {
+    info!("Printing Pause");
     commands
         .spawn((
             StateBound(IsPaused::Paused),
@@ -467,6 +469,7 @@ fn setup_paused_screen(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ..default()
@@ -531,6 +534,7 @@ fn setup_turbo_text(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ..default()
@@ -578,6 +582,7 @@ fn movement_instructions(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ..default()
@@ -634,6 +639,7 @@ fn pause_instructions(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ..default()
