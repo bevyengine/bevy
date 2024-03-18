@@ -573,16 +573,16 @@ pub trait StateSet: sealed::StateSetSealed {
     );
 }
 
-/// The [`InnnerStateSet`] trait is used to isolate [`ComputedStates`] & [`SubStates`] from
-/// needing to use only [`Option<S>`] via the (removed) StateSet::OptionalStateSet associated type.
-/// 
+/// The `InnnerStateSet` trait is used to isolate [`ComputedStates`] & [`SubStates`] from
+/// needing to use only [`Option<S>`] via the (removed) `StateSet::OptionalStateSet` associated type.
+///
 /// Originally, that was done because [`State<S>`] resources can be removed from the world,
-/// and we do not want our systems panicing when they attempt to compute based on a removed/missing state.
-/// 
-/// But beyond that - some [`ComputedStates`]'s might need to exist in different states based on the existance
+/// and we do not want our systems panicking when they attempt to compute based on a removed/missing state.
+///
+/// But beyond that - some [`ComputedStates`]'s might need to exist in different states based on the existence
 /// of other states. So we needed the ability to use[`Option<S>`] when appropriate.
-/// 
-/// The isolation works because it is implemented for both S & [`Option<S>`], and has the [`RawState`] associated type
+///
+/// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
 /// `StateSet` implementation - and the behaviour of that unwrapping will depend on the arguments expected by the
 /// the [`ComputedStates`] & [`SubStates]`.

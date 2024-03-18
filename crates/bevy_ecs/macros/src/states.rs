@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Expr, Path, Result};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Pat, Path, Result};
 
 use crate::bevy_ecs_path;
 
@@ -36,7 +36,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
 struct Source {
     source_type: Path,
-    source_value: Expr,
+    source_value: Pat,
 }
 
 fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
@@ -48,7 +48,7 @@ fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
             let mut source = None;
             let value = meta.parse_nested_meta(|nested| {
                 let source_type = nested.path.clone();
-                let source_value = nested.value()?.parse::<Expr>()?;
+                let source_value = Pat::parse_multi(nested.value()?)?;
                 source = Some(Source {
                     source_type,
                     source_value,
@@ -122,7 +122,7 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
             type SourceStates = #source_state_type;
 
             fn exists(sources: #source_state_type) -> Option<Self> {
-                if sources == #source_state_value {
+                if matches!(sources, #source_state_value) {
                     Some(Self::default())
                 } else {
                     None
