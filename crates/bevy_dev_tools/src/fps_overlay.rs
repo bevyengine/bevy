@@ -14,7 +14,7 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::node_bundles::TextBundle;
 
-use crate::{DevTool, DevToolId, DevToolsStore, RegisterDevTool};
+use crate::{DevToolConfig, DevToolId, DevToolsStore, RegisterDevTool, DevTool};
 
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
@@ -42,7 +42,7 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
         app.insert_resource(self.config.clone())
-            .register_dev_tool(DevTool::new(Self::FPS_OVERLAY_ID))
+            .register_dev_tool(DevToolConfig::new(Self::FPS_OVERLAY_ID, FpsOverlayConfig::default()))
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
@@ -60,11 +60,13 @@ impl Plugin for FpsOverlayPlugin {
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Debug)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
 }
+
+impl DevTool for FpsOverlayConfig {}
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
