@@ -1,5 +1,5 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::HashMap;
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
@@ -237,62 +237,47 @@ impl AsyncRead for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_asset(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_asset(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_metadata(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_metadata(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_dir(path)
-                .map(|dir| {
-                    let stream: Box<PathStream> = Box::new(DirStream::new(dir));
-                    stream
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.root
+            .get_dir(path)
+            .map(|dir| {
+                let stream: Box<PathStream> = Box::new(DirStream::new(dir));
+                stream
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        Box::pin(async move { Ok(self.root.get_dir(path).is_some()) })
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        Ok(self.root.get_dir(path).is_some())
     }
 }
 
