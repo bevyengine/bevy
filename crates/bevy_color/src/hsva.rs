@@ -1,4 +1,7 @@
-use crate::{Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use crate::{
+    impl_componentwise_linear_convex_space, Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba,
+    StandardColor, Xyza,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +25,8 @@ pub struct Hsva {
 }
 
 impl StandardColor for Hsva {}
+
+impl_componentwise_linear_convex_space!(Hsva, [hue, saturation, value, alpha]);
 
 impl Hsva {
     /// Construct a new [`Hsva`] color from components.

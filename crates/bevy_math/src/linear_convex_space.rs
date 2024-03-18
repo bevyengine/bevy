@@ -11,7 +11,7 @@ use glam::{Quat, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
 ///
 /// By implementing this trait, you garantee that the above conditions hold true.
 pub trait LinearConvexSpace<Scalar>: Default + Copy + Clone {
-    /// Adds two elements of the space
+    /// Adds two elements of the space.
     fn add(self, rhs: Self) -> Self;
     /// Subtracts one element in the space from another one.
     fn sub(self, rhs: Self) -> Self;

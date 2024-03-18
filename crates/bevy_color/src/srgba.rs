@@ -1,7 +1,10 @@
 use std::ops::{Div, Mul};
 
 use crate::color_difference::EuclideanDistance;
-use crate::{Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza};
+use crate::{
+    impl_componentwise_linear_convex_space, Alpha, ClampColor, LinearRgba, Luminance, Mix,
+    StandardColor, Xyza,
+};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -26,6 +29,8 @@ pub struct Srgba {
 }
 
 impl StandardColor for Srgba {}
+
+impl_componentwise_linear_convex_space!(Srgba, [red, green, blue, alpha]);
 
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.

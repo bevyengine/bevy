@@ -1,7 +1,8 @@
 use std::ops::{Div, Mul};
 
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_linear_convex_space, Alpha, ClampColor,
+    Luminance, Mix, StandardColor,
 };
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
@@ -28,6 +29,8 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
+
+impl_componentwise_linear_convex_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.

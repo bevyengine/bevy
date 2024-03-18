@@ -151,3 +151,40 @@ where
     Self: Alpha,
 {
 }
+
+/// Implements `LinearConvexSpace<f32>` for a given type `T` using
+/// coponentwise arithmetic operations on the provided properties of `T`.
+///
+/// Please note that you still need to derive the bounds introduced by `LinearConvexSpace` seperately.
+macro_rules! impl_componentwise_linear_convex_space {
+    ($ty: ident, [$($element: ident),+]) => {
+        impl bevy_math::linear_convex_space::LinearConvexSpace<f32> for $ty {
+            #[inline]
+            fn add(self, rhs: Self) -> Self {
+                Self {
+                    $($element: self.$element + rhs.$element,)+
+                }
+            }
+            #[inline]
+            fn sub(self, rhs: Self) -> Self {
+                Self {
+                    $($element: self.$element - rhs.$element,)+
+                }
+            }
+            #[inline]
+            fn mul(self, rhs: f32) -> Self {
+                Self {
+                    $($element: self.$element * rhs,)+
+                }
+            }
+            #[inline]
+            fn div(self, rhs: f32) -> Self {
+                Self {
+                    $($element: self.$element / rhs,)+
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use impl_componentwise_linear_convex_space;

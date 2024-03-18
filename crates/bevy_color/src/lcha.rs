@@ -1,4 +1,7 @@
-use crate::{Alpha, ClampColor, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    impl_componentwise_linear_convex_space, Alpha, ClampColor, Laba, LinearRgba, Luminance, Mix,
+    Srgba, StandardColor, Xyza,
+};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +24,8 @@ pub struct Lcha {
 }
 
 impl StandardColor for Lcha {}
+
+impl_componentwise_linear_convex_space!(Lcha, [lightness, chroma, hue, alpha]);
 
 impl Lcha {
     /// Construct a new [`Lcha`] color from components.
