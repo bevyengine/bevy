@@ -114,16 +114,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns the tables matched by this query.
     pub fn matched_tables(&self) -> impl Iterator<Item = TableId> + '_ {
-        self.matched_tables
-            .ones()
-            .map(|index| TableId::from_usize(index))
+        self.matched_tables.ones().map(TableId::from_usize)
     }
 
     /// Returns the archetypes matched by this query.
     pub fn matched_archetypes(&self) -> impl Iterator<Item = ArchetypeId> + '_ {
-        self.matched_archetypes
-            .ones()
-            .map(|index| ArchetypeId::new(index))
+        self.matched_archetypes.ones().map(ArchetypeId::new)
     }
 }
 
@@ -536,14 +532,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         // take the intersection of the matched ids
-        let matched_tables: FixedBitSet = self
-            .matched_tables
-            .intersection(&other.matched_tables)
-            .collect();
-        let matched_archetypes: FixedBitSet = self
-            .matched_archetypes
-            .intersection(&other.matched_archetypes)
-            .collect();
+        let mut matched_tables = self.matched_tables.clone();
+        let mut matched_archetypes = self.matched_archetypes.clone();
+        matched_tables.intersect_with(&other.matched_tables);
+        matched_archetypes.intersect_with(&other.matched_archetypes);
         let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
             matched_tables
                 .ones()
