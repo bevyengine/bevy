@@ -438,10 +438,9 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// See also [`for_each`](EventParIter::for_each).
     ///
     /// # Example
-    ///
     /// ```
-    /// use crate::prelude::*;
-    /// use std::sync::atomic::{AtomicUsize, Ordering};
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
     /// #[derive(Event)]
     /// struct MyEvent {
@@ -455,7 +454,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// let mut world = World::new();
     /// world.init_resource::<Events<MyEvent>>();
     /// world.insert_resource(Counter::default());
-    /// 
+    ///
     /// let mut schedule = Schedule::default();
     /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
     ///     events.par_read().for_each(|MyEvent { value }| {
@@ -655,7 +654,7 @@ impl<E: Event> Default for ManualEventReader<E> {
     }
 }
 
-#[allow(clippy::len_without_is_empty)]// Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
+#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::read`]
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
@@ -838,6 +837,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// An object that enables parallel iteration over `Event`s.
 #[derive(Debug)]
 pub struct EventParIter<'a, E: Event> {
+    reader: &'a mut ManualEventReader<E>,
     slices: [&'a [EventInstance<E>]; 2],
 }
 
@@ -858,7 +858,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
         debug_assert_eq!(unread_count, reader.len(events));
         reader.last_event_count = events.event_count - unread_count;
 
-        Self { slices: [a, b] }
+        Self {
+            reader,
+            slices: [a, b],
+        }
     }
 
     /// Runs the provided closure for each unread event in parallel.
@@ -869,7 +872,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
-        self.for_each_with_id(move |e, _| func(e))
+        self.for_each_with_id(move |e, _| func(e));
     }
 
     /// Runs the provided closure for each unread event in parallelL, like [`for_each`](Self::for_each),
@@ -880,37 +883,55 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
-        let pool = bevy_tasks::ComputeTaskPool::get();
-        let threads = pool.thread_num().max(1);
-        let count: usize = self.slices.iter().map(|s| s.len()).sum();
-        let batch_size = (count + threads - 1) / threads;
-
-        if count == 0 {
-            return;
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        {
+            self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-        // slightly nicer with `array::each_ref`
-        let remainder = [0, 1].map(|i| chunks[i].remainder());
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        {
+            let pool = bevy_tasks::ComputeTaskPool::get();
+            let threads = pool.thread_num().max(1);
+            let count: usize = self.slices.iter().map(|s| s.len()).sum();
+            if threads <= 1 || count <= 1 {
+                return self.into_iter().for_each(|(e, i)| func(e, i));
+            }
 
-        pool.scope(|scope| {
-            for batch in chunks.into_iter().flatten() {
-                let func = func.clone();
-                scope.spawn(async move {
-                    for event in batch {
-                        func(&event.event, event.event_id)
-                    }
-                });
-            }
-            // batch the remainders together so we don't spawn more than `thread_num` tasks
-            if !remainder.iter().all(|x| x.is_empty()) {
-                scope.spawn(async move {
-                    for event in remainder.into_iter().flatten() {
-                        func(&event.event, event.event_id)
-                    }
-                })
-            }
-        });
+            let batch_size = (count + threads - 1) / threads;
+            let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
+            // slightly nicer with `array::each_ref`
+            let remainders = [0, 1].map(|i| chunks[i].remainder());
+
+            pool.scope(|scope| {
+                for batch in chunks.into_iter().flatten().chain(remainders) {
+                    let func = func.clone();
+                    scope.spawn(async move {
+                        for event in batch {
+                            func(&event.event, event.event_id);
+                        }
+                    });
+                }
+            });
+        }
+    }
+}
+
+impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
+    type IntoIter = EventIteratorWithId<'a, E>;
+    type Item = <Self::IntoIter as Iterator>::Item;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let EventParIter {
+            reader,
+            slices: [a, b],
+        } = self;
+        let unread = a.len() + b.len();
+        let chain = a.iter().chain(b);
+        EventIteratorWithId {
+            reader,
+            chain,
+            unread,
+        }
     }
 }
 
