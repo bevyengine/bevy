@@ -37,9 +37,9 @@ impl AssetLoader for ExrTextureLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext,
+        _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(

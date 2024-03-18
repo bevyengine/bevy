@@ -1,6 +1,6 @@
 use crate::texture::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 use bevy_asset::saver::{AssetSaver, SavedAsset};
-use futures_lite::{AsyncWriteExt, FutureExt};
+use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
 pub struct CompressedImageSaver;
@@ -25,11 +25,12 @@ impl AssetSaver for CompressedImageSaver {
         image: SavedAsset<'a, Self::Asset>,
         _settings: &'a Self::Settings,
     ) -> Result<ImageLoaderSettings, Self::Error> {
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+
         let compressed_basis_data = {
             let mut compressor_params = basis_universal::CompressorParams::new();
             compressor_params.set_basis_format(basis_universal::BasisTextureFormat::UASTC4x4);
             compressor_params.set_generate_mipmaps(true);
-            let is_srgb = image.texture_descriptor.format.is_srgb();
             let color_space = if is_srgb {
                 basis_universal::ColorSpace::Srgb
             } else {
@@ -49,7 +50,7 @@ impl AssetSaver for CompressedImageSaver {
                 compressor.init(&compressor_params);
                 compressor.process().unwrap();
             }
-            compressor.basis_file().to_vec();
+            compressor.basis_file().to_vec()
         };
 
         writer.write_all(&compressed_basis_data).await?;
