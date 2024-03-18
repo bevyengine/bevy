@@ -93,7 +93,7 @@ impl DevToolConfig {
 }
 
 impl DevToolConfig {
-    /// Creates a new [`DevTool`] from a specified [`DevToolId`].
+    /// Creates a new [`DevTool`] from a specified [`TypeId`].
     /// New tool is enabled by default.
     pub fn new(id: TypeId, tool_config: impl DevTool) -> DevToolConfig {
         DevToolConfig {
@@ -123,9 +123,9 @@ pub struct DevToolsStore {
 impl DevToolsStore {
     /// Adds a new [`DevTool`].
     ///
-    /// If possible, prefer calling [`App::register_dev_tool`].
+    /// If possible, prefer calling [`App::init_dev_tool`] or [`App::insert_dev_tool`].
     pub fn add(&mut self, dev_tool: DevToolConfig) {
-        self.dev_tools.insert(dev_tool.id.clone(), dev_tool);
+        self.dev_tools.insert(dev_tool.id, dev_tool);
     }
 
     /// Removes a [`DevTool`].
