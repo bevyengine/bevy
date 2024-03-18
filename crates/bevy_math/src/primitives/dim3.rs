@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{bounding::Bounded3d, Dir3, Vec3};
+use crate::{bounding::Aabb3d, bounding::Bounded3d, Dir3, InvalidDirectionError, Quat, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -637,17 +637,6 @@ pub struct Triangle3d {
     pub vertices: [Vec3; 3],
 }
 
-/// An error that occurs when a triangle is degenerate, meaning it has zero area.
-/// This can happen when the three vertices are collinear or nearly collinear.
-#[derive(Debug, Clone)]
-pub struct DegenerateTriangleError;
-
-impl std::fmt::Display for DegenerateTriangleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Triangle is degenerate")
-    }
-}
-
 impl Primitive3d for Triangle3d {}
 
 impl Default for Triangle3d {
@@ -695,17 +684,14 @@ impl Triangle3d {
     ///
     /// # Errors
     ///
-    /// Returns [`DegenerateTriangleError`] if the triangle is degenerate, meaning it has zero area.
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     #[inline(always)]
-    pub fn normal(&self) -> Result<Dir3, DegenerateTriangleError> {
+    pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
-        let cross_product = ab.cross(ac);
-        if cross_product.length() < f32::EPSILON {
-            return Err(DegenerateTriangleError);
-        }
-        Ok(Dir3::new_unchecked(cross_product.normalize()))
+        Dir3::new(ab.cross(ac))
     }
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
@@ -739,7 +725,7 @@ impl Triangle3d {
 
 impl Bounded3d for Triangle3d {
     /// Get the bounding box of the triangle
-    fn aabb_3d(&self, translation: Vec3, rotation: glam::Quat) -> crate::bounding::Aabb3d {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let [a, b, c] = self.vertices;
         let a = rotation * a;
         let b = rotation * b;
@@ -771,7 +757,7 @@ impl Bounded3d for Triangle3d {
     fn bounding_sphere(
         &self,
         translation: Vec3,
-        rotation: glam::Quat,
+        rotation: Quat,
     ) -> crate::bounding::BoundingSphere {
         let [a, b, c] = self.vertices;
 
