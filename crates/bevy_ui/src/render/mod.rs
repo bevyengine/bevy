@@ -827,19 +827,17 @@ pub struct UiBatch {
 pub mod shader_flags {
     pub const UNTEXTURED: u32 = 0;
     pub const TEXTURED: u32 = 1;
-    pub const BOX_SHADOW: u32 = 2;
-    pub const DISABLE_AA: u32 = 4;
     pub const CORNERS: [u32; 4] = [
         // top left
         0,
         // top right
-        8,
+        2,
         // bottom right
-        8 | 16,
+        2 | 4,
         // bottom left
-        16,
+        4,
     ];
-    pub const BORDER: u32 = 32;
+    pub const BORDER: u32 = 8;
 }
 
 #[allow(clippy::too_many_arguments)]

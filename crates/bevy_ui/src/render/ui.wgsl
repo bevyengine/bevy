@@ -1,10 +1,9 @@
 #import bevy_render::view::View
 
 const TEXTURED = 1u;
-const DISABLE_AA = 4u;
-const RIGHT_VERTEX = 8u;
-const BOTTOM_VERTEX = 16u;
-const BORDER: u32 = 32u;
+const RIGHT_VERTEX = 2u;
+const BOTTOM_VERTEX = 4u;
+const BORDER: u32 = 8u;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
