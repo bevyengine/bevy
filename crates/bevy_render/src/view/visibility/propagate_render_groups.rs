@@ -136,7 +136,7 @@ The base-line performance cost of this algorithm comes from detecting changes, w
 use crate::view::*;
 
 use crate::prelude::Camera;
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::PostUpdate;
 use bevy_derive::Deref;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
@@ -275,7 +275,7 @@ pub struct InheritedRenderGroups {
 }
 
 impl InheritedRenderGroups {
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             propagator: Entity::PLACEHOLDER,
             computed: RenderGroups::empty(),
