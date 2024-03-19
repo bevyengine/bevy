@@ -251,6 +251,10 @@ entity.insert(groups);
 let mut groups = RenderGroups::from(0);
 groups.add(RenderLayer(1);
 entity.insert(groups);
+
+// Option 3: manual
+let groups = RenderGroups::from(RenderLayers::from_layers(&[0, 1]));
+entity.insert(groups);
 ```
 ///
 /// Similarly, if an entity without [`RenderGroups`] inherits from an entity with [`PropagateRenderGroups`] that
@@ -273,7 +277,7 @@ impl RenderGroups {
         }
     }
 
-    /// Makes a new `RenderGroups` with just a camera.
+    /// Makes a new `RenderGroups` with just a camera and no [`RenderLayers`].
     pub fn new_with_camera(camera: Entity) -> Self {
         Self {
             layers: RenderLayers::empty(),
