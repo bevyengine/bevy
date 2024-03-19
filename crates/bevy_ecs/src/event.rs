@@ -24,7 +24,7 @@ pub trait Event: Send + Sync + 'static {}
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
-/// sent to the point it was processed.
+/// sent to the point it was processed. `EventId`s increase montonically by send order.
 ///
 /// [`World`]: crate::world::World
 pub struct EventId<E: Event> {
@@ -866,8 +866,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
 
     /// Runs the provided closure for each unread event in parallel.
     ///
+    /// Unlike normal iteration, the event order is not guaranteed in any form.
+    ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
@@ -878,8 +880,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// Runs the provided closure for each unread event in parallel, like [`for_each`](Self::for_each),
     /// but additionally provides the `EventId` to the closure.
     ///
+    /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send order.
+    ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
@@ -900,8 +904,8 @@ impl<'a, E: Event> EventParIter<'a, E> {
 
             let batch_size = (count + threads - 1) / threads;
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-            // slightly nicer with `array::each_ref`
-            let remainders = [0, 1].map(|i| chunks[i].remainder());
+            // TODO: replace clone once `array::each_ref` is stabilized
+            let remainders = chunks.clone().map(|c| c.remainder());
 
             pool.scope(|scope| {
                 for batch in chunks.into_iter().flatten().chain(remainders) {
