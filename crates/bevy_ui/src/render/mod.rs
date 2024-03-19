@@ -840,7 +840,7 @@ pub struct UiBatch {
 pub mod shader_flags {
     pub const UNTEXTURED: u32 = 0;
     pub const TEXTURED: u32 = 1;
-    /// Ordering: top left, top right, bottom right, bottom lef
+    /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
 }
