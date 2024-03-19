@@ -6,8 +6,8 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, ZIndex,
+    BackgroundColor, Border, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction,
+    Node, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_color::Color;
@@ -54,6 +54,10 @@ pub struct NodeBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 impl Default for NodeBundle {
@@ -71,6 +75,8 @@ impl Default for NodeBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            border_radius: Default::default(),
+            border: Default::default(),
         }
     }
 }
@@ -116,6 +122,10 @@ pub struct ImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -388,6 +398,10 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Describes the border radius of the node
+    pub border_radius: BorderRadius,
+    /// Describes the visual properties of the node's border
+    pub border: Border,
 }
 
 impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
@@ -403,6 +417,8 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            border_radius: Default::default(),
+            border: Default::default(),
         }
     }
 }
