@@ -37,7 +37,6 @@ fn vertex(
 
     // border.x = left width, .y = top, .z = right, .w = bottom
     @location(5) border: vec4<f32>,
-
     @location(6) size: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
@@ -92,7 +91,7 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) ->
 
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
     let inner_size = size - inset.xy - inset.zw;
-    let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
+    let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
     let inner_point = point - inner_center;
 
     var r = radius;
@@ -120,7 +119,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 #ifdef CLAMP_INNER_CURVES
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
     let inner_size = size - inset.xy - inset.zw;
-    let inner_center = inset.xy + 0.5 * inner_size - 0.5 *size;
+    let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
     let inner_point = point - inner_center;
 
     var r = radius;
@@ -133,7 +132,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
         r.x = 0.;
     }
 
-    if 0. < min(inset.z, inset.y) || inset.z + inset.y <= 0.{
+    if 0. < min(inset.z, inset.y) || inset.z + inset.y <= 0. {
         // top right corner
         r.y = r.y - max(inset.z, inset.y);
     } else {
@@ -142,7 +141,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
     if 0. < min(inset.z, inset.w) || inset.z + inset.w <= 0. {
         // bottom right corner
-        r.z = r.z - max(inset.z, inset.w); 
+        r.z = r.z - max(inset.z, inset.w);
     } else {
         r.z = 0.;
     }
@@ -295,12 +294,12 @@ fn draw(in: VertexOutput) -> vec4<f32> {
         // At external edges with no border, border_distance is equal to zero. 
         // This select statement ensures we only perform anti-aliasing where a non-zero width border is present, otherwise an outline about the external boundary would be drawn even without a border.
         let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
-        return vec4(color.rgb, t * color.a);
+        return vec4(color.rgb * t * color.a, t * color.a);
     }
 
     // The item is a rectangle, draw normally with anti-aliasing at the edges
     let t = 1. - smoothstep(0.0, fexternal, external_distance);
-    return vec4(color.rgb, t * color.a);
+    return vec4(color.rgb * t * color.a, t * color.a);
 }
 
 @fragment
