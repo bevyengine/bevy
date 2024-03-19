@@ -130,7 +130,7 @@ impl RenderLayers {
 
     /// Iterates the internal render layers.
     pub fn iter(&self) -> impl Iterator<Item = RenderLayer> + '_ {
-        self.layers.iter().copied().map(Self::iter_layers).flatten()
+        self.layers.iter().copied().flat_map(Self::iter_layers)
     }
 
     /// Returns `true` if the specified render layer is included in this `RenderLayers`.
@@ -327,7 +327,7 @@ impl RenderGroups {
         self.camera = self.camera.or(other.camera);
     }
 
-    /// Copies `other` into `Self.
+    /// Copies `other` into `Self`.
     ///
     /// This is more efficient than cloning `other` if you want to reuse a `RenderGroups`
     /// that is potentially allocated.
@@ -477,7 +477,7 @@ impl<'a> RenderGroupsRef<'a> {
                 panic!("RenderGroupsRef cannot be dereferenced when empty");
             }
             Self::Ref(groups) => groups,
-            Self::Val(groups) => &groups,
+            Self::Val(groups) => groups,
         }
     }
 }
@@ -494,12 +494,13 @@ pub enum RenderGroupsPtr {
 impl RenderGroupsPtr {
     /// Gets a reference to the internal [`RenderGroups`].
     ///
+    /// # Safety
     /// Safety must be established by the user.
     pub unsafe fn get(&self) -> &RenderGroups {
         match self {
             // SAFETY: Safety is established by the caller.
             Self::Ptr(groups) => unsafe { groups.as_ref().unwrap() },
-            Self::Val(groups) => &groups,
+            Self::Val(groups) => groups,
         }
     }
 }
