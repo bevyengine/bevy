@@ -166,7 +166,11 @@ impl Plugin for AssetPlugin {
             match self.mode {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
-                    let sources = builders.build_sources(watch, false);
+                    let sources = if watch {
+                        builders.build_sources_and_watch_for_unprocessed_changes()
+                    } else {
+                        builders.build_sources()
+                    };
                     let meta_check = app
                         .world
                         .get_resource::<AssetMetaCheck>()
@@ -185,7 +189,11 @@ impl Plugin for AssetPlugin {
                     {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
-                        let mut sources = builders.build_sources(false, watch);
+                        let mut sources = if watch {
+                            builders.build_sources_and_watch_for_processed_changes()
+                        } else {
+                            builders.build_sources()
+                        };
                         sources.gate_on_processor(processor.data.clone());
                         // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
@@ -201,7 +209,11 @@ impl Plugin for AssetPlugin {
                     #[cfg(not(feature = "asset_processor"))]
                     {
                         let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
-                        let sources = builders.build_sources(false, watch);
+                        let sources = if watch {
+                            builders.build_sources_and_watch_for_processed_changes()
+                        } else {
+                            builders.build_sources()
+                        };
                         app.insert_resource(AssetServer::new_with_meta_check(
                             sources,
                             AssetServerMode::Processed,

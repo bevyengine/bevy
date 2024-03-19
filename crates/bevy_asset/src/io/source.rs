@@ -137,59 +137,83 @@ pub struct AssetSourceBuilder {
 }
 
 impl AssetSourceBuilder {
-    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
-    /// If `watch_processed` is true, the processed source will watch for changes.
-    pub fn build(
+    /// Builds a new [`AssetSource`] with the given `id`.
+    /// The unprocessed source will watch for changes.
+    pub fn build_and_watch_for_unprocessed_changes(
         &mut self,
         id: AssetSourceId<'static>,
-        watch: bool,
-        watch_processed: bool,
     ) -> Option<AssetSource> {
         let reader = self.reader.as_mut()?();
+        let mut source = self.get_source(id.clone(), reader);
+
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        match self.watcher.as_mut().and_then(|w| w(sender)) {
+            Some(w) => {
+                source.watcher = Some(w);
+                source.event_receiver = Some(receiver);
+            }
+            None => {
+                if let Some(warning) = self.watch_warning {
+                    warn!("{id} does not have an AssetWatcher configured. {warning}");
+                }
+            }
+        }
+
+        Some(source)
+    }
+
+    /// Builds a new [`AssetSource`] with the given `id`.
+    /// The processed source will watch for changes.
+    pub fn build_and_watch_for_processed_changes(
+        &mut self,
+        id: AssetSourceId<'static>,
+    ) -> Option<AssetSource> {
+        let reader = self.reader.as_mut()?();
+        let mut source = self.get_source(id.clone(), reader);
+
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
+            Some(w) => {
+                source.processed_watcher = Some(w);
+                source.processed_event_receiver = Some(receiver);
+            }
+            None => {
+                if let Some(warning) = self.processed_watch_warning {
+                    warn!("{id} does not have a processed AssetWatcher configured. {warning}");
+                }
+            }
+        }
+
+        Some(source)
+    }
+
+    /// Builds a new [`AssetSource`] with the given `id`.
+    pub fn build(&mut self, id: AssetSourceId<'static>) -> Option<AssetSource> {
+        let reader = self.reader.as_mut()?();
+        let source = self.get_source(id, reader);
+
+        Some(source)
+    }
+
+    fn get_source(
+        &mut self,
+        id: AssetSourceId<'static>,
+        reader: Box<dyn ErasedAssetReader>,
+    ) -> AssetSource {
         let writer = self.writer.as_mut().and_then(|w| w(false));
+        let processed_reader = self.processed_reader.as_mut().map(|r| r());
         let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
-        let mut source = AssetSource {
-            id: id.clone(),
+        AssetSource {
+            id,
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| r()),
+            processed_reader,
             processed_writer,
             event_receiver: None,
             watcher: None,
             processed_event_receiver: None,
             processed_watcher: None,
-        };
-
-        if watch {
-            let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w| w(sender)) {
-                Some(w) => {
-                    source.watcher = Some(w);
-                    source.event_receiver = Some(receiver);
-                }
-                None => {
-                    if let Some(warning) = self.watch_warning {
-                        warn!("{id} does not have an AssetWatcher configured. {warning}");
-                    }
-                }
-            }
         }
-
-        if watch_processed {
-            let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
-                Some(w) => {
-                    source.processed_watcher = Some(w);
-                    source.processed_event_receiver = Some(receiver);
-                }
-                None => {
-                    if let Some(warning) = self.processed_watch_warning {
-                        warn!("{id} does not have a processed AssetWatcher configured. {warning}");
-                    }
-                }
-            }
-        }
-        Some(source)
     }
 
     /// Will use the given `reader` function to construct unprocessed [`AssetReader`] instances.
@@ -323,28 +347,64 @@ impl AssetSourceBuilders {
         }
     }
 
-    /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
-    /// If `watch_processed` is true, the processed sources will watch for changes.
-    pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
+    /// Builds a new [`AssetSources`] collection.
+    /// The unprocessed sources will watch for changes.
+    pub fn build_sources_and_watch_for_unprocessed_changes(&mut self) -> AssetSources {
         let mut sources = HashMap::new();
         for (id, source) in &mut self.sources {
-            if let Some(data) = source.build(
-                AssetSourceId::Name(id.clone_owned()),
-                watch,
-                watch_processed,
-            ) {
+            if let Some(data) = source
+                .build_and_watch_for_unprocessed_changes(AssetSourceId::Name(id.clone_owned()))
+            {
                 sources.insert(id.clone_owned(), data);
             }
         }
 
-        AssetSources {
-            sources,
-            default: self
-                .default
-                .as_mut()
-                .and_then(|p| p.build(AssetSourceId::Default, watch, watch_processed))
-                .expect(MISSING_DEFAULT_SOURCE),
+        let default = self
+            .default
+            .as_mut()
+            .and_then(|p| p.build_and_watch_for_unprocessed_changes(AssetSourceId::Default))
+            .expect(MISSING_DEFAULT_SOURCE);
+
+        AssetSources { sources, default }
+    }
+
+    /// Builds a new [`AssetSources`] collection.
+    /// The processed sources will watch for changes.
+    pub fn build_sources_and_watch_for_processed_changes(&mut self) -> AssetSources {
+        let mut sources = HashMap::new();
+        for (id, source) in &mut self.sources {
+            if let Some(data) =
+                source.build_and_watch_for_processed_changes(AssetSourceId::Name(id.clone_owned()))
+            {
+                sources.insert(id.clone_owned(), data);
+            }
         }
+
+        let default = self
+            .default
+            .as_mut()
+            .and_then(|p| p.build_and_watch_for_processed_changes(AssetSourceId::Default))
+            .expect(MISSING_DEFAULT_SOURCE);
+
+        AssetSources { sources, default }
+    }
+
+    /// Builds a new [`AssetSources`] collection.
+    pub fn build_sources(&mut self) -> AssetSources {
+        let mut sources = HashMap::new();
+        for (id, source) in &mut self.sources {
+            if let Some(data) = source.build(AssetSourceId::Name(id.clone_owned())) {
+                sources.insert(id.clone_owned(), data);
+            }
+        }
+
+        let default = self
+            .default
+            .as_mut()
+            .and_then(|p| p.build(AssetSourceId::Default))
+            .expect(MISSING_DEFAULT_SOURCE);
+
+        AssetSources { sources, default }
     }
 
     /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
