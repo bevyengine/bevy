@@ -1915,7 +1915,12 @@ impl BorderRadius {
 
     #[inline]
     /// Sets the radii to percentage values.
-    pub const fn percent(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+    pub const fn percent(
+        top_left: f32,
+        top_right: f32,
+        bottom_right: f32,
+        bottom_left: f32,
+    ) -> Self {
         Self {
             top_left: Val::Px(top_left),
             top_right: Val::Px(top_right),
