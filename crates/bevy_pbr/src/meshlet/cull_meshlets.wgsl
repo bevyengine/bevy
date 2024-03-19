@@ -1,6 +1,7 @@
 #import bevy_pbr::meshlet_bindings::{
     meshlet_thread_meshlet_ids,
     meshlet_bounding_spheres,
+    meshlet_lod_errors,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_occlusion,
@@ -26,13 +27,6 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if should_cull_instance(instance_id) {
         return;
     }
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
-    let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let model = affine3_to_square(instance_uniform.model);
-    let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
-    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * bounding_sphere.radius;
 
     // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
 #ifdef MESHLET_SECOND_CULLING_PASS
@@ -41,6 +35,26 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     var meshlet_visible = get_meshlet_previous_occlusion(cluster_id.x);
     if !meshlet_visible { return; }
 #endif
+
+    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
+    let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
+    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let model = affine3_to_square(instance_uniform.model);
+    let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
+    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
+    let bounding_sphere_radius = model_scale * bounding_sphere.radius;
+    let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
+
+    var sphere_depth: f32;
+    if view.projection[3][3] == 1.0 {
+        // Orthographic
+        sphere_depth = view.projection[3][2] + (bounding_sphere_center_view_space.z + bounding_sphere_radius) * view.projection[2][2];
+    } else {
+        // Perspective
+        sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z + bounding_sphere_radius);
+    }
+
+    meshlet_visible &= bool(meshlet_lod_errors[meshlet_id] == 0.0);
 
     // Frustum culling
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
@@ -52,7 +66,6 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 #ifdef MESHLET_SECOND_CULLING_PASS
     // In the second culling pass, cull against the depth pyramid generated from the first pass
     if meshlet_visible {
-        let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
         let aabb = project_view_space_sphere_to_screen_space_aabb(bounding_sphere_center_view_space, bounding_sphere_radius);
 
         // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
@@ -69,15 +82,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
         let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
 
         let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
-        if view.projection[3][3] == 1.0 {
-            // Orthographic
-            let sphere_depth = view.projection[3][2] + (bounding_sphere_center_view_space.z + bounding_sphere_radius) * view.projection[2][2];
-            meshlet_visible &= sphere_depth >= occluder_depth;
-        } else {
-            // Perspective
-            let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z + bounding_sphere_radius);
-            meshlet_visible &= sphere_depth >= occluder_depth;
-        }
+        meshlet_visible &= sphere_depth >= occluder_depth;
     }
 #endif
 

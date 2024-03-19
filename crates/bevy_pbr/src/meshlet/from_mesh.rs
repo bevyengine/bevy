@@ -64,7 +64,7 @@ impl MeshletMesh {
                 // Enforce that parent_error >= child_error (we're currently building the parent from its children)
                 let lod_error = group_meshlets.iter().fold(lod_error, |acc, meshlet_id| {
                     acc.max(lod_errors[*meshlet_id])
-                });
+                }) + 0.0000001;
 
                 // Build new meshlets using the simplified group
                 let new_meshlets_count = split_simplified_groups_into_new_meshlets(
