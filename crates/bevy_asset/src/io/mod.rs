@@ -276,21 +276,31 @@ impl AsyncSeek for VecReader {
         _cx: &mut Context<'_>,
         pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let new_pos = match pos {
-            SeekFrom::Start(offset) => offset as i64,
-            SeekFrom::End(offset) => self.bytes.len() as i64 - offset,
-            SeekFrom::Current(offset) => self.bytes_read as i64 + offset,
+        let result = match pos {
+            SeekFrom::Start(offset) => offset.try_into(),
+            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
+            SeekFrom::Current(offset) => self
+                .bytes_read
+                .try_into()
+                .map(|bytes_read: i64| bytes_read + offset),
         };
 
-        if new_pos < 0 {
+        if let Ok(new_pos) = result {
+            if new_pos < 0 {
+                Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seek position is out of range",
+                )))
+            } else {
+                self.bytes_read = new_pos as _;
+
+                Poll::Ready(Ok(new_pos as _))
+            }
+        } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
-        } else {
-            self.bytes_read = new_pos as _;
-
-            Poll::Ready(Ok(new_pos as _))
         }
     }
 }
@@ -333,21 +343,31 @@ impl<'a> AsyncSeek for SliceReader<'a> {
         _cx: &mut Context<'_>,
         pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        let new_pos = match pos {
-            SeekFrom::Start(offset) => offset as i64,
-            SeekFrom::End(offset) => self.bytes.len() as i64 - offset,
-            SeekFrom::Current(offset) => self.bytes_read as i64 + offset,
+        let result = match pos {
+            SeekFrom::Start(offset) => offset.try_into(),
+            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
+            SeekFrom::Current(offset) => self
+                .bytes_read
+                .try_into()
+                .map(|bytes_read: i64| bytes_read + offset),
         };
 
-        if new_pos < 0 {
+        if let Ok(new_pos) = result {
+            if new_pos < 0 {
+                Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seek position is out of range",
+                )))
+            } else {
+                self.bytes_read = new_pos as _;
+
+                Poll::Ready(Ok(new_pos as _))
+            }
+        } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
-        } else {
-            self.bytes_read = new_pos as _;
-
-            Poll::Ready(Ok(new_pos as _))
         }
     }
 }
