@@ -371,14 +371,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if the world used to create `state` is not `world`.
+    /// This will panic if `world` does not match the one used to create `state`.
     ///
     /// # Safety
     ///
-    /// This will create a query that could violate memory safety rules. Make sure that this is only
-    /// called in ways that ensure the queries have unique mutable access.
+    /// * `world` must have permission to access any component data specified in `state`'s [`archetype_component_access`].
+    /// * Any mutable component accesses must be unique.
+    ///
+    /// [`archetype_component_access`]: QueryState::archetype_component_access
     #[inline]
-    pub(crate) unsafe fn new(
+    pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
         state: &'s QueryState<D, F>,
         last_run: Tick,
