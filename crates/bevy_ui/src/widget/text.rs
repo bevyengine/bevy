@@ -50,7 +50,7 @@ impl Measure for TextMeasure {
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
-        _available_height: AvailableSpace,
+        available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {
@@ -64,16 +64,20 @@ impl Measure for TextMeasure {
             AvailableSpace::MaxContent => self.info.max.x,
         });
 
-        height
-            .map_or_else(
-                || match available_width {
-                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-                },
-                |y| Vec2::new(x, y),
-            )
-            .ceil()
+        let y = height.unwrap_or_else(|| {
+            if width.is_some() || matches!(available_width, AvailableSpace::Definite(_)) {
+                // given a definite width we have a definite height
+                self.info.compute_size(Vec2::new(x, f32::MAX)).y
+            } else {
+                match available_height {
+                    AvailableSpace::MinContent => self.info.min.y,
+                    AvailableSpace::MaxContent => self.info.max.y,
+                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)).y,
+                }
+            }
+        });
+
+        Vec2::new(x, y).ceil()
     }
 }
 
@@ -88,7 +92,12 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure { size: measure.max });
+                // with no wrapping the text will always be a single line, which is as wide as
+                // possible and as short as possible. so we use the max width and min height
+                // directly.
+                content_size.set(FixedMeasure {
+                    size: Vec2::new(measure.max.x, measure.min.y),
+                });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
