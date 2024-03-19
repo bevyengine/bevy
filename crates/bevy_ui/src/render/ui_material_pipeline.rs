@@ -691,6 +691,10 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match prepare_ui_material(
             &material,
             &render_device,

@@ -14,6 +14,8 @@ pub mod primitives;
 mod ray;
 mod rects;
 mod rotation2d;
+#[cfg(feature = "rand")]
+mod shape_sampling;
 
 pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
@@ -21,9 +23,14 @@ pub use direction::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rotation2d;
+#[cfg(feature = "rand")]
+pub use shape_sampling::ShapeSample;
 
 /// The `bevy_math` prelude.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "rand")]
+    pub use crate::shape_sampling::ShapeSample;
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{

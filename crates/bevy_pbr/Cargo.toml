@@ -35,7 +35,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
 bitflags = "2.3"
-fixedbitset = "0.4"
+fixedbitset = "0.5"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"

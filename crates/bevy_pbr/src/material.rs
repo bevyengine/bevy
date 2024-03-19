@@ -195,6 +195,8 @@ pub struct MaterialPlugin<M: Material> {
     /// When it is enabled, it will automatically add the [`PrepassPlugin`]
     /// required to make the prepass work on this Material.
     pub prepass_enabled: bool,
+    /// Controls if shadows are enabled for the Material.
+    pub shadows_enabled: bool,
     pub _marker: PhantomData<M>,
 }
 
@@ -202,6 +204,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            shadows_enabled: true,
             _marker: Default::default(),
         }
     }
@@ -233,18 +236,26 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        queue_shadows::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
                     ),
                 );
+
+            if self.shadows_enabled {
+                render_app.add_systems(
+                    Render,
+                    (queue_shadows::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_materials::<M>),),
+                );
+            }
         }
 
-        // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        if self.shadows_enabled || self.prepass_enabled {
+            // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
+            app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        }
 
         if self.prepass_enabled {
             app.add_plugins(PrepassPlugin::<M>::default());
@@ -940,6 +951,10 @@ pub fn prepare_materials<M: Material>(
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets.into_iter() {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match prepare_material(
             &material,
             &render_device,

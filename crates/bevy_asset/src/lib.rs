@@ -40,8 +40,6 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
-pub use bevy_utils::BoxedFuture;
-
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
 
@@ -448,7 +446,7 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{BoxedFuture, Duration, HashMap};
+    use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
@@ -497,40 +495,38 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        fn load<'a>(
+        async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader,
+            reader: &'a mut Reader<'_>,
             _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-            Box::pin(async move {
-                let mut bytes = Vec::new();
-                reader.read_to_end(&mut bytes).await?;
-                let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
-                let mut embedded = String::new();
-                for dep in ron.embedded_dependencies {
-                    let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                        Self::Error::CannotLoadDependency {
-                            dependency: dep.into(),
-                        }
-                    })?;
-                    let cool = loaded.get::<CoolText>().unwrap();
-                    embedded.push_str(&cool.text);
-                }
-                Ok(CoolText {
-                    text: ron.text,
-                    embedded,
-                    dependencies: ron
-                        .dependencies
-                        .iter()
-                        .map(|p| load_context.load(p))
-                        .collect(),
-                    sub_texts: ron
-                        .sub_texts
-                        .drain(..)
-                        .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                        .collect(),
-                })
+            load_context: &'a mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
+            let mut embedded = String::new();
+            for dep in ron.embedded_dependencies {
+                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
+                    Self::Error::CannotLoadDependency {
+                        dependency: dep.into(),
+                    }
+                })?;
+                let cool = loaded.get::<CoolText>().unwrap();
+                embedded.push_str(&cool.text);
+            }
+            Ok(CoolText {
+                text: ron.text,
+                embedded,
+                dependencies: ron
+                    .dependencies
+                    .iter()
+                    .map(|p| load_context.load(p))
+                    .collect(),
+                sub_texts: ron
+                    .sub_texts
+                    .drain(..)
+                    .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
+                    .collect(),
             })
         }
 
@@ -560,31 +556,25 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
-        fn is_directory<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-            self.memory_reader.is_directory(path)
+        async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+            self.memory_reader.is_directory(path).await
         }
-        fn read_directory<'a>(
+        async fn read_directory<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::PathStream>, AssetReaderError>> {
-            self.memory_reader.read_directory(path)
+        ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
+            self.memory_reader.read_directory(path).await
         }
-        fn read_meta<'a>(
+        async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError>> {
-            self.memory_reader.read_meta(path)
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+            self.memory_reader.read_meta(path).await
         }
-        fn read<'a>(
+        async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<
-            'a,
-            Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
-        > {
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -605,13 +595,14 @@ mod tests {
                     ),
                 );
                 let wait = self.load_delay;
-                return Box::pin(async move {
+                return async move {
                     std::thread::sleep(wait);
                     Err(AssetReaderError::Io(io_error.into()))
-                });
+                }
+                .await;
             }
 
-            self.memory_reader.read(path)
+            self.memory_reader.read(path).await
         }
     }
 

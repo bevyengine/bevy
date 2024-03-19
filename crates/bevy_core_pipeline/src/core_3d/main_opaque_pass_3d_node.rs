@@ -5,6 +5,7 @@ use crate::{
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
@@ -48,6 +49,8 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         let color_attachments = [Some(target.get_color_attachment())];
         let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
@@ -71,6 +74,8 @@ impl ViewNode for MainOpaquePass3dNode {
                 occlusion_query_set: None,
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
@@ -105,6 +110,7 @@ impl ViewNode for MainOpaquePass3dNode {
                 }
             }
 
+            pass_span.end(&mut render_pass);
             drop(render_pass);
             command_encoder.finish()
         });

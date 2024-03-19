@@ -2,6 +2,7 @@ use crate::core_3d::Transparent3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::SortedRenderPhase,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -38,6 +39,8 @@ impl ViewNode for MainTransparentPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            let diagnostics = render_context.diagnostic_recorder();
+
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment())],
@@ -52,11 +55,15 @@ impl ViewNode for MainTransparentPass3dNode {
                 occlusion_query_set: None,
             });
 
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
+
+            pass_span.end(&mut render_pass);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't

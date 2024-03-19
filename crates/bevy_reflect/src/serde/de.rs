@@ -753,8 +753,12 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
         };
-
-        dynamic_enum.set_variant(variant_info.name(), value);
+        let variant_name = variant_info.name();
+        let variant_index = self
+            .enum_info
+            .index_of(variant_name)
+            .expect("variant should exist");
+        dynamic_enum.set_variant_with_index(variant_index, variant_name, value);
         Ok(dynamic_enum)
     }
 }
@@ -1058,7 +1062,7 @@ mod tests {
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
-    use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
+    use crate::serde::{ReflectSerializer, TypedReflectDeserializer, UntypedReflectDeserializer};
     use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -1116,7 +1120,7 @@ mod tests {
     #[reflect(Deserialize)]
     struct CustomDeserialize {
         value: usize,
-        #[serde(rename = "renamed")]
+        #[serde(alias = "renamed")]
         inner_struct: SomeDeserializableStruct,
     }
 
@@ -1166,12 +1170,11 @@ mod tests {
         registry
     }
 
-    #[test]
-    fn should_deserialize() {
+    fn get_my_struct() -> MyStruct {
         let mut map = HashMap::new();
         map.insert(64, 32);
 
-        let expected = MyStruct {
+        MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
             option_value_complex: Some(SomeStruct { foo: 123 }),
@@ -1198,7 +1201,13 @@ mod tests {
                 value: 100,
                 inner_struct: SomeDeserializableStruct { foo: 101 },
             },
-        };
+        }
+    }
+
+    #[test]
+    fn should_deserialize() {
+        let expected = get_my_struct();
+        let registry = get_registry();
 
         let input = r#"{
             "bevy_reflect::serde::de::tests::MyStruct": (
@@ -1243,7 +1252,6 @@ mod tests {
             ),
         }"#;
 
-        let registry = get_registry();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
@@ -1425,40 +1433,28 @@ mod tests {
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
     }
 
+    // Regression test for https://github.com/bevyengine/bevy/issues/12462
+    #[test]
+    fn should_reserialize() {
+        let registry = get_registry();
+        let input1 = get_my_struct();
+
+        let serializer1 = ReflectSerializer::new(&input1, &registry);
+        let serialized1 = ron::ser::to_string(&serializer1).unwrap();
+
+        let mut deserializer = ron::de::Deserializer::from_str(&serialized1).unwrap();
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let serializer2 = ReflectSerializer::new(&*input2, &registry);
+        let serialized2 = ron::ser::to_string(&serializer2).unwrap();
+
+        assert_eq!(serialized1, serialized2);
+    }
+
     #[test]
     fn should_deserialize_non_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let expected = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 0 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::default(),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
-            custom_deserialize: CustomDeserialize {
-                value: 100,
-                inner_struct: SomeDeserializableStruct { foo: 101 },
-            },
-        };
-
+        let expected = get_my_struct();
         let registry = get_registry();
 
         let input = vec![
@@ -1490,38 +1486,7 @@ mod tests {
 
     #[test]
     fn should_deserialize_self_describing_binary() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let expected = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            option_value_complex: Some(SomeStruct { foo: 123 }),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            unit_struct: SomeUnitStruct,
-            unit_enum: SomeEnum::Unit,
-            newtype_enum: SomeEnum::NewType(123),
-            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
-            struct_enum: SomeEnum::Struct {
-                foo: String::from("Struct variant value"),
-            },
-            ignored_struct: SomeIgnoredStruct { ignored: 0 },
-            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
-            ignored_struct_variant: SomeIgnoredEnum::Struct {
-                foo: String::default(),
-            },
-            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
-            custom_deserialize: CustomDeserialize {
-                value: 100,
-                inner_struct: SomeDeserializableStruct { foo: 101 },
-            },
-        };
-
+        let expected = get_my_struct();
         let registry = get_registry();
 
         let input = vec![

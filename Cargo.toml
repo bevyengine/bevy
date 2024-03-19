@@ -2285,6 +2285,17 @@ category = "Transforms"
 wasm = true
 
 [[example]]
+name = "align"
+path = "examples/transforms/align.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.align]
+name = "Alignment"
+description = "A demonstration of Transform's axis-alignment feature"
+category = "Transforms"
+wasm = true
+
+[[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 doc-scrape-examples = true

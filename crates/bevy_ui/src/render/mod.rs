@@ -640,10 +640,13 @@ pub fn extract_uinode_text(
         // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
 
         let logical_top_left = -0.5 * uinode.size();
-        let physical_nearest_pixel = (logical_top_left * scale_factor).round();
-        let logical_top_left_nearest_pixel = physical_nearest_pixel * inverse_scale_factor;
-        let transform = Mat4::from(global_transform.affine())
-            * Mat4::from_translation(logical_top_left_nearest_pixel.extend(0.));
+
+        let mut transform = global_transform.affine()
+            * bevy_math::Affine3A::from_translation(logical_top_left.extend(0.));
+
+        transform.translation *= scale_factor;
+        transform.translation = transform.translation.round();
+        transform.translation *= inverse_scale_factor;
 
         let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;

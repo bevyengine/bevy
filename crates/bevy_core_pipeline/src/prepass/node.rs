@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
@@ -43,6 +44,8 @@ impl ViewNode for PrepassNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -83,7 +86,10 @@ impl ViewNode for PrepassNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+            let pass_span = diagnostics.pass_span(&mut render_pass, "prepass");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
@@ -104,6 +110,7 @@ impl ViewNode for PrepassNode {
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
+            pass_span.end(&mut render_pass);
             drop(render_pass);
 
             // Copy prepass depth to the main depth texture if deferred isn't going to
