@@ -143,6 +143,8 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     ui_graph
 }
 
+/// The type of UI node.
+/// This is used to determine how to render the UI node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeType {
     Rect,
@@ -163,7 +165,11 @@ pub struct ExtractedUiNode {
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
     pub camera_entity: Entity,
+    /// Border radius of the UI node.
+    /// Ordering: top left, top right, bottom right, bottom left.
     pub border_radius: [f32; 4],
+    /// Border thickness of the UI node.
+    /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
     pub node_type: NodeType,
 }
@@ -784,9 +790,16 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    /// Shader flags to determine how to render the UI node.
+    /// See [`shader_flags`] for possible values.
     pub flags: u32,
+    /// Border radius of the UI node.
+    /// Ordering: top left, top right, bottom right, bottom left.
     pub radius: [f32; 4],
+    /// Border thickness of the UI node.
+    /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
+    /// Size of the UI node.
     pub size: [f32; 2],
 }
 
@@ -827,16 +840,8 @@ pub struct UiBatch {
 pub mod shader_flags {
     pub const UNTEXTURED: u32 = 0;
     pub const TEXTURED: u32 = 1;
-    pub const CORNERS: [u32; 4] = [
-        // top left
-        0,
-        // top right
-        2,
-        // bottom right
-        2 | 4,
-        // bottom left
-        4,
-    ];
+    /// Ordering: top left, top right, bottom right, bottom lef
+    pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
 }
 
