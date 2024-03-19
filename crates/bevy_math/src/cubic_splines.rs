@@ -174,7 +174,7 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 
 /// A spline interpolated continuously across the nearest four control points, with the position of
 /// the curve specified at every control point and the tangents computed automatically. The associated [`CubicCurve`]
-/// has one segment between each pair of adjacent control points.
+/// has one segment between each pair of adjacet control points.
 ///
 /// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
 ///
@@ -246,7 +246,7 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
         let segments = extended_control_points
             .windows(4)
             .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
-            .collect();
+            .collect(); 
 
         CubicCurve { segments }
     }
