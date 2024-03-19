@@ -7,14 +7,8 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
-    TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
-};
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
@@ -78,8 +72,7 @@ bitflags::bitflags! {
     /// details.
     #[repr(transparent)]
     #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
-    #[reflect(Serialize, Deserialize, Hash, PartialEq, Debug, Reflect)]
-    #[reflect_value]
+    #[reflect_value(Serialize, Deserialize, Hash, PartialEq, Debug)]
     pub struct RenderAssetUsages: u8 {
         const MAIN_WORLD = 1 << 0;
         const RENDER_WORLD = 1 << 1;
