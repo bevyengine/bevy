@@ -151,3 +151,61 @@ where
     Self: Alpha,
 {
 }
+
+macro_rules! impl_componentwise_point {
+    ($ty: ident, [$($element: ident),+]) => {
+        impl std::ops::Add<Self> for $ty {
+            type Output = Self;
+
+            fn add(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element + rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Sub<Self> for $ty {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element - rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Mul<f32> for $ty {
+            type Output = Self;
+
+            fn mul(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element * rhs,)+
+                }
+            }
+        }
+
+        impl std::ops::Mul<$ty> for f32 {
+            type Output = $ty;
+
+            fn mul(self, rhs: $ty) -> Self::Output {
+                Self::Output {
+                    $($element: self * rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Div<f32> for $ty {
+            type Output = Self;
+
+            fn div(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element / rhs,)+
+                }
+            }
+        }
+
+        impl bevy_math::cubic_splines::Point for $ty {}
+    };
+}
+
+pub(crate) use impl_componentwise_point;
