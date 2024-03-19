@@ -131,6 +131,8 @@ The base-line performance cost of this algorithm comes from detecting changes, w
 - `RemovedComponents<Parent>` is iterated once.
 */
 
+#![allow(clippy::manual_map, clippy::collapsible_match)]
+
 use crate::view::*;
 
 use crate::prelude::Camera;
@@ -217,14 +219,14 @@ impl PropagateRenderGroups {
             Self::Camera => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::Camera, {entity} doesn't have a camera");
-                    RenderGroupsRef::Val(RenderGroups::empty());
+                    return RenderGroupsRef::Val(RenderGroups::empty());
                 };
                 RenderGroupsRef::Val(RenderGroups::new_with_camera(entity))
             }
             Self::CameraWithView => {
                 if !is_camera {
                     warn!("failed propagating PropagateRenderGroups::CameraWithView, {entity} doesn't have a camera");
-                    RenderGroupsRef::Val(RenderGroups::empty());
+                    return RenderGroupsRef::Val(RenderGroups::empty());
                 };
                 let empty_camera_view = CameraView::empty();
                 let view = view.unwrap_or(&empty_camera_view);
@@ -233,7 +235,7 @@ impl PropagateRenderGroups {
                     // Reuse saved allocation.
                     let mut temp = RenderGroups::default();
                     std::mem::swap(&mut temp, saved);
-                    temp.set_from_parts(Some(entity), &view.layers());
+                    temp.set_from_parts(Some(entity), view.layers());
                     RenderGroupsRef::Val(temp)
                 } else {
                     // Allocate a new RenderGroups
@@ -255,7 +257,7 @@ impl PropagateRenderGroups {
 ///
 /// ### Merge details
 ///
-/// The merge direction is 'entity_rendergroups.merge(propagated_rendergroups)`
+/// The merge direction is `entity_rendergroups.merge(propagated_rendergroups)`
 /// (see [`RenderGroups::merge`]).
 /// This means the entity's affiliated camera will be prioritized over the propagated affiliated camera.
 #[derive(Component, Debug, Clone)]
@@ -380,20 +382,21 @@ impl PropagateRenderGroupsEntityCache {
     }
 }
 
-/// Removes InheritedRenderGroups from entities with PropagateRenderGroups.
+/// Removes `InheritedRenderGroups` from entities with `PropagateRenderGroups`.
 fn clean_propagators(
     mut commands: Commands,
     dirty_propagators: Query<Entity, (With<InheritedRenderGroups>, With<PropagateRenderGroups>)>,
 ) {
     for dirty in dirty_propagators.iter() {
-        commands.get_entity(dirty).map(|mut e| {
-            e.remove::<InheritedRenderGroups>();
-        });
+        if let Some(mut entity) = commands.get_entity(dirty) {
+            entity.remove::<InheritedRenderGroups>();
+        }
     }
 }
 
 /// Propagates propagation values that have changed.
 //todo: Detect if the propagated value has actually changed? Hard to expect this would matter in practice.
+#[allow(clippy::too_many_arguments)]
 fn propagate_updated_propagators(
     mut commands: Commands,
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
@@ -677,7 +680,7 @@ fn apply_new_children_propagation(
     }
 }
 
-/// Removes InheritedRenderGroups from orphaned branches of the hierarchy.
+/// Removes `InheritedRenderGroups` from orphaned branches of the hierarchy.
 fn handle_orphaned_nonpropagators(
     mut commands: Commands,
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
@@ -714,9 +717,9 @@ fn apply_orphan_cleanup(
     maybe_children: Option<&Children>,
 ) {
     // Remove InheritedRenderGroups.
-    commands.get_entity(entity).map(|mut e| {
-        e.remove::<InheritedRenderGroups>();
-    });
+    if let Some(mut entity) = commands.get_entity(entity) {
+        entity.remove::<InheritedRenderGroups>();
+    }
 
     // Mark as updated.
     updated_entities.insert(entity);
@@ -741,7 +744,7 @@ fn apply_orphan_cleanup(
     }
 }
 
-/// Handles entities that lost the PropagateRenderGroups component.
+/// Handles entities that lost the `PropagateRenderGroups` component.
 fn handle_lost_propagator(
     mut commands: Commands,
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
@@ -951,7 +954,7 @@ fn apply_full_propagation_force_update(
     }
 }
 
-/// Applies InheritedRenderGroups removal to entities for `handle_lost_propagator`,
+/// Applies `InheritedRenderGroups` removal to entities for `handle_lost_propagator`,
 /// `handle_new_children_nonpropagator`, and `handle_new_parent_nonpropagator`.
 fn apply_full_propagation_force_remove(
     commands: &mut Commands,
@@ -994,7 +997,7 @@ fn apply_full_propagation_force_remove(
     }
 }
 
-/// Handles non-propagator entities with InheritedRenderGroups whose children changed.
+/// Handles non-propagator entities with `InheritedRenderGroups` whose children changed.
 fn handle_new_children_nonpropagator(
     mut commands: Commands,
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
@@ -1089,12 +1092,12 @@ fn handle_new_children_nonpropagator(
     }
 }
 
-/// Handles non-propagator entities with InheritedRenderGroups whose parents changed.
-/// - Since handle_new_children_nonpropagator handles all cases where the parent has InheritedRenderGroups, this
-/// system just needs to remove InheritedRenderGroups from non-updated entities and their non-updated descendents
-/// that have InheritedRenderGroups (stopping at propagators and non-updated descendents without
-/// InheritedRenderGroups).
-/// - We skip non-updated entities whose parents are updated, because that implies the current InheritedRenderGroups
+/// Handles non-propagator entities with `InheritedRenderGroups` whose parents changed.
+/// - Since `handle_new_children_nonpropagator` handles all cases where the parent has `InheritedRenderGroups`, this
+/// system just needs to remove `InheritedRenderGroups` from non-updated entities and their non-updated descendents
+/// that have `InheritedRenderGroups` (stopping at propagators and non-updated descendents without
+/// `InheritedRenderGroups`).
+/// - We skip non-updated entities whose parents are updated, because that implies the current `InheritedRenderGroups`
 /// propagator is accurate.
 fn handle_new_parent_nonpropagator(
     mut commands: Commands,
@@ -1151,7 +1154,7 @@ fn handle_new_parent_nonpropagator(
     }
 }
 
-/// Handles added/removed/changed RenderGroups for entities with existing InheritedRenderGroups.
+/// Handles added/removed/changed `RenderGroups` for entities with existing `InheritedRenderGroups`.
 fn handle_modified_rendergroups(
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
     // Entities with InheritedRenderGroups that changed RenderGroups
