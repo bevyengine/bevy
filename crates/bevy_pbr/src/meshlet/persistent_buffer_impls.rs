@@ -75,3 +75,15 @@ unsafe impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
         buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
     }
 }
+
+unsafe impl PersistentGpuBufferable for Arc<[f32]> {
+    type Metadata = ();
+
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<f32>()
+    }
+
+    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
+        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
+    }
+}

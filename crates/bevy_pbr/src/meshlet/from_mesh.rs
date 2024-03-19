@@ -104,7 +104,7 @@ impl MeshletMesh {
             indices: meshlets.triangles.into(),
             meshlets: bevy_meshlets,
             meshlet_bounding_spheres,
-            lod_errors: lod_errors.into(),
+            meshlet_lod_errors: lod_errors.into(),
         })
     }
 }

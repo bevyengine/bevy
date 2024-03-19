@@ -39,7 +39,7 @@ pub struct MeshletMesh {
     /// A list of spherical bounding volumes, 1 per meshlet.
     pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
     /// A list of simplification error used for choosing LOD, 1 per meshlet.
-    pub lod_errors: Arc<[f32]>,
+    pub meshlet_lod_errors: Arc<[f32]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
