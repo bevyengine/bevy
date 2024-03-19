@@ -63,6 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 width: Val::Percent(100.),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect::all(Val::Px(5.)),
+                                row_gap: Val::Px(5.),
                                 ..default()
                             },
                             background_color: Color::srgb(0.15, 0.15, 0.15).into(),
