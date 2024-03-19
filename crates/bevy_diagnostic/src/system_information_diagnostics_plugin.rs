@@ -1,5 +1,6 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
+use bevy_ecs::system::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -24,8 +25,19 @@ impl Plugin for SystemInformationDiagnosticsPlugin {
 }
 
 impl SystemInformationDiagnosticsPlugin {
+    /// Total system cpu usage in %
     pub const CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/cpu_usage");
+    /// Total system memory usage in %
     pub const MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
+}
+
+#[derive(Debug, Resource)]
+pub struct SystemInfo {
+    pub os: String,
+    pub kernel: String,
+    pub cpu: String,
+    pub core_count: String,
+    pub memory: String,
 }
 
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
@@ -39,13 +51,16 @@ impl SystemInformationDiagnosticsPlugin {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
-    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_ecs::{
+        prelude::ResMut,
+        system::{Commands, Local},
+    };
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
-    use super::SystemInformationDiagnosticsPlugin;
+    use super::{SystemInfo, SystemInformationDiagnosticsPlugin};
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
@@ -87,18 +102,7 @@ pub mod internal {
         });
     }
 
-    #[derive(Debug)]
-    // This is required because the Debug trait doesn't detect it's used when it's only used in a print :(
-    #[allow(dead_code)]
-    struct SystemInfo {
-        os: String,
-        kernel: String,
-        cpu: String,
-        core_count: String,
-        memory: String,
-    }
-
-    pub(crate) fn log_system_info() {
+    pub(crate) fn setup_system_info_resource(mut commands: Commands) {
         let sys = System::new_with_specifics(
             RefreshKind::new()
                 .with_cpu(CpuRefreshKind::new())
@@ -122,6 +126,7 @@ pub mod internal {
         };
 
         info!("{:?}", info);
+        commands.insert_resource(info);
     }
 }
 

@@ -28,11 +28,13 @@ use bevy_app::prelude::*;
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<DiagnosticsStore>();
+
         #[cfg(feature = "sysinfo_plugin")]
-        _app.init_resource::<DiagnosticsStore>().add_systems(
+        app.add_systems(
             Startup,
-            system_information_diagnostics_plugin::internal::log_system_info,
+            system_information_diagnostics_plugin::internal::setup_system_info_resource,
         );
     }
 }
