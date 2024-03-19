@@ -28,7 +28,28 @@ fn setup(mut commands: Commands) {
         })
         .id();
 
+    // labels for the different border edges
+    let border_labels = [
+        "None",
+        "All",
+        "Left",
+        "Right",
+        "Top",
+        "Bottom",
+        "Left Right",
+        "Top Bottom",
+        "Top Left",
+        "Bottom Left",
+        "Top Right",
+        "Bottom Right",
+        "Top Bottom Right",
+        "Top Bottom Left",
+        "Top Left Right",
+        "Bottom Left Right",
+    ];
+
     // all the different combinations of border edges
+    // these correspond to the labels above
     let borders = [
         UiRect::default(),
         UiRect::all(Val::Px(10.)),
@@ -84,7 +105,7 @@ fn setup(mut commands: Commands) {
         },
     ];
 
-    for i in 0..64 {
+    for (label, border) in border_labels.into_iter().zip(borders) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -92,35 +113,20 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                border_radius: BorderRadius::all(Val::Px(5.)),
+                border_radius: BorderRadius::MAX,
                 background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
-        let border = borders[i % borders.len()];
+        let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+        let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
         let border_radius = BorderRadius::px(
-            if border.left != Val::Px(0.) && border.top != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.right != Val::Px(0.) && border.top != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.right != Val::Px(0.) && border.bottom != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
-            if border.left != Val::Px(0.) && border.bottom != Val::Px(0.) {
-                f32::MAX
-            } else {
-                0.
-            },
+            border_size(border.left, border.top),
+            border_size(border.right, border.top),
+            border_size(border.right, border.bottom),
+            border_size(border.left, border.bottom),
         );
-        let bordered_node = commands
+        let border_node = commands
             .spawn((
                 NodeBundle {
                     style: Style {
@@ -145,6 +151,26 @@ fn setup(mut commands: Commands) {
             ))
             .add_child(inner_spot)
             .id();
-        commands.entity(root).add_child(bordered_node);
+        let label_node = commands
+            .spawn(TextBundle::from_section(
+                label,
+                TextStyle {
+                    font_size: 9.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        let container = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .push_children(&[border_node, label_node])
+            .id();
+        commands.entity(root).add_child(container);
     }
 }
