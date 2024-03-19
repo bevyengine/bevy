@@ -246,7 +246,7 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
         let segments = extended_control_points
             .windows(4)
             .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
-            .collect(); 
+            .collect();
 
         CubicCurve { segments }
     }
