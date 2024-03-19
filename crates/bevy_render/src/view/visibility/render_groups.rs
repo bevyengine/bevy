@@ -435,18 +435,22 @@ pub enum RenderGroupsRef<'a> {
 }
 
 impl<'a> RenderGroupsRef<'a> {
-    /// Passes [`RenderLists`] to `other` if `self` is on the heap.
+    /// Moves `self` into `other` if `self` is on the heap and `other` is not.
     ///
-    /// The ref will be in an invalid state after this is called.
-    pub(crate) fn reclaim(&mut self, other: &mut RenderGroups) {
+    /// Sets self to [`Self::None`].
+    /// 
+    /// Returns `true` if reclamation occurred.
+    pub(crate) fn reclaim(&mut self, other: &mut RenderGroups) -> bool {
         match self {
             Self::Val(groups) => {
                 if !groups.is_allocated() || other.is_allocated() {
-                    return;
+                    return false;
                 }
-                std::mem::swap(groups, other);
+                *other = std::mem::take(groups);
+                *self = Self::None;
+                true
             }
-            _ => (),
+            _ => false,
         }
     }
 }

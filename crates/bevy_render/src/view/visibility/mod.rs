@@ -413,7 +413,7 @@ pub fn check_visibility(
                 inherited_visibility,
                 mut view_visibility,
                 maybe_groups,
-                maybe_inherited_groups,
+                maybe_inherited,
                 maybe_model_aabb,
                 transform,
                 no_frustum_culling,
@@ -428,12 +428,7 @@ pub fn check_visibility(
             // Check render groups.
             // - If there is no RenderGroups in the entity, use the *default* value because the
             // entity is in the DEFAULT_RENDER_LAYER.
-            let default_render_groups = RenderGroups::default();
-            let entity_groups = maybe_inherited_groups
-                .map(|i| &i.computed)
-                .or(maybe_groups)
-                .unwrap_or(&default_render_groups);
-            if !camera_view.entity_is_visible(camera_entity, entity_groups) {
+            if !camera_view.entity_is_visible(camera_entity, &derive_render_groups(maybe_inherited, maybe_groups)) {
                 return;
             }
 
