@@ -202,8 +202,6 @@ pub struct GpuLights {
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 
-//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
-// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 #[cfg(any(
@@ -989,7 +987,7 @@ pub fn prepare_lights(
                 cluster_factors_zw.y,
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
-            n_directional_lights: directional_lights.iter().len() as u32,
+            n_directional_lights: directional_lights.iter().len().max(MAX_DIRECTIONAL_LIGHTS) as u32,
             // spotlight shadow maps are stored in the directional light array, starting at num_directional_cascades_enabled.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
