@@ -1942,6 +1942,9 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
+            // Note: A visible entity may have a camera on it, but in this case we ignore the camera and
+            // treat it as a normal entity. The CameraView component controls what the camera can see, while
+            // RenderGroups on the camera entity controls who can see the camera entity.
             if !view_mask.intersects(&derive_render_groups(maybe_em_inherited, maybe_entity_mask)) {
                 continue;
             }
