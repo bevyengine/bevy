@@ -14,7 +14,10 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{extract_render_groups, ExtractedRenderGroups, ExtractedView, InheritedRenderGroups, RenderGroups, ViewVisibility, VisibleEntities,},
+    view::{
+        extract_render_groups, ExtractedRenderGroups, ExtractedView, InheritedRenderGroups,
+        RenderGroups, ViewVisibility, VisibleEntities,
+    },
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -686,7 +689,12 @@ pub fn prepare_lights(
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig, &ExtractedRenderGroups),
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            &ExtractedRenderGroups,
+        ),
         With<SortedRenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -1165,12 +1173,11 @@ pub fn prepare_lights(
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
             {
-                gpu_light.cascades[cascade_index] =
-                    GpuDirectionalCascade {
-                        view_projection: cascade.view_projection,
-                        texel_size: cascade.texel_size,
-                        far_bound: *bound,
-                    };
+                gpu_light.cascades[cascade_index] = GpuDirectionalCascade {
+                    view_projection: cascade.view_projection,
+                    texel_size: cascade.texel_size,
+                    far_bound: *bound,
+                };
 
                 let depth_texture_view =
                     directional_light_depth_texture
