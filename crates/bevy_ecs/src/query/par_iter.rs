@@ -78,39 +78,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
-        if self.batching_strategy.batch_size_limits.is_empty() {
-            return self.batching_strategy.batch_size_limits.start;
-        }
-
-        assert!(
-            thread_count > 0,
-            "Attempted to run parallel iteration over a query with an empty TaskPool"
-        );
-        let max_size = if D::IS_DENSE && F::IS_DENSE {
-            // SAFETY: We only access table metadata.
-            let tables = unsafe { &self.world.world_metadata().storages().tables };
-            self.state
-                .matched_table_ids
-                .iter()
-                .map(|id| tables[*id].entity_count())
-                .max()
-                .unwrap_or(0)
-        } else {
-            let archetypes = &self.world.archetypes();
-            self.state
-                .matched_archetype_ids
-                .iter()
-                .map(|id| archetypes[*id].len())
-                .max()
-                .unwrap_or(0)
+        let max_items = || {
+            if D::IS_DENSE && F::IS_DENSE {
+                // SAFETY: We only access table metadata.
+                let tables = unsafe { &self.world.world_metadata().storages().tables };
+                self.state
+                    .matched_table_ids
+                    .iter()
+                    .map(|id| tables[*id].entity_count())
+                    .max()
+                    .unwrap_or(0)
+            } else {
+                let archetypes = &self.world.archetypes();
+                self.state
+                    .matched_archetype_ids
+                    .iter()
+                    .map(|id| archetypes[*id].len())
+                    .max()
+                    .unwrap_or(0)
+            }
         };
-
-        let batches = thread_count * self.batching_strategy.batches_per_thread;
-        // Round up to the nearest batch size.
-        let batch_size = (max_size + batches - 1) / batches;
-        batch_size.clamp(
-            self.batching_strategy.batch_size_limits.start,
-            self.batching_strategy.batch_size_limits.end,
-        )
+        self.batching_strategy
+            .calc_batch_size(max_items, thread_count)
     }
 }

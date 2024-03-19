@@ -2,11 +2,12 @@
 
 use std::ops::Range;
 
-/// Dictates how a parallel query chunks up large tables/archetypes
+/// Dictates how a parallel operation chunks up large quanitities
 /// during iteration.
 ///
 /// A parallel query will chunk up large tables and archetypes into
-/// chunks of at most a certain batch size.
+/// chunks of at most a certain batch size. Similarly, a parallel event
+/// reader will chunk up the remaining events.
 ///
 /// By default, this batch size is automatically determined by dividing
 /// the size of the largest matched archetype by the number
@@ -15,10 +16,11 @@ use std::ops::Range;
 /// same amount of work to be done, which may not hold true in every
 /// workload.
 ///
-/// See [`Query::par_iter`] for more information.
+/// See [`Query::par_iter`], [`EventReader::par_read`] for more information.
 ///
 /// [`Query::par_iter`]: crate::system::Query::par_iter
-#[derive(Clone)]
+/// [`EventReader::par_read`]: crate::event::EventReader::par_read
+#[derive(Clone, Debug)]
 pub struct BatchingStrategy {
     /// The upper and lower limits for how large a batch of entities.
     ///
@@ -35,6 +37,12 @@ pub struct BatchingStrategy {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub batches_per_thread: usize,
+}
+
+impl Default for BatchingStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BatchingStrategy {
@@ -74,5 +82,27 @@ impl BatchingStrategy {
         );
         self.batches_per_thread = batches_per_thread;
         self
+    }
+
+    /// Calculate the batch size according to the given thread count and max item count.
+    /// The count is provided as a closure so that it can be calculated only if needed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `thread_count` is 0.
+    ///
+    #[inline]
+    pub fn calc_batch_size(&self, max_items: impl FnOnce() -> usize, thread_count: usize) -> usize {
+        if self.batch_size_limits.is_empty() {
+            return self.batch_size_limits.start;
+        }
+        assert!(
+            thread_count > 0,
+            "Attempted to run parallel iteration with an empty TaskPool"
+        );
+        let batches = thread_count * self.batches_per_thread;
+        // Round up to the nearest batch size.
+        let batch_size = (max_items() + batches - 1) / batches;
+        batch_size.clamp(self.batch_size_limits.start, self.batch_size_limits.end)
     }
 }

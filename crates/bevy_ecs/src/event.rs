@@ -1,6 +1,7 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
+use crate::batching::BatchingStrategy;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
@@ -839,6 +840,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 pub struct EventParIter<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     slices: [&'a [EventInstance<E>]; 2],
+    batching_strategy: BatchingStrategy,
 }
 
 impl<'a, E: Event> EventParIter<'a, E> {
@@ -861,7 +863,17 @@ impl<'a, E: Event> EventParIter<'a, E> {
         Self {
             reader,
             slices: [a, b],
+            batching_strategy: BatchingStrategy::default(),
         }
+    }
+
+    /// Changes the batching strategy used when iterating.
+    ///
+    /// For more information on how this affects the resultant iteration, see
+    /// [`BatchingStrategy`].
+    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
+        self.batching_strategy = strategy;
+        self
     }
 
     /// Runs the provided closure for each unread event in parallel.
@@ -896,13 +908,14 @@ impl<'a, E: Event> EventParIter<'a, E> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
-            let threads = pool.thread_num().max(1);
-            let count: usize = self.slices.iter().map(|s| s.len()).sum();
-            if threads <= 1 || count <= 1 {
+            let thread_count = pool.thread_num();
+            if thread_count <= 1 {
                 return self.into_iter().for_each(|(e, i)| func(e, i));
             }
 
-            let batch_size = (count + threads - 1) / threads;
+            let batch_size = self
+                .batching_strategy
+                .calc_batch_size(|| self.len(), thread_count);
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
             // TODO: replace clone once `array::each_ref` is stabilized
             let remainders = chunks.clone().map(|c| c.remainder());
@@ -919,6 +932,16 @@ impl<'a, E: Event> EventParIter<'a, E> {
             });
         }
     }
+
+    /// Returns the number of [`Event`]s to be iterated.
+    pub fn len(&self) -> usize {
+        self.slices.iter().map(|s| s.len()).sum()
+    }
+
+    /// Returns [`true`] if there are no events remaining in this iterator.
+    pub fn is_empty(&self) -> bool {
+        self.slices.iter().all(|x| x.is_empty())
+    }
 }
 
 impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
@@ -929,6 +952,7 @@ impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
         let EventParIter {
             reader,
             slices: [a, b],
+            ..
         } = self;
         let unread = a.len() + b.len();
         let chain = a.iter().chain(b);
