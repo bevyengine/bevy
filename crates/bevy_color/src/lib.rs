@@ -69,7 +69,7 @@
 //! allowing you to use them with splines.
 //!
 //! Please note that most often adding or subtracting colors is not what you may want.
-//! Please have a look at other operations like blending or mixing colors instead.
+//! Please have a look at other operations like blending, lightening or mixing colors using e.g. [`Mix`] or [`Luminance`] instead.
 //!
 //! # Example
 //!
