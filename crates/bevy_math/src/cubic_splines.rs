@@ -1285,6 +1285,37 @@ mod tests {
         assert_eq!(bezier.ease(1.0), 1.0);
     }
 
+    /// Test that a simple cardinal spline passes through all of its control points with
+    /// the correct tangents.
+    #[test]
+    fn cardinal_control_pts() {
+        use super::CubicCardinalSpline;
+
+        let tension = 0.2;
+        let [p0, p1, p2, p3] = [vec2(-1., -2.), vec2(0., 1.), vec2(1., 2.), vec2(-2., 1.)];
+        let curve = CubicCardinalSpline::new(tension, [p0, p1, p2, p3]).to_curve();
+
+        // Positions at segment endpoints
+        assert!(curve.position(0.).abs_diff_eq(p0, FLOAT_EQ));
+        assert!(curve.position(1.).abs_diff_eq(p1, FLOAT_EQ));
+        assert!(curve.position(2.).abs_diff_eq(p2, FLOAT_EQ));
+        assert!(curve.position(3.).abs_diff_eq(p3, FLOAT_EQ));
+
+        // Tangents at segment endpoints
+        assert!(curve
+            .velocity(0.)
+            .abs_diff_eq((p1 - p0) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(1.)
+            .abs_diff_eq((p2 - p0) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(2.)
+            .abs_diff_eq((p3 - p1) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(3.)
+            .abs_diff_eq((p3 - p2) * tension, FLOAT_EQ));
+    }
+
     /// Test that [`RationalCurve`] properly generalizes [`CubicCurve`]. A Cubic upgraded to a rational
     /// should produce pretty much the same output.
     #[test]
