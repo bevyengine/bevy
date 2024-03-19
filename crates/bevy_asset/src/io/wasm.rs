@@ -12,11 +12,14 @@ use web_sys::Response;
 /// Represents the global object in the JavaScript context
 #[wasm_bindgen]
 extern "C" {
+    /// The [Global](https://developer.mozilla.org/en-US/docs/Glossary/Global_object) object.
     type Global;
 
+    /// The [window](https://developer.mozilla.org/en-US/docs/Web/API/Window) global object.
     #[wasm_bindgen(method, getter, js_name = Window)]
     fn window(this: &Global) -> JsValue;
 
+    /// The [WorkerGlobalScope](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope) global object.
     #[wasm_bindgen(method, getter, js_name = WorkerGlobalScope)]
     fn worker(this: &Global) -> JsValue;
 }
@@ -50,6 +53,7 @@ fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Err
 
 impl HttpWasmAssetReader {
     async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        // The JS global scope includes a self-reference via a specialising name, which can be used to determine the type of global context available.
         let global: Global = js_sys::global().unchecked_into();
         let promise = if !global.window().is_undefined() {
             let window: web_sys::Window = global.unchecked_into();
