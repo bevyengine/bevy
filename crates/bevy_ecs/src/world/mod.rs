@@ -1836,7 +1836,7 @@ impl World {
     }
 
     /// # Panics
-    /// panics if `component_id` is not registered in this world
+    /// Panics if `component_id` is not registered in this world
     #[inline]
     pub(crate) fn initialize_non_send_internal(
         &mut self,
