@@ -1,6 +1,8 @@
 use std::ops::{Div, Mul};
 
-use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
+use crate::{
+    color_difference::EuclideanDistance, Alpha, ClampColor, Luminance, Mix, StandardColor,
+};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
@@ -256,6 +258,24 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
+impl ClampColor for LinearRgba {
+    fn clamped(&self) -> Self {
+        Self {
+            red: self.red.clamp(0., 1.),
+            green: self.green.clamp(0., 1.),
+            blue: self.blue.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.red)
+            && (0. ..=1.).contains(&self.green)
+            && (0. ..=1.).contains(&self.blue)
+            && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
 impl From<LinearRgba> for [f32; 4] {
     fn from(color: LinearRgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
@@ -454,5 +474,22 @@ mod tests {
         let lighter2 = lighter1.lighter(0.1);
         let twice_as_light = color.lighter(0.2);
         assert!(lighter2.distance_squared(&twice_as_light) < 0.0001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = LinearRgba::rgb(2., -1., 0.4);
+        let color_2 = LinearRgba::rgb(0.031, 0.749, 1.);
+        let mut color_3 = LinearRgba::rgb(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), LinearRgba::rgb(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, LinearRgba::rgb(0., 1., 1.));
     }
 }

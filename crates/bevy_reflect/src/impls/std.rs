@@ -219,6 +219,7 @@ impl_reflect_value!(::std::ffi::OsString(
 ));
 #[cfg(not(any(unix, windows)))]
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
+impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
