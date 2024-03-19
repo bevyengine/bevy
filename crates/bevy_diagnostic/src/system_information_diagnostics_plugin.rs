@@ -148,7 +148,7 @@ pub mod internal {
         // no-op
     }
 
-    pub(crate) fn log_system_info() {
+    pub(crate) fn setup_system_info_resource() {
         // no-op
     }
 }
