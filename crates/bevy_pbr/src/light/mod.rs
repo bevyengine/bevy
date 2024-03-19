@@ -14,8 +14,9 @@ use bevy_render::{
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{
-        CameraView, derive_render_groups, derive_render_groups_ptr, extract_camera_view, InheritedRenderGroups,
-        InheritedVisibility, RenderGroups, RenderGroupsPtr, ViewVisibility, VisibleEntities,
+        derive_render_groups, derive_render_groups_ptr, extract_camera_view, CameraView,
+        InheritedRenderGroups, InheritedVisibility, RenderGroups, RenderGroupsPtr, ViewVisibility,
+        VisibleEntities,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -1027,8 +1028,8 @@ impl PointLightAssignmentData {
 
 /// SAFETY: PointLightAssignmentData is only used in `assign_lights_to_clusters`, where it is not reused
 /// between system calls.
-unsafe impl Send for PointLightAssignmentData { }
-unsafe impl Sync for PointLightAssignmentData { }
+unsafe impl Send for PointLightAssignmentData {}
+unsafe impl Sync for PointLightAssignmentData {}
 
 #[derive(Resource, Default)]
 pub struct GlobalVisiblePointLights {

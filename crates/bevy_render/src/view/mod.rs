@@ -387,15 +387,7 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (
-        entity,
-        extracted_camera,
-        extracted_view,
-        frustum,
-        temporal_jitter,
-        mip_bias,
-    ) in &views
-    {
+    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;

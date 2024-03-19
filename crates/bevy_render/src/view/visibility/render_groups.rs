@@ -438,7 +438,7 @@ impl<'a> RenderGroupsRef<'a> {
     /// Moves `self` into `other` if `self` is on the heap and `other` is not.
     ///
     /// Sets self to [`Self::None`].
-    /// 
+    ///
     /// Returns `true` if reclamation occurred.
     pub(crate) fn reclaim(&mut self, other: &mut RenderGroups) -> bool {
         match self {
