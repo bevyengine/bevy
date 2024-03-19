@@ -2085,6 +2085,19 @@ impl World {
         self.storages.resources.clear();
         self.storages.non_send_resources.clear();
     }
+
+    /// Initializes all of the components in the given [`Bundle`] and returns their ids.
+    ///
+    /// This is equivalent to calling [`init_component`](Self::init_component) on each component
+    /// in the bundle.
+    #[inline]
+    pub fn init_bundle<B: Bundle>(&mut self) -> Vec<ComponentId> {
+        let mut ids = Vec::new();
+        B::component_ids(&mut self.components, &mut self.storages, &mut |id| {
+            ids.push(id);
+        });
+        ids
+    }
 }
 
 impl World {
