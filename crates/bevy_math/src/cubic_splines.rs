@@ -2,6 +2,7 @@
 
 use std::{
     fmt::Debug,
+    iter::once,
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -172,7 +173,8 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 }
 
 /// A spline interpolated continuously across the nearest four control points, with the position of
-/// the curve specified at every control point and the tangents computed automatically.
+/// the curve specified at every control point and the tangents computed automatically. The associated [`CubicCurve`]
+/// has one segment between each pair of adjacent control points.
 ///
 /// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
 ///
@@ -183,8 +185,8 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 /// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
-/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
-/// tangent vector has no sudden jumps.
+/// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
+/// vector is also well-defined everywhere, without sudden jumps.
 ///
 /// ### Usage
 ///
@@ -232,10 +234,18 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
             [-s, 2. - s, s - 2., s],
         ];
 
-        let segments = self
-            .control_points
+        // Extend the list of control points by repeating the endpoints; this allows tangents for the
+        // endpoints to be provided, and the overall effect is that the tangent of an endpoint is parallel
+        // to the line to its adjacent control point.
+        let length = self.control_points.len();
+        let extended_control_points = once(&self.control_points[0])
+            .chain(self.control_points.iter())
+            .chain(once(&self.control_points[length - 1]))
+            .collect::<Vec<_>>();
+
+        let segments = extended_control_points
             .windows(4)
-            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], char_matrix))
+            .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
             .collect();
 
         CubicCurve { segments }
