@@ -478,6 +478,28 @@ impl<'a> RenderGroupsRef<'a> {
     }
 }
 
+/// Stores a [`RenderGroups`] pointer or value.
+///
+/// Useful as an alternative to [`RenderGroupsRef`] when you can't store a reference, for example within a [`Local`]
+/// that buffers a cache that is rewritten every system call.
+pub enum RenderGroupsPtr {
+    Ptr(*const RenderGroups),
+    Val(RenderGroups),
+}
+
+impl RenderGroupsPtr {
+    /// Gets a reference to the internal [`RenderGroups`].
+    ///
+    /// Safety must be established by the user.
+    pub unsafe fn get(&self) -> &RenderGroups {
+        match self {
+            // SAFETY: Safety is established by the caller.
+            Self::Ptr(groups) => unsafe { groups.as_ref().unwrap() },
+            Self::Val(groups) => &groups,
+        }
+    }
+}
+
 /// Component on camera entities that controls which [`RenderLayers`] are visible to
 /// the camera.
 ///
