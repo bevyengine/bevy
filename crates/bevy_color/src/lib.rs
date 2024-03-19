@@ -65,6 +65,12 @@
 //! types in this crate. This is useful when you need to store a color in a data structure
 //! that can't be generic over the color type.
 //!
+//! Color types that are either physically or perceptually linear also implement `Add<Self>`, `Sub<Self>`, `Mul<f32>` and `Div<f32>`
+//! allowing you to use them with splines.
+//!
+//! Please note that most often adding or subtracting colors is not what you may want.
+//! Please have a look at other operations like blending, lightening or mixing colors using e.g. [`Mix`] or [`Luminance`] instead.
+//!
 //! # Example
 //!
 //! ```
@@ -151,3 +157,61 @@ where
     Self: Alpha,
 {
 }
+
+macro_rules! impl_componentwise_point {
+    ($ty: ident, [$($element: ident),+]) => {
+        impl std::ops::Add<Self> for $ty {
+            type Output = Self;
+
+            fn add(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element + rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Sub<Self> for $ty {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element - rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Mul<f32> for $ty {
+            type Output = Self;
+
+            fn mul(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element * rhs,)+
+                }
+            }
+        }
+
+        impl std::ops::Mul<$ty> for f32 {
+            type Output = $ty;
+
+            fn mul(self, rhs: $ty) -> Self::Output {
+                Self::Output {
+                    $($element: self * rhs.$element,)+
+                }
+            }
+        }
+
+        impl std::ops::Div<f32> for $ty {
+            type Output = Self;
+
+            fn div(self, rhs: f32) -> Self::Output {
+                Self::Output {
+                    $($element: self.$element / rhs,)+
+                }
+            }
+        }
+
+        impl bevy_math::cubic_splines::Point for $ty {}
+    };
+}
+
+pub(crate) use impl_componentwise_point;
