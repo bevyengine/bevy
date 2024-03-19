@@ -10,7 +10,7 @@ use meshopt::{
     VertexDataAdapter,
 };
 use metis::Graph;
-use std::{borrow::Cow, ops::Range, sync::Arc};
+use std::{borrow::Cow, iter, ops::Range, sync::Arc};
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -32,6 +32,8 @@ impl MeshletMesh {
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
+
+        let mut lod_errors = vec![0.0; meshlets.len()];
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
@@ -56,15 +58,21 @@ impl MeshletMesh {
 
             for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let simplified_group_indices =
+                let (simplified_group_indices, lod_error) =
                     simplfy_meshlet_groups(group_meshlets, &meshlets, &vertices);
 
+                // Enforce that parent_error >= child_error (we're currently building the parent from its children)
+                let lod_error = group_meshlets.iter().fold(lod_error, |acc, meshlet_id| {
+                    acc.max(lod_errors[*meshlet_id])
+                });
+
                 // Build new meshlets using the simplified group
-                split_simplified_groups_into_new_meshlets(
+                let new_meshlets_count = split_simplified_groups_into_new_meshlets(
                     simplified_group_indices,
                     &vertices,
                     &mut meshlets,
                 );
+                lod_errors.extend(iter::repeat(lod_error).take(new_meshlets_count));
             }
 
             simplification_queue = next_lod_start..meshlets.len();
@@ -96,6 +104,7 @@ impl MeshletMesh {
             indices: meshlets.triangles.into(),
             meshlets: bevy_meshlets,
             meshlet_bounding_spheres,
+            lod_errors: lod_errors.into(),
         })
     }
 }
@@ -209,7 +218,7 @@ fn simplfy_meshlet_groups(
     group_meshlets: &Vec<usize>,
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
-) -> Vec<u32> {
+) -> (Vec<u32>, f32) {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
     for meshlet_id in group_meshlets {
@@ -221,22 +230,28 @@ fn simplfy_meshlet_groups(
 
     // Simplify the group to ~50% triangle count
     let mut error = 0.0;
-    simplify(
+    let simplified_group_indices = simplify(
         &group_indices,
         vertices,
         group_indices.len() / 2,
         0.01,
         SimplifyOptions::LockBorder,
         Some(&mut error),
-    )
+    );
+
+    error = error.sqrt() / 2.0;
+
+    (simplified_group_indices, error)
 }
 
 fn split_simplified_groups_into_new_meshlets(
     simplified_group_indices: Vec<u32>,
     vertices: &VertexDataAdapter<'_>,
     meshlets: &mut Meshlets,
-) {
+) -> usize {
     let simplified_meshlets = build_meshlets(&simplified_group_indices, vertices, 64, 64, 0.0);
+    let new_meshlets_count = simplified_meshlets.len();
+
     let vertex_offset = meshlets.vertices.len() as u32;
     let triangle_offset = meshlets.triangles.len() as u32;
     meshlets
@@ -252,6 +267,8 @@ fn split_simplified_groups_into_new_meshlets(
             meshlet.triangle_offset += triangle_offset;
             meshlet
         }));
+
+    new_meshlets_count
 }
 
 fn calculate_meshlet_bounding_spheres(
