@@ -545,7 +545,6 @@ pub struct ScheduleGraph {
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
-    anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
@@ -567,7 +566,6 @@ impl ScheduleGraph {
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
             conflicting_systems: Vec::new(),
-            anonymous_sets: 0,
             changed: false,
             settings: default(),
             no_sync_edges: BTreeSet::new(),
@@ -853,9 +851,7 @@ impl ScheduleGraph {
     }
 
     fn create_anonymous_set(&mut self) -> AnonymousSet {
-        let id = self.anonymous_sets;
-        self.anonymous_sets += 1;
-        AnonymousSet::new(id)
+        AnonymousSet::new()
     }
 
     fn check_sets(
