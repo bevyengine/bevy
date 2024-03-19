@@ -1893,7 +1893,7 @@ impl BorderRadius {
     }
 
     #[inline]
-    pub fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+    pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
         Self {
             top_left,
             top_right,
@@ -1904,7 +1904,7 @@ impl BorderRadius {
 
     #[inline]
     /// Sets the radii to logical pixel values.
-    pub fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+    pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
             top_left: Val::Px(top_left),
             top_right: Val::Px(top_right),
@@ -1915,7 +1915,7 @@ impl BorderRadius {
 
     #[inline]
     /// Sets the radii to percentage values.
-    pub fn percent(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+    pub const fn percent(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
             top_left: Val::Px(top_left),
             top_right: Val::Px(top_right),
@@ -1927,118 +1927,118 @@ impl BorderRadius {
     #[inline]
     /// Sets the radius for the top left corner.
     /// Remaining corners will be right-angled.
-    pub fn top_left(radius: Val) -> Self {
+    pub const fn top_left(radius: Val) -> Self {
         Self {
             top_left: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radius for the top right corner.
     /// Remaining corners will be right-angled.
-    pub fn top_right(radius: Val) -> Self {
+    pub const fn top_right(radius: Val) -> Self {
         Self {
             top_right: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radius for the bottom right corner.
     /// Remaining corners will be right-angled.
-    pub fn bottom_right(radius: Val) -> Self {
+    pub const fn bottom_right(radius: Val) -> Self {
         Self {
             bottom_right: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radius for the bottom left corner.
     /// Remaining corners will be right-angled.
-    pub fn bottom_left(radius: Val) -> Self {
+    pub const fn bottom_left(radius: Val) -> Self {
         Self {
             bottom_left: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radii for the top left and bottom left corners.
     /// Remaining corners will be right-angled.
-    pub fn left(radius: Val) -> Self {
+    pub const fn left(radius: Val) -> Self {
         Self {
             top_left: radius,
             bottom_left: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radii for the top right and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub fn right(radius: Val) -> Self {
+    pub const fn right(radius: Val) -> Self {
         Self {
             top_right: radius,
             bottom_right: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radii for the top left and top right corners.
     /// Remaining corners will be right-angled.
-    pub fn top(radius: Val) -> Self {
+    pub const fn top(radius: Val) -> Self {
         Self {
             top_left: radius,
             top_right: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub fn bottom(radius: Val) -> Self {
+    pub const fn bottom(radius: Val) -> Self {
         Self {
             bottom_left: radius,
             bottom_right: radius,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
     #[inline]
-    pub fn with_top_left(mut self, radius: Val) -> Self {
+    pub const fn with_top_left(mut self, radius: Val) -> Self {
         self.top_left = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
     #[inline]
-    pub fn with_top_right(mut self, radius: Val) -> Self {
+    pub const fn with_top_right(mut self, radius: Val) -> Self {
         self.top_right = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
     #[inline]
-    pub fn with_bottom_right(mut self, radius: Val) -> Self {
+    pub const fn with_bottom_right(mut self, radius: Val) -> Self {
         self.bottom_right = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
     #[inline]
-    pub fn with_bottom_left(mut self, radius: Val) -> Self {
+    pub const fn with_bottom_left(mut self, radius: Val) -> Self {
         self.bottom_left = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
     #[inline]
-    pub fn with_left(mut self, radius: Val) -> Self {
+    pub const fn with_left(mut self, radius: Val) -> Self {
         self.top_left = radius;
         self.bottom_left = radius;
         self
@@ -2046,7 +2046,7 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
     #[inline]
-    pub fn with_right(mut self, radius: Val) -> Self {
+    pub const fn with_right(mut self, radius: Val) -> Self {
         self.top_right = radius;
         self.bottom_right = radius;
         self
@@ -2054,7 +2054,7 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
     #[inline]
-    pub fn with_top(mut self, radius: Val) -> Self {
+    pub const fn with_top(mut self, radius: Val) -> Self {
         self.top_left = radius;
         self.top_right = radius;
         self
@@ -2062,7 +2062,7 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
     #[inline]
-    pub fn with_bottom(mut self, radius: Val) -> Self {
+    pub const fn with_bottom(mut self, radius: Val) -> Self {
         self.bottom_left = radius;
         self.bottom_right = radius;
         self
