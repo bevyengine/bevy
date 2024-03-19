@@ -23,7 +23,7 @@
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    let alpha_mode = material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = pbr_bindings::material.alpha_mode_flags;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
@@ -495,7 +495,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
 }
 
 #ifdef PREMULTIPLY_ALPHA
-fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
+fn premultiply_alpha(alpha_mode_flags: u32, color: vec4<f32>) -> vec4<f32> {
 // `Blend`, `Premultiplied` and `Alpha` all share the same `BlendState`. Depending
 // on the alpha mode, we premultiply the color channels by the alpha channel value,
 // (and also optionally replace the alpha value with 0.0) so that the result produces
@@ -504,8 +504,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
-    let alpha_mode = standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
+    if alpha_mode_flags == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // Here, we premultiply `src_color` by `src_alpha`, and replace `src_alpha` with 0.0:
         //
         //     src_color *= src_alpha
@@ -572,7 +571,7 @@ fn main_pass_post_lighting_processing(
 #endif
 #endif
 #ifdef PREMULTIPLY_ALPHA
-    output_color = premultiply_alpha(pbr_input.material.flags, output_color);
+    output_color = premultiply_alpha(pbr_input.material.alpha_mode_flags, output_color);
 #endif
     return output_color;
 }

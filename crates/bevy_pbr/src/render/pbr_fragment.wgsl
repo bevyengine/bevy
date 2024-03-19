@@ -66,6 +66,7 @@ fn pbr_input_from_standard_material(
 
     var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(in, is_front, double_sided);
     pbr_input.material.flags = pbr_bindings::material.flags;
+    pbr_input.material.alpha_mode_flags = pbr_bindings::material.alpha_mode_flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
@@ -103,6 +104,7 @@ fn pbr_input_from_standard_material(
 #endif // VERTEX_UVS
 
     pbr_input.material.flags = pbr_bindings::material.flags;
+    pbr_input.material.alpha_mode_flags = pbr_bindings::material.alpha_mode_flags;
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
