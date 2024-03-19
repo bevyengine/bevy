@@ -336,6 +336,22 @@ pub fn derive_render_groups<'a>(
     }
 }
 
+/// Derives a [`RenderGroupsPtr`] from an optional [`InheritedRenderGroups`] and [`RenderGroups`].
+///
+/// See [`derive_render_groups`].
+pub fn derive_render_groups_ptr(
+    inherited: Option<&InheritedRenderGroups>,
+    render_groups: Option<&RenderGroups>,
+) -> RenderGroupsPtr {
+    if let Some(inherited) = inherited {
+        RenderGroupsPtr::Ptr(&inherited.computed)
+    } else if let Some(render_groups) = render_groups {
+        RenderGroupsPtr::Ptr(render_groups)
+    } else {
+        RenderGroupsPtr::Val(RenderGroups::default())
+    }
+}
+
 #[derive(Resource, Default)]
 struct PropagateRenderGroupsEntityCache {
     /// Buffered to absorb spurious allocations of propagated values during traversals.
