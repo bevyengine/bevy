@@ -26,6 +26,7 @@ pub mod prelude {
     };
 }
 
+use bevy_transform::TransformSystem;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -45,7 +46,7 @@ use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
-    view::{NoFrustumCulling, VisibilitySystems},
+    view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -88,6 +89,14 @@ impl Plugin for SpritePlugin {
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
+                    check_visibility::<WithMesh2d>
+                        .in_set(VisibilitySystems::CheckVisibility)
+                        .after(VisibilitySystems::CalculateBounds)
+                        .after(VisibilitySystems::UpdateOrthographicFrusta)
+                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
+                        .after(VisibilitySystems::UpdateProjectionFrusta)
+                        .after(VisibilitySystems::VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
                 ),
             );
 

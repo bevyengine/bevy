@@ -13,7 +13,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -1643,7 +1643,7 @@ pub fn queue_shadows<M: Material>(
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
-            for entity in visible_entities.iter().copied() {
+            for entity in visible_entities.iter::<WithMesh>().copied() {
                 let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
                 };

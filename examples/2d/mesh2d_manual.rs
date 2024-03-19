@@ -26,7 +26,7 @@ use bevy::{
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
-        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
     },
     utils::FloatOrd,
 };
@@ -362,7 +362,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh2d>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;

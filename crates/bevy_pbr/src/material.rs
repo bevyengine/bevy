@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
+    view::{ExtractedView, Msaa, VisibleEntities, WithMesh},
     Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -598,7 +598,7 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };

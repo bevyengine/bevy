@@ -13,7 +13,7 @@ use bevy_render::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
@@ -284,6 +284,10 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
+
+/// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
+/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
@@ -2127,7 +2131,7 @@ pub fn check_light_mesh_visibility(
                         }
 
                         view_visibility.set();
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             } else {
@@ -2139,7 +2143,7 @@ pub fn check_light_mesh_visibility(
                         .expect("Per-view visible entities should have been inserted already");
 
                     for frustum_visible_entities in view_visible_entities {
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             }
@@ -2208,13 +2212,13 @@ pub fn check_light_mesh_visibility(
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                 view_visibility.set();
-                                visible_entities.entities.push(entity);
+                                visible_entities.push::<WithMesh>(entity);
                             }
                         }
                     } else {
                         view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     }
                 }
@@ -2269,11 +2273,11 @@ pub fn check_light_mesh_visibility(
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                             view_visibility.set();
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     } else {
                         view_visibility.set();
-                        visible_entities.entities.push(entity);
+                        visible_entities.push::<WithMesh>(entity);
                     }
                 }
 

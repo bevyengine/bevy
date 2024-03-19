@@ -1,6 +1,9 @@
 mod render_layers;
 
+use std::any::TypeId;
+
 use bevy_derive::Deref;
+use bevy_ecs::query::QueryFilter;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
@@ -9,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use bevy_utils::Parallel;
+use bevy_utils::{HashMap, Parallel};
 
 use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
@@ -171,22 +174,66 @@ pub struct NoFrustumCulling;
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
-    pub entities: Vec<Entity>,
+    pub entities: HashMap<TypeId, Vec<Entity>>,
 }
 
 impl VisibleEntities {
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
-        self.entities.iter()
+    pub fn get<QF>(&self) -> &[Entity]
+    where
+        QF: 'static,
+    {
+        match self.entities.get(&TypeId::of::<QF>()) {
+            Some(entities) => &entities[..],
+            None => &[],
+        }
     }
 
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn get_mut<QF>(&mut self) -> &mut Vec<Entity>
+    where
+        QF: 'static,
+    {
+        self.entities.entry(TypeId::of::<QF>()).or_default()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.entities.is_empty()
+    pub fn iter<QF>(&self) -> impl DoubleEndedIterator<Item = &Entity>
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().iter()
+    }
+
+    pub fn len<QF>(&self) -> usize
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().len()
+    }
+
+    pub fn is_empty<QF>(&self) -> bool
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().is_empty()
+    }
+
+    pub fn clear<QF>(&mut self)
+    where
+        QF: 'static,
+    {
+        self.get_mut::<QF>().clear();
+    }
+
+    pub fn push<QF>(&mut self, entity: Entity)
+    where
+        QF: 'static,
+    {
+        self.get_mut::<QF>().push(entity);
     }
 }
+
+/// A convenient alias for `With<Handle<Mesh>>`, for use with
+/// [`VisibleEntities`].
+pub type WithMesh = With<Handle<Mesh>>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
@@ -239,7 +286,7 @@ impl Plugin for VisibilityPlugin {
                     .after(camera_system::<Projection>)
                     .after(TransformSystem::TransformPropagate),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility
+                check_visibility::<WithMesh>
                     .in_set(CheckVisibility)
                     .after(CalculateBounds)
                     .after(UpdateOrthographicFrusta)
@@ -370,7 +417,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
-pub fn check_visibility(
+pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
         &mut VisibleEntities,
@@ -378,17 +425,22 @@ pub fn check_visibility(
         Option<&RenderLayers>,
         &Camera,
     )>,
-    mut visible_aabb_query: Query<(
-        Entity,
-        &InheritedVisibility,
-        &mut ViewVisibility,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        &GlobalTransform,
-        Has<NoFrustumCulling>,
-    )>,
+    mut visible_aabb_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            &GlobalTransform,
+            Has<NoFrustumCulling>,
+        ),
+        QF,
+    >,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
-) {
+) where
+    QF: QueryFilter + 'static,
+{
     for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
             continue;
@@ -396,7 +448,6 @@ pub fn check_visibility(
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each(|query_item| {
             let (
                 entity,
@@ -444,12 +495,12 @@ pub fn check_visibility(
             });
         });
 
-        visible_entities.entities.clear();
-        thread_queues.drain_into(&mut visible_entities.entities);
+        visible_entities.clear::<QF>();
+        thread_queues.drain_into(visible_entities.get_mut::<QF>());
         if deterministic_rendering_config.stable_sort_z_fighting {
             // We can use the faster unstable sort here because
             // the values (`Entity`) are guaranteed to be unique.
-            visible_entities.entities.sort_unstable();
+            visible_entities.get_mut::<QF>().sort_unstable();
         }
     }
 }
