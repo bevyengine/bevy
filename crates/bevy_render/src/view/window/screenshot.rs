@@ -140,35 +140,7 @@ impl Plugin for ScreenshotPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if app
-            .world
-            .contains_resource::<bevy_dev_tools::ci_testing::CiTestingConfig>()
-        {
-            app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
-        }
     }
-}
-
-#[cfg(feature = "bevy_ci_testing")]
-fn ci_testing_screenshot_at(
-    mut current_frame: Local<u32>,
-    ci_testing_config: Res<bevy_dev_tools::ci_testing::CiTestingConfig>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
-    main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-) {
-    if ci_testing_config
-        .screenshot_frames
-        .contains(&*current_frame)
-    {
-        info!("Taking a screenshot at frame {}.", *current_frame);
-        let path = format!("./screenshot-{}.png", *current_frame);
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
-    }
-    *current_frame += 1;
 }
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {

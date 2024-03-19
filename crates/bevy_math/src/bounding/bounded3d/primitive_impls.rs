@@ -150,7 +150,7 @@ impl Bounded3d for Capsule3d {
         // Get the line segment between the hemispheres of the rotated capsule
         let segment = Segment3d {
             // Multiplying a normalized vector (Vec3::Y) with a rotation returns a normalized vector.
-            direction: Dir3::new_unchecked(rotation * Vec3::Y),
+            direction: rotation * Dir3::Y,
             half_length: self.half_length,
         };
         let (a, b) = (segment.point1(), segment.point2());

@@ -50,10 +50,14 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "utils",
 ] }
 thiserror = "1.0"
-base64 = "0.21.5"
+base64 = "0.22.0"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
+smallvec = "1.11"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

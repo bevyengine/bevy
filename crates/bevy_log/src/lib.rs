@@ -9,6 +9,7 @@
 //!
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "trace")]
 use std::panic;

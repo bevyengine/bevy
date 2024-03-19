@@ -97,8 +97,11 @@ struct ExampleAssets {
     // The glTF scene containing the animated fox.
     fox: Handle<Scene>,
 
-    // The animation that the fox will play.
-    fox_animation: Handle<AnimationClip>,
+    // The graph containing the animation that the fox will play.
+    fox_animation_graph: Handle<AnimationGraph>,
+
+    // The node within the animation graph containing the animation.
+    fox_animation_node: AnimationNodeIndex,
 
     // The voxel cube mesh.
     voxel_cube: Handle<Mesh>,
@@ -513,6 +516,10 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
+        let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
+        let (fox_animation_graph, fox_animation_node) =
+            AnimationGraph::from_clip(fox_animation.clone());
+
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
             fox: world.load_asset("models/animated/Fox.glb#Scene0"),
@@ -520,7 +527,8 @@ impl FromWorld for ExampleAssets {
             main_scene: world
                 .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
-            fox_animation: world.load_asset("models/animated/Fox.glb#Animation1"),
+            fox_animation_graph: world.add_asset(fox_animation_graph),
+            fox_animation_node,
             voxel_cube: world.add_asset(Cuboid::default()),
             // Just use a specular map for the skybox since it's not too blurry.
             // In reality you wouldn't do this--you'd use a real skybox texture--but
@@ -531,10 +539,16 @@ impl FromWorld for ExampleAssets {
 }
 
 // Plays the animation on the fox.
-fn play_animations(assets: Res<ExampleAssets>, mut players: Query<&mut AnimationPlayer>) {
-    for mut player in players.iter_mut() {
-        // This will safely do nothing if the animation is already playing.
-        player.play(assets.fox_animation.clone()).repeat();
+fn play_animations(
+    mut commands: Commands,
+    assets: Res<ExampleAssets>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+) {
+    for (entity, mut player) in players.iter_mut() {
+        commands
+            .entity(entity)
+            .insert(assets.fox_animation_graph.clone());
+        player.play(assets.fox_animation_node).repeat();
     }
 }
 
