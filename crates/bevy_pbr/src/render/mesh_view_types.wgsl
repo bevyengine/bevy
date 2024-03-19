@@ -23,6 +23,7 @@ struct DirectionalCascade {
 }
 
 struct DirectionalLight {
+    skip: u32,
     cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
@@ -33,7 +34,6 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
-    render_groups: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
