@@ -20,7 +20,7 @@ struct VertexOutput {
     @location(4) @interpolate(flat) radius: vec4<f32>,    
     @location(5) @interpolate(flat) border: vec4<f32>,    
 
-    // position relative to the center of the rectangle
+    // Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
@@ -32,10 +32,10 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
     @location(3) flags: u32,
 
-    // radius.x = top left radius, .y = top right, .z = bottom right, .w = bottom left
+    // x: top left, y: top right, z: bottom right, w: bottom left.
     @location(4) radius: vec4<f32>,
 
-    // border.x = left width, .y = top, .z = right, .w = bottom
+    // x: left, y: top, z: right, w: bottom.
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
 ) -> VertexOutput {
@@ -66,24 +66,32 @@ fn sigmoid(t: f32) -> f32 {
     return 1.0 / (1.0 + exp(-t));
 }
 
-// The returned value is the shortest distance from the given point to the boundary of the rounded box.
-// Negative values indicate that the point is inside the rounded box, positive values that the point is outside, and zero is exactly on the boundary.
-// arguments
-// point -> The function will return the distance from this point to the closest point on the boundary.
-// size -> The maximum width and height of the box.
-// corner_radii -> The radius of each rounded corner. Ordered counter clockwise starting top left:
-//                      x = top left, y = top right, z = bottom right, w = bottom left.
+// The returned value is the shortest distance from the given point to the boundary of the rounded 
+// box.
+// 
+// Negative values indicate that the point is inside the rounded box, positive values that the point 
+// is outside, and zero is exactly on the boundary.
+//
+// Arguments: 
+//  - `point`        -> The function will return the distance from this point to the closest point on 
+//                    the boundary.
+//  - `size`         -> The maximum width and height of the box.
+//  - `corner_radii` -> The radius of each rounded corner. Ordered counter clockwise starting 
+//                    top left:
+//                      x: top left, y: top right, z: bottom right, w: bottom left.
 fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) -> f32 {
-    // if 0.0 < y then select bottom left (w) and bottom right corner radius (z)
-    // else select top left (x) and top right corner radius (y)
+    // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
+    // Else select top left (x) and top right corner radius (y).
     let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
-    // w and z are swapped so that both pairs are in left to right order, otherwise this second select statement would return the incorrect value for the bottom pair.
+    // w and z are swapped so that both pairs are in left to right order, otherwise this second 
+    // select statement would return the incorrect value for the bottom pair.
     let radius = select(rs.x, rs.y, 0.0 < point.x);
-    // Vector from the corner closest to the point, to the point
+    // Vector from the corner closest to the point, to the point.
     let corner_to_point = abs(point) - 0.5 * size;
-    // Vector from the center of the radius circle to the point 
+    // Vector from the center of the radius circle to the point.
     let q = corner_to_point + radius;
-    // length from center of the radius circle to the point, 0s a component if the point is not within the quadrant of the radius circle that is part of the curved corner.
+    // Length from center of the radius circle to the point, zeros a component if the point is not 
+    // within the quadrant of the radius circle that is part of the curved corner.
     let l = length(max(q, vec2(0.0)));
     let m = min(max(q.x, q.y), 0.0);
     return l + m - radius;
@@ -96,16 +104,16 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
     var r = radius;
 
-    // top left corner
+    // Top left corner.
     r.x = r.x - max(inset.x, inset.y);
 
-    // top right corner
+    // Top right corner.
     r.y = r.y - max(inset.z, inset.y);
 
-    // bottom right corner
+    // Bottom right corner.
     r.z = r.z - max(inset.z, inset.w); 
 
-    // bottom left corner
+    // Bottom left corner.
     r.w = r.w - max(inset.x, inset.w);
 
     let half_size = inner_size * 0.5;
@@ -124,30 +132,29 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
     var r = radius;
 
-
     if 0. < min(inset.x, inset.y) || inset.x + inset.y <= 0. {
-        // top left corner
+        // Top left corner.
         r.x = r.x - max(inset.x, inset.y);
     } else {
         r.x = 0.;
     }
 
     if 0. < min(inset.z, inset.y) || inset.z + inset.y <= 0. {
-        // top right corner
+        // Top right corner.
         r.y = r.y - max(inset.z, inset.y);
     } else {
         r.y = 0.;
     }
 
     if 0. < min(inset.z, inset.w) || inset.z + inset.w <= 0. {
-        // bottom right corner
+        // Bottom right corner.
         r.z = r.z - max(inset.z, inset.w);
     } else {
         r.z = 0.;
     }
 
     if 0. < min(inset.x, inset.w) || inset.x + inset.w <= 0. {
-        // bottom left corner
+        // Bottom left corner.
         r.w = r.w - max(inset.x, inset.w);
     } else {
         r.w = 0.;
@@ -168,7 +175,7 @@ const BLUE: vec4<f32> = vec4<f32>(0., 0., 1., 1.);
 const WHITE = vec4<f32>(1., 1., 1., 1.);
 const BLACK = vec4<f32>(0., 0., 0., 1.);
 
-// draw the border in white, rest of rect black
+// Draw the border in white, rest of the rect black.
 fn draw_border(in: VertexOutput) -> vec4<f32> {
     // Distance from external border. Positive values outside.
     let external_distance = sd_rounded_box(in.point, in.size, in.radius);
@@ -186,15 +193,10 @@ fn draw_border(in: VertexOutput) -> vec4<f32> {
     }
 }
 
-// draw just the interior in white, rest of rect black
+// Draw just the interior in white, rest of the rect black.
 fn draw_interior(in: VertexOutput) -> vec4<f32> {
     // Distance from external border. Positive values outside.
     let external_distance = sd_rounded_box(in.point, in.size, in.radius);
-
-    // Distance from internal border. Positive values inside.
-   // let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-
-    // Distance from border, positive values inside border.
 
     if external_distance < 0.0 {
         return WHITE;
@@ -203,7 +205,7 @@ fn draw_interior(in: VertexOutput) -> vec4<f32> {
     }
 }
 
-// Draw all the geometry
+// Draw all the geometry.
 fn draw_test(in: VertexOutput) -> vec4<f32> {
     // Distance from external border. Negative inside
     let external_distance = sd_rounded_box(in.point, in.size, in.radius);
@@ -214,22 +216,22 @@ fn draw_test(in: VertexOutput) -> vec4<f32> {
     // Distance from border.
     let border = max(-internal_distance, external_distance);
 
-    // Draw the area outside the border in green 
+    // Draw the area outside the border in green.
     if 0.0 < external_distance {
         return GREEN;
     }
 
-    // Draw the area inside the border in white
+    // Draw the area inside the border in white.
     if border < 0.0 {
         return WHITE;
     }
 
-    // draw the interior in blue
+    // Draw the interior in blue.
     if internal_distance < 0.0 {
         return BLUE;
     }
 
-    // fill anything else with red (the presence of any red is a bug).
+    // Fill anything else with red (the presence of any red is a bug).
     return RED;
 }
 
@@ -237,11 +239,11 @@ fn draw_no_aa(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
-    // negative value => point inside external border
+    // Negative value => point inside external border.
     let external_distance = sd_rounded_box(in.point, in.size, in.radius);
-    // negative value => point inside internal border
+    // Negative value => point inside internal border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-    // negative value => point inside border
+    // Negative value => point inside border.
     let border = max(external_distance, -internal_distance);
 
     if enabled(in.flags, BORDER) {
@@ -262,7 +264,7 @@ fn draw_no_aa(in: VertexOutput) -> vec4<f32> {
 fn draw(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    // Only use the color sampled from the texture if the TEXTURED flag is enabled. 
+    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
@@ -274,30 +276,34 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // Signed distance from the exterior boundary.
     let external_distance = sd_rounded_box(in.point, in.size, in.radius);
 
-    // Signed distance from the border's internal edge (the signed distance is negative if the point is inside the rect but not on the border).
+    // Signed distance from the border's internal edge (the signed distance is negative if the point 
+    // is inside the rect but not on the border).
     // If the border size is set to zero, this is the same as as the external distance.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
-    // Signed distance from the border (the intersection of the rect with its border)
-    // Points inside the border have negative signed distance. Any point outside the border, whether outside the outside edge, or inside the inner edge have positive signed distance.
+    // Signed distance from the border (the intersection of the rect with its border).
+    // Points inside the border have negative signed distance. Any point outside the border, whether 
+    // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
-    // The fwidth function returns an approximation of the rate of change of the signed distance value
-    // that is used to ensure that the smooth alpha transition created by smoothstep occurs over a range of distance values 
-    // that is proportional to how quickly the distance is changing.
+    // The `fwidth` function returns an approximation of the rate of change of the signed distance 
+    // value that is used to ensure that the smooth alpha transition created by smoothstep occurs 
+    // over a range of distance values that is proportional to how quickly the distance is changing.
     let fborder = fwidth(border_distance);
     let fexternal = fwidth(external_distance);
 
     if enabled(in.flags, BORDER) {   
         // The item is a border
 
-        // At external edges with no border, border_distance is equal to zero. 
-        // This select statement ensures we only perform anti-aliasing where a non-zero width border is present, otherwise an outline about the external boundary would be drawn even without a border.
+        // At external edges with no border, `border_distance` is equal to zero. 
+        // This select statement ensures we only perform anti-aliasing where a non-zero width border 
+        // is present, otherwise an outline about the external boundary would be drawn even without 
+        // a border.
         let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
         return vec4(color.rgb * t * color.a, t * color.a);
     }
 
-    // The item is a rectangle, draw normally with anti-aliasing at the edges
+    // The item is a rectangle, draw normally with anti-aliasing at the edges.
     let t = 1. - smoothstep(0.0, fexternal, external_distance);
     return vec4(color.rgb * t * color.a, t * color.a);
 }
