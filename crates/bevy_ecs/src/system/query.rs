@@ -1,10 +1,10 @@
 use crate::{
+    batching::BatchingStrategy,
     component::Tick,
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData,
+        QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
+        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
