@@ -65,6 +65,12 @@
 //! types in this crate. This is useful when you need to store a color in a data structure
 //! that can't be generic over the color type.
 //!
+//! Color types that are either physically or perceptually linear also implement `Add<Self>`, `Sub<Self>`, `Mul<f32>` and `Div<f32>`
+//! allowing you to use them with splines.
+//!
+//! Please note that most often adding or subtracting colors is not what you may want.
+//! Please have a look at other operations like blending or mixing colors instead.
+//!
 //! # Example
 //!
 //! ```
