@@ -122,6 +122,7 @@ fn setup(
 
     let mesh = meshes.add(mesh);
 
+    // Make it deterministic for testing purposes.
     let mut rng = StdRng::seed_from_u64(42);
 
     for i in -5..5 {

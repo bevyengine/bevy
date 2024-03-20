@@ -48,6 +48,8 @@ fn setup(
     ));
 
     // cubes
+
+    // Make it deterministic for testing purposes.
     let mut rng = StdRng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     let blue = materials.add(Color::srgb_u8(124, 144, 255));

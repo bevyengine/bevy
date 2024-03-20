@@ -104,5 +104,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 },
             ));
         });
+    // Make it deterministic for testing purposes.
     commands.insert_resource(SeededRng(StdRng::seed_from_u64(19878367467713)));
 }

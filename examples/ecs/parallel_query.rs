@@ -10,6 +10,8 @@ struct Velocity(Vec2);
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
+
+    // Make it deterministic for testing purposes.
     let mut rng = StdRng::seed_from_u64(19878367467713);
     for _ in 0..128 {
         commands.spawn((

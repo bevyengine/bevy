@@ -41,6 +41,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // Make it deterministic for testing purposes.
     let mut rng = StdRng::seed_from_u64(19878367467713);
 
     // Lights...

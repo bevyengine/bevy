@@ -26,6 +26,7 @@ fn setup(mut commands: Commands) {
 
     let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || {
+        // Make it deterministic for testing purposes.
         let mut rng = StdRng::seed_from_u64(19878367467713);
         loop {
             // Everything here happens in another thread

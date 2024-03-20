@@ -123,6 +123,7 @@ fn setup(
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
 
+    // Make it deterministic for testing purposes.
     let mut material_rng = StdRng::seed_from_u64(42);
     match args.layout {
         Layout::Sphere => {
@@ -202,6 +203,7 @@ fn setup(
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
+    // Make it deterministic for testing purposes.
     let mut color_rng = StdRng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
         .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
@@ -246,6 +248,7 @@ fn init_materials(
         ..default()
     }));
 
+    // Make it deterministic for testing purposes.
     let mut color_rng = StdRng::seed_from_u64(42);
     let mut texture_rng = StdRng::seed_from_u64(42);
     materials.extend(

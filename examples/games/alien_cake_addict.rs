@@ -109,7 +109,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
     let mut rng = if std::env::var("GITHUB_ACTIONS") == Ok("true".to_string()) {
-        // Make the game play out the same way every time, this is useful for testing purposes.
+        // Make it deterministic for testing purposes.
         StdRng::seed_from_u64(19878367467713)
     } else {
         StdRng::from_entropy()
