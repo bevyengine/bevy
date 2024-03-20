@@ -300,12 +300,12 @@ fn draw(in: VertexOutput) -> vec4<f32> {
         // is present, otherwise an outline about the external boundary would be drawn even without 
         // a border.
         let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
-        return vec4(color.rgb * t * color.a, t * color.a);
+        return color.rgba * t;
     }
 
     // The item is a rectangle, draw normally with anti-aliasing at the edges.
     let t = 1. - smoothstep(0.0, fexternal, external_distance);
-    return vec4(color.rgb * t * color.a, t * color.a);
+    return color.rgba * t;
 }
 
 @fragment
