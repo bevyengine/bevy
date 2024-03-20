@@ -51,7 +51,7 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
-    use bevy_ecs::{prelude::ResMut, system::Local, world::FromWorld};
+    use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
