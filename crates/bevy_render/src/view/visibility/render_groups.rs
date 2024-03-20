@@ -1,4 +1,4 @@
-use crate::view::ExtractedRenderGroups;
+use crate::view::*;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
@@ -71,7 +71,7 @@ impl Default for RenderLayer {
 /// increments, so the second allocation will occur after `RenderLayer(127)`, and so on.
 ///
 /// See [`RENDER_LAYERS_WARNING_LIMIT`] and [`RENDER_LAYERS_PANIC_LIMIT`] for `RenderLayers` restrictions.
-#[derive(Debug, Clone, PartialEq, Reflect)]
+#[derive(Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq)]
 pub struct RenderLayers {
     layers: SmallVec<[u64; 1]>,
@@ -246,6 +246,14 @@ impl Default for RenderLayers {
     }
 }
 
+impl std::fmt::Debug for RenderLayers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RenderLayers")
+            .field(&self.iter().map(|l| *l).collect::<Vec<_>>())
+            .finish()
+    }
+}
+
 /// Component on an entity that controls which cameras can see it.
 ///
 /// There are two kinds of render groups:
@@ -270,7 +278,7 @@ impl Default for RenderLayers {
 /// For example, if you do `entity.insert(RenderGroups::from(RenderLayer(1)))`, then `entity`
 /// will only be in layer 1. You can instead do:
 /**
-```no-run
+```no_run
 // Option 1: default
 let mut groups = RenderGroups::default();
 groups.add(RenderLayer(1);
