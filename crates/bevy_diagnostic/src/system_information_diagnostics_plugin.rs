@@ -31,13 +31,13 @@ impl SystemInformationDiagnosticsPlugin {
     pub const MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
 }
 
-#[derive(Debug, Resource)]
 /// A resource that stores diagnostic information about the system.
 /// This information can be useful for debugging and profiling purposes.
 ///
 /// # See also
 ///
 /// [`SystemInformationDiagnosticsPlugin`](crate::SystemInformationDiagnosticsPlugin) for more information.
+#[derive(Debug, Resource)]
 pub struct SystemInfo {
     pub os: String,
     pub kernel: String,
