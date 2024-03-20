@@ -150,12 +150,13 @@ pub mod internal {
 
     impl bevy_ecs::world::FromWorld for super::SystemInfo {
         fn from_world(world: &mut bevy_ecs::world::World) -> Self {
+            let unknown = "Unknown".to_string();
             Self {
-                os: "Unknown",
-                kernel: "Unknown",
-                cpu: "Unknown",
-                core_count: "Unknown",
-                memory: "Unknown",
+                os: unknown.clone(),
+                kernel: unknown.clone(),
+                cpu: unknown.clone(),
+                core_count: unknown.clone(),
+                memory: unknown.clone(),
             }
         }
     }
