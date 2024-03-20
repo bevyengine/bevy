@@ -77,7 +77,7 @@ impl MeshletMesh {
                 // For each meshlet in the group, set their parent error and bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
                     lod_errors[*meshlet_id * 2 + 1] = group_error;
-                    // parent_bounding_spheres.push(group_bounding_sphere);
+                    // parent_bounding_spheres[*meshlet_id * 2 + 1] = group_bounding_sphere;
                 }
 
                 // Build new meshlets using the simplified group
@@ -93,6 +93,7 @@ impl MeshletMesh {
                         .take(new_meshlets_count)
                         .flatten(),
                 );
+                parent_bounding_spheres.push(MeshletBoundingSphere::default());
             }
 
             simplification_queue = next_lod_start..meshlets.len();
