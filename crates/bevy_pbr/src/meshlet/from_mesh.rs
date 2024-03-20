@@ -1,5 +1,4 @@
 use super::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
-use bevy_math::Vec3;
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
@@ -11,7 +10,7 @@ use meshopt::{
     Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
-use std::{borrow::Cow, iter, ops::Range, sync::Arc};
+use std::{borrow::Cow, iter, ops::Range};
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -34,7 +33,7 @@ impl MeshletMesh {
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
         let mut lod_errors = vec![0.0; meshlets.len() * 2];
-        let mut parent_bounding_spheres = vec![MeshletBoundingSphere::default(), meshlets.len()];
+        let mut parent_bounding_spheres = vec![MeshletBoundingSphere::default(); meshlets.len()];
         let worst_case_meshlet_triangles = meshlets
             .meshlets
             .iter()
@@ -93,7 +92,7 @@ impl MeshletMesh {
 
                 // The error for each new meshlet is the error from simplifying the group
                 lod_errors.extend(
-                    iter::repeat((group_error, 0.0))
+                    iter::repeat([group_error, 0.0])
                         .take(new_meshlets_count)
                         .flatten(),
                 );
@@ -109,16 +108,15 @@ impl MeshletMesh {
         // Calculate meshlet bounding spheres and interleave parent bounding spheres
         let meshlet_bounding_spheres = meshlets
             .iter()
-            .map(|meshlet| compute_meshlet_bounds(meshlet, mesh))
-            .map(convert_meshlet_bounds)
-            .collect();
+            .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
+            .map(convert_meshlet_bounds);
         let meshlet_bounding_spheres = meshlet_bounding_spheres
             .into_iter()
-            .interleave(parent_bounding_spheres.into_iter())
+            .interleave(parent_bounding_spheres)
             .collect();
 
         // Convert meshopt_Meshlet data to a custom format
-        let meshlets = meshlets
+        let bevy_meshlets = meshlets
             .meshlets
             .into_iter()
             .map(|m| Meshlet {
@@ -133,7 +131,7 @@ impl MeshletMesh {
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
-            meshlets,
+            meshlets: bevy_meshlets,
             meshlet_bounding_spheres,
             meshlet_lod_errors: lod_errors.into(),
         })
