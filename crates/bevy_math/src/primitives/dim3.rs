@@ -1,7 +1,10 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{bounding::Aabb3d, bounding::Bounded3d, Dir3, InvalidDirectionError, Quat, Vec3};
+use crate::{
+    bounding::{Aabb3d, Bounded3d, BoundingSphere},
+    Dir3, InvalidDirectionError, Quat, Vec3,
+};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -721,34 +724,35 @@ impl Triangle3d {
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
     }
+
+    /// Get the circumcenter of the triangle
+    #[inline(always)]
+    pub fn circumcenter(&self) -> Vec3 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let m = a
+            + ((ac.length_squared() * ab.cross(ac).cross(ab)
+                + ab.length_squared() * ac.cross(ab).cross(ac))
+                / (2.0 * ab.cross(ac).length_squared()));
+        m
+    }
 }
 
 impl Bounded3d for Triangle3d {
     /// Get the bounding box of the triangle
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let [a, b, c] = self.vertices;
+
         let a = rotation * a;
         let b = rotation * b;
         let c = rotation * c;
 
-        let min_x = a.x.min(b.x).min(c.x);
-        let min_y = a.y.min(b.y).min(c.y);
-        let min_z = a.z.min(b.z).min(c.z);
-        let max_x = a.x.max(b.x).max(c.x);
-        let max_y = a.y.max(b.y).max(c.y);
-        let max_z = a.z.max(b.z).max(c.z);
+        let min = a.min(b).min(c);
+        let max = a.max(b).max(c);
 
-        let bounding_center = Vec3::new(
-            (min_x + max_x) / 2.0,
-            (min_y + max_y) / 2.0,
-            (min_z + max_z) / 2.0,
-        ) + translation;
-
-        let half_extents = Vec3::new(
-            (max_x - min_x) / 2.0,
-            (max_y - min_y) / 2.0,
-            (max_z - min_z) / 2.0,
-        );
+        let bounding_center = (max + min) / 2.0 + translation;
+        let half_extents = (max - min) / 2.0;
 
         crate::bounding::Aabb3d::new(bounding_center, half_extents)
     }
@@ -761,14 +765,24 @@ impl Bounded3d for Triangle3d {
     ) -> crate::bounding::BoundingSphere {
         let [a, b, c] = self.vertices;
 
-        let center = (a + b + c) / 3.0;
-        let radius = (a - center)
-            .length()
-            .max((b - center).length())
-            .max((c - center).length());
+        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
+            Some((b, c))
+        } else if (c - b).dot(a - b) <= 0.0 {
+            Some((c, a))
+        } else if (a - c).dot(b - c) <= 0.0 {
+            Some((a, b))
+        } else {
+            None
+        };
 
-        let center = rotation * center + translation;
-        crate::bounding::BoundingSphere::new(center, radius)
+        if let Some((p1, p2)) = side_opposite_to_non_acute {
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            segment.bounding_sphere(translation, rotation)
+        } else {
+            let circumcenter = self.circumcenter();
+            let radius = circumcenter.distance(a);
+            BoundingSphere::new(circumcenter + translation, radius)
+        }
     }
 }
 
