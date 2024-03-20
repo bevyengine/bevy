@@ -148,7 +148,7 @@ pub mod internal {
         // no-op
     }
 
-    impl FromWorld for SystemInfo {
+    impl bevy_ecs::world::FromWorld for SystemInfo {
         fn from_world(world: &mut bevy_ecs::world::World) -> Self {
             Self {
                 os: "Unknown",
