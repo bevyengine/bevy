@@ -84,6 +84,15 @@ impl RenderLayers {
         }
     }
 
+    /// Makes a new `RenderLayers` from a single [`RenderLayer`].
+    pub fn from_layer(layer: impl Into<RenderLayer>) -> Self {
+        let mut layers = Self {
+            layers: SmallVec::default(),
+        };
+        layers.add(layer);
+        layers
+    }
+
     /// Makes a new `RenderLayers` from a slice.
     pub fn from_layers<T: Into<RenderLayer> + Copy>(layers: &[T]) -> Self {
         layers.iter().map(|l| (*l).into()).collect()
@@ -220,16 +229,6 @@ impl RenderLayers {
     }
 }
 
-impl<T: Into<RenderLayer>> From<T> for RenderLayers {
-    fn from(layer: T) -> Self {
-        let mut layers = Self {
-            layers: SmallVec::default(),
-        };
-        layers.add(layer);
-        layers
-    }
-}
-
 impl<R: Into<RenderLayer>> FromIterator<R> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = R>>(i: T) -> Self {
         i.into_iter().fold(Self::empty(), |mut mask, g| {
@@ -241,7 +240,7 @@ impl<R: Into<RenderLayer>> FromIterator<R> for RenderLayers {
 
 impl Default for RenderLayers {
     fn default() -> Self {
-        Self::from(DEFAULT_RENDER_LAYER)
+        Self::from_layer(DEFAULT_RENDER_LAYER)
     }
 }
 
@@ -326,6 +325,22 @@ impl RenderGroups {
         Self {
             layers: RenderLayers::default(),
             camera: Some(camera),
+        }
+    }
+
+    /// Makes a new `RenderGroups` with a single [`RenderLayer`] and no camera.
+    pub fn from_layer(layer: impl Into<RenderLayer>) -> Self {
+        Self {
+            layers: RenderLayers::from_layer(layer),
+            camera: None,
+        }
+    }
+
+    /// Makes a new `RenderGroups` with an array of [`RenderLayer`] and no camera.
+    pub fn from_layers<T: Into<RenderLayer> + Copy>(layers: &[T]) -> Self {
+        Self {
+            layers: RenderLayers::from_layers(layers),
+            camera: None,
         }
     }
 
@@ -438,16 +453,6 @@ impl RenderGroups {
     }
 }
 
-impl From<RenderLayer> for RenderGroups {
-    /// Makes a new `RenderGroups` from a specific [`RenderLayer`].
-    fn from(layer: RenderLayer) -> Self {
-        Self {
-            layers: RenderLayers::from(layer),
-            camera: None,
-        }
-    }
-}
-
 impl From<RenderLayers> for RenderGroups {
     /// Makes a new `RenderGroups` from a [`RenderLayers`].
     fn from(layers: RenderLayers) -> Self {
@@ -459,9 +464,9 @@ impl From<RenderLayers> for RenderGroups {
 }
 
 impl Default for RenderGroups {
-    /// Equivalent to `Self::from(DEFAULT_RENDER_LAYER)`.
+    /// Equivalent to `Self::from_layer(DEFAULT_RENDER_LAYER)`.
     fn default() -> Self {
-        Self::from(DEFAULT_RENDER_LAYER)
+        Self::from_layer(DEFAULT_RENDER_LAYER)
     }
 }
 
@@ -571,6 +576,20 @@ impl CameraView {
         }
     }
 
+    /// Makes a new `CameraView` with a single [`RenderLayer`] and no camera.
+    pub fn from_layer(layer: impl Into<RenderLayer>) -> Self {
+        Self {
+            layers: RenderLayers::from_layer(layer),
+        }
+    }
+
+    /// Makes a new `CameraView` with an array of [`RenderLayer`] and no camera.
+    pub fn from_layers<T: Into<RenderLayer> + Copy>(layers: &[T]) -> Self {
+        Self {
+            layers: RenderLayers::from_layers(layers),
+        }
+    }
+
     /// Adds a [`RenderLayer`].
     ///
     /// See [`RenderLayers::add`].
@@ -632,19 +651,17 @@ impl CameraView {
     }
 }
 
-impl From<RenderLayer> for CameraView {
-    /// Makes a new `CameraView` from a specific [`RenderLayer`].
-    fn from(layer: RenderLayer) -> Self {
-        Self {
-            layers: RenderLayers::from(layer),
-        }
+impl From<RenderLayers> for CameraView {
+    /// Makes a new `CameraView` from a [`RenderLayers`].
+    fn from(layers: RenderLayers) -> Self {
+        Self { layers }
     }
 }
 
 impl Default for CameraView {
-    /// Equivalent to `Self::from(DEFAULT_RENDER_LAYER)`.
+    /// Equivalent to `Self::from_layer(DEFAULT_RENDER_LAYER)`.
     fn default() -> Self {
-        Self::from(DEFAULT_RENDER_LAYER)
+        Self::from_layer(DEFAULT_RENDER_LAYER)
     }
 }
 
@@ -665,44 +682,44 @@ mod rendering_mask_tests {
             "default layer contains default"
         );
         assert_eq!(
-            RenderLayers::from(RenderLayer(1)).num_layers(),
+            RenderLayers::from_layer(1).num_layers(),
             1,
             "from contains 1 layer"
         );
         assert!(
-            RenderLayers::from(RenderLayer(1)).contains(RenderLayer(1)),
+            RenderLayers::from_layer(1).contains(RenderLayer(1)),
             "contains is accurate"
         );
         assert!(
-            !RenderLayers::from(RenderLayer(1)).contains(RenderLayer(2)),
+            !RenderLayers::from_layer(1).contains(RenderLayer(2)),
             "contains fails when expected"
         );
 
         assert_eq!(
-            RenderLayers::from(RenderLayer(0)).add(1).layers[0],
+            RenderLayers::from_layer(0).add(1).layers[0],
             3,
             "layer 0 + 1 is mask 3"
         );
         assert_eq!(
-            RenderLayers::from(RenderLayer(0)).add(1).remove(0).layers[0],
+            RenderLayers::from_layer(0).add(1).remove(0).layers[0],
             2,
             "layer 0 + 1 - 0 is mask 2"
         );
         assert!(
-            RenderLayers::from(RenderLayer(1)).intersects(&RenderLayers::from(RenderLayer(1))),
+            RenderLayers::from_layer(1).intersects(&RenderLayers::from_layer(1)),
             "layers match like layers"
         );
         assert!(
-            RenderLayers::from(RenderLayer(0)).intersects(&RenderLayers {
+            RenderLayers::from_layer(0).intersects(&RenderLayers {
                 layers: SmallVec::from_slice(&[1])
             }),
             "a layer of 0 means the mask is just 1 bit"
         );
 
         assert!(
-            RenderLayers::from(RenderLayer(0))
+            RenderLayers::from_layer(0)
                 .add(3)
-                .intersects(&RenderLayers::from(RenderLayer(3))),
+                .intersects(&RenderLayers::from_layer(3)),
             "a mask will match another mask containing any similar layers"
         );
 
@@ -712,7 +729,7 @@ mod rendering_mask_tests {
         );
 
         assert!(
-            !RenderLayers::from(RenderLayer(0)).intersects(&RenderLayers::from(RenderLayer(1))),
+            !RenderLayers::from_layer(0).intersects(&RenderLayers::from_layer(1)),
             "masks with differing layers do not match"
         );
         assert!(

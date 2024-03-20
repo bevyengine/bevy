@@ -60,7 +60,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Rotate,
-        RenderGroups::from(PIXEL_PERFECT_LAYER),
+        RenderGroups::from_layer(PIXEL_PERFECT_LAYER),
     ));
 
     // the sample sprite that will be rendered to the high-res "outer world"
@@ -71,7 +71,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Rotate,
-        RenderGroups::from(HIGH_RES_LAYER),
+        RenderGroups::from_layer(HIGH_RES_LAYER),
     ));
 }
 
@@ -89,7 +89,7 @@ fn setup_mesh(
             ..default()
         },
         Rotate,
-        RenderGroups::from(PIXEL_PERFECT_LAYER),
+        RenderGroups::from_layer(PIXEL_PERFECT_LAYER),
     ));
 }
 
@@ -134,7 +134,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         InGameCamera,
-        CameraView::from(PIXEL_PERFECT_LAYER),
+        CameraView::from_layer(PIXEL_PERFECT_LAYER),
     ));
 
     // spawn the canvas
@@ -144,7 +144,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         Canvas,
-        RenderGroups::from(HIGH_RES_LAYER),
+        RenderGroups::from_layer(HIGH_RES_LAYER),
     ));
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYER` to the screen.
@@ -152,7 +152,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         Camera2dBundle::default(),
         OuterCamera,
-        CameraView::from(HIGH_RES_LAYER),
+        CameraView::from_layer(HIGH_RES_LAYER),
     ));
 }
 
