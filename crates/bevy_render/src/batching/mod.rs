@@ -153,7 +153,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
 
         let mut is_first_instance = true;
         for key in &phase.batchable_keys {
-            let mut batch = None;
+            let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &entity in &phase.batchable_values[key] {
                 let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
                     let instance_index = match phase.batches.last() {
@@ -172,11 +172,24 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
                     is_first_instance = false;
                 }
 
+                // If the dynamic offset has changed, flush the batch.
+                //
+                // This is the only time we ever have more than one batch per
+                // bin. Note that dynamic offsets are only used on platforms
+                // with no storage buffers.
+                if batch
+                    .as_ref()
+                    .is_some_and(|batch| batch.dynamic_offset != instance.dynamic_offset)
+                {
+                    phase.batches.push(batch.take().unwrap());
+                }
+
                 match batch {
                     None => {
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: entity,
                             last_instance_index: instance.index + 1,
+                            dynamic_offset: instance.dynamic_offset,
                         });
                     }
                     Some(ref mut batch) => batch.last_instance_index += 1,
@@ -195,7 +208,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
         // Prepare unbatchables.
 
         for key in &phase.unbatchable_keys {
-            for &entity in &phase.unbatchable_values[key] {
+            let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
+            for (entity_index, &entity) in unbatchables.entities.iter().enumerate() {
                 let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
                     continue;
                 };
@@ -204,6 +218,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
                 if is_first_instance {
                     phase.first_instance_index = instance.index;
                     is_first_instance = false;
+                }
+
+                if let Some(dynamic_offset) = instance.dynamic_offset {
+                    unbatchables.dynamic_offsets.resize(entity_index, None);
+                    unbatchables.dynamic_offsets.push(Some(dynamic_offset));
                 }
             }
         }

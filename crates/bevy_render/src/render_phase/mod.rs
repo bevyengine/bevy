@@ -40,7 +40,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::{hash::Hash, ops::Range, slice::SliceIndex};
+use std::{hash::Hash, iter, ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -82,17 +82,11 @@ where
     /// The unbatchable bins.
     ///
     /// Each entity here is rendered in a separate drawcall.
-    pub unbatchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
+    pub unbatchable_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
     /// The index of the first instance for the first batch in the storage
     /// buffer.
     pub first_instance_index: u32,
-
-    /// The index of the first dynamic offset for the first batch in the storage
-    /// buffer, if applicable.
-    ///
-    /// This is only used on platforms that don't support storage buffers.
-    pub first_dynamic_offset: Option<NonMaxU32>,
 
     /// Information on each batch.
     ///
@@ -111,6 +105,28 @@ pub struct BinnedRenderPhaseBatch {
 
     /// The last instance index in this batch.
     pub last_instance_index: u32,
+
+    /// The dynamic offset of the batch.
+    ///
+    /// Note that dynamic offsets are only used on platforms that don't support
+    /// storage buffers.
+    pub dynamic_offset: Option<NonMaxU32>,
+}
+
+/// Information about the unbatchable entities in a bin.
+pub struct UnbatchableBinnedEntities {
+    /// The entities.
+    pub entities: Vec<Entity>,
+
+    /// Each entity's dynamic offset.
+    ///
+    /// Note that dynamic offsets are only used on platforms that don't support
+    /// storage buffers.
+    ///
+    /// This value may have fewer entries than entities. If so, the remaining
+    /// entries are assumed to be `None`. We do this to speed up platforms that
+    /// don't need dynamic offsets.
+    pub dynamic_offsets: Vec<Option<NonMaxU32>>,
 }
 
 impl<BPI> BinnedRenderPhase<BPI>
@@ -122,17 +138,24 @@ where
     /// `batchable` specifies whether the entity can be batched with other
     /// entities of the same type.
     pub fn add(&mut self, key: BPI::BinKey, entity: Entity, batchable: bool) {
-        let (keys, values) = if batchable {
-            (&mut self.batchable_keys, &mut self.batchable_values)
+        if batchable {
+            match self.batchable_values.entry(key.clone()) {
+                Entry::Occupied(mut entry) => entry.get_mut().push(entity),
+                Entry::Vacant(entry) => {
+                    self.batchable_keys.push(key);
+                    entry.insert(vec![entity]);
+                }
+            }
         } else {
-            (&mut self.unbatchable_keys, &mut self.unbatchable_values)
-        };
-
-        match values.entry(key.clone()) {
-            Entry::Occupied(mut entry) => entry.get_mut().push(entity),
-            Entry::Vacant(entry) => {
-                keys.push(key);
-                entry.insert(vec![entity]);
+            match self.unbatchable_values.entry(key.clone()) {
+                Entry::Occupied(mut entry) => entry.get_mut().entities.push(entity),
+                Entry::Vacant(entry) => {
+                    self.unbatchable_keys.push(key);
+                    entry.insert(UnbatchableBinnedEntities {
+                        entities: vec![entity],
+                        dynamic_offsets: vec![],
+                    });
+                }
             }
         }
     }
@@ -148,13 +171,9 @@ where
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        // Draw batchables. Track instance index and dynamic offset, if
-        // applicable. We assume that all instance indices and dynamic offsets
-        // are consecutive.
-
+        // Draw batchables. Track instance index. We assume that all instance
+        // indices are consecutive.
         let mut first_instance_index = self.first_instance_index;
-        let mut first_dynamic_offset = self.first_dynamic_offset;
-
         debug_assert_eq!(self.batchable_keys.len(), self.batches.len());
 
         for (key, batch) in self.batchable_keys.iter().zip(self.batches.iter()) {
@@ -162,7 +181,7 @@ where
                 key.clone(),
                 batch.representative_entity,
                 first_instance_index..batch.last_instance_index,
-                first_dynamic_offset,
+                batch.dynamic_offset,
             );
 
             let draw_function = draw_functions
@@ -170,13 +189,7 @@ where
                 .unwrap();
             draw_function.draw(world, render_pass, view, &binned_phase_item);
 
-            // Advance dynamic offset and instance index.
-            if let Some(dynamic_offset) = first_dynamic_offset {
-                first_dynamic_offset = (u32::from(dynamic_offset) + batch.last_instance_index
-                    - first_instance_index)
-                    .try_into()
-                    .ok();
-            }
+            // Advance instance index.
             first_instance_index = batch.last_instance_index;
         }
 
@@ -184,12 +197,19 @@ where
         // storage buffers.
 
         for key in &self.unbatchable_keys {
-            for &entity in &self.unbatchable_values[key] {
+            let unbatchable_entities = &self.unbatchable_values[key];
+            for (entity, dynamic_offset) in unbatchable_entities.entities.iter().copied().zip(
+                unbatchable_entities
+                    .dynamic_offsets
+                    .iter()
+                    .copied()
+                    .chain(iter::repeat(None)),
+            ) {
                 let binned_phase_item = BPI::new(
                     key.clone(),
                     entity,
                     first_instance_index..(first_instance_index + 1),
-                    first_dynamic_offset,
+                    dynamic_offset,
                 );
 
                 let draw_function = draw_functions
@@ -197,11 +217,8 @@ where
                     .unwrap();
                 draw_function.draw(world, render_pass, view, &binned_phase_item);
 
-                // Advance dynamic offset and instance index.
+                // Advance instance index.
                 first_instance_index += 1;
-                if let Some(dynamic_offset) = first_dynamic_offset {
-                    first_dynamic_offset = (u32::from(dynamic_offset) + 1).try_into().ok();
-                }
             }
         }
     }
@@ -222,7 +239,6 @@ where
             unbatchable_keys: default(),
             unbatchable_values: default(),
             first_instance_index: 0,
-            first_dynamic_offset: None,
             batches: default(),
         }
     }
@@ -238,6 +254,7 @@ impl BinnedRenderPhaseBatch {
         Self {
             representative_entity: Entity::PLACEHOLDER,
             last_instance_index: instance_index,
+            dynamic_offset: None,
         }
     }
 }
