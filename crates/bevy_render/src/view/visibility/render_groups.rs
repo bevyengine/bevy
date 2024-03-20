@@ -1,8 +1,7 @@
 use crate::view::*;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
-use bevy_reflect::prelude::ReflectDefault;
+use bevy_ecs::prelude::Component;
 use bevy_reflect::Reflect;
 use bevy_utils::warn_once;
 
