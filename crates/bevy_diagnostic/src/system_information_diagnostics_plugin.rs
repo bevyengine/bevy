@@ -51,10 +51,7 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
-    use bevy_ecs::{
-        prelude::ResMut,
-        system::{Commands, Local},
-    };
+    use bevy_ecs::{prelude::ResMut, system::Local, world::FromWorld};
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -102,31 +99,34 @@ pub mod internal {
         });
     }
 
-    pub(crate) fn setup_system_info_resource(mut commands: Commands) {
-        let sys = System::new_with_specifics(
-            RefreshKind::new()
-                .with_cpu(CpuRefreshKind::new())
-                .with_memory(MemoryRefreshKind::new().with_ram()),
-        );
+    impl FromWorld for SystemInfo {
+        // This doesn't need the world but it makes easier to initialize at app creation
+        fn from_world(_world: &mut bevy_ecs::world::World) -> Self {
+            let sys = System::new_with_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new())
+                    .with_memory(MemoryRefreshKind::new().with_ram()),
+            );
 
-        let info = SystemInfo {
-            os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
-            kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
-            cpu: sys
-                .cpus()
-                .first()
-                .map(|cpu| cpu.brand().trim().to_string())
-                .unwrap_or_else(|| String::from("not available")),
-            core_count: sys
-                .physical_core_count()
-                .map(|x| x.to_string())
-                .unwrap_or_else(|| String::from("not available")),
-            // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
-            memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
-        };
+            let system_info = SystemInfo {
+                os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
+                kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
+                cpu: sys
+                    .cpus()
+                    .first()
+                    .map(|cpu| cpu.brand().trim().to_string())
+                    .unwrap_or_else(|| String::from("not available")),
+                core_count: sys
+                    .physical_core_count()
+                    .map(|x| x.to_string())
+                    .unwrap_or_else(|| String::from("not available")),
+                // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
+                memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
+            };
 
-        info!("{:?}", info);
-        commands.insert_resource(info);
+            info!("{:?}", system_info);
+            system_info
+        }
     }
 }
 
@@ -148,7 +148,15 @@ pub mod internal {
         // no-op
     }
 
-    pub(crate) fn setup_system_info_resource() {
-        // no-op
+    impl FromWorld for SystemInfo {
+        fn from_world(world: &mut bevy_ecs::world::World) -> Self {
+            Self {
+                os: "Unknown",
+                kernel: "Unknown",
+                cpu: "Unknown",
+                core_count: "Unknown",
+                memory: "Unknown",
+            }
+        }
     }
 }

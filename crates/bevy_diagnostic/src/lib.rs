@@ -18,6 +18,7 @@ pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
+use system_information_diagnostics_plugin::SystemInfo;
 #[cfg(feature = "sysinfo_plugin")]
 pub use system_information_diagnostics_plugin::SystemInformationDiagnosticsPlugin;
 
@@ -32,10 +33,7 @@ impl Plugin for DiagnosticsPlugin {
         app.init_resource::<DiagnosticsStore>();
 
         #[cfg(feature = "sysinfo_plugin")]
-        app.add_systems(
-            Startup,
-            system_information_diagnostics_plugin::internal::setup_system_info_resource,
-        );
+        app.init_resource::<SystemInfo>();
     }
 }
 
