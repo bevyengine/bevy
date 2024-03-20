@@ -99,9 +99,8 @@ pub mod internal {
         });
     }
 
-    impl FromWorld for SystemInfo {
-        // This doesn't need the world but it makes easier to initialize at app creation
-        fn from_world(_world: &mut bevy_ecs::world::World) -> Self {
+    impl Default for SystemInfo {
+        fn default() -> Self {
             let sys = System::new_with_specifics(
                 RefreshKind::new()
                     .with_cpu(CpuRefreshKind::new())
@@ -148,8 +147,8 @@ pub mod internal {
         // no-op
     }
 
-    impl bevy_ecs::world::FromWorld for super::SystemInfo {
-        fn from_world(world: &mut bevy_ecs::world::World) -> Self {
+    impl Default for super::SystemInfo {
+        fn default() -> Self {
             let unknown = "Unknown".to_string();
             Self {
                 os: unknown.clone(),
