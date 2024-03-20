@@ -32,8 +32,14 @@ impl MeshletMesh {
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
-
-        let mut lod_errors = vec![0.0; meshlets.len()];
+        // TODO: Initial parent bounding spheres
+        let mut meshlet_bounding_spheres = calculate_meshlet_bounding_spheres(&meshlets, mesh);
+        let mut lod_errors = vec![0.0; meshlets.len() * 2];
+        let worst_case_meshlet_triangles = meshlets
+            .meshlets
+            .iter()
+            .map(|m| m.triangle_count as u64)
+            .sum();
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
@@ -58,13 +64,16 @@ impl MeshletMesh {
 
             for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let (simplified_group_indices, lod_error) =
+                let (simplified_group_indices, group_error) =
                     simplfy_meshlet_groups(group_meshlets, &meshlets, &vertices);
 
                 // Enforce that parent_error >= child_error (we're currently building the parent from its children)
-                let lod_error = group_meshlets.iter().fold(lod_error, |acc, meshlet_id| {
+                let group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
                     acc.max(lod_errors[*meshlet_id])
-                }) + 0.0000001;
+                });
+
+                // TODO: Build a new bounding sphere for the group as a whole
+                // TODO: Go back for each meshlet in group and set parent bounding sphere and error to group copies
 
                 // Build new meshlets using the simplified group
                 let new_meshlets_count = split_simplified_groups_into_new_meshlets(
@@ -72,38 +81,32 @@ impl MeshletMesh {
                     &vertices,
                     &mut meshlets,
                 );
-                lod_errors.extend(iter::repeat(lod_error).take(new_meshlets_count));
+
+                // TODO: For each new meshlet build a bounding sphere, and append that + empty parent error/bounding sphere
+                lod_errors.extend(iter::repeat(group_error).take(new_meshlets_count));
             }
 
             simplification_queue = next_lod_start..meshlets.len();
             lod_level += 1;
         }
 
-        // Calculate meshlet bounding spheres
-        let meshlet_bounding_spheres = calculate_meshlet_bounding_spheres(&meshlets, mesh);
-
-        // Convert to our own meshlet format
-        let mut total_meshlet_triangles = 0;
-        let bevy_meshlets = meshlets
+        let meshlets = meshlets
             .meshlets
             .into_iter()
-            .map(|m| {
-                total_meshlet_triangles += m.triangle_count as u64;
-                Meshlet {
-                    start_vertex_id: m.vertex_offset,
-                    start_index_id: m.triangle_offset,
-                    triangle_count: m.triangle_count,
-                }
+            .map(|m| Meshlet {
+                start_vertex_id: m.vertex_offset,
+                start_index_id: m.triangle_offset,
+                triangle_count: m.triangle_count,
             })
             .collect();
 
         Ok(Self {
-            total_meshlet_triangles,
+            worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
-            meshlets: bevy_meshlets,
-            meshlet_bounding_spheres,
+            meshlets,
+            meshlet_bounding_spheres: meshlet_bounding_spheres.into(),
             meshlet_lod_errors: lod_errors.into(),
         })
     }
@@ -239,9 +242,7 @@ fn simplfy_meshlet_groups(
         Some(&mut error),
     );
 
-    error = error.sqrt() / 2.0;
-
-    (simplified_group_indices, error)
+    (simplified_group_indices, error / 2.0)
 }
 
 fn split_simplified_groups_into_new_meshlets(
@@ -274,7 +275,7 @@ fn split_simplified_groups_into_new_meshlets(
 fn calculate_meshlet_bounding_spheres(
     meshlets: &Meshlets,
     mesh: &Mesh,
-) -> Arc<[MeshletBoundingSphere]> {
+) -> Vec<MeshletBoundingSphere> {
     meshlets
         .iter()
         .map(|meshlet| {

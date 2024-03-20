@@ -861,7 +861,7 @@ impl MeshletGpuScene {
                     meshlet_bounding_spheres_slice,
                     meshlet_lod_errors_slice,
                 ],
-                meshlet_mesh.total_meshlet_triangles,
+                meshlet_mesh.worst_case_meshlet_triangles,
             )
         };
 

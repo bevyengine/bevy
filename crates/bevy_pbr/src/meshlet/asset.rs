@@ -26,8 +26,8 @@ use std::sync::Arc;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
-    /// The total amount of triangles summed across all meshlets in the mesh.
-    pub total_meshlet_triangles: u64,
+    /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
+    pub worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
     pub vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
@@ -36,9 +36,9 @@ pub struct MeshletMesh {
     pub indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
     pub meshlets: Arc<[Meshlet]>,
-    /// A list of spherical bounding volumes, 1 per meshlet.
+    /// A list of spherical bounding volumes, 2 per meshlet (self and parent).
     pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
-    /// A list of simplification error used for choosing LOD, 1 per meshlet.
+    /// A list of simplification errors used for choosing level of detail, 2 per meshlet (self and parent).
     pub meshlet_lod_errors: Arc<[f32]>,
 }
 
