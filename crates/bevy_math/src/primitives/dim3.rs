@@ -731,6 +731,7 @@ impl Triangle3d {
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
+        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
         let m = a
             + ((ac.length_squared() * ab.cross(ac).cross(ab)
                 + ab.length_squared() * ac.cross(ab).cross(ac))
