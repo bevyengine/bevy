@@ -1003,8 +1003,12 @@ fn handle_new_children_nonpropagator(
     mut updated_entities: ResMut<PropagateRenderGroupsEntityCache>,
     // Entities with InheritedRenderGroups that changed children
     inherited_with_children: Query<
-        (Entity, &Children, &InheritedRenderGroups),
-        (Changed<Children>, Without<PropagateRenderGroups>),
+        (Entity, &Children),
+        (
+            Changed<Children>,
+            With<InheritedRenderGroups>,
+            Without<PropagateRenderGroups>,
+        ),
     >,
     // Query for accessing propagators
     all_propagators: Query<(
@@ -1022,14 +1026,17 @@ fn handle_new_children_nonpropagator(
         Without<PropagateRenderGroups>,
     >,
 ) {
-    for (entity, children, inherited) in inherited_with_children.iter() {
+    for (entity, children) in inherited_with_children.iter() {
         // Skip entity if already updated, which implies children are already in an accurate state.
         if updated_entities.contains(entity) {
             continue;
         }
 
+        // Get the inherited component. We need to do a lookup due to query conflict (Error B0001).
+        let inherited_propagator = maybe_inherited.get(entity).unwrap().1.unwrap().propagator;
+
         let Ok((propagator, maybe_render_groups, maybe_camera_view, maybe_camera, propagate)) =
-            all_propagators.get(inherited.propagator)
+            all_propagators.get(inherited_propagator)
         else {
             // Remove InheritedRenderGroups from descendents if the propagator is missing
             // - This is either an error caused by manually modifying InheritedRenderGroups, or is caused by a
