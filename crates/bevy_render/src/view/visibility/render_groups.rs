@@ -277,7 +277,7 @@ impl std::fmt::Debug for RenderLayers {
 /// For example, if you do `entity.insert(RenderGroups::from(RenderLayer(1)))`, then `entity`
 /// will only be in layer 1. You can instead do:
 /**
-```no_run
+```ignore
 // Option 1: default
 let mut groups = RenderGroups::default();
 groups.add(RenderLayer(1));
