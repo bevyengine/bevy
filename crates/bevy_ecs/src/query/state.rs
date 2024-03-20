@@ -32,7 +32,7 @@ use super::{
 ///
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
-/// [`Table`]: crate::storage::table::Table
+/// [`Table`]: crate::storage::Table
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
@@ -40,9 +40,9 @@ use super::{
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
-    /// Metadata about the [`Table`]s matched by this query.
+    /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
     pub(crate) matched_tables: FixedBitSet,
-    /// Metadata about the [`Archetypes`]s matched by this query.
+    /// Metadata about the [`Archetype`]s matched by this query.
     pub(crate) matched_archetypes: FixedBitSet,
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
@@ -345,7 +345,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::table::Table)s
+    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
     /// and [`Archetype`]s that are matched by this query.
     ///
     /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
