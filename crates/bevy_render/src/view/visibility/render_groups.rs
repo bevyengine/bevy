@@ -4,9 +4,26 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::{Component, Entity, ReflectComponent};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_utils::warn_once;
 
 use smallvec::SmallVec;
 use std::ops::Deref;
+
+/// Records the highest [`RenderLayer`] that can be added to a [`RenderLayers`] before
+/// a warning is emitted.
+///
+/// We issue a warning because [`RenderLayers`] allocates in order to have enough room for a given
+/// [`RenderLayer`], which is an index into a growable bitset. Large [`RenderLayer`] values can consume
+/// a lot of memory since [`RenderGroups`] and [`InheritedRenderGroups`] are potentially on many entities.
+pub const RENDER_LAYERS_WARNING_LIMIT: usize = 1024;
+
+/// Records the highest [`RenderLayer`] that can be added to a [`RenderLayers`] before
+/// a panic occurs.
+///
+/// We panic because [`RenderLayers`] allocates in order to have enough room for a given
+/// [`RenderLayer`], which is an index into a growable bitset. Large [`RenderLayer`] values can consume
+/// a lot of memory since [`RenderGroups`] and [`InheritedRenderGroups`] are potentially on many entities.
+pub const RENDER_LAYERS_PANIC_LIMIT: usize = 1_000_000;
 
 /// The default [`RenderLayer`].
 pub static DEFAULT_RENDER_LAYER: RenderLayer = RenderLayer(0);
@@ -165,6 +182,16 @@ impl RenderLayers {
     }
 
     fn layer_info(layer: usize) -> (usize, u64) {
+        if layer > RENDER_LAYERS_WARNING_LIMIT {
+            warn_once!("RenderLayers encountered a layer {layer} that exceeded the warning limit \
+                RENDER_LAYERS_WARNING_LIMIT = {RENDER_LAYERS_WARNING_LIMIT}, you can ignore this message if \
+                that is not a bug");
+        }
+        if layer > RENDER_LAYERS_PANIC_LIMIT {
+            panic!("RenderLayers encountered a layer {layer} that exceeded the maximum upper bound on number of \
+                layers RENDER_LAYERS_PANIC_LIMIT = {RENDER_LAYERS_PANIC_LIMIT}");
+        }
+
         let buffer_index = layer / 64;
         let bit_index = layer % 64;
         let bit = 1u64 << bit_index;
