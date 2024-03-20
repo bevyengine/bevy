@@ -280,12 +280,12 @@ impl std::fmt::Debug for RenderLayers {
 ```no_run
 // Option 1: default
 let mut groups = RenderGroups::default();
-groups.add(RenderLayer(1);
+groups.add(RenderLayer(1));
 entity.insert(groups);
 
 // Option 2: explicit
 let mut groups = RenderGroups::from(0);
-groups.add(RenderLayer(1);
+groups.add(RenderLayer(1));
 entity.insert(groups);
 
 // Option 3: manual
