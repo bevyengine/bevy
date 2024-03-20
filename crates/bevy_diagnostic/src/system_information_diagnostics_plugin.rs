@@ -32,6 +32,12 @@ impl SystemInformationDiagnosticsPlugin {
 }
 
 #[derive(Debug, Resource)]
+/// A resource that stores diagnostic information about the system.
+/// This information can be useful for debugging and profiling purposes.
+///
+/// # See also
+///
+/// [`SystemInformationDiagnosticsPlugin`](crate::SystemInformationDiagnosticsPlugin) for more information.
 pub struct SystemInfo {
     pub os: String,
     pub kernel: String,
