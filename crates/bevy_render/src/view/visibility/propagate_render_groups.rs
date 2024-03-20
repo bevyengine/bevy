@@ -233,7 +233,7 @@ impl PropagateRenderGroups {
 
                 if view.is_allocated() && saved.is_allocated() {
                     // Reuse saved allocation.
-                    let mut temp = RenderGroups::default();
+                    let mut temp = RenderGroups::empty();
                     std::mem::swap(&mut temp, saved);
                     temp.set_from_parts(Some(entity), view.layers());
                     RenderGroupsRef::Val(temp)
@@ -275,6 +275,7 @@ pub struct InheritedRenderGroups {
 }
 
 impl InheritedRenderGroups {
+    /// Makes an empty `InheritedRenderGroups`.
     pub fn empty() -> Self {
         Self {
             propagator: Entity::PLACEHOLDER,
@@ -514,8 +515,8 @@ fn apply_full_propagation(
     };
 
     // Update inherited value or insert a new one.
-    let default_render_groups = RenderGroups::default();
-    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
+    let empty_render_groups = RenderGroups::empty();
+    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
     let apply_changes = |groups: &mut InheritedRenderGroups| {
         groups.propagator = propagator;
         groups.computed.set_from(initial_groups);
@@ -644,8 +645,8 @@ fn apply_new_children_propagation(
     }
 
     // Update inherited value or insert a new one.
-    let default_render_groups = RenderGroups::default();
-    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
+    let empty_render_groups = RenderGroups::empty();
+    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
     let apply_changes = |groups: &mut InheritedRenderGroups| {
         groups.propagator = propagator;
         groups.computed.set_from(initial_groups);
@@ -918,8 +919,8 @@ fn apply_full_propagation_force_update(
     }
 
     // Force-update
-    let default_render_groups = RenderGroups::default();
-    let initial_groups = maybe_render_groups.unwrap_or(&default_render_groups);
+    let empty_render_groups = RenderGroups::empty();
+    let initial_groups = maybe_render_groups.unwrap_or(&empty_render_groups);
 
     let mut new = InheritedRenderGroups::empty();
     if let Some(mut inherited) = maybe_inherited_groups {
@@ -1184,7 +1185,7 @@ fn handle_modified_rendergroups(
         &PropagateRenderGroups,
     )>,
     // Query for updating InheritedRenderGroups on non-propagator entities.
-    mut maybe_inherited: Query<
+    mut inherited: Query<
         (Option<&RenderGroups>, &mut InheritedRenderGroups),
         Without<PropagateRenderGroups>,
     >,
@@ -1196,7 +1197,7 @@ fn handle_modified_rendergroups(
         }
 
         // Skip entity if it's a propagator or doesn't exist.
-        let Ok((entity_render_groups, mut inherited)) = maybe_inherited.get_mut(entity) else {
+        let Ok((entity_render_groups, mut inherited)) = inherited.get_mut(entity) else {
             continue;
         };
 
@@ -1221,7 +1222,7 @@ fn handle_modified_rendergroups(
         // Update entity value.
         inherited
             .computed
-            .set_from(entity_render_groups.unwrap_or(&RenderGroups::default()));
+            .set_from(entity_render_groups.unwrap_or(&RenderGroups::empty()));
         inherited.computed.merge(&propagated);
 
         // Mark updated (in case of duplicates due to removals).
