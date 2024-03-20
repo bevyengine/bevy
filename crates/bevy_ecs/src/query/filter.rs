@@ -530,7 +530,7 @@ all_tuples!(impl_or_query_filter, 0, 15, F, S);
 /// # Time complexity
 ///
 /// `Added` is not [`ArchetypeFilter`], which practically means that
-/// if a query (with `T` component filter) matches a million entities,
+/// if the query (with `T` component filter) matches a million entities,
 /// `Added<T>` filter will iterate over all of them even if none of them were just added.
 ///
 /// For example, these two systems are roughly equivalent in terms of performance:
