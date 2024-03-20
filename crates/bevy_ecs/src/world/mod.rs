@@ -2091,12 +2091,11 @@ impl World {
     /// This is equivalent to calling [`init_component`](Self::init_component) on each component
     /// in the bundle.
     #[inline]
-    pub fn init_bundle<B: Bundle>(&mut self) -> Vec<ComponentId> {
-        let mut ids = Vec::new();
-        B::component_ids(&mut self.components, &mut self.storages, &mut |id| {
-            ids.push(id);
-        });
-        ids
+    pub fn init_bundle<B: Bundle>(&mut self) -> &[ComponentId] {
+        let id = self
+            .bundles
+            .init_info::<B>(&mut self.components, &mut self.storages);
+        self.bundles.get(id).unwrap().components()
     }
 }
 
