@@ -55,7 +55,7 @@ pub struct Meshlet {
 }
 
 /// A spherical bounding volume used for culling a [`Meshlet`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
