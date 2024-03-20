@@ -292,8 +292,8 @@ impl ComponentInfo {
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
-    pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.descriptor.drop
+    pub fn drop_multiple(&self) -> unsafe fn(OwningPtr<'_>, usize) {
+        self.descriptor.drop_multiple.unwrap()
     }
 
     /// Returns a value indicating the storage strategy for the current component.
@@ -412,7 +412,7 @@ pub struct ComponentDescriptor {
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
-    drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    drop_multiple: Option<for<'a> unsafe fn(OwningPtr<'a>, usize)>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -432,10 +432,12 @@ impl ComponentDescriptor {
     /// # SAFETY
     ///
     /// `x` must points to a valid value of type `T`.
-    unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
+    unsafe fn drop_ptr_multiple<T>(x: OwningPtr<'_>, len: usize) {
         // SAFETY: Contract is required to be upheld by the caller.
-        unsafe {
-            x.drop_as::<T>();
+        for i in 0..len as isize {
+            unsafe {
+                x.drop_as::<T>().offset(i).drop_in_place();
+            }
         }
     }
 
@@ -447,7 +449,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            drop_multiple: needs_drop::<T>().then_some(Self::drop_ptr_multiple::<T> as _),
         }
     }
 
@@ -460,7 +462,7 @@ impl ComponentDescriptor {
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
-        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+        drop_multiple: Option<for<'a> unsafe fn(OwningPtr<'a>, usize)>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -468,7 +470,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: None,
             layout,
-            drop,
+            drop_multiple,
         }
     }
 
@@ -484,7 +486,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            drop_multiple: needs_drop::<T>().then_some(Self::drop_ptr_multiple::<T> as _),
         }
     }
 
@@ -495,7 +497,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            drop_multiple: needs_drop::<T>().then_some(Self::drop_ptr_multiple::<T> as _),
         }
     }
 

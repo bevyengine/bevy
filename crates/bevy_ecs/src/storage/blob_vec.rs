@@ -21,7 +21,7 @@ pub(super) struct BlobVec {
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped
-    drop: Option<unsafe fn(OwningPtr<'_>)>,
+    drop_multiple: Option<unsafe fn(OwningPtr<'_>, usize)>,
 }
 
 // We want to ignore the `drop` field in our `Debug` impl
@@ -53,7 +53,7 @@ impl BlobVec {
     /// [`needs_drop`]: core::mem::needs_drop
     pub unsafe fn new(
         item_layout: Layout,
-        drop: Option<unsafe fn(OwningPtr<'_>)>,
+        drop_multiple: Option<unsafe fn(OwningPtr<'_>, usize)>,
         capacity: usize,
     ) -> BlobVec {
         let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
@@ -66,7 +66,7 @@ impl BlobVec {
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
-                drop,
+                drop_multiple,
             }
         } else {
             let mut blob_vec = BlobVec {
@@ -74,7 +74,7 @@ impl BlobVec {
                 capacity: 0,
                 len: 0,
                 item_layout,
-                drop,
+                drop_multiple,
             };
             blob_vec.reserve_exact(capacity);
             blob_vec
@@ -211,7 +211,7 @@ impl BlobVec {
         let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
-        if let Some(drop) = self.drop {
+        if let Some(drop) = self.drop_multiple {
             // Temporarily set the length to zero, so that if `drop` panics the caller
             // will not be left with a `BlobVec` containing a dropped element within
             // its initialized range.
@@ -230,9 +230,9 @@ impl BlobVec {
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
-            let on_unwind = OnDrop::new(|| drop(value));
+            let on_unwind = OnDrop::new(|| drop(value, 1));
 
-            drop(old_value);
+            drop(old_value, 1);
 
             // If the above code does not panic, make sure that `value` doesn't get dropped.
             core::mem::forget(on_unwind);
@@ -345,10 +345,10 @@ impl BlobVec {
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
-        let drop = self.drop;
+        let drop = self.drop_multiple;
         let value = self.swap_remove_and_forget_unchecked(index);
         if let Some(drop) = drop {
-            drop(value);
+            drop(value, 1);
         }
     }
 
@@ -415,7 +415,7 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
-        if let Some(drop) = self.drop {
+        if let Some(drop) = self.drop_multiple {
             let size = self.item_layout.size();
             for i in 0..len {
                 // SAFETY:
@@ -427,7 +427,7 @@ impl BlobVec {
                 // would panic due to `self.len` being set to 0.
                 let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
                 // SAFETY: `item` was obtained from this `BlobVec`, so its underlying type must match `drop`.
-                unsafe { drop(item) };
+                unsafe { drop(item, 1) };
             }
         }
     }
@@ -509,10 +509,12 @@ mod tests {
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
 
-    unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
+    unsafe fn drop_multiple<T>(x: OwningPtr<'_>, len: usize) {
         // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
-        unsafe {
-            x.drop_as::<T>();
+        for i in 0..len as isize {
+            unsafe {
+                x.drop_as::<T>().offset(i).drop_in_place();
+            }
         }
     }
 
@@ -577,7 +579,7 @@ mod tests {
         let drop_counter = Rc::new(RefCell::new(0));
         {
             let item_layout = Layout::new::<Foo>();
-            let drop = drop_ptr::<Foo>;
+            let drop = drop_multiple::<Foo>;
             // SAFETY: drop is able to drop a value of its `item_layout`
             let mut blob_vec = unsafe { BlobVec::new(item_layout, Some(drop), 2) };
             assert_eq!(blob_vec.capacity(), 2);
@@ -641,7 +643,7 @@ mod tests {
     #[test]
     fn blob_vec_drop_empty_capacity() {
         let item_layout = Layout::new::<Foo>();
-        let drop = drop_ptr::<Foo>;
+        let drop = drop_multiple::<Foo>;
         // SAFETY: drop is able to drop a value of its `item_layout`
         let _ = unsafe { BlobVec::new(item_layout, Some(drop), 0) };
     }
