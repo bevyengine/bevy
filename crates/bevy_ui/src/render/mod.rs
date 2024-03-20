@@ -193,7 +193,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &BackgroundColor,
-            &BorderRadius,
+            Option<&BorderRadius>,
         )>,
     >,
 ) {
@@ -224,8 +224,11 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let border_radius =
-            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0);
+        let border_radius = if let Some(border_radius) = border_radius {
+            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0)
+        } else {
+            [0.; 4]
+        };
 
         extracted_uinodes.uinodes.insert(
             entity,
@@ -268,7 +271,7 @@ pub fn extract_uinode_images(
             &UiImage,
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
-            &BorderRadius,
+            Option<&BorderRadius>,
         )>,
     >,
 ) {
@@ -323,8 +326,11 @@ pub fn extract_uinode_images(
             ),
         };
 
-        let border_radius =
-            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0);
+        let border_radius = if let Some(border_radius) = border_radius {
+            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0)
+        } else {
+            [0.; 4]
+        };
 
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
