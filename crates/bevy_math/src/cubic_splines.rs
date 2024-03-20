@@ -234,13 +234,23 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
             [-s, 2. - s, s - 2., s],
         ];
 
-        // Extend the list of control points by repeating the endpoints; this allows tangents for the
-        // endpoints to be provided, and the overall effect is that the tangent of an endpoint is parallel
-        // to the line to its adjacent control point.
         let length = self.control_points.len();
-        let extended_control_points = once(&self.control_points[0])
+
+        // Early return to avoid accessing an invalid index
+        if length < 2 {
+            return CubicCurve { segments: vec![] };
+        }
+
+        // Extend the list of control points by mirroring the last second-to-last control points on each end;
+        // this allows tangents for the endpoints to be provided, and the overall effect is that the tangent
+        // at an endpoint is proportional to twice the vector between it and its adjacent control point.
+        //
+        // The expression used here is P_{-1} := P_0 - (P_1 - P_0) = 2P_0 - P_1. (Analogously at the other end.)
+        let mirrored_first = self.control_points[0] * 2. - self.control_points[1];
+        let mirrored_last = self.control_points[length - 1] * 2. - self.control_points[length - 2];
+        let extended_control_points = once(&mirrored_first)
             .chain(self.control_points.iter())
-            .chain(once(&self.control_points[length - 1]))
+            .chain(once(&mirrored_last))
             .collect::<Vec<_>>();
 
         let segments = extended_control_points
@@ -1304,7 +1314,7 @@ mod tests {
         // Tangents at segment endpoints
         assert!(curve
             .velocity(0.)
-            .abs_diff_eq((p1 - p0) * tension, FLOAT_EQ));
+            .abs_diff_eq((p1 - p0) * tension * 2., FLOAT_EQ));
         assert!(curve
             .velocity(1.)
             .abs_diff_eq((p2 - p0) * tension, FLOAT_EQ));
@@ -1313,7 +1323,7 @@ mod tests {
             .abs_diff_eq((p3 - p1) * tension, FLOAT_EQ));
         assert!(curve
             .velocity(3.)
-            .abs_diff_eq((p3 - p2) * tension, FLOAT_EQ));
+            .abs_diff_eq((p3 - p2) * tension * 2., FLOAT_EQ));
     }
 
     /// Test that [`RationalCurve`] properly generalizes [`CubicCurve`]. A Cubic upgraded to a rational
