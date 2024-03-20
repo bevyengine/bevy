@@ -9,7 +9,6 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
-use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -181,7 +180,7 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -197,12 +196,6 @@ pub fn extract_uinode_background_colors(
         )>,
     >,
 ) {
-    let viewport_size = windows
-        .get_single()
-        .map(|window| window.resolution.size())
-        .unwrap_or(Vec2::ZERO)
-        * ui_scale.0;
-
     for (
         entity,
         uinode,
@@ -224,8 +217,22 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
+        let ui_logical_viewport_size = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(|(_, c)| c.logical_viewport_size())
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
+
         let border_radius = if let Some(border_radius) = border_radius {
-            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0)
+            resolve_border_radius(
+                border_radius,
+                uinode.size(),
+                ui_logical_viewport_size,
+                ui_scale.0,
+            )
         } else {
             [0.; 4]
         };
@@ -257,7 +264,7 @@ pub fn extract_uinode_background_colors(
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    camera_query: Extract<Query<(Entity, &Camera)>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -275,12 +282,6 @@ pub fn extract_uinode_images(
         )>,
     >,
 ) {
-    let viewport_size = windows
-        .get_single()
-        .map(|window| window.resolution.size())
-        .unwrap_or(Vec2::ZERO)
-        * ui_scale.0;
-
     for (uinode, transform, view_visibility, clip, camera, image, atlas, slices, border_radius) in
         &uinode_query
     {
@@ -326,8 +327,22 @@ pub fn extract_uinode_images(
             ),
         };
 
+        let ui_logical_viewport_size = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(|(_, c)| c.logical_viewport_size())
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
+
         let border_radius = if let Some(border_radius) = border_radius {
-            resolve_border_radius(border_radius, uinode.size(), viewport_size, ui_scale.0)
+            resolve_border_radius(
+                border_radius,
+                uinode.size(),
+                ui_logical_viewport_size,
+                ui_scale.0,
+            )
         } else {
             [0.; 4]
         };
