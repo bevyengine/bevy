@@ -69,6 +69,8 @@ impl Default for RenderLayer {
 ///
 /// `RenderLayers` can store up to `RenderLayer(63)` without allocating. Allocations occur in 8-byte
 /// increments, so the second allocation will occur after `RenderLayer(127)`, and so on.
+/// 
+/// See [`RENDER_LAYERS_WARNING_LIMIT`] and [`RENDER_LAYERS_PANIC_LIMIT`] for `RenderLayers` restrictions.
 #[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq)]
 pub struct RenderLayers {
