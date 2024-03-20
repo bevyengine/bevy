@@ -96,7 +96,8 @@ struct AmbiguousWithTextSystem;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2DLayout;
 
-/// A convenient alias for `With<Node>`, for use with [`VisibleEntities`].
+/// A convenient alias for `With<Node>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
 pub type WithNode = With<Node>;
 
 impl Plugin for UiPlugin {
