@@ -1050,7 +1050,7 @@ impl GlobalVisiblePointLights {
 
 // NOTE: Run this before update_point_light_frusta!
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn assign_lights_to_clusters<'w, 's>(
+pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<GlobalVisiblePointLights>,
     mut views: Query<(

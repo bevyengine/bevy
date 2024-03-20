@@ -427,9 +427,7 @@ pub fn check_visibility(
                 return;
             }
 
-            // Check render groups.
-            // - If there is no RenderGroups in the entity, use the *default* value because the
-            // entity is in the DEFAULT_RENDER_LAYER.
+            // Check if this camera can see the entity.
             if !camera_view.entity_is_visible(
                 camera_entity,
                 &derive_render_groups(maybe_inherited, maybe_groups),
