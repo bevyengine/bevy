@@ -131,6 +131,17 @@ pub fn batch_and_prepare_sorted_render_phase<I, F>(
     }
 }
 
+/// Sorts a render phase that uses bins.
+pub fn sort_binned_render_phase<BPI>(mut views: Query<&mut BinnedRenderPhase<BPI>>)
+where
+    BPI: BinnedPhaseItem,
+{
+    for mut phase in &mut views {
+        phase.batchable_keys.sort();
+        phase.unbatchable_keys.sort();
+    }
+}
+
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<GBBD::BufferData>>,
@@ -144,9 +155,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
     let system_param_item = param.into_inner();
 
     for mut phase in &mut views {
-        phase.batchable_keys.sort();
-        phase.unbatchable_keys.sort();
-
         let phase = &mut *phase; // Borrow checker.
 
         // Prepare batchables.

@@ -14,7 +14,8 @@ use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
-        write_batched_instance_buffer, GetBatchData, GetBinnedBatchData, NoAutomaticBatching,
+        sort_binned_render_phase, write_batched_instance_buffer, GetBatchData, GetBinnedBatchData,
+        NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -125,16 +126,39 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
+                            (
+                                sort_binned_render_phase::<Opaque3d>,
+                                batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
+                            )
+                                .chain(),
                             batch_and_prepare_sorted_render_phase::<Transmissive3d, MeshPipeline>,
                             batch_and_prepare_sorted_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<
-                                AlphaMask3dDeferred,
-                                MeshPipeline,
-                            >,
+                            (
+                                sort_binned_render_phase::<AlphaMask3d>,
+                                batch_and_prepare_binned_render_phase::<AlphaMask3d, MeshPipeline>,
+                            )
+                                .chain(),
+                            (
+                                sort_binned_render_phase::<Shadow>,
+                                batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
+                            )
+                                .chain(),
+                            (
+                                sort_binned_render_phase::<Opaque3dDeferred>,
+                                batch_and_prepare_binned_render_phase::<
+                                    Opaque3dDeferred,
+                                    MeshPipeline,
+                                >,
+                            )
+                                .chain(),
+                            (
+                                sort_binned_render_phase::<AlphaMask3dDeferred>,
+                                batch_and_prepare_binned_render_phase::<
+                                    AlphaMask3dDeferred,
+                                    MeshPipeline,
+                                >,
+                            )
+                                .chain(),
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>

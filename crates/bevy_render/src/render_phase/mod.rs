@@ -29,7 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::{hashbrown::hash_map::Entry, prelude::default, HashMap};
+use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
 use nonmax::NonMaxU32;
@@ -71,7 +71,7 @@ where
     ///
     /// Each bin corresponds to a single batch. For unbatchable entities, prefer
     /// `unbatchable_values` instead.
-    pub batchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
+    pub(crate) batchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -82,17 +82,17 @@ where
     /// The unbatchable bins.
     ///
     /// Each entity here is rendered in a separate drawcall.
-    pub unbatchable_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
+    pub(crate) unbatchable_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
     /// The index of the first instance for the first batch in the storage
     /// buffer.
-    pub first_instance_index: u32,
+    pub(crate) first_instance_index: u32,
 
     /// Information on each batch.
     ///
     /// The unbatchable entities immediately follow the batches in the storage
     /// buffers.
-    pub batches: Vec<BinnedRenderPhaseBatch>,
+    pub(crate) batches: Vec<BinnedRenderPhaseBatch>,
 }
 
 /// Information about a single batch of entities rendered using binned phase
@@ -184,9 +184,12 @@ where
                 batch.dynamic_offset,
             );
 
-            let draw_function = draw_functions
-                .get_mut(binned_phase_item.draw_function())
-                .unwrap();
+            // Fetch the draw function.
+            let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
+            else {
+                continue;
+            };
+
             draw_function.draw(world, render_pass, view, &binned_phase_item);
 
             // Advance instance index.
@@ -212,9 +215,12 @@ where
                     dynamic_offset,
                 );
 
-                let draw_function = draw_functions
-                    .get_mut(binned_phase_item.draw_function())
-                    .unwrap();
+                // Fetch the draw function.
+                let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
+                else {
+                    continue;
+                };
+
                 draw_function.draw(world, render_pass, view, &binned_phase_item);
 
                 // Advance instance index.
@@ -234,12 +240,12 @@ where
 {
     fn default() -> Self {
         Self {
-            batchable_keys: default(),
-            batchable_values: default(),
-            unbatchable_keys: default(),
-            unbatchable_values: default(),
+            batchable_keys: vec![],
+            batchable_values: HashMap::default(),
+            unbatchable_keys: vec![],
+            unbatchable_values: HashMap::default(),
             first_instance_index: 0,
-            batches: default(),
+            batches: vec![],
         }
     }
 }
