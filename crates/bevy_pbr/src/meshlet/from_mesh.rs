@@ -7,8 +7,8 @@ use bevy_render::{
 use bevy_utils::{HashMap, HashSet};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_meshlet_bounds_decoder, simplify, Meshlets, SimplifyOptions,
-    VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
+    Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use std::{borrow::Cow, iter, ops::Range, sync::Arc};
@@ -69,15 +69,19 @@ impl MeshletMesh {
 
                 // Enforce that parent_error >= child_error (we're currently building the parent from its children)
                 let group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
-                    acc.max(lod_errors[*meshlet_id])
+                    acc.max(lod_errors[*meshlet_id * 2])
                 });
 
-                // TODO: Build a new bounding sphere for the simplified group as a whole
+                // Build a new bounding sphere for the simplified group as a whole
+                let group_bounding_sphere = convert_meshlet_bounds(compute_cluster_bounds(
+                    &simplified_group_indices,
+                    &vertices,
+                ));
 
                 // For each meshlet in the group, set their parent error and bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
                     lod_errors[*meshlet_id * 2 + 1] = group_error;
-                    // parent_bounding_spheres[*meshlet_id * 2 + 1] = group_bounding_sphere;
+                    parent_bounding_spheres[*meshlet_id] = group_bounding_sphere;
                 }
 
                 // Build new meshlets using the simplified group
@@ -93,7 +97,9 @@ impl MeshletMesh {
                         .take(new_meshlets_count)
                         .flatten(),
                 );
-                parent_bounding_spheres.push(MeshletBoundingSphere::default());
+                parent_bounding_spheres.extend(
+                    iter::repeat(MeshletBoundingSphere::default()).take(new_meshlets_count),
+                );
             }
 
             simplification_queue = next_lod_start..meshlets.len();
@@ -101,7 +107,11 @@ impl MeshletMesh {
         }
 
         // Calculate meshlet bounding spheres and interleave parent bounding spheres
-        let meshlet_bounding_spheres = calculate_meshlet_bounding_spheres(&meshlets, mesh);
+        let meshlet_bounding_spheres = meshlets
+            .iter()
+            .map(|meshlet| compute_meshlet_bounds(meshlet, mesh))
+            .map(convert_meshlet_bounds)
+            .collect();
         let meshlet_bounding_spheres = meshlet_bounding_spheres
             .into_iter()
             .interleave(parent_bounding_spheres.into_iter())
@@ -290,26 +300,11 @@ fn split_simplified_groups_into_new_meshlets(
     new_meshlets_count
 }
 
-fn calculate_meshlet_bounding_spheres(
-    meshlets: &Meshlets,
-    mesh: &Mesh,
-) -> Box<[MeshletBoundingSphere]> {
-    meshlets
-        .iter()
-        .map(|meshlet| {
-            compute_meshlet_bounds_decoder(
-                meshlet,
-                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-                    .unwrap()
-                    .as_float3()
-                    .unwrap(),
-            )
-        })
-        .map(|bounds| MeshletBoundingSphere {
-            center: bounds.center.into(),
-            radius: bounds.radius,
-        })
-        .collect()
+fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
+    MeshletBoundingSphere {
+        center: bounds.center.into(),
+        radius: bounds.radius,
+    }
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].
