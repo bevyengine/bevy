@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{RenderGroups, RenderLayer, RenderLayers},
+        view::RenderGroups,
     },
 };
 
@@ -71,7 +71,7 @@ fn setup(
     });
 
     // This specifies the group used for the first pass, which will be attached to the first pass camera and cube.
-    let first_pass_group = RenderGroups::from(RenderLayer(1));
+    let first_pass_group = RenderGroups::from_layer(1);
 
     // The cube that will be rendered to the texture.
     commands.spawn((
@@ -94,7 +94,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             ..default()
         },
-        RenderGroups::from(RenderLayers::from_layers(&[0, 1])),
+        RenderGroups::from_layers(&[0, 1]),
     ));
 
     commands.spawn((

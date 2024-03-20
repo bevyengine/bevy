@@ -101,7 +101,7 @@ fn update_debug_camera(
                     },
                     ..default()
                 },
-                RenderGroups::from(LAYOUT_DEBUG_LAYER),
+                RenderGroups::from_layer(LAYOUT_DEBUG_LAYER),
                 DebugOverlayCamera,
                 Name::new("Layout Debug Camera"),
             ))
@@ -109,7 +109,7 @@ fn update_debug_camera(
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
-            config.render_groups = RenderGroups::from(LAYOUT_DEBUG_LAYER);
+            config.render_groups = RenderGroups::from_layer(LAYOUT_DEBUG_LAYER);
         }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {
