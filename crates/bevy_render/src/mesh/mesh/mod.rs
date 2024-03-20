@@ -1390,6 +1390,16 @@ impl RenderAsset for Mesh {
             Self::Param,
         >,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let morph_targets = match self.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(self));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
         let vertex_buffer_data = self.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
@@ -1420,9 +1430,7 @@ impl RenderAsset for Mesh {
             buffer_info,
             primitive_topology: self.primitive_topology(),
             layout: mesh_vertex_buffer_layout,
-            morph_targets: self
-                .morph_targets
-                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }
