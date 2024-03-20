@@ -147,7 +147,7 @@ use bevy_utils::tracing::warn;
 /// System set that applies [`PropagateRenderGroups`] by updating [`InheritedRenderGroups`] components on
 /// entities.
 ///
-/// Runs in [`PostUpdate`] in the [`VisibilityPropagate`] set.
+/// Runs in [`PostUpdate`] in the [`VisibilityPropagate`](VisibilitySystems::VisibilityPropagate) set.
 #[derive(SystemSet, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct PropagateRenderGroupsSet;
 
@@ -185,7 +185,7 @@ pub enum PropagateRenderGroups {
     /// If the entity has a [`RenderGroups`] component, that value is propagated, otherwise a default
     /// [`RenderGroups`] is propagated.
     ///
-    /// Note that it is allowed to add a [`RenderGroup`] component to a camera.
+    /// Note that it is allowed to add a [`RenderGroup`](crate::view::RenderGroups) component to a camera.
     Auto,
     /// If the entity has a [`Camera`] component, propagates `RenderGroups::new_with_camera(entity)`.
     ///
