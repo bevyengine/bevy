@@ -390,7 +390,8 @@ fn handle_winit_event(
                 let visible = windows.iter().any(|(_, window)| window.visible);
 
                 if redraw && runner_state.active != ActiveState::WillSuspend {
-                    let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                    let (_, winit_windows, _, _) =
+                        event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
@@ -422,8 +423,12 @@ fn handle_winit_event(
                     {
                         if runner_state.active != ActiveState::Suspended {
                             match event_loop.control_flow() {
-                                ControlFlow::Poll if visible => event_loop.set_control_flow(ControlFlow::Wait),
-                                ControlFlow::Wait if !visible => event_loop.set_control_flow(ControlFlow::Poll),
+                                ControlFlow::Poll if visible => {
+                                    event_loop.set_control_flow(ControlFlow::Wait)
+                                }
+                                ControlFlow::Wait if !visible => {
+                                    event_loop.set_control_flow(ControlFlow::Poll)
+                                }
                                 _ => {}
                             }
                         }
@@ -795,9 +800,11 @@ fn run_app_update_if_should(
 
                 // NOTE: this is basically modifying the current control flow delay time only if it elapsed.
                 match event_loop.control_flow() {
-                    ControlFlow::WaitUntil(_) => if runner_state.wait_elapsed {
-                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                    ControlFlow::WaitUntil(_) => {
+                        if runner_state.wait_elapsed {
+                            if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            }
                         }
                     }
                     _ => {}
