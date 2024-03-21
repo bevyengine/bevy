@@ -636,14 +636,14 @@ impl Torus {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Triangle3d {
-    /// The vertices of the triangle
+    /// The vertices of the triangle.
     pub vertices: [Vec3; 3],
 }
 
 impl Primitive3d for Triangle3d {}
 
 impl Default for Triangle3d {
-    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`
+    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`.
     fn default() -> Self {
         Self {
             vertices: [
@@ -656,7 +656,7 @@ impl Default for Triangle3d {
 }
 
 impl Triangle3d {
-    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`
+    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
     #[inline(always)]
     pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
         Self {
@@ -664,7 +664,7 @@ impl Triangle3d {
         }
     }
 
-    /// Get the area of the triangle
+    /// Get the area of the triangle.
     #[inline(always)]
     pub fn area(&self) -> f32 {
         let [a, b, c] = self.vertices;
@@ -673,7 +673,7 @@ impl Triangle3d {
         ab.cross(ac).length() / 2.0
     }
 
-    /// Get the perimeter of the triangle
+    /// Get the perimeter of the triangle.
     #[inline(always)]
     pub fn perimeter(&self) -> f32 {
         let [a, b, c] = self.vertices;
@@ -715,17 +715,17 @@ impl Triangle3d {
         self.vertices.swap(1, 2);
     }
 
-    /// Get the centroid of the triangle
+    /// Get the centroid of the triangle.
     ///
     /// This function finds the geometric center of the triangle by averaging the vertices:
-    /// `centroid = (a + b + c) / 3`
+    /// `centroid = (a + b + c) / 3`.
     #[doc(alias("center", "barycenter", "baricenter"))]
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
     }
 
-    /// Get the circumcenter of the triangle
+    /// Get the circumcenter of the triangle.
     #[inline(always)]
     pub fn circumcenter(&self) -> Vec3 {
         let [a, b, c] = self.vertices;
@@ -739,7 +739,7 @@ impl Triangle3d {
 }
 
 impl Bounded3d for Triangle3d {
-    /// Get the bounding box of the triangle
+    /// Get the bounding box of the triangle.
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let [a, b, c] = self.vertices;
 
@@ -756,7 +756,15 @@ impl Bounded3d for Triangle3d {
         Aabb3d::new(bounding_center, half_extents)
     }
 
-    /// Get the bounding sphere of the triangle
+    /// Get the bounding sphere of the triangle.
+    /// 
+    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
+    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
+    /// that contains the largest side of the triangle.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the triangle is degenerate.
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
         let [a, b, c] = self.vertices;
 
