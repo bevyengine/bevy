@@ -12,7 +12,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities},
     Extract,
@@ -23,6 +23,7 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
 use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
+use wgpu::DownlevelFlags;
 
 use crate::*;
 
@@ -681,6 +682,7 @@ pub fn prepare_lights(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    render_adapter: Res<RenderAdapter>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -1208,34 +1210,35 @@ pub fn prepare_lights(
             }
         }
 
+       let point_light_texture_descriptor = if render_adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES) {
+            &TextureViewDescriptor {
+                label: Some("point_light_shadow_map_array_texture_view"),
+                format: None,
+                dimension: Some(TextureViewDimension::CubeArray),
+                aspect: TextureAspect::DepthOnly,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+            }
+       } else {
+            &TextureViewDescriptor {
+                label: Some("point_light_shadow_map_array_texture_view"),
+                format: None,
+                dimension: Some(TextureViewDimension::Cube),
+                aspect: TextureAspect::DepthOnly,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+            }   
+       };
+
         let point_light_depth_texture_view =
             point_light_depth_texture
                 .texture
-                .create_view(&TextureViewDescriptor {
-                    label: Some("point_light_shadow_map_array_texture_view"),
-                    format: None,
-                    // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
-                    // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
-                    #[cfg(all(
-                        not(feature = "ios_simulator"),
-                        any(
-                            not(feature = "webgl"),
-                            not(target_arch = "wasm32"),
-                            feature = "webgpu"
-                        )
-                    ))]
-                    dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(any(
-                        feature = "ios_simulator",
-                        all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
-                    ))]
-                    dimension: Some(TextureViewDimension::Cube),
-                    aspect: TextureAspect::DepthOnly,
-                    base_mip_level: 0,
-                    mip_level_count: None,
-                    base_array_layer: 0,
-                    array_layer_count: None,
-                });
+                .create_view(point_light_texture_descriptor);
+
         let directional_light_depth_texture_view = directional_light_depth_texture
             .texture
             .create_view(&TextureViewDescriptor {

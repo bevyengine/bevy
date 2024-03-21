@@ -286,7 +286,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(feature = "ios_simulator") {
+                if !self.composer.capabilities.contains(Capabilities::CUBE_ARRAY_TEXTURES) {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
