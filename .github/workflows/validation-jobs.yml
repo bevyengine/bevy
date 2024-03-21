@@ -297,8 +297,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Apply patches
