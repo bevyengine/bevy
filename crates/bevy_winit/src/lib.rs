@@ -388,7 +388,10 @@ fn handle_winit_event(
 
             if should_update {
                 let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                let visible = winit_windows.windows.values().any(|window| window.is_visible().unwrap_or(false));
+                let visible = winit_windows
+                    .windows
+                    .values()
+                    .any(|window| window.is_visible().unwrap_or(false));
                 if visible && runner_state.active != ActiveState::WillSuspend {
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
@@ -409,15 +412,13 @@ fn handle_winit_event(
                     // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                     // we cannot use the visibility to drive rendering on these platforms
                     // so we cannot discern whether to beneficially use `Poll` or not?
-                    if runner_state.active != ActiveState::Suspended && !cfg!(any(
+                    #[cfg(not(any(
                         target_arch = "wasm32",
                         target_os = "android",
                         target_os = "ios",
-                        all(
-                            target_os = "linux",
-                            any(feature = "x11", feature = "wayland")
-                        )
-                    )) {
+                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    )))]
+                    if runner_state.active != ActiveState::Suspended {
                         event_loop.set_control_flow(ControlFlow::Poll);
                     }
                 }
