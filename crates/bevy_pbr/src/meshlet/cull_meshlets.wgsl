@@ -103,6 +103,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     atomicOr(&meshlet_occlusion[cluster_id.x / 32u], occlusion_bit);
 }
 
+// https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
 fn lod_error_is_imperceptible(error: f32, cp: vec3<f32>, r: f32) -> bool {
     let d2 = dot(cp, cp);
     let r2 = r * r;
