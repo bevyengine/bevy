@@ -200,7 +200,7 @@ pub mod common_conditions {
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
-        prelude::{Component, Query, With},
+        prelude::{Added, Changed, Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
@@ -902,6 +902,80 @@ pub mod common_conditions {
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
+        !query.is_empty()
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if there is an entity with the given component type added.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(any_component_added::<MyComponent>),
+    /// );
+    ///
+    /// #[derive(Component)]
+    /// struct MyComponent;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // No entities exist yet with a `MyComponent` component so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    ///
+    /// world.spawn(MyComponent);
+    ///
+    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn any_component_added<T: Component>(query: Query<(), Added<T>>) -> bool {
+        !query.is_empty()
+    }
+
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// if there are any entities with the given component type changed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(any_component_changed::<MyComponent>),
+    /// );
+    ///
+    /// #[derive(Component)]
+    /// struct MyComponent;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // No entities exist yet with a `MyComponent` component so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    ///
+    /// world.spawn(MyComponent);
+    ///
+    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn any_component_changed<T: Component>(query: Query<(), Changed<T>>) -> bool {
         !query.is_empty()
     }
 
