@@ -536,6 +536,82 @@ impl UiRect {
             ..Default::default()
         }
     }
+
+    /// Returns the [`UiRect`] with its `left` field set to the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::all(Val::Px(20.0)).with_left(Val::Px(10.0));
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(20.0));
+    /// assert_eq!(ui_rect.top, Val::Px(20.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
+    /// ```
+    #[inline]
+    pub fn with_left(mut self, left: Val) -> Self {
+        self.left = left;
+        self
+    }
+
+    /// Returns the [`UiRect`] with its `right` field set to the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::all(Val::Px(20.0)).with_right(Val::Px(10.0));
+    /// assert_eq!(ui_rect.left, Val::Px(20.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Px(20.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
+    /// ```
+    #[inline]
+    pub fn with_right(mut self, right: Val) -> Self {
+        self.right = right;
+        self
+    }
+
+    /// Returns the [`UiRect`] with its `top` field set to the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::all(Val::Px(20.0)).with_top(Val::Px(10.0));
+    /// assert_eq!(ui_rect.left, Val::Px(20.0));
+    /// assert_eq!(ui_rect.right, Val::Px(20.0));
+    /// assert_eq!(ui_rect.top, Val::Px(10.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
+    /// ```
+    #[inline]
+    pub fn with_top(mut self, top: Val) -> Self {
+        self.top = top;
+        self
+    }
+
+    /// Returns the [`UiRect`] with its `bottom` field set to the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::all(Val::Px(20.0)).with_bottom(Val::Px(10.0));
+    /// assert_eq!(ui_rect.left, Val::Px(20.0));
+    /// assert_eq!(ui_rect.right, Val::Px(20.0));
+    /// assert_eq!(ui_rect.top, Val::Px(20.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
+    /// ```
+    #[inline]
+    pub fn with_bottom(mut self, bottom: Val) -> Self {
+        self.bottom = bottom;
+        self
+    }
 }
 
 impl Default for UiRect {

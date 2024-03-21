@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_cubes, draw_axes))
+        .add_systems(Update, (move_cubes, draw_axes).chain())
         .run();
 }
 

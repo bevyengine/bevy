@@ -6,7 +6,6 @@ use std::ops::{Index, IndexMut};
 use bevy_asset::io::Reader;
 use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};
-use bevy_utils::BoxedFuture;
 use petgraph::graph::{DiGraph, NodeIndex};
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
@@ -336,40 +335,37 @@ impl AssetLoader for AnimationGraphAssetLoader {
 
     type Error = AnimationGraphLoadError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
 
-            // Deserialize a `SerializedAnimationGraph` directly, so that we can
-            // get the list of the animation clips it refers to and load them.
-            let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-            let serialized_animation_graph =
-                SerializedAnimationGraph::deserialize(&mut deserializer)
-                    .map_err(|err| deserializer.span_error(err))?;
+        // Deserialize a `SerializedAnimationGraph` directly, so that we can
+        // get the list of the animation clips it refers to and load them.
+        let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
+        let serialized_animation_graph = SerializedAnimationGraph::deserialize(&mut deserializer)
+            .map_err(|err| deserializer.span_error(err))?;
 
-            // Load all `AssetPath`s to convert from a
-            // `SerializedAnimationGraph` to a real `AnimationGraph`.
-            Ok(AnimationGraph {
-                graph: serialized_animation_graph.graph.map(
-                    |_, serialized_node| AnimationGraphNode {
-                        clip: serialized_node.clip.as_ref().map(|clip| match clip {
-                            SerializedAnimationClip::AssetId(asset_id) => Handle::Weak(*asset_id),
-                            SerializedAnimationClip::AssetPath(asset_path) => {
-                                load_context.load(asset_path)
-                            }
-                        }),
-                        weight: serialized_node.weight,
-                    },
-                    |_, _| (),
-                ),
-                root: serialized_animation_graph.root,
-            })
+        // Load all `AssetPath`s to convert from a
+        // `SerializedAnimationGraph` to a real `AnimationGraph`.
+        Ok(AnimationGraph {
+            graph: serialized_animation_graph.graph.map(
+                |_, serialized_node| AnimationGraphNode {
+                    clip: serialized_node.clip.as_ref().map(|clip| match clip {
+                        SerializedAnimationClip::AssetId(asset_id) => Handle::Weak(*asset_id),
+                        SerializedAnimationClip::AssetPath(asset_path) => {
+                            load_context.load(asset_path)
+                        }
+                    }),
+                    weight: serialized_node.weight,
+                },
+                |_, _| (),
+            ),
+            root: serialized_animation_graph.root,
         })
     }
 
