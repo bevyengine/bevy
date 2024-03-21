@@ -1,9 +1,6 @@
 //! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
-use bevy::{
-    math::cubic_splines::{CubicCurve, Point},
-    prelude::*,
-};
+use bevy::{math::cubic_splines::Point, prelude::*};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
 trait CurveColor: Point + Into<Color> + Send + Sync + 'static {}
@@ -45,60 +42,30 @@ fn setup(mut commands: Commands) {
 
     // Define the control points for the curve.
     // For more information, please see the cubic curve example.
-    let points = [
+    let colors = [
         LinearRgba::WHITE,
         LinearRgba::rgb(1., 1., 0.), // Yellow
         LinearRgba::RED,
         LinearRgba::BLACK,
     ];
-    // Spawn a sprite using the provided control points.
-    spawn_curve_sprite(&mut commands, 275., points);
+    // Spawn a sprite using the provided colors as control points.
+    spawn_curve_sprite(&mut commands, 275., colors);
 
-    let points = [
-        Xyza::xyz(1., 1., 1.),                // White
-        Xyza::xyz(0.76998, 0.92781, 0.13853), // Yellow
-        Xyza::xyz(0.41239, 0.21264, 0.01933), // Red
-        Xyza::xyz(0., 0., 0.),                // Black
-    ];
-    spawn_curve_sprite(&mut commands, 175., points);
+    // Spawn another sprite using the provided colors as control points after converting them to the `Xyza` color space.
+    spawn_curve_sprite(&mut commands, 175., colors.map(|c| Xyza::from(c)));
 
-    let points = [
-        Oklaba::lab(1., -0.00002, -0.00012),     // White
-        Oklaba::lab(0.96798, -0.07141, 0.19848), // Yellow
-        Oklaba::lab(0.62795, 0.22483, 0.12579),  // Red
-        Oklaba::lab(0., 0., 0.),                 // Black
-    ];
-    spawn_curve_sprite(&mut commands, 75., points);
+    spawn_curve_sprite(&mut commands, 75., colors.map(|c| Oklaba::from(c)));
 
     // Other color spaces like `Srgba` or `Hsva` are neither perceptually nor physically linear.
     // As such, we cannot use curves in these spaces.
     // However, we can still mix these colours and animate that way. In fact, mixing colors works in any color space.
 
-    // Define the colors that should be mixed.
-    let colors = [
-        Hsla::hsl(0., 0., 1.),   // White
-        Hsla::hsl(60., 1., 0.5), // Yellow
-        Hsla::hsl(0., 1., 0.5),  // Red
-        Hsla::hsl(0., 0., 0.),   // Black
-    ];
     // Spawn a spritre using the provided colors for mixing.
-    spawn_mixed_sprite(&mut commands, -75., colors);
+    spawn_mixed_sprite(&mut commands, -75., colors.map(|c| Hsla::from(c)));
 
-    let colors = [
-        Srgba::WHITE,
-        Srgba::rgb(1., 1., 0.), // Yellow
-        Srgba::RED,
-        Srgba::BLACK,
-    ];
-    spawn_mixed_sprite(&mut commands, -175., colors);
+    spawn_mixed_sprite(&mut commands, -175., colors.map(|c| Srgba::from(c)));
 
-    let colors = [
-        Oklcha::lch(1., 0., 0.),                  // White
-        Oklcha::lch(0.96798, 0.21094, 109.78745), // Yellow
-        Oklcha::lch(0.62795, 0.25763, 29.22714),  // Red
-        Oklcha::lch(0., 0., 0.),                  // Black
-    ];
-    spawn_mixed_sprite(&mut commands, -275., colors);
+    spawn_mixed_sprite(&mut commands, -275., colors.map(|c| Oklcha::from(c)));
 }
 
 fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
