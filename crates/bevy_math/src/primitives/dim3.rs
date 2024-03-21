@@ -709,10 +709,10 @@ impl Triangle3d {
         ab.cross(ac).length() < f32::EPSILON
     }
 
-    /// Reverse the order of the vertices in the triangle.
+    /// Reverse the triangle by swapping the first and last vertices.
     #[inline(always)]
     pub fn reverse(&mut self) {
-        self.vertices.swap(1, 2);
+        self.vertices.swap(0, 2);
     }
 
     /// Get the centroid of the triangle.
@@ -757,13 +757,13 @@ impl Bounded3d for Triangle3d {
     }
 
     /// Get the bounding sphere of the triangle.
-    /// 
+    ///
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the triangle is degenerate.
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
         let [a, b, c] = self.vertices;
