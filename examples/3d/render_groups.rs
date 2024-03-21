@@ -21,20 +21,6 @@ struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                illuminance: 100000.0,
-                color: palettes::basic::RED.into(),
-                ..default()
-            },
-            ..default()
-        },
-        RenderGroups::from_layers(&[1, 2, 3]),
-    ));
-
-    commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0., 1.4, 2.0)
                 .looking_at(Vec3::new(0., 0.3, 0.0), Vec3::Y),
@@ -45,12 +31,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 1500.0,
         },
-        CameraView::from_layers(&[0, 1, 2, 3]),
+        CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6]),
     ));
 
     commands.spawn((
         TextBundle::from_section(
-            "Press '1..3' to toggle camera render layers\n\
+            "Press '1..3' to toggle mesh render layers\n\
             Press '4..6' to toggle directional light render layers",
             TextStyle {
                 font_size: 20.,
@@ -78,18 +64,32 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             PropagateRenderGroups::Auto,
         ));
     }
+
+    // Spawn three directional lights, each with a different render group.
+    let colors = [
+        palettes::basic::RED,
+        palettes::basic::GREEN,
+        palettes::basic::AQUA,
+    ];
+    for (i, color) in (0..3).zip(colors.iter()) {
+        commands.spawn((
+            DirectionalLightBundle {
+                transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+                directional_light: DirectionalLight {
+                    shadows_enabled: true,
+                    illuminance: 100000.0,
+                    color: (*color).into(),
+                    ..default()
+                },
+                ..default()
+            },
+            RenderGroups::from_layer(i + 4),
+        ));
+    }
 }
 
-fn toggle_layers(
-    mut query_camera: Query<&mut CameraView>,
-    mut query_light: Query<&mut RenderGroups, With<DirectionalLight>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
+fn toggle_layers(mut query_camera: Query<&mut CameraView>, keyboard: Res<ButtonInput<KeyCode>>) {
     let Ok(mut camera_view) = query_camera.get_single_mut() else {
-        return;
-    };
-
-    let Ok(mut light_groups) = query_light.get_single_mut() else {
         return;
     };
 
@@ -102,15 +102,14 @@ fn toggle_layers(
     if keyboard.just_pressed(KeyCode::Digit3) {
         toggle_camera_layer(&mut camera_view, 3);
     }
-
     if keyboard.just_pressed(KeyCode::Digit4) {
-        toggle_render_layer(&mut light_groups, 1);
+        toggle_camera_layer(&mut camera_view, 4);
     }
     if keyboard.just_pressed(KeyCode::Digit5) {
-        toggle_render_layer(&mut light_groups, 2);
+        toggle_camera_layer(&mut camera_view, 5);
     }
     if keyboard.just_pressed(KeyCode::Digit6) {
-        toggle_render_layer(&mut light_groups, 3);
+        toggle_camera_layer(&mut camera_view, 6);
     }
 }
 
@@ -119,13 +118,5 @@ fn toggle_camera_layer(camera_view: &mut CameraView, layer: usize) {
         camera_view.remove(layer);
     } else {
         camera_view.add(layer);
-    }
-}
-
-fn toggle_render_layer(groups: &mut RenderGroups, layer: usize) {
-    if groups.contains_layer(layer) {
-        groups.remove(layer);
-    } else {
-        groups.add(layer);
     }
 }

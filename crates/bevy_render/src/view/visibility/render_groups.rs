@@ -425,12 +425,19 @@ impl RenderGroups {
     ///
     /// Checks both camera affiliation and [`RenderLayers`] intersection.
     pub fn intersects(&self, other: &Self) -> bool {
-        if let (Some(a), Some(b)) = (self.camera, other.camera) {
+        self.intersects_parts(other.camera, &other.layers)
+    }
+
+    /// Returns `true` if `Self` intersects with the input parts.
+    ///
+    /// Checks both camera affiliation and [`RenderLayers`] intersection.
+    pub fn intersects_parts(&self, camera: Option<Entity>, layers: &RenderLayers) -> bool {
+        if let (Some(a), Some(b)) = (self.camera, camera) {
             if a == b {
                 return true;
             }
         }
-        self.layers.intersects(&other.layers)
+        self.layers.intersects(layers)
     }
 
     /// Returns `true` if `Self` intersects with an [`ExtractedRenderGroups`].
@@ -445,6 +452,11 @@ impl RenderGroups {
     /// Gets the camera affiliation.
     pub fn camera(&self) -> Option<Entity> {
         self.camera
+    }
+
+    /// Gets the internal [`RenderLayers`].
+    pub fn layers(&self) -> &RenderLayers {
+        &self.layers
     }
 
     /// Returns `true` if the internal [`RenderLayers`] is on the heap.
