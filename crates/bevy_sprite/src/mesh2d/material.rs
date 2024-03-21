@@ -29,7 +29,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
+use bevy_utils::tracing::{error, warn};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -589,6 +589,9 @@ pub fn prepare_materials_2d<M: Material2d>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((id, material));
             }
+            Err(AsBindGroupError::InvalidData(msg)) => {
+                warn!("Material2d<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
+            }
         }
     }
 
@@ -609,6 +612,9 @@ pub fn prepare_materials_2d<M: Material2d>(
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((asset_id, material));
+            }
+            Err(AsBindGroupError::InvalidData(msg)) => {
+                warn!("Material2d<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
             }
         }
     }

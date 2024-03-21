@@ -353,6 +353,8 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[error("The bind group could not be generated")]
     RetryNextUpdate,
+    #[error("The bindgroup data is invalid: {0}")]
+    InvalidData(String),
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
