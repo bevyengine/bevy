@@ -191,11 +191,10 @@ impl WinitAppRunnerState {
         self.redraw_requested = false;
         self.window_event_received = false;
         self.device_event_received = false;
-        self.wait_elapsed = false;
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum ActiveState {
     NotYetStarted,
     Active,
@@ -347,6 +346,7 @@ fn handle_winit_event(
         Event::AboutToWait => {
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|(_, window)| window.focused);
+
             let mut should_update = match config.update_mode(focused) {
                 UpdateMode::Continuous => {
                     runner_state.redraw_requested
@@ -378,26 +378,45 @@ fn handle_winit_event(
             }
 
             if should_update {
-                let visible = windows.iter().any(|(_, window)| window.visible);
-                let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                if visible && runner_state.active != ActiveState::WillSuspend {
+                let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
+                let _visible = windows.iter().any(|(_, window)| window.visible);
+
+                if redraw && runner_state.active != ActiveState::WillSuspend {
+                    let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
                 } else {
-                    // there are no windows, or they are not visible.
-                    // Winit won't send events on some platforms, so trigger an update manually.
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        focused_windows_state,
-                        event_loop,
-                        create_window,
-                        app_exit_event_reader,
-                        redraw_event_reader,
-                    );
-                    if runner_state.active != ActiveState::Suspended {
-                        event_loop.set_control_flow(ControlFlow::Poll);
+                    if runner_state.wait_elapsed {
+                        // there are no windows, or they are not visible.
+                        // Winit won't send events on some platforms, so trigger an update manually.
+                        run_app_update_if_should(
+                            runner_state,
+                            app,
+                            focused_windows_state,
+                            event_loop,
+                            create_window,
+                            app_exit_event_reader,
+                            redraw_event_reader,
+                        );
+                    }
+                    // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
+                    // we cannot use the visibility to drive rendering on these platforms
+                    // so we cannot discern whether to beneficially use `Poll` or not?
+                    #[cfg(not(any(
+                        target_arch = "wasm32",
+                        target_os = "android",
+                        target_os = "ios",
+                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    )))]
+                    {
+                        if runner_state.active != ActiveState::Suspended {
+                            match event_loop.control_flow() {
+                                ControlFlow::Poll if _visible => event_loop.set_control_flow(ControlFlow::Wait),
+                                ControlFlow::Wait if !_visible => event_loop.set_control_flow(ControlFlow::Poll),
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
@@ -407,7 +426,9 @@ fn handle_winit_event(
                 StartCause::WaitCancelled {
                     requested_resume: Some(resume),
                     ..
-                } => resume >= Instant::now(),
+                } => {
+                    resume >= Instant::now()
+                },
                 _ => true,
             };
         }
@@ -788,13 +809,16 @@ fn run_app_update_if_should(
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                 // TODO(bug): this is unexpected behavior.
                 // When Reactive, user expects bevy to actually wait that amount of time,
-                // and not potentially infinitely depending on plateform specifics (which this does)
-                // Need to verify the plateform specifics (whether this can occur in
+                // and not potentially infinitely depending on platform specifics (which this does)
+                // Need to verify the platform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
-                if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                } else {
-                    event_loop.set_control_flow(ControlFlow::Wait);
+
+                if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
+                    if runner_state.wait_elapsed {
+                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                        }
+                    }
                 }
             }
         }
