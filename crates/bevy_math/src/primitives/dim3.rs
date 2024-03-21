@@ -719,7 +719,7 @@ impl Triangle3d {
     ///
     /// This function finds the geometric center of the triangle by averaging the vertices:
     /// `centroid = (a + b + c) / 3`
-    #[doc(alias("center", "barycenter"))]
+    #[doc(alias("center", "barycenter", "baricenter"))]
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
