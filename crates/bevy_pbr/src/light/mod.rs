@@ -1833,6 +1833,7 @@ pub fn update_spot_light_frusta(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn check_light_mesh_visibility(
     mut aggregate_view_entities: Local<EntityHashSet>,
     mut aggregate_view_layers: Local<RenderLayers>,
