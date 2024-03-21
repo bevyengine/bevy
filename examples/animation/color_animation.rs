@@ -17,7 +17,6 @@ impl MixedColor for Oklcha {}
 impl MixedColor for Srgba {}
 impl MixedColor for Hsla {}
 
-// This copmonent is used to
 #[derive(Debug, Component)]
 struct Curve<T: CurveColor>(CubicCurve<T>);
 
