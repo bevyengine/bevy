@@ -19,7 +19,13 @@ fn main() {
 #[derive(Component)]
 struct MovedScene;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Camera
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0., 1.4, 2.0)
@@ -34,6 +40,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6]),
     ));
 
+    // Plane
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        ..default()
+    });
+
+    // Text
     commands.spawn((
         TextBundle::from_section(
             "Press '1..3' to toggle mesh render layers\n\
@@ -69,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let colors = [
         palettes::basic::RED,
         palettes::basic::GREEN,
-        palettes::basic::AQUA,
+        palettes::basic::NAVY,
     ];
     for (i, color) in (0..3).zip(colors.iter()) {
         commands.spawn((
