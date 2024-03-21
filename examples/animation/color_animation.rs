@@ -7,15 +7,11 @@ use bevy::{
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
 trait CurveColor: Point + Into<Color> + Send + Sync + 'static {}
-impl CurveColor for LinearRgba {}
-impl CurveColor for Oklaba {}
-impl CurveColor for Xyza {}
+impl<T: Point + Into<Color> + Send + Sync + 'static> CurveColor for T {}
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
 trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
-impl MixedColor for Oklcha {}
-impl MixedColor for Srgba {}
-impl MixedColor for Hsla {}
+impl<T: Mix + Into<Color> + Send + Sync + 'static> MixedColor for T {}
 
 #[derive(Debug, Component)]
 struct Curve<T: CurveColor>(CubicCurve<T>);
