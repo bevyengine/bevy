@@ -1092,6 +1092,7 @@ mod tests {
         Arc,
     };
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);
