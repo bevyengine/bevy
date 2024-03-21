@@ -725,14 +725,46 @@ impl Triangle3d {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
     }
 
+    /// Get the largest side of the triangle.
+    ///
+    /// Returns the two points that form the largest side of the triangle.
+    #[inline(always)]
+    pub fn largest_side(&self) -> (Vec3, Vec3) {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        let mut largest_side_points = (a, b);
+        let mut largest_side_length = ab.length();
+
+        if bc.length() > largest_side_length {
+            largest_side_points = (b, c);
+            largest_side_length = bc.length();
+        }
+
+        if ca.length() > largest_side_length {
+            largest_side_points = (a, c);
+        }
+
+        largest_side_points
+    }
+
     /// Get the circumcenter of the triangle.
     #[inline(always)]
     pub fn circumcenter(&self) -> Vec3 {
+        if self.is_degenerate() {
+            // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
+            let (p1, p2) = self.largest_side();
+            return (p1 + p2) / 2.0;
+        }
+
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
-        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
         let n = ab.cross(ac);
+
+        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
         a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
             / (2.0 * n.length_squared()))
     }
@@ -761,11 +793,13 @@ impl Bounded3d for Triangle3d {
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the triangle is degenerate.
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        if self.is_degenerate() {
+            let (p1, p2) = self.largest_side();
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            return segment.bounding_sphere(translation, rotation);
+        }
+
         let [a, b, c] = self.vertices;
 
         let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
