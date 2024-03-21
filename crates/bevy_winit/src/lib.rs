@@ -387,6 +387,7 @@ fn handle_winit_event(
 
             if should_update {
                 let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
+                let visible = windows.iter().any(|(_, window)| window.visible);
 
                 if redraw && runner_state.active != ActiveState::WillSuspend {
                     let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
@@ -419,8 +420,6 @@ fn handle_winit_event(
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                     )))]
                     {
-                        let visible = windows.iter().any(|(_, window)| window.visible);
-
                         if runner_state.active != ActiveState::Suspended {
                             match event_loop.control_flow() {
                                 ControlFlow::Poll if visible => event_loop.set_control_flow(ControlFlow::Wait),
