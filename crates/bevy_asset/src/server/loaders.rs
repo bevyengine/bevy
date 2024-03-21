@@ -307,12 +307,16 @@ mod tests {
 
     use super::*;
 
+    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct A(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct B(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct C(usize);
 
