@@ -387,7 +387,7 @@ fn handle_winit_event(
 
             if should_update {
                 let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
-                let visible = windows.iter().any(|window| window.visible);
+                let _visible = windows.iter().any(|window| window.visible);
 
                 if redraw && runner_state.active != ActiveState::WillSuspend {
                     let (_, winit_windows, _, _) =
@@ -423,10 +423,10 @@ fn handle_winit_event(
                     {
                         if runner_state.active != ActiveState::Suspended {
                             match event_loop.control_flow() {
-                                ControlFlow::Poll if visible => {
+                                ControlFlow::Poll if _visible => {
                                     event_loop.set_control_flow(ControlFlow::Wait)
                                 }
-                                ControlFlow::Wait if !visible => {
+                                ControlFlow::Wait if !_visible => {
                                     event_loop.set_control_flow(ControlFlow::Poll)
                                 }
                                 _ => {}
@@ -799,15 +799,12 @@ fn run_app_update_if_should(
                 // rare-but-possible cases) and replace this with a panic or a log warn!
 
                 // NOTE: this is basically modifying the current control flow delay time only if it elapsed.
-                match event_loop.control_flow() {
-                    ControlFlow::WaitUntil(_) => {
-                        if runner_state.wait_elapsed {
-                            if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                            }
+                if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
+                    if runner_state.wait_elapsed {
+                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
                     }
-                    _ => {}
                 }
             }
         }
