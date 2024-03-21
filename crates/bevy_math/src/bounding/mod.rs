@@ -48,6 +48,9 @@ pub trait BoundingVolume: Sized {
     /// Decreases the size of the bounding volume in each direction by the given amount.
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
+    /// Scale the size of the bounding volume around its center by the given amount
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self;
+
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     fn transformed_by(
         mut self,

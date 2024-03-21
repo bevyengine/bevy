@@ -147,6 +147,16 @@ impl BoundingVolume for Aabb3d {
         b
     }
 
+    #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        let b = Self {
+            min: self.center() - (self.half_size() * scale),
+            max: self.center() + (self.half_size() * scale),
+        };
+        debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
+        b
+    }
+
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
@@ -346,6 +356,19 @@ mod aabb3d_tests {
         assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        let scaled = a.scale_around_center(Vec3::splat(2.));
+        assert!((scaled.min - Vec3::splat(-2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec3::splat(2.)).length() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
     }
 
     #[test]
@@ -550,6 +573,12 @@ impl BoundingVolume for BoundingSphere {
     }
 
     #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        debug_assert!(scale >= 0.);
+        Self::new(self.center, self.radius() * scale)
+    }
+
+    #[inline(always)]
     fn translate_by(&mut self, translation: Self::Translation) {
         self.center += translation;
     }
@@ -661,6 +690,15 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = BoundingSphere::new(Vec3::ONE, 5.);
+        let scaled = a.scale_around_center(2.);
+        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
     }
 
     #[test]
