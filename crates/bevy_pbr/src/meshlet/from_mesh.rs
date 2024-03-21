@@ -268,6 +268,9 @@ fn simplfy_meshlet_groups(
         Some(&mut error),
     );
 
+    // Pre-divide to save a shader operation in cull_meshlets::lod_error_is_imperceptible()
+    error /= 2.0;
+
     (simplified_group_indices, error)
 }
 

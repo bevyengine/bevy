@@ -1,6 +1,7 @@
 #import bevy_pbr::meshlet_bindings::{
     meshlet_thread_meshlet_ids,
     meshlet_bounding_spheres,
+    meshlet_lod_errors,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_occlusion,
@@ -20,33 +21,36 @@
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
 fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
-    // Fetch the instanced meshlet data
+    // Fetch the instance data and check for instance culling
     if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
     let instance_id = meshlet_thread_instance_ids[cluster_id.x];
     if should_cull_instance(instance_id) {
         return;
     }
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
-    let bounding_sphere = meshlet_bounding_spheres[meshlet_id * 2u];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
+
+    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
+
+    // Calculate view-space bounding sphere for the meshlet
+    let bounding_sphere = meshlet_bounding_spheres[meshlet_id * 2u];
     let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
     let bounding_sphere_radius = model_scale * bounding_sphere.radius;
     let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
+    let error = meshlet_lod_errors[meshlet_id * 2u];
 
-    let error = bevy_pbr::meshlet_bindings::meshlet_lod_errors[meshlet_id * 2u];
-    let parent_error = bevy_pbr::meshlet_bindings::meshlet_lod_errors[meshlet_id * 2u + 1u];
+    // Calculate view-space bounding sphere for the meshlet's parent
     let parent_bounding_sphere = meshlet_bounding_spheres[meshlet_id * 2u + 1u];
     let parent_bounding_sphere_center = model * vec4(parent_bounding_sphere.center, 1.0);
     let parent_bounding_sphere_radius = model_scale * parent_bounding_sphere.radius;
     let parent_bounding_sphere_center_view_space = (view.inverse_view * vec4(parent_bounding_sphere_center.xyz, 1.0)).xyz;
+    let parent_error = meshlet_lod_errors[meshlet_id * 2u + 1u];
 
-    let self_lod = lod_error_is_imperceptible(error, bounding_sphere_center_view_space, bounding_sphere_radius);
-    let parent_lod = lod_error_is_imperceptible(parent_error, parent_bounding_sphere_center_view_space, parent_bounding_sphere_radius);
-    if !(!parent_lod && self_lod) {
-        return;
-    }
+    // Check LOD cut (meshlet error imperceptible, and parent error not imperceptible)
+    let lod_is_ok = lod_error_is_imperceptible(error, bounding_sphere_center_view_space, bounding_sphere_radius);
+    let parent_lod_is_ok = lod_error_is_imperceptible(parent_error, parent_bounding_sphere_center_view_space, parent_bounding_sphere_radius);
+    if !lod_is_ok || parent_lod_is_ok { return; }
 
     // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
 #ifdef MESHLET_SECOND_CULLING_PASS
@@ -102,11 +106,11 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 fn lod_error_is_imperceptible(error: f32, cp: vec3<f32>, r: f32) -> bool {
     let d2 = dot(cp, cp);
     let r2 = r * r;
-    let pr = view.projection[0][0] * r / sqrt(d2 - r2);
-    let v = f32(max(view.viewport.z, view.viewport.w));
-    let p = pr * v;
-    let e = p * (error / (2.0 * r));
-    return e < 1.0;
+    let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
+    let axis_size = f32(max(view.viewport.z, view.viewport.w));
+    let sphere_diameter_pixels = sphere_diameter_uv * axis_size;
+    let error_pixels = sphere_diameter_pixels * (error / r);
+    return error_pixels < 1.0;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
