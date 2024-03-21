@@ -396,7 +396,6 @@ fn handle_winit_event(
                 } else {
                     // NOTE: I don't think we need this at all, unless maybe if there are no windows or are completely invisible?
                     if runner_state.wait_elapsed {
-                        // panic!("Wait elapsed, updating");
                         // there are no windows, or they are not visible.
                         // Winit won't send events on some platforms, so trigger an update manually.
                         run_app_update_if_should(
@@ -410,19 +409,26 @@ fn handle_winit_event(
                             winit_events,
                         );
                     }
-                    // NOTE: I don't think we need this at all, in any case
-                    // // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
-                    // // we cannot use the visibility to drive rendering on these platforms
-                    // // so we cannot discern whether to beneficially use `Poll` or not?
-                    // #[cfg(not(any(
-                    //     target_arch = "wasm32",
-                    //     target_os = "android",
-                    //     target_os = "ios",
-                    //     all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    // )))]
-                    // if runner_state.active != ActiveState::Suspended {
-                    //     event_loop.set_control_flow(ControlFlow::Poll);
-                    // }
+                    // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
+                    // we cannot use the visibility to drive rendering on these platforms
+                    // so we cannot discern whether to beneficially use `Poll` or not?
+                    #[cfg(not(any(
+                        target_arch = "wasm32",
+                        target_os = "android",
+                        target_os = "ios",
+                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    )))]
+                    {
+                        let visible = windows.iter().any(|(_, window)| window.visible);
+
+                        if runner_state.active != ActiveState::Suspended {
+                            match event_loop.control_flow() {
+                                ControlFlow::Poll if visible => event_loop.set_control_flow(ControlFlow::Wait),
+                                ControlFlow::Wait if !visible => event_loop.set_control_flow(ControlFlow::Poll),
+                                _ => {}
+                            }
+                        }
+                    }
                 }
             }
         }
