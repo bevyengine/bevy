@@ -499,6 +499,10 @@ impl RenderAssetBytesPerFrame {
     }
 
     pub fn write_bytes(&mut self, bytes: usize) -> usize {
+        if self.max_bytes.is_none() {
+            return bytes;
+        }
+        
         let write_bytes = bytes.min(self.available);
         self.available -= write_bytes;
         write_bytes
