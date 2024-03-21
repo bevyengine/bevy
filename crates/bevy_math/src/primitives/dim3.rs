@@ -732,11 +732,9 @@ impl Triangle3d {
         let ab = b - a;
         let ac = c - a;
         // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
-        let m = a
-            + ((ac.length_squared() * ab.cross(ac).cross(ab)
-                + ab.length_squared() * ac.cross(ab).cross(ac))
-                / (2.0 * ab.cross(ac).length_squared()));
-        m
+        let n = ab.cross(ac);
+        a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
+            / (2.0 * n.length_squared()))
     }
 }
 
