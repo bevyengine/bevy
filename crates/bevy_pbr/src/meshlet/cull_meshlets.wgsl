@@ -107,8 +107,8 @@ fn lod_error_is_imperceptible(error: f32, cp: vec3<f32>, r: f32) -> bool {
     let d2 = dot(cp, cp);
     let r2 = r * r;
     let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
-    let axis_size = f32(max(view.viewport.z, view.viewport.w));
-    let sphere_diameter_pixels = sphere_diameter_uv * axis_size;
+    let view_size = f32(max(view.viewport.z, view.viewport.w));
+    let sphere_diameter_pixels = sphere_diameter_uv * view_size;
     let error_pixels = sphere_diameter_pixels * (error / r);
     return error_pixels < 1.0;
 }
