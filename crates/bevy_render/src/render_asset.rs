@@ -408,20 +408,11 @@ pub fn prepare_assets<A: RenderAsset>(
     mut bpf: ResMut<RenderAssetBytesPerFrame>,
 ) {
     let mut wrote = 0;
-    let mut dropped = 0;
 
     let mut param = param.into_inner();
     let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets).into_iter();
     for (id, extracted_asset) in queued_assets.by_ref() {
         if extracted_assets.removed.contains(&id) {
-            continue;
-        }
-
-        if extracted_assets
-            .extracted
-            .iter()
-            .any(|(new_id, _)| &id == new_id)
-        {
             continue;
         }
 
@@ -478,9 +469,6 @@ pub fn prepare_assets<A: RenderAsset>(
             prepare_next_frame.assets.len(),
             wrote
         );
-    }
-    if dropped > 0 {
-        debug!("{} dropped {} assets", std::any::type_name::<A>(), dropped);
     }
 }
 
