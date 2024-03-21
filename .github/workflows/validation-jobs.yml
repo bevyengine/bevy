@@ -304,6 +304,7 @@ jobs:
         run: |
           CODE=0
           for patch in tools/example-showcase/*.patch; do
+            # Try applying the patch, logging an error if it fails.
             git apply --ignore-whitespace $patch || { echo "::error::$patch failed to apply."; CODE=1; }
           done
           exit $CODE
