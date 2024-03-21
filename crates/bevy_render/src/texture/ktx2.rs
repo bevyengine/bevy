@@ -90,14 +90,12 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::R8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in &levels {
-                        transcoded.push(
-                            level_data
-                                .iter()
-                                .copied()
-                                .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
-                                .collect::<Vec<u8>>(),
-                        );
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
@@ -109,14 +107,12 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rg8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in &levels {
-                        transcoded.push(
-                            level_data
-                                .iter()
-                                .copied()
-                                .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
-                                .collect::<Vec<u8>>(),
-                        );
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
