@@ -387,7 +387,7 @@ fn handle_winit_event(
 
             if should_update {
                 let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
-                let visible = windows.iter().any(|(_, window)| window.visible);
+                let visible = windows.iter().any(Window::visible);
 
                 if redraw && runner_state.active != ActiveState::WillSuspend {
                     let (_, winit_windows, _, _) =
