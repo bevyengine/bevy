@@ -709,7 +709,7 @@ impl Triangle3d {
         ab.cross(ac).length() < f32::EPSILON
     }
 
-    /// Reverse the order of the vertices in the triangle
+    /// Reverse the order of the vertices in the triangle.
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(1, 2);
