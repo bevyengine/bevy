@@ -52,20 +52,20 @@ fn setup(mut commands: Commands) {
     spawn_curve_sprite(&mut commands, 275., colors);
 
     // Spawn another sprite using the provided colors as control points after converting them to the `Xyza` color space.
-    spawn_curve_sprite(&mut commands, 175., colors.map(|c| Xyza::from(c)));
+    spawn_curve_sprite(&mut commands, 175., colors.map(Xyza::from));
 
-    spawn_curve_sprite(&mut commands, 75., colors.map(|c| Oklaba::from(c)));
+    spawn_curve_sprite(&mut commands, 75., colors.map(Oklaba::from));
 
     // Other color spaces like `Srgba` or `Hsva` are neither perceptually nor physically linear.
     // As such, we cannot use curves in these spaces.
     // However, we can still mix these colours and animate that way. In fact, mixing colors works in any color space.
 
     // Spawn a spritre using the provided colors for mixing.
-    spawn_mixed_sprite(&mut commands, -75., colors.map(|c| Hsla::from(c)));
+    spawn_mixed_sprite(&mut commands, -75., colors.map(Hsla::from));
 
-    spawn_mixed_sprite(&mut commands, -175., colors.map(|c| Srgba::from(c)));
+    spawn_mixed_sprite(&mut commands, -175., colors.map(Srgba::from));
 
-    spawn_mixed_sprite(&mut commands, -275., colors.map(|c| Oklcha::from(c)));
+    spawn_mixed_sprite(&mut commands, -275., colors.map(Oklcha::from));
 }
 
 fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
