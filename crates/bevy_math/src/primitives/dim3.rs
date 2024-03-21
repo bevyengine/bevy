@@ -753,15 +753,11 @@ impl Bounded3d for Triangle3d {
         let bounding_center = (max + min) / 2.0 + translation;
         let half_extents = (max - min) / 2.0;
 
-        crate::bounding::Aabb3d::new(bounding_center, half_extents)
+        Aabb3d::new(bounding_center, half_extents)
     }
 
     /// Get the bounding sphere of the triangle
-    fn bounding_sphere(
-        &self,
-        translation: Vec3,
-        rotation: Quat,
-    ) -> crate::bounding::BoundingSphere {
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
         let [a, b, c] = self.vertices;
 
         let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
