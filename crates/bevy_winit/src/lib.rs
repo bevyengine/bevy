@@ -382,7 +382,8 @@ fn handle_winit_event(
                 let _visible = windows.iter().any(|(_, window)| window.visible);
 
                 if redraw && runner_state.active != ActiveState::WillSuspend {
-                    let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                    let (_, winit_windows, _, _) =
+                        event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
@@ -412,8 +413,12 @@ fn handle_winit_event(
                     {
                         if runner_state.active != ActiveState::Suspended {
                             match event_loop.control_flow() {
-                                ControlFlow::Poll if _visible => event_loop.set_control_flow(ControlFlow::Wait),
-                                ControlFlow::Wait if !_visible => event_loop.set_control_flow(ControlFlow::Poll),
+                                ControlFlow::Poll if _visible => {
+                                    event_loop.set_control_flow(ControlFlow::Wait)
+                                }
+                                ControlFlow::Wait if !_visible => {
+                                    event_loop.set_control_flow(ControlFlow::Poll)
+                                }
                                 _ => {}
                             }
                         }
@@ -426,9 +431,7 @@ fn handle_winit_event(
                 StartCause::WaitCancelled {
                     requested_resume: Some(resume),
                     ..
-                } => {
-                    resume >= Instant::now()
-                },
+                } => resume >= Instant::now(),
                 _ => true,
             };
         }
@@ -756,11 +759,13 @@ fn run_app_update_if_should(
 
     #[cfg(target_arch = "wasm32")]
     {
-        use winit::platform::web::WindowExtWebSys;
         use bevy_window::WindowGlContextLost;
         use wasm_bindgen::JsCast;
+        use winit::platform::web::WindowExtWebSys;
 
-        fn get_gl_context(window: &winit::window::Window) -> Option<web_sys::WebGl2RenderingContext> {
+        fn get_gl_context(
+            window: &winit::window::Window,
+        ) -> Option<web_sys::WebGl2RenderingContext> {
             if let Some(canvas) = window.canvas() {
                 let context = canvas.get_context("webgl2").ok()??;
 
@@ -776,8 +781,7 @@ fn run_app_update_if_should(
 
         let (_, windows) = focused_windows_state.get(&app.world);
 
-        if let Some((entity, _)) = windows.iter().next()
-        {
+        if let Some((entity, _)) = windows.iter().next() {
             let winit_windows = app.world.non_send_resource::<WinitWindows>();
             let window = winit_windows.get_window(entity).expect("Window must exist");
 
@@ -813,11 +817,13 @@ fn run_app_update_if_should(
                 // Need to verify the platform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
 
-                if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
-                    if runner_state.wait_elapsed {
-                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                    if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
+                        if runner_state.wait_elapsed {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
+                    } else {
+                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                     }
                 }
             }

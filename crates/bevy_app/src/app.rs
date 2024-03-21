@@ -267,7 +267,7 @@ impl App {
         if self.run_sub_apps {
             for (_label, sub_app) in &mut self.sub_apps {
                 #[cfg(feature = "trace")]
-                    let _sub_app_span = info_span!("sub app", name = ?_label).entered();
+                let _sub_app_span = info_span!("sub app", name = ?_label).entered();
                 sub_app.extract(&mut self.world);
                 sub_app.run();
             }
@@ -861,12 +861,12 @@ impl App {
 
     /// Resumes sub apps
     pub fn resume_sub_apps(&mut self) {
-            self.run_sub_apps = true;
+        self.run_sub_apps = true;
     }
 
     /// Pauses sub apps from running.
     pub fn pause_sub_apps(&mut self) {
-            self.run_sub_apps = false;
+        self.run_sub_apps = false;
     }
 
     /// Adds a new `schedule` to the [`App`].
