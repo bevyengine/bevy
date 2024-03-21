@@ -1146,7 +1146,7 @@ pub fn prepare_lights(
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
             // Check if the light intersects with the view.
-            if extracted_render_groups.intersects(&light.render_groups) {
+            if !extracted_render_groups.intersects(&light.render_groups) {
                 gpu_light.skip = 1u32;
                 continue;
             }
