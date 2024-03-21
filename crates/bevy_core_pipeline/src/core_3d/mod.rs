@@ -27,6 +27,7 @@ pub mod graph {
         EndMainPass,
         Taa,
         Bloom,
+        AutoExposure,
         Tonemapping,
         Fxaa,
         Upscaling,
