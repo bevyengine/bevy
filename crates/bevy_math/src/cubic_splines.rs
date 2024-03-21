@@ -2,6 +2,7 @@
 
 use std::{
     fmt::Debug,
+    iter::once,
     ops::{Add, Div, Mul, Sub},
 };
 
@@ -172,7 +173,8 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 }
 
 /// A spline interpolated continuously across the nearest four control points, with the position of
-/// the curve specified at every control point and the tangents computed automatically.
+/// the curve specified at every control point and the tangents computed automatically. The associated [`CubicCurve`]
+/// has one segment between each pair of adjacent control points.
 ///
 /// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
 ///
@@ -183,8 +185,8 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 /// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
-/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
-/// tangent vector has no sudden jumps.
+/// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
+/// vector is also well-defined everywhere, without sudden jumps.
 ///
 /// ### Usage
 ///
@@ -232,10 +234,28 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
             [-s, 2. - s, s - 2., s],
         ];
 
-        let segments = self
-            .control_points
+        let length = self.control_points.len();
+
+        // Early return to avoid accessing an invalid index
+        if length < 2 {
+            return CubicCurve { segments: vec![] };
+        }
+
+        // Extend the list of control points by mirroring the last second-to-last control points on each end;
+        // this allows tangents for the endpoints to be provided, and the overall effect is that the tangent
+        // at an endpoint is proportional to twice the vector between it and its adjacent control point.
+        //
+        // The expression used here is P_{-1} := P_0 - (P_1 - P_0) = 2P_0 - P_1. (Analogously at the other end.)
+        let mirrored_first = self.control_points[0] * 2. - self.control_points[1];
+        let mirrored_last = self.control_points[length - 1] * 2. - self.control_points[length - 2];
+        let extended_control_points = once(&mirrored_first)
+            .chain(self.control_points.iter())
+            .chain(once(&mirrored_last))
+            .collect::<Vec<_>>();
+
+        let segments = extended_control_points
             .windows(4)
-            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], char_matrix))
+            .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
             .collect();
 
         CubicCurve { segments }
@@ -1273,6 +1293,37 @@ mod tests {
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) < -0.5);
         assert_eq!(bezier.ease(1.0), 1.0);
+    }
+
+    /// Test that a simple cardinal spline passes through all of its control points with
+    /// the correct tangents.
+    #[test]
+    fn cardinal_control_pts() {
+        use super::CubicCardinalSpline;
+
+        let tension = 0.2;
+        let [p0, p1, p2, p3] = [vec2(-1., -2.), vec2(0., 1.), vec2(1., 2.), vec2(-2., 1.)];
+        let curve = CubicCardinalSpline::new(tension, [p0, p1, p2, p3]).to_curve();
+
+        // Positions at segment endpoints
+        assert!(curve.position(0.).abs_diff_eq(p0, FLOAT_EQ));
+        assert!(curve.position(1.).abs_diff_eq(p1, FLOAT_EQ));
+        assert!(curve.position(2.).abs_diff_eq(p2, FLOAT_EQ));
+        assert!(curve.position(3.).abs_diff_eq(p3, FLOAT_EQ));
+
+        // Tangents at segment endpoints
+        assert!(curve
+            .velocity(0.)
+            .abs_diff_eq((p1 - p0) * tension * 2., FLOAT_EQ));
+        assert!(curve
+            .velocity(1.)
+            .abs_diff_eq((p2 - p0) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(2.)
+            .abs_diff_eq((p3 - p1) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(3.)
+            .abs_diff_eq((p3 - p2) * tension * 2., FLOAT_EQ));
     }
 
     /// Test that [`RationalCurve`] properly generalizes [`CubicCurve`]. A Cubic upgraded to a rational
