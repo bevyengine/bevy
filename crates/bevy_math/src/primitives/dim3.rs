@@ -706,7 +706,7 @@ impl Triangle3d {
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
-        ab.cross(ac).length() < f32::EPSILON
+        ab.cross(ac).length() < 10e-7
     }
 
     /// Reverse the triangle by swapping the first and last vertices.
