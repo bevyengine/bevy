@@ -897,7 +897,7 @@ pub mod common_conditions {
     ///
     /// world.spawn(MyComponent);
     ///
-    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// // An entity with `MyComponent` now exists so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -934,7 +934,7 @@ pub mod common_conditions {
     ///
     /// world.spawn(MyComponent);
     ///
-    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// // An entity with `MyComponent` now exists so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -971,7 +971,7 @@ pub mod common_conditions {
     ///
     /// world.spawn(MyComponent);
     ///
-    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// // An entity with `MyComponent` now exists so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
