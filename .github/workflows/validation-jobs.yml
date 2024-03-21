@@ -287,7 +287,6 @@ jobs:
         run: cargo udeps
 
   check-example-showcase-patches-still-work:
-    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
