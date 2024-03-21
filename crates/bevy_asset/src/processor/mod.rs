@@ -722,9 +722,7 @@ impl AssetProcessor {
                         (meta, Some(processor))
                     }
                     AssetActionMinimal::Ignore => {
-                        let meta: Box<dyn AssetMetaDyn> =
-                            Box::new(AssetMeta::<(), ()>::deserialize(&meta_bytes)?);
-                        (meta, None)
+                        return Ok(ProcessResult::Ignored);
                     }
                 };
                 (meta, meta_bytes, processor)
@@ -1038,6 +1036,7 @@ impl AssetProcessorData {
 pub enum ProcessResult {
     Processed(ProcessedInfo),
     SkippedNotChanged,
+    Ignored,
 }
 
 /// The final status of processing an asset
@@ -1184,6 +1183,9 @@ impl ProcessorAssetInfos {
                 // If "block until latest state is reflected" is required, we can easily add a less granular
                 // "block until first pass finished" mode
                 info.update_status(ProcessStatus::Processed).await;
+            }
+            Ok(ProcessResult::Ignored) => {
+                debug!("Skipping processing (ignored) \"{:?}\"", asset_path);
             }
             Err(ProcessError::ExtensionRequired) => {
                 // Skip assets without extensions
