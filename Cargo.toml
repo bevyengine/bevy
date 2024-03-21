@@ -1020,7 +1020,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.color_animation]
 name = "Color animation"
-description = "Bezier curve example showing squares changing colors using different color spaces"
+description = "Demonstrates how to animate colors using mixing and splines in different color spaces"
 category = "Animation"
 wasm = true
 

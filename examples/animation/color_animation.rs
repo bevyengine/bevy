@@ -1,4 +1,4 @@
-//! Documents how to animate colors in different color spaces.
+//! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
 use bevy::{
     math::cubic_splines::{CubicCurve, Point},
