@@ -753,9 +753,9 @@ mod tests {
         assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
 
         let ccw_triangle = Triangle2d::new(
-            Vec2::new(0.0, 2.0),
             Vec2::new(-1.0, -1.0),
             Vec2::new(-0.5, -1.2),
+            Vec2::new(0.0, 2.0),
         );
         assert_eq!(ccw_triangle.winding_order(), WindingOrder::CounterClockwise);
 
