@@ -1993,6 +1993,17 @@ description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
 
+[[example]]
+name = "render_groups"
+path = "examples/3d/render_groups.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_groups]
+name = "Render Groups"
+description = "Spawning multiple copies of a scene from a GLTF file, each with a different render group"
+category = "3D Rendering"
+wasm = true
+
 # Shaders
 [[package.metadata.example_category]]
 name = "Shaders"
