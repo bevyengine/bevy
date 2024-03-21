@@ -268,7 +268,7 @@ fn simplfy_meshlet_groups(
         Some(&mut error),
     );
 
-    (simplified_group_indices, error / 2.0)
+    (simplified_group_indices, error)
 }
 
 fn split_simplified_groups_into_new_meshlets(
