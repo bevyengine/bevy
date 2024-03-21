@@ -1578,6 +1578,7 @@ mod tests {
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[test]
     fn system_param_const_generics() {
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
@@ -1635,6 +1636,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct UnitParam;
 
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
             Res<'w, R>,
@@ -1651,6 +1653,7 @@ mod tests {
         #[derive(Resource)]
         struct PrivateResource;
 
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 

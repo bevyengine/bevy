@@ -2,7 +2,7 @@ error[E0277]: the trait bound `bevy_ecs::query::Changed<Foo>: ArchetypeFilter` i
   --> tests/ui/query_exact_sized_iterator_safety.rs:8:28
    |
 8  |     is_exact_size_iterator(query.iter());
-   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Changed<Foo>`
+   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Changed<Foo>`, which is required by `QueryIter<'_, '_, &Foo, bevy_ecs::query::Changed<Foo>>: ExactSizeIterator`
    |     |
    |     required by a bound introduced by this call
    |
@@ -27,7 +27,7 @@ error[E0277]: the trait bound `bevy_ecs::query::Added<Foo>: ArchetypeFilter` is 
   --> tests/ui/query_exact_sized_iterator_safety.rs:13:28
    |
 13 |     is_exact_size_iterator(query.iter());
-   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Added<Foo>`
+   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Added<Foo>`, which is required by `QueryIter<'_, '_, &Foo, bevy_ecs::query::Added<Foo>>: ExactSizeIterator`
    |     |
    |     required by a bound introduced by this call
    |
