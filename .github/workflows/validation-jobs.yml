@@ -7,7 +7,6 @@ on:
     branches:
       - main
 
-
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
@@ -309,8 +308,10 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
       - name: Apply patches
         run: |
+          CODE=0
           for patch in tools/example-showcase/*.patch; do
-            git apply --ignore-whitespace $patch
+            git apply --ignore-whitespace $patch || { echo "::error::$patch failed to apply."; CODE=1; }
           done
+          exit $CODE
       - name: Build with patches
         run: cargo build
