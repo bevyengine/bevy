@@ -52,11 +52,13 @@ use super::{ReadOnlySystem, System};
 /// # world.init_resource::<RanFlag>();
 /// #
 /// # let mut app = Schedule::default();
-/// app.add_systems(my_system.run_if(Xor::new(
-///     IntoSystem::into_system(resource_equals(A(1))),
-///     IntoSystem::into_system(resource_equals(B(1))),
-///     // The name of the combined system.
-///     std::borrow::Cow::Borrowed("a ^ b"),
+/// app.add_systems(
+///     Update,
+///     my_system.run_if(Xor::new(
+///         IntoSystem::into_system(resource_equals(A(1))),
+///         IntoSystem::into_system(resource_equals(B(1))),
+///         // The name of the combined system.
+///         std::borrow::Cow::Borrowed("a ^ b"),
 /// )));
 /// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
 /// #

@@ -700,7 +700,7 @@ unsafe impl SystemParam for &'_ World {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
-/// // .add_systems(reset_to_system(my_config))
+/// // .add_systems(Update, reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
 #[derive(Debug)]
