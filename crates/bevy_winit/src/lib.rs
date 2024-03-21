@@ -196,7 +196,6 @@ impl WinitAppRunnerState {
         self.redraw_requested = false;
         self.window_event_received = false;
         self.device_event_received = false;
-        self.wait_elapsed = false;
     }
 }
 
@@ -387,28 +386,43 @@ fn handle_winit_event(
             }
 
             if should_update {
-                let visible = windows.iter().any(|window| window.visible);
-                let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                if visible && runner_state.active != ActiveState::WillSuspend {
+                let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
+
+                if redraw && runner_state.active != ActiveState::WillSuspend {
+                    let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
                 } else {
-                    // there are no windows, or they are not visible.
-                    // Winit won't send events on some platforms, so trigger an update manually.
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        focused_windows_state,
-                        event_loop,
-                        create_window,
-                        app_exit_event_reader,
-                        redraw_event_reader,
-                        winit_events,
-                    );
-                    if runner_state.active != ActiveState::Suspended {
-                        event_loop.set_control_flow(ControlFlow::Poll);
+                    // NOTE: I don't think we need this at all, unless maybe if there are no windows or are completely invisible?
+                    if runner_state.wait_elapsed {
+                        // panic!("Wait elapsed, updating");
+                        // there are no windows, or they are not visible.
+                        // Winit won't send events on some platforms, so trigger an update manually.
+                        run_app_update_if_should(
+                            runner_state,
+                            app,
+                            focused_windows_state,
+                            event_loop,
+                            create_window,
+                            app_exit_event_reader,
+                            redraw_event_reader,
+                            winit_events,
+                        );
                     }
+                    // NOTE: I don't think we need this at all, in any case
+                    // // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
+                    // // we cannot use the visibility to drive rendering on these platforms
+                    // // so we cannot discern whether to beneficially use `Poll` or not?
+                    // #[cfg(not(any(
+                    //     target_arch = "wasm32",
+                    //     target_os = "android",
+                    //     target_os = "ios",
+                    //     all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    // )))]
+                    // if runner_state.active != ActiveState::Suspended {
+                    //     event_loop.set_control_flow(ControlFlow::Poll);
+                    // }
                 }
             }
         }
@@ -770,13 +784,18 @@ fn run_app_update_if_should(
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                 // TODO(bug): this is unexpected behavior.
                 // When Reactive, user expects bevy to actually wait that amount of time,
-                // and not potentially infinitely depending on plateform specifics (which this does)
-                // Need to verify the plateform specifics (whether this can occur in
+                // and not potentially infinitely depending on platform specifics (which this does)
+                // Need to verify the platform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
-                if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                } else {
-                    event_loop.set_control_flow(ControlFlow::Wait);
+
+                // NOTE: this is basically modifying the current control flow delay time only if it elapsed.
+                match event_loop.control_flow() {
+                    ControlFlow::WaitUntil(_) => if runner_state.wait_elapsed {
+                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
