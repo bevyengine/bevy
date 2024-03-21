@@ -56,12 +56,12 @@ impl Oklcha {
     }
 
     /// Return a copy of this color with the 'lightness' channel set to the given value.
-    pub const fn with_l(self, lightness: f32) -> Self {
+    pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
 
     /// Return a copy of this color with the 'chroma' channel set to the given value.
-    pub const fn with_c(self, chroma: f32) -> Self {
+    pub const fn with_chroma(self, chroma: f32) -> Self {
         Self { chroma, ..self }
     }
 
