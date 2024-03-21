@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Oklaba {
-    /// The 'l' channel. [0.0, 1.0]
+    /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
     /// The 'a' channel. [-1.0, 1.0]
     pub a: f32,
@@ -61,7 +61,7 @@ impl Oklaba {
         }
     }
 
-    /// Return a copy of this color with the 'l' channel set to the given value.
+    /// Return a copy of this color with the 'lightness' channel set to the given value.
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
