@@ -1,5 +1,5 @@
-use crate::{Alpha, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Color in LCH color space, with alpha
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Lcha {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
@@ -54,11 +54,6 @@ impl Lcha {
             hue,
             alpha: 1.0,
         }
-    }
-
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
     }
 
     /// Return a copy of this color with the chroma channel set to the given value.
@@ -137,6 +132,23 @@ impl Alpha for Lcha {
     }
 }
 
+impl Hue for Lcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
+    }
+}
+
 impl Luminance for Lcha {
     #[inline]
     fn with_luminance(&self, lightness: f32) -> Self {
@@ -163,6 +175,24 @@ impl Luminance for Lcha {
             self.hue,
             self.alpha,
         )
+    }
+}
+
+impl ClampColor for Lcha {
+    fn clamped(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.5),
+            chroma: self.chroma.clamp(0., 1.5),
+            hue: self.hue.rem_euclid(360.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.5).contains(&self.lightness)
+            && (0. ..=1.5).contains(&self.chroma)
+            && (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -312,5 +342,22 @@ mod tests {
             }
             assert_approx_eq!(color.lch.alpha, lcha.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Lcha::lch(-1., 2., 400.);
+        let color_2 = Lcha::lch(1., 1.5, 249.54);
+        let mut color_3 = Lcha::lch(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Lcha::lch(0., 1.5, 40.));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Lcha::lch(0., 1., 1.));
     }
 }
