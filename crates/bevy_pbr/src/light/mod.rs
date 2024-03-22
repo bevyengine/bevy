@@ -15,8 +15,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{
         derive_render_groups, derive_render_groups_ptr, extract_camera_view, CameraView,
-        InheritedRenderGroups, InheritedVisibility, RenderGroups, RenderGroupsPtr, RenderGroupsRef, RenderLayers,
-        ViewVisibility, VisibleEntities,
+        InheritedRenderGroups, InheritedVisibility, RenderGroups, RenderGroupsPtr, RenderGroupsRef,
+        RenderLayers, ViewVisibility, VisibleEntities,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -1883,11 +1883,9 @@ pub fn check_light_mesh_visibility(
     // see both a light and an entity, then it will use the light to illuminate the entity.
     // We want illuminated entities to cast shadows as expected, even if an entity and a light technically
     // don't 'see' each other. Only what the camera sees matters.
-    let set_aggregate_view = |
-        aggregate_view_layers: &mut RenderLayers,
-        aggregate_view_entities: &mut EntityHashSet,
-        light_groups: RenderGroupsRef<'_>,
-    | {
+    let set_aggregate_view = |aggregate_view_layers: &mut RenderLayers,
+                              aggregate_view_entities: &mut EntityHashSet,
+                              light_groups: RenderGroupsRef<'_>| {
         aggregate_view_layers.clear();
         aggregate_view_entities.clear();
         for (camera_entity, maybe_view) in views.iter() {
@@ -1976,7 +1974,11 @@ pub fn check_light_mesh_visibility(
 
         // Get the aggregate render groups for all cameras that can see this directional light.
         let view_mask = derive_render_groups(maybe_vm_inherited, maybe_view_mask);
-        set_aggregate_view(&mut aggregate_view_layers, &mut aggregate_view_entities, view_mask);
+        set_aggregate_view(
+            &mut aggregate_view_layers,
+            &mut aggregate_view_entities,
+            view_mask,
+        );
 
         for (
             entity,
@@ -1996,7 +1998,11 @@ pub fn check_light_mesh_visibility(
             // treat it as a normal entity. The CameraView component controls what the camera can see, while
             // RenderGroups on the camera entity controls who can see the camera entity.
             let derived_mask = derive_render_groups(maybe_em_inherited, maybe_entity_mask);
-            if !aggregate_view_intersects(&aggregate_view_layers, &aggregate_view_entities, derived_mask) {
+            if !aggregate_view_intersects(
+                &aggregate_view_layers,
+                &aggregate_view_entities,
+                derived_mask,
+            ) {
                 continue;
             }
 
@@ -2062,7 +2068,11 @@ pub fn check_light_mesh_visibility(
                 }
 
                 let view_mask = derive_render_groups(maybe_vm_inherited, maybe_view_mask);
-                set_aggregate_view(&mut aggregate_view_layers, &mut aggregate_view_entities, view_mask);
+                set_aggregate_view(
+                    &mut aggregate_view_layers,
+                    &mut aggregate_view_entities,
+                    view_mask,
+                );
 
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
@@ -2084,7 +2094,11 @@ pub fn check_light_mesh_visibility(
                     }
 
                     let derived_mask = derive_render_groups(maybe_em_inherited, maybe_entity_mask);
-                    if !aggregate_view_intersects(&aggregate_view_layers, &aggregate_view_entities, derived_mask) {
+                    if !aggregate_view_intersects(
+                        &aggregate_view_layers,
+                        &aggregate_view_entities,
+                        derived_mask,
+                    ) {
                         continue;
                     }
 
@@ -2136,7 +2150,11 @@ pub fn check_light_mesh_visibility(
                 }
 
                 let view_mask = derive_render_groups(maybe_vm_inherited, maybe_view_mask);
-                set_aggregate_view(&mut aggregate_view_layers, &mut aggregate_view_entities, view_mask);
+                set_aggregate_view(
+                    &mut aggregate_view_layers,
+                    &mut aggregate_view_entities,
+                    view_mask,
+                );
 
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
@@ -2158,7 +2176,11 @@ pub fn check_light_mesh_visibility(
                     }
 
                     let derived_mask = derive_render_groups(maybe_em_inherited, maybe_entity_mask);
-                    if !aggregate_view_intersects(&aggregate_view_layers, &aggregate_view_entities, derived_mask) {
+                    if !aggregate_view_intersects(
+                        &aggregate_view_layers,
+                        &aggregate_view_entities,
+                        derived_mask,
+                    ) {
                         continue;
                     }
 
