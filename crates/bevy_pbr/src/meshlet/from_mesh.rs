@@ -32,7 +32,10 @@ impl MeshletMesh {
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
-        let mut lod_errors = vec![0.0; meshlets.len() * 2];
+        let mut lod_errors = iter::repeat([0.0, f32::MAX])
+            .take(meshlets.len())
+            .flatten()
+            .collect::<Vec<_>>();
         let mut parent_bounding_spheres = vec![MeshletBoundingSphere::default(); meshlets.len()];
         let worst_case_meshlet_triangles = meshlets
             .meshlets
@@ -92,7 +95,7 @@ impl MeshletMesh {
 
                 // The error for each new meshlet is the error from simplifying the group
                 lod_errors.extend(
-                    iter::repeat([group_error, 0.0])
+                    iter::repeat([group_error, f32::MAX])
                         .take(new_meshlets_count)
                         .flatten(),
                 );
