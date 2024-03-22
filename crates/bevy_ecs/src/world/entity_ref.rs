@@ -1032,14 +1032,14 @@ impl<'w> EntityWorldMut<'w> {
     /// Remove the components of `bundle` from `entity`.
     ///
     /// SAFETY:
-    /// - A `bundle_info` with the corresponding bundle_id must have been initialized
-    /// - The components in `bundle_info` must exist.
+    /// - A Bundle with the corresponding bundle_id must have been initialized.
+    /// - The components in BundleInfo must exist on the entity.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
-        // SAFETY: the bundle_info exists because it was initialized
+        // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
         let bundle_info = world.bundles.get_unchecked(bundle);
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
