@@ -25,7 +25,7 @@ impl Plugin for ColorMaterialPlugin {
             .register_asset_reflect::<ColorMaterial>();
 
         app.world.resource_mut::<Assets<ColorMaterial>>().insert(
-            Handle::<ColorMaterial>::default(),
+            &Handle::<ColorMaterial>::default(),
             ColorMaterial {
                 color: Color::srgb(1.0, 0.0, 1.0),
                 ..Default::default()

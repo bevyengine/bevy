@@ -73,16 +73,8 @@ impl Mix for Hsva {
     #[inline]
     fn mix(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
-        // TODO: Refactor this into EuclideanModulo::lerp_modulo
-        let shortest_angle = ((((other.hue - self.hue) % 360.) + 540.) % 360.) - 180.;
-        let mut hue = self.hue + shortest_angle * factor;
-        if hue < 0. {
-            hue += 360.;
-        } else if hue >= 360. {
-            hue -= 360.;
-        }
         Self {
-            hue,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             saturation: self.saturation * n_factor + other.saturation * factor,
             value: self.value * n_factor + other.value * factor,
             alpha: self.alpha * n_factor + other.alpha * factor,
