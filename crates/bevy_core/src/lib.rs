@@ -1,5 +1,6 @@
-//! This crate provides core functionality for Bevy Engine.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
+//! This crate provides core functionality for Bevy Engine.
 
 mod name;
 #[cfg(feature = "serialize")]

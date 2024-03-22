@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! Audio support for the game engine Bevy
 //!
 //! ```no_run
@@ -19,8 +22,6 @@
 //!     });
 //! }
 //! ```
-#![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod audio;
 mod audio_output;
