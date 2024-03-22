@@ -865,7 +865,7 @@ impl<'w> BundleInserter<'w> {
                     bundle_info
                         .iter_components()
                         .zip(add_bundle.bundle_status.iter())
-                        .filter(|(_, &status)| status.component == ComponentStatus::Added)
+                        .filter(|(_, &ref status)| status.component == ComponentStatus::Added)
                         .map(|(id, _)| id),
                 );
             }
@@ -1063,7 +1063,7 @@ impl Bundles {
                 change_component_ids.push(id);
             });
             // it is guaranteed that each component_id has a corresponding change_component_id
-            let mut component_change_ids = component_ids
+            let component_change_ids = component_ids
                 .into_iter()
                 .zip(change_component_ids.into_iter())
                 .map(|(component_id, change_component_id)| {

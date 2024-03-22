@@ -33,7 +33,7 @@ use crate::{
     system::{Commands, Res, Resource},
     world::error::TryRunScheduleError,
 };
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
@@ -41,10 +41,13 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+use std::ops::IndexMut;
+
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub use identifier::WorldId;
+use crate::storage::TableId;
 
 /// A [`World`] mutation.
 ///
@@ -2047,8 +2050,26 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
+
+        // check table change ticks
+        self.components.iter().for_each(|component_id| {
+            if let Some(change_component_id) = component_id.change_detection_id() {
+                for table_id in 0..tables.len() {
+                    if let Some(column) = tables
+                        .index_mut(TableId::from_usize(table_id))
+                        .get_column_mut(change_component_id) {
+                            // SAFETY: we have exclusive world access
+                            unsafe {
+                                column.get_data_slice::<ComponentTicks>().iter().for_each(|component_ticks| {
+                                    let ticks = component_ticks.deref_mut();
+                                    ticks.added.check_tick(change_tick);
+                                    ticks.changed.check_tick(change_tick);
+                                })
+                            }
+                        };
+                }
+            }
+        });
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 

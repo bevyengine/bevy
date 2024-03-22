@@ -938,7 +938,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        Self::set_tick_data(fetch, component_id.change_ticks_component, table);
+        // SAFETY: if change detection is enabled, the change ticks are present in the same table
+        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        fetch.tick_data = Some(change_column.get_data_slice().into());
+        // Self::set_tick_data(fetch, component_id.change_ticks_component, table);
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
@@ -954,7 +957,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
-        Self::set_tick_data(fetch, component_id.change_ticks_component, table);
+        // SAFETY: if change detection is enabled, the change ticks are present in the same table
+        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        fetch.tick_data = Some(change_column.get_data_slice().into());
+        
         let column = table.get_column(component_id.component).debug_checked_unwrap();
         fetch.table_data = Some(column.get_data_slice().into());
     }

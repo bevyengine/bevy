@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, Components, Tick},
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},

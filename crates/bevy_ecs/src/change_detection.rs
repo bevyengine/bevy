@@ -1,5 +1,6 @@
 //! Types that detect when their internal data mutate.
 
+use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use crate::{
     component::{Tick, TickCells},
@@ -438,6 +439,24 @@ impl<'w> Ticks<'w> {
             this_run,
         }
     }
+
+    /// # Safety
+    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
+    #[inline]
+    pub(crate) unsafe fn from_unsafe_cell(
+        cells: &'w UnsafeCell<ComponentTicks>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self {
+        // SAFETY: Caller ensures there is no mutable access to the cell.
+        let ticks = unsafe { cells.deref() };
+        Self {
+            added: &ticks.added,
+            changed: &ticks.changed,
+            last_run,
+            this_run,
+        }
+    }
 }
 
 pub(crate) struct TicksMut<'w> {
@@ -461,6 +480,24 @@ impl<'w> TicksMut<'w> {
             added: unsafe { cells.added.deref_mut() },
             // SAFETY: Caller ensures there is no alias to the cell.
             changed: unsafe { cells.changed.deref_mut() },
+            last_run,
+            this_run,
+        }
+    }
+
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_unsafe_cell(
+        cells: &'w UnsafeCell<ComponentTicks>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self {
+        // SAFETY: Caller ensures there is no alias to the cell.
+        let ticks = unsafe { cells.deref_mut() };
+        Self {
+            added: &mut ticks.added,
+            changed: &mut ticks.changed,
             last_run,
             this_run,
         }
@@ -489,7 +526,7 @@ pub struct ChangeTicks<T: Component>{
 
 /// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
 #[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
-pub(crate) struct ComponentChangeId {
+pub struct ComponentChangeId {
     pub(crate) component: ComponentId,
     // TODO: make this optional is change detection is disabled for this component?
     pub(crate) change_ticks_component: ComponentId,
