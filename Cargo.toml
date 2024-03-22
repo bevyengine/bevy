@@ -1014,6 +1014,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "color_animation"
+path = "examples/animation/color_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_animation]
+name = "Color animation"
+description = "Demonstrates how to animate colors using mixing and splines in different color spaces"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "cubic_curve"
 path = "examples/animation/cubic_curve.rs"
 doc-scrape-examples = true
