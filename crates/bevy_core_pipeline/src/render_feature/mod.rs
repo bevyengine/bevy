@@ -1,27 +1,23 @@
-pub mod dependencies;
 mod function_feature;
-
-use bevy_ecs::component::{Component, TableStorage};
-use bevy_ecs::world::World;
-use bevy_render::renderer::RenderContext;
 pub use function_feature::*;
 
-use std::any::TypeId;
+use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, TableStorage};
+use bevy_ecs::world::{EntityRef, World};
+use bevy_render::renderer::RenderContext;
+
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use bevy_app::App;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
-use bevy_render::render_graph::{
-    Node, NodeRunError, RenderGraphContext, RenderLabel, RenderSubGraph,
-};
+use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, RenderSubGraph};
 use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
-use bevy_utils::all_tuples;
+use bevy_utils::{all_tuples, CowArc};
 
 pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
-    type CompatibilityKey;
     type Sig: FeatureSignature<true>;
+    type CompatibilityKey;
 
     fn check_compatibility(
         &self,
@@ -29,19 +25,20 @@ pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
         limits: WgpuLimits,
     ) -> Self::CompatibilityKey;
 
-    fn dependencies(
-        &self,
+    fn dependencies<'s, 'b: 's>(
+        &'s self,
         compatibility: Self::CompatibilityKey,
-    ) -> impl FeatureDependencies<G, FeatureInput<G, Self>>;
+        builder: &'b mut FeatureDependencyBuilder<G, Self>,
+    ) -> RenderHandles<'b, true, FeatureInput<G, Self>>;
 
     fn build(&self, _compatibility: Self::CompatibilityKey, _app: &mut App) {} // for adding systems not associated with the main View
 
-    fn build_feature<'b>(
-        &self,
+    fn build_feature<'s, 'b: 's>(
+        &'s self,
         compatibility: Self::CompatibilityKey,
-        builder: &mut FeatureBuilder<'b, G, Self>,
-        inputs: IOHandles<'b, true, FeatureInput<G, Self>>,
-    ) -> IOHandles<'b, true, FeatureOutput<G, Self>>;
+        builder: &'b mut FeatureBuilder<'b, G, Self>,
+        inputs: RenderHandles<'b, true, FeatureInput<G, Self>>,
+    ) -> RenderHandles<'b, true, FeatureOutput<G, Self>>;
 }
 
 #[derive(PartialEq, Eq, Ord, PartialOrd)]
@@ -58,61 +55,145 @@ pub enum Compatibility {
     None,
 }
 
-pub struct FeatureBuilder<'b, G: RenderSubGraph, F: Feature<G>> {
-    data: PhantomData<&'b (G, F)>,
+#[derive(Clone)]
+pub struct RenderHandle<'a, A: FeatureIO<false>> {
+    label: Option<CowArc<'static, str>>,
+    source: RawRenderHandle<A>,
+    data: PhantomData<&'a A>,
 }
 
-pub struct IOHandle<'a, T: Send + Sync + 'static> {
-    data: PhantomData<&'a T>,
-}
-
-impl<'b> Default for IOHandle<'b, ()> {
-    fn default() -> Self {
-        Self { data: PhantomData }
+impl<'a, A: FeatureIO<false>> RenderHandle<'a, A> {
+    pub fn hole<L: Into<CowArc<'static, str>>>(label: Option<L>) -> Self {
+        RenderHandle {
+            label: label.map(|l| l.into()),
+            source: RawRenderHandle::hole(),
+            data: PhantomData,
+        }
     }
 }
 
-impl<'b, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'b, G, F> {
-    pub fn add_sub_feature<Marker: 'static, S: IntoSubFeature<Marker>>(
-        &mut self,
+#[derive(Copy, Clone)]
+pub struct RawRenderHandle<A: FeatureIO<false>> {
+    source: Option<ComponentId>,
+    data: PhantomData<fn() -> A>,
+}
+
+impl<A: FeatureIO<false>> RawRenderHandle<A> {
+    //SAFETY: the layout of id must match that of A
+    unsafe fn from_id(id: ComponentId) -> Self {
+        Self {
+            source: Some(id),
+            data: PhantomData,
+        }
+    }
+
+    fn hole() -> Self {
+        Self {
+            source: None,
+            data: PhantomData,
+        }
+    }
+
+    unsafe fn new(id: Option<ComponentId>) -> Self {
+        Self {
+            source: id,
+            data: PhantomData,
+        }
+    }
+
+    fn get<'w>(&self, entity: EntityRef<'w>) -> Option<&'w A> {
+        self.source
+            .and_then(|id| entity.get_by_id(id))
+            //SAFETY: by construction we can assume that the layout of the internal id is the same as A
+            .map(|ptr| unsafe { ptr.deref::<A>() })
+    }
+}
+
+pub struct FeatureBuilder<'w, G: RenderSubGraph, F: Feature<G>> {
+    app: &'w mut App,
+    data: PhantomData<fn(G, F)>,
+}
+
+impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
+    pub fn add_sub_feature<'a, Marker: 'static, S: IntoSubFeature<Marker>>(
+        &'a mut self,
         stage: FeatureStage,
-        input: IOHandles<'b, true, SubFeatureInput<S::SubFeature>>,
+        input: RenderHandles<'a, true, SubFeatureInput<S::SubFeature>>,
         sub_feature: S,
-    ) -> IOHandles<'b, false, SubFeatureOutput<S::SubFeature>> {
-        let (_, _, _) = (stage, input, sub_feature);
+    ) -> RenderHandles<'a, false, SubFeatureOutput<S::SubFeature>> {
+        todo!()
+    }
+
+    pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
+        &'a mut self,
+        handles: RenderHandles<'a, false, A>,
+        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+    ) -> RenderHandle<'a, B> {
+        todo!()
+    }
+
+    pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
+        &'a mut self,
+        handles: RenderHandles<'a, true, A>,
+        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+    ) -> RenderHandle<'a, B> {
+        self.app
+            .world
+            .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
+        //register system to map from input to output;
         todo!()
     }
 }
 
-type IOHandles<'b, const MULT: bool, F> = <F as FeatureIO<MULT>>::Handles<'b>;
+type RenderHandles<'a, const MULT: bool, A> = <A as FeatureIO<MULT>>::Handles<'a>;
 
-pub trait FeatureIO<const MULT: bool>: Send + Sync + 'static {
-    type Handles<'b>;
+pub trait FeatureIO<const MULT: bool>: Sized + Send + Sync + 'static {
+    type RawHandles;
+    type Handles<'a>;
+    type Item<'w>;
 
-    fn type_ids() -> Vec<TypeId>;
+    fn get(
+        entity: EntityRef<'_>,
+        handles: Self::RawHandles,
+    ) -> Option<<Self as FeatureIO<MULT>>::Item<'_>>;
 }
 
 impl<A: Send + Sync + 'static> FeatureIO<false> for A {
-    type Handles<'b> = IOHandle<'b, A>;
+    type RawHandles = RawRenderHandle<A>;
+    type Handles<'a> = RenderHandle<'a, A>;
+    type Item<'w> = &'w A;
 
-    fn type_ids() -> Vec<TypeId> {
-        vec![TypeId::of::<Self>()]
+    fn get(
+        entity: EntityRef<'_>,
+        handles: Self::RawHandles,
+    ) -> Option<<Self as FeatureIO<false>>::Item<'_>> {
+        handles.get(entity)
     }
 }
 
-macro_rules! impl_multi_feature_io {
-    ($($T: ident),*) => {
+macro_rules! impl_feature_io {
+    ($(($T: ident, $r: ident, $h: ident)),*) => {
         impl <$($T: FeatureIO<false>),*> FeatureIO<true> for ($($T,)*) {
-            type Handles<'b> = ($(IOHandle<'b, $T>,)*);
+            type RawHandles = ($(RawRenderHandle<$T>,)*);
+            type Handles<'a> = ($(RenderHandle<'a, $T>,)*);
+            type Item<'w> = ($(&'w $T,)*);
 
-            fn type_ids() -> Vec<TypeId> {
-                vec![$(TypeId::of::<$T>()),*]
+            #[allow(unused_variables, unreachable_patterns)]
+            fn get(
+                entity: EntityRef<'_>,
+                handles: Self::RawHandles,
+            ) -> Option<<Self as FeatureIO<true>>::Item<'_>> {
+                let ($($h,)*) = handles;
+                match ($($h.get(entity),)*) {
+                    ($(Some($r),)*) => Some(($($r,)*)),
+                    _ => None,
+                }
             }
         }
     };
 }
 
-all_tuples!(impl_multi_feature_io, 0, 16, T);
+all_tuples!(impl_feature_io, 0, 16, T, r, h);
 
 pub trait FeatureSignature<const MULTI_OUTPUT: bool>: 'static {
     type In: FeatureIO<true>;
@@ -136,8 +217,6 @@ macro_rules! FeatureSig_Macro {
 }
 
 pub use FeatureSig_Macro as Sig;
-
-use self::dependencies::{hole, FeatureDependencies};
 
 type FeatureInput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature<true>>::In;
 type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as FeatureSignature<true>>::Out;
@@ -170,59 +249,10 @@ impl<T: SubFeature> IntoSubFeature<()> for T {
     }
 }
 
-pub struct Blit<L: RenderLabel>(PhantomData<L>);
-
-impl<L: RenderLabel> Default for Blit<L> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<G: RenderSubGraph, L: RenderLabel> Feature<G> for Blit<L> {
-    type CompatibilityKey = Compatibility;
-
-    type Sig = Sig![(u8, u32, u32) => (u32, u32)];
-
-    fn check_compatibility(
-        &self,
-        _features: WgpuFeatures,
-        _limits: WgpuLimits,
-    ) -> Self::CompatibilityKey {
-        Compatibility::Full
-    }
-
-    fn dependencies(
-        &self,
-        _compatibility: Self::CompatibilityKey,
-    ) -> impl FeatureDependencies<G, FeatureInput<G, Self>> {
-        (hole(), hole(), hole()) //Deps!(_, _, _)
-    }
-
-    fn build_feature<'b>(
-        &self,
-        _compatibility: Self::CompatibilityKey,
-        builder: &mut FeatureBuilder<'b, G, Self>,
-        (_, b, c): IOHandles<'b, true, FeatureInput<G, Self>>,
-    ) -> IOHandles<'b, true, FeatureOutput<G, Self>> {
-        let thing = builder.add_sub_feature(FeatureStage::Extract, (b,), |_, (c,)| c + 4);
-        let thing2 = builder.add_sub_feature(FeatureStage::Dispatch, (c,), |_, (c,)| c + 4);
-        (thing, thing2)
-    }
-}
-
 //implementation time!!!!!
 
-struct FeatureResult<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
-    value: SubFeatureOutput<S>,
-    data: PhantomData<(F, G)>,
-}
-
-impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Component for FeatureResult<G, F, S> {
-    type Storage = TableStorage;
-}
-
 struct SubFeatureNode<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
-    sub_feature: Mutex<S>,
+    sub_feature: Mutex<S>, //todo: better storage?
     data: PhantomData<(G, F)>,
 }
 
@@ -235,4 +265,66 @@ impl<G: RenderSubGraph, F: Feature<G>, S: SubFeature> Node for SubFeatureNode<G,
     ) -> Result<(), NodeRunError> {
         Ok(())
     }
+}
+
+pub struct FeatureDependencyBuilder<'w, G: RenderSubGraph, F: Feature<G>> {
+    app: &'w mut App,
+    data: PhantomData<fn(G, F)>,
+}
+
+impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
+    pub fn with_dep<'a: 'w, O: Feature<G>>(
+        &'a mut self,
+    ) -> RenderHandles<'a, true, FeatureOutput<G, O>> {
+        todo!()
+    }
+
+    pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
+        &'a mut self,
+        handles: RenderHandles<'a, false, A>,
+        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+    ) -> RenderHandle<'a, B> {
+        todo!()
+    }
+
+    pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
+        &'a mut self,
+        handles: RenderHandles<'a, true, A>,
+        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+    ) -> RenderHandle<'a, B> {
+        self.app
+            .world
+            .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
+        //register system to map from input to output;
+        todo!()
+    }
+}
+
+#[macro_export]
+macro_rules! IOHandles_Impl {
+    ($($h: tt),*) => {
+        ($($crate::render_feature::SingleHandle!($h)),*)
+    }
+}
+
+pub use IOHandles_Impl as Handles;
+
+#[macro_export]
+macro_rules! SingleIOHandle_Impl {
+    (_) => {
+        $crate::render_feature::RenderHandle::hole()
+    };
+    ($h: expr) => {
+        $h
+    };
+}
+
+pub use SingleIOHandle_Impl as SingleHandle;
+
+//SAFETY: this must stay repr(transparent) to make sure it has the same layout as A
+#[repr(transparent)]
+struct FeatureComponent<A: FeatureIO<false>>(A);
+
+impl<A: FeatureIO<false>> Component for FeatureComponent<A> {
+    type Storage = TableStorage;
 }
