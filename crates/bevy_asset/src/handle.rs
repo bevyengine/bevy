@@ -249,24 +249,10 @@ impl<A: Asset> PartialEq for Handle<A> {
 
 impl<A: Asset> Eq for Handle<A> {}
 
-impl<A: Asset> From<Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id()
-    }
-}
-
 impl<A: Asset> From<&Handle<A>> for AssetId<A> {
     #[inline]
     fn from(value: &Handle<A>) -> Self {
         value.id()
-    }
-}
-
-impl<A: Asset> From<Handle<A>> for UntypedAssetId {
-    #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id().into()
     }
 }
 
@@ -426,13 +412,6 @@ impl PartialOrd for UntypedHandle {
         } else {
             None
         }
-    }
-}
-
-impl From<UntypedHandle> for UntypedAssetId {
-    #[inline]
-    fn from(value: UntypedHandle) -> Self {
-        value.id()
     }
 }
 
