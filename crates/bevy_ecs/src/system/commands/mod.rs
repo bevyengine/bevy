@@ -530,7 +530,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     ///
-    /// If you want to prevent Commands from registrating the same system multiple times, consider using [`Local`](crate::system::Local)
+    /// If you want to prevent Commands from registering the same system multiple times, consider using [`Local`](crate::system::Local)
     ///
     /// # Example
     ///
