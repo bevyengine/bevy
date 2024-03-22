@@ -23,11 +23,11 @@ use crate::*;
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 mod point_light;
-pub use point_light::{PointLight, PointLightShadowMap};
+pub use point_light::PointLight;
 mod spot_light;
 pub use spot_light::SpotLight;
 mod directional_light;
-pub use directional_light::{DirectionalLight, DirectionalLightShadowMap};
+pub use directional_light::DirectionalLight;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -83,6 +83,31 @@ pub mod light_consts {
         pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
+    }
+}
+
+#[derive(Resource, Clone, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct PointLightShadowMap {
+    pub size: usize,
+}
+
+impl Default for PointLightShadowMap {
+    fn default() -> Self {
+        Self { size: 1024 }
+    }
+}
+
+/// Controls the resolution of [`DirectionalLight`] shadow maps.
+#[derive(Resource, Clone, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct DirectionalLightShadowMap {
+    pub size: usize,
+}
+
+impl Default for DirectionalLightShadowMap {
+    fn default() -> Self {
+        Self { size: 2048 }
     }
 }
 

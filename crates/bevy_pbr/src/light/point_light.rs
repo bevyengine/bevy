@@ -54,15 +54,3 @@ impl PointLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
-
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
-pub struct PointLightShadowMap {
-    pub size: usize,
-}
-
-impl Default for PointLightShadowMap {
-    fn default() -> Self {
-        Self { size: 1024 }
-    }
-}

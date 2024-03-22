@@ -81,16 +81,3 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
-
-/// Controls the resolution of [`DirectionalLight`] shadow maps.
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
-pub struct DirectionalLightShadowMap {
-    pub size: usize,
-}
-
-impl Default for DirectionalLightShadowMap {
-    fn default() -> Self {
-        Self { size: 2048 }
-    }
-}
