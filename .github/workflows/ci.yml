@@ -305,9 +305,9 @@ jobs:
       # This currently report a lot of false positives
       # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
       # - name: Installs cargo-deadlinks
-          # uses: taiki-e/install-action@v2
-          # with:
-          #   tool: cargo-deadlinks
+      #   uses: taiki-e/install-action@v2
+      #   with:
+      #    tool: cargo-deadlinks
       # - name: Checks dead links
       #   run: cargo deadlinks --dir target/doc/bevy
       #   continue-on-error: true
