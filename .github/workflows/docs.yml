@@ -51,8 +51,8 @@ jobs:
       - name: Build docs
         env:
           # needs to be in sync with [package.metadata.docs.rs]
-          RUSTDOCFLAGS:  -Zunstable-options -Zrustdoc-scrape-examples --cfg=docsrs
-        run: cargo doc --all-features --no-deps -p bevy
+          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
+        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
