@@ -50,7 +50,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     // Check LOD cut (meshlet error imperceptible, and parent error not imperceptible)
     let lod_is_ok = lod_error_is_imperceptible(error, bounding_sphere_center_view_space, bounding_sphere_radius);
     let parent_lod_is_ok = lod_error_is_imperceptible(parent_error, parent_bounding_sphere_center_view_space, parent_bounding_sphere_radius);
-    if !lod_is_ok || parent_lod_is_ok { return; }
+    if lod_is_ok && !parent_lod_is_ok { return; }
 
     // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
 #ifdef MESHLET_SECOND_CULLING_PASS
