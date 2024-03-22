@@ -36,4 +36,10 @@ serialize = ["dep:serde", "bevy_math/serialize"]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "-Zrustdoc-scrape-examples",
+  "--cfg",
+  "docsrs",
+]
 all-features = true

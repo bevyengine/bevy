@@ -122,4 +122,10 @@ wasm-bindgen = "0.2"
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "-Zrustdoc-scrape-examples",
+  "--cfg",
+  "docsrs",
+]
 all-features = true

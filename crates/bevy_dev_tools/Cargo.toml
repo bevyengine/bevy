@@ -43,4 +43,10 @@ ron = { version = "0.8.0", optional = true }
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "-Zrustdoc-scrape-examples",
+  "--cfg",
+  "docsrs",
+]
 all-features = true

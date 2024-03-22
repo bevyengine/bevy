@@ -6,9 +6,19 @@ description = "Build an example for wasm"
 publish = false
 license = "MIT OR Apache-2.0"
 
-[lints]
-workspace = true
 
 [dependencies]
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "-Zrustdoc-scrape-examples",
+  "--cfg",
+  "docsrs",
+]
+all-features = true

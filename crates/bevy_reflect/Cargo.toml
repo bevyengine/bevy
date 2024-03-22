@@ -59,4 +59,10 @@ required-features = ["documentation"]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "-Zrustdoc-scrape-examples",
+  "--cfg",
+  "docsrs",
+]
 all-features = true
