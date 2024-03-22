@@ -358,7 +358,8 @@ fn handle_winit_event(
             let focused = windows.iter().any(|window| window.focused);
             let mut should_update = match config.update_mode(focused) {
                 UpdateMode::Continuous => {
-                    runner_state.redraw_requested
+                    runner_state.wait_elapsed
+                        || runner_state.redraw_requested
                         || runner_state.window_event_received
                         || runner_state.device_event_received
                 }
@@ -387,41 +388,30 @@ fn handle_winit_event(
             }
 
             if should_update {
+                // Attempt to update
                 let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                let visible = winit_windows
-                    .windows
-                    .values()
-                    .any(|window| window.is_visible().unwrap_or(false));
-                if visible && runner_state.active != ActiveState::WillSuspend {
+                if runner_state.active != ActiveState::WillSuspend {
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
-                } else {
-                    // there are no windows, or they are not visible.
-                    // Winit won't send events on some platforms, so trigger an update manually.
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        focused_windows_state,
-                        event_loop,
-                        create_window,
-                        app_exit_event_reader,
-                        redraw_event_reader,
-                        winit_events,
-                    );
-                    // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
-                    // we cannot use the visibility to drive rendering on these platforms
-                    // so we cannot discern whether to beneficially use `Poll` or not?
-                    #[cfg(not(any(
-                        target_arch = "wasm32",
-                        target_os = "android",
-                        target_os = "ios",
-                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
-                    if runner_state.active != ActiveState::Suspended {
+                }
+
+                // Decide when to run the next update
+                let (config, windows) = focused_windows_state.get(&app.world);
+                let focused = windows.iter().any(|window| window.focused);
+                match config.update_mode(focused) {
+                    UpdateMode::Continuous => {
                         event_loop.set_control_flow(ControlFlow::Poll);
                     }
+                    UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                        if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::Wait);
+                        }
+                    }
                 }
+
             }
         }
         Event::NewEvents(cause) => {
@@ -638,7 +628,6 @@ fn handle_winit_event(
                     run_app_update_if_should(
                         runner_state,
                         app,
-                        focused_windows_state,
                         event_loop,
                         create_window,
                         app_exit_event_reader,
@@ -738,7 +727,6 @@ fn handle_winit_event(
 fn run_app_update_if_should(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
-    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
@@ -770,28 +758,6 @@ fn run_app_update_if_should(
         runner_state.last_update = Instant::now();
 
         app.update();
-
-        // decide when to run the next update
-        let (config, windows) = focused_windows_state.get(&app.world);
-        let focused = windows.iter().any(|window| window.focused);
-        match config.update_mode(focused) {
-            UpdateMode::Continuous => {
-                runner_state.redraw_requested = true;
-                event_loop.set_control_flow(ControlFlow::Wait);
-            }
-            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                // TODO(bug): this is unexpected behavior.
-                // When Reactive, user expects bevy to actually wait that amount of time,
-                // and not potentially infinitely depending on plateform specifics (which this does)
-                // Need to verify the plateform specifics (whether this can occur in
-                // rare-but-possible cases) and replace this with a panic or a log warn!
-                if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                } else {
-                    event_loop.set_control_flow(ControlFlow::Wait);
-                }
-            }
-        }
 
         if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
             if redraw_event_reader.read(app_redraw_events).last().is_some() {
