@@ -15,7 +15,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install cargo-release
-        run: cargo install cargo-release
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-release
 
       - name: Setup post-release version bump
         run: |
