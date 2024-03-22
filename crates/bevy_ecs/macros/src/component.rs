@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result, LitBool};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -49,6 +49,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
+    let change_detection = attrs.change_detection;
 
     ast.generics
         .make_where_clause()
@@ -61,15 +62,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            const CHANGE_DETECTION: bool = #change_detection;
         }
     })
 }
 
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
+pub const CHANGE_DETECTION: &str = "change_detection";
 
 struct Attrs {
     storage: StorageTy,
+    change_detection: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -85,6 +89,7 @@ const SPARSE_SET: &str = "SparseSet";
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        change_detection: true,
     };
 
     for meta in ast.attrs.iter().filter(|a| a.path().is_ident(COMPONENT)) {
@@ -99,6 +104,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         )));
                     }
                 };
+                Ok(())
+            } else if nested.path.is_ident(CHANGE_DETECTION) {
+                attrs.change_detection = nested.value()?.parse::<LitBool>()?.value();
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))

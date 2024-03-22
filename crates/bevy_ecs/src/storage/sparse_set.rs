@@ -1,11 +1,11 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
+    component::{ComponentId, ComponentInfo},
     entity::Entity,
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use nonmax::NonMaxUsize;
-use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use std::{hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
 
@@ -550,12 +550,6 @@ impl SparseSets {
     pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
-        }
-    }
-
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for set in self.sets.values_mut() {
-            set.check_change_ticks(change_tick);
         }
     }
 }

@@ -228,7 +228,7 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            type ChangeTicks: ($($name::ChangeTicks,)*);
+            type ChangeTicks = ($($name::ChangeTicks,)*);
 
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
@@ -865,7 +865,7 @@ impl<'w> BundleInserter<'w> {
                     bundle_info
                         .iter_components()
                         .zip(add_bundle.bundle_status.iter())
-                        .filter(|(_, &status)| status == ComponentStatus::Added)
+                        .filter(|(_, &status)| status.component == ComponentStatus::Added)
                         .map(|(id, _)| id),
                 );
             }

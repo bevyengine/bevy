@@ -595,7 +595,7 @@ impl Components {
             storage_type: StorageType::Table,
             is_send_and_sync: true,
             type_id: None,
-            layout: Layout::new::<ChangeTicks<()>>(),
+            layout: Layout::new::<ComponentTicks>(),
             drop: None,
         };
         let change_detection_id = Components::init_component_inner(&mut self.components, storages, change_ticks_descriptor, None);

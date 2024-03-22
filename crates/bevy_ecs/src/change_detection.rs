@@ -9,7 +9,7 @@ use crate::{
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use bevy_ecs_macros::Component;
+use crate as bevy_ecs;
 use crate::component::{Component, ComponentId, ComponentTicks};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -480,7 +480,8 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 
 // TODO: add docs
 #[derive(Component, Clone)]
-pub(crate) struct ChangeTicks<T: Component>{
+#[component(change_detection = false)]
+pub struct ChangeTicks<T: Component>{
     ticks: ComponentTicks,
     _marker: PhantomData<T>,
 }

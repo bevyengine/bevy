@@ -146,13 +146,13 @@ impl BundleComponentStatus for AddBundle {
     #[inline]
     unsafe fn get_component_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        unsafe { *self.bundle_status.get_unchecked(index).component }
+        unsafe { self.bundle_status.get_unchecked(index).component }
     }
 
     #[inline]
     unsafe fn get_component_change_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        unsafe { *self.bundle_status.get_unchecked(index).change_component }
+        unsafe { self.bundle_status.get_unchecked(index).change_component }
     }
 }
 

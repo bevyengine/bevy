@@ -59,7 +59,7 @@ mod tests {
     use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
-        change_detection::Ref,
+        change_detection::{Ref},
         component::{Component, ComponentId},
         entity::Entity,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},

@@ -1,10 +1,10 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    component::{ComponentId, ComponentInfo, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::HashMap;
 use std::alloc::Layout;
 use std::{
@@ -301,7 +301,7 @@ impl Column {
     ///
     /// Returns `None` if `row` is out of bounds.
     #[inline]
-    pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>)> {
+    pub fn get(&self, row: TableRow) -> Option<Ptr<'_>> {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
