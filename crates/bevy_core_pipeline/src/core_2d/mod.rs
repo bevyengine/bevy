@@ -5,21 +5,21 @@ pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct SubGraph2d;
+    pub struct Core2d;
 
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum Labels2d {
+    pub enum Node2d {
         MsaaWriteback,
         MainPass,
         Bloom,
         Tonemapping,
         Fxaa,
         Upscaling,
-        ConstrastAdaptiveSharpening,
+        ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
     }
 }
@@ -42,11 +42,12 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use bevy_utils::FloatOrd;
+use nonmax::NonMaxU32;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
-use self::graph::{Labels2d, SubGraph2d};
+use self::graph::{Core2d, Node2d};
 
 pub struct Core2dPlugin;
 
@@ -68,21 +69,18 @@ impl Plugin for Core2dPlugin {
             );
 
         render_app
-            .add_render_sub_graph(SubGraph2d)
-            .add_render_graph_node::<MainPass2dNode>(SubGraph2d, Labels2d::MainPass)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(
-                SubGraph2d,
-                Labels2d::Tonemapping,
-            )
-            .add_render_graph_node::<EmptyNode>(SubGraph2d, Labels2d::EndMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(SubGraph2d, Labels2d::Upscaling)
+            .add_render_sub_graph(Core2d)
+            .add_render_graph_node::<MainPass2dNode>(Core2d, Node2d::MainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
             .add_render_graph_edges(
-                SubGraph2d,
+                Core2d,
                 (
-                    Labels2d::MainPass,
-                    Labels2d::Tonemapping,
-                    Labels2d::EndMainPassPostProcessing,
-                    Labels2d::Upscaling,
+                    Node2d::MainPass,
+                    Node2d::Tonemapping,
+                    Node2d::EndMainPassPostProcessing,
+                    Node2d::Upscaling,
                 ),
             );
     }

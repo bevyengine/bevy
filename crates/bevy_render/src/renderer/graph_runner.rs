@@ -1,15 +1,14 @@
 use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    smallvec::{smallvec, SmallVec},
-    HashMap,
-};
+use bevy_utils::HashMap;
 
+use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
+    diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
     render_graph::{
         Edge, InternedRenderLabel, InternedRenderSubGraph, NodeRunError, NodeState, RenderGraph,
         RenderGraphContext, SlotLabel, SlotType, SlotValue,
@@ -56,21 +55,39 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         render_device: RenderDevice,
+        mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device, adapter.get_info());
+    ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
+        if let Some(recorder) = &mut diagnostics_recorder {
+            recorder.begin_frame();
+        }
+
+        let mut render_context =
+            RenderContext::new(render_device, adapter.get_info(), diagnostics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
-        {
+        let (render_device, mut diagnostics_recorder) = {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(render_context.finish());
+
+            let (commands, render_device, diagnostics_recorder) = render_context.finish();
+            queue.submit(commands);
+
+            (render_device, diagnostics_recorder)
+        };
+
+        if let Some(recorder) = &mut diagnostics_recorder {
+            let render_diagnostics_mutex = world.resource::<RenderDiagnosticsMutex>().0.clone();
+            recorder.finish_frame(&render_device, move |diagnostics| {
+                *render_diagnostics_mutex.lock().expect("lock poisoned") = Some(diagnostics);
+            });
         }
-        Ok(())
+
+        Ok(diagnostics_recorder)
     }
 
     fn run_graph<'w>(

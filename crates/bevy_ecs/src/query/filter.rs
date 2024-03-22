@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
@@ -70,8 +70,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
-/// [`update_archetype_component_access`]: Self::update_archetype_component_access
-/// [`update_component_access`]: Self::update_component_access
 
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
@@ -81,6 +79,12 @@ pub trait QueryFilter: WorldQuery {
     /// many elements are being iterated (such as `Iterator::collect()`).
     const IS_ARCHETYPAL: bool;
 
+    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
+    /// If false, the entity will be skipped.
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
@@ -123,7 +127,7 @@ pub trait QueryFilter: WorldQuery {
 pub struct With<T>(PhantomData<T>);
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do not add any accesses.
+/// `update_component_access` does not add any accesses.
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
@@ -144,7 +148,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -231,7 +235,7 @@ impl<T: Component> QueryFilter for With<T> {
 pub struct Without<T>(PhantomData<T>);
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do not add any accesses.
+/// `update_component_access` does not add any accesses.
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
@@ -252,7 +256,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -359,14 +363,14 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
     }
 }
 
-macro_rules! impl_query_filter_tuple {
+macro_rules! impl_or_query_filter {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
-        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
@@ -384,7 +388,8 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    fetch: $filter::init_fetch(world, $filter, last_run, this_run),
+                    // SAFETY: The invariants are uphold by the caller.
+                    fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
                 },)*)
             }
@@ -396,7 +401,8 @@ macro_rules! impl_query_filter_tuple {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
-                        $filter::set_table(&mut $filter.fetch, $state, table);
+                        // SAFETY: The invariants are uphold by the caller.
+                        unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
                     }
                 )*
             }
@@ -413,7 +419,8 @@ macro_rules! impl_query_filter_tuple {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        $filter::set_archetype(&mut $filter.fetch, $state, archetype, table);
+                        // SAFETY: The invariants are uphold by the caller.
+                       unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
             }
@@ -425,7 +432,8 @@ macro_rules! impl_query_filter_tuple {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
-                false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
+                // SAFETY: The invariants are uphold by the caller.
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -472,7 +480,8 @@ macro_rules! impl_query_filter_tuple {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                Self::fetch(fetch, entity, table_row)
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { Self::fetch(fetch, entity, table_row) }
             }
         }
     };
@@ -494,7 +503,8 @@ macro_rules! impl_tuple_query_filter {
                 _table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
-                true $(&& $name::filter_fetch($name, _entity, _table_row))*
+                // SAFETY: The invariants are uphold by the caller.
+                true $(&& unsafe { $name::filter_fetch($name, _entity, _table_row) })*
             }
         }
 
@@ -502,7 +512,7 @@ macro_rules! impl_tuple_query_filter {
 }
 
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
@@ -520,7 +530,7 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// # Time complexity
 ///
 /// `Added` is not [`ArchetypeFilter`], which practically means that
-/// if query (with `T` component filter) matches million entities,
+/// if the query (with `T` component filter) matches a million entities,
 /// `Added<T>` filter will iterate over all of them even if none of them were just added.
 ///
 /// For example, these two systems are roughly equivalent in terms of performance:
@@ -579,7 +589,7 @@ pub struct AddedFetch<'w> {
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
@@ -600,7 +610,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -608,7 +618,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -622,7 +632,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
-            Self::set_table(fetch, component_id, table);
+            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
         }
     }
 
@@ -644,19 +657,24 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_ticks
-                .debug_checked_unwrap()
-                .get(table_row.as_usize())
-                .deref()
-                .is_newer_than(fetch.last_run, fetch.this_run),
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
             StorageType::SparseSet => {
-                let sparse_set = &fetch.sparse_set.debug_checked_unwrap();
-                ComponentSparseSet::get_added_tick(sparse_set, entity)
-                    .debug_checked_unwrap()
-                    .deref()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             }
         }
     }
@@ -693,7 +711,8 @@ impl<T: Component> QueryFilter for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        Self::fetch(fetch, entity, table_row)
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }
 
@@ -779,7 +798,7 @@ pub struct ChangedFetch<'w> {
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// This is sound because `update_component_access` add read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
@@ -800,7 +819,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -808,7 +827,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -822,7 +841,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
-            Self::set_table(fetch, component_id, table);
+            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
         }
     }
 
@@ -844,19 +866,24 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_ticks
-                .debug_checked_unwrap()
-                .get(table_row.as_usize())
-                .deref()
-                .is_newer_than(fetch.last_run, fetch.this_run),
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
             StorageType::SparseSet => {
-                let sparse_set = &fetch.sparse_set.debug_checked_unwrap();
-                ComponentSparseSet::get_changed_tick(sparse_set, entity)
-                    .debug_checked_unwrap()
-                    .deref()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             }
         }
     }
@@ -894,7 +921,8 @@ impl<T: Component> QueryFilter for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        Self::fetch(fetch, entity, table_row)
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }
 

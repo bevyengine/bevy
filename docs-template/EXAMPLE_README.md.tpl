@@ -175,7 +175,7 @@ make run
 ```
 
 In an ideal world, this will boot up, install and run the app for the first
-iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
 ```sh
@@ -239,13 +239,6 @@ ruby -run -ehttpd examples/wasm
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
-WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
-
-```sh
-RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
-```
-
-Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
 
 Bevy has an helper to build its examples:
 

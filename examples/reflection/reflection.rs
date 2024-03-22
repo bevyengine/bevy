@@ -16,8 +16,8 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Bar will be automatically registered as it's a dependency of Foo
         .register_type::<Foo>()
-        .register_type::<Bar>()
         .add_systems(Startup, setup)
         .run();
 }

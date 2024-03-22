@@ -2,11 +2,12 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+use bevy_color::LinearRgba;
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
-    core_2d::graph::{Labels2d, SubGraph2d},
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -14,10 +15,10 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -72,20 +73,16 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph3d, Labels3d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
-                SubGraph3d,
-                (
-                    Labels3d::EndMainPass,
-                    Labels3d::Bloom,
-                    Labels3d::Tonemapping,
-                ),
+                Core3d,
+                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(SubGraph2d, Labels2d::Bloom)
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
-                SubGraph2d,
-                (Labels2d::MainPass, Labels2d::Bloom, Labels2d::Tonemapping),
+                Core2d,
+                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 
@@ -133,6 +130,10 @@ impl ViewNode for BloomNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if bloom_settings.intensity == 0.0 {
+            return Ok(());
+        }
+
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
@@ -155,6 +156,9 @@ impl ViewNode for BloomNode {
         };
 
         render_context.command_encoder().push_debug_group("bloom");
+
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "bloom");
 
         // First downsample pass
         {
@@ -244,7 +248,7 @@ impl ViewNode for BloomNode {
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -271,10 +275,11 @@ impl ViewNode for BloomNode {
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
+        time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 
         Ok(())

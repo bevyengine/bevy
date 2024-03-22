@@ -4,6 +4,6 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
 /// Marker struct for buttons
-#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub struct Button;
