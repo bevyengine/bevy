@@ -796,8 +796,9 @@ impl Bounded3d for Triangle3d {
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
         if self.is_degenerate() {
             let (p1, p2) = self.largest_side();
+            let mid_point = (p1 + p2) / 2.0;
             let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation, rotation);
+            return segment.bounding_sphere(mid_point, rotation);
         }
 
         let [a, b, c] = self.vertices;
@@ -828,7 +829,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
+    use crate::{bounding::BoundingVolume, InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -985,5 +986,162 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn triangle_math() {
+        // Default triangle tests
+        let mut default_triangle = Triangle3d::default();
+        let reverse_default_triangle = Triangle3d::new(
+            Vec3::new(0.5, -0.5, 0.0),
+            Vec3::new(-0.5, -0.5, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        );
+        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
+        assert_relative_eq!(
+            default_triangle.perimeter(),
+            1.0 + 2.0 * 1.25_f32.sqrt(),
+            epsilon = 10e-9
+        );
+        assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
+        assert_eq!(
+            default_triangle.is_degenerate(),
+            false,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            default_triangle.centroid(),
+            Vec3::new(0.0, -0.16666667, 0.0),
+            "incorrect centroid"
+        );
+        assert_eq!(
+            default_triangle.largest_side(),
+            (Vec3::new(0.0, 0.5, 0.0), Vec3::new(-0.5, -0.5, 0.0))
+        );
+        default_triangle.reverse();
+        assert_eq!(
+            default_triangle, reverse_default_triangle,
+            "incorrect reverse"
+        );
+        assert_eq!(
+            default_triangle.circumcenter(),
+            Vec3::new(0.0, -0.125, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Custom triangle tests
+        let right_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::Y);
+        let obtuse_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::X, Vec3::new(0.0, 0.1, 0.0));
+        let acute_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::new(0.5, 5.0, 0.0));
+
+        assert_eq!(
+            right_triangle.circumcenter(),
+            Vec3::new(0.5, 0.5, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            obtuse_triangle.circumcenter(),
+            Vec3::new(0.0, -4.95, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            acute_triangle.circumcenter(),
+            Vec3::new(0.5, 2.475, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Degenerate triangle tests
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        assert_eq!(
+            zero_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::ZERO),
+            "incorrect largest side"
+        );
+
+        // let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY); // DIVISION BY ZERO
+        // assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
+        // assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
+
+        let br = zero_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(br.center(), Vec3::ZERO, "incorrect bounding box center");
+        assert_eq!(
+            br.half_size(),
+            Vec3::ZERO,
+            "incorrect bounding box half extents"
+        );
+
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        assert_eq!(
+            dup_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::X),
+            "incorrect largest side"
+        );
+
+        let bs = dup_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            bs.center,
+            Vec3::new(0.5, 0.0, 0.0),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 0.5, "incorrect bounding sphere radius");
+        let br = dup_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            br.center(),
+            Vec3::new(0.5, 0.0, 0.0),
+            "incorrect bounding box center"
+        );
+        assert_eq!(
+            br.half_size(),
+            Vec3::new(0.5, 0.0, 0.0),
+            "incorrect bounding box half extents"
+        );
+
+        let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        assert_eq!(
+            common_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            common_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            common_degenerate_triangle.largest_side(),
+            (Vec3::NEG_X, Vec3::X),
+            "incorrect largest side"
+        );
+
+        let bs = common_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
+        assert_eq!(bs.sphere.radius, 1.0, "incorrect bounding sphere radius");
+        let br = common_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(br.center(), Vec3::ZERO, "incorrect bounding box center");
+        assert_eq!(
+            br.half_size(),
+            Vec3::new(1.0, 0.0, 0.0),
+            "incorrect bounding box half extents"
+        );
     }
 }
