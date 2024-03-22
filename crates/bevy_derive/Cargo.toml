@@ -21,10 +21,5 @@ syn = { version = "2.0", features = ["full"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = [
-  "-Zunstable-options",
-  "-Zrustdoc-scrape-examples",
-  "--cfg",
-  "docsrs",
-]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

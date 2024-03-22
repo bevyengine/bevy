@@ -209,10 +209,5 @@ bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.14.
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = [
-  "-Zunstable-options",
-  "-Zrustdoc-scrape-examples",
-  "--cfg",
-  "docsrs",
-]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

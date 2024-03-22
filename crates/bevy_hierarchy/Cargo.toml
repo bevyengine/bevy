@@ -31,10 +31,5 @@ smallvec = { version = "1.11", features = ["union", "const_generics"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = [
-  "-Zunstable-options",
-  "-Zrustdoc-scrape-examples",
-  "--cfg",
-  "docsrs",
-]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
