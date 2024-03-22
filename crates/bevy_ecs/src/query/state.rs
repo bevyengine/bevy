@@ -22,6 +22,17 @@ use super::{
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
+///
+/// This data is cached between system runs, and is used to:
+/// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched" means
+/// that the query will iterate over the data in the matched table/archetype.
+/// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data
+/// from a specific [`Table`] or [`Archetype`]
+/// - build iterators that can iterate over the query results
+///
+/// [`State`]: crate::query::world_query::WorldQuery::State
+/// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
+/// [`Table`]: crate::storage::Table
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
@@ -29,8 +40,12 @@ use super::{
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
+    /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
     pub(crate) matched_tables: FixedBitSet,
+    /// Metadata about the [`Archetype`]s matched by this query.
     pub(crate) matched_archetypes: FixedBitSet,
+    /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
+    /// this query can run in parallel with.
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
     pub(crate) matched_table_ids: Vec<TableId>,
@@ -330,6 +345,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
+    /// and [`Archetype`]s that are matched by this query.
+    ///
+    /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
+    /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
     fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
