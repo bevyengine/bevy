@@ -25,7 +25,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -60,7 +60,6 @@ use std::fmt::Debug;
 /// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #   fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }

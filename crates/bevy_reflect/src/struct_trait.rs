@@ -420,19 +420,6 @@ impl Reflect for DynamicStruct {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-struct type to struct type.");
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {

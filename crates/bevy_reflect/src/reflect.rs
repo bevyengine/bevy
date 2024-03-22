@@ -103,17 +103,17 @@ impl_reflect_enum!(ReflectOwned);
 
 #[derive(Error, Debug)]
 pub enum ApplyError {
-    #[error("Attempted to apply `non-{0}` type to `{0}` type.")]
+    #[error("Attempted to apply `non-{0}` type to `{0}` type")]
     MismatchedTypes(String),
-    #[error("Value is not a `{0}`.")]
-    WrongType(String),
-    #[error("Attempted to apply different sized `{0}` types.")]
+    #[error("`{0}` is not a {1}")]
+    WrongType(String, String),
+    #[error("Attempted to apply different sized `{0}` types")]
     DifferentSize(String),
-    #[error("Field in `Some` variant of `{0}` should exist.")]
+    #[error("Field in `Some` variant of `{0}` should exist")]
     AbsentField(String),
-    #[error("Field in `Some` variant of `{0}` should be of type `{1}`.")]
+    #[error("Field in `Some` variant of `{0}` should be of type `{1}`")]
     MismatchedFieldTypes(String, String),
-    #[error("Variant with name `{0}` does not exist on enum `{1}`.")]
+    #[error("Variant with name `{0}` does not exist on enum `{1}`")]
     UnknownVariant(String, String),
 }
 
@@ -235,7 +235,11 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn Reflect);
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let Err(err) = Reflect::try_apply(self, value) {
+            panic!("{err}");
+        }
+    }
 
     /// Tries to apply a reflected value to this value and returns a result.
     ///
@@ -270,10 +274,10 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// [`Map`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
     /// or none of the above depending on the kind of type. For lists and maps, use the
-    /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
+    /// [`list_try_apply`] and [`map_try_apply`] helper functions when implementing this method.
     ///
-    /// [`list_apply`]: crate::list_apply
-    /// [`map_apply`]: crate::map_apply
+    /// [`list_try_apply`]: crate::list_try_apply
+    /// [`map_try_apply`]: crate::map_try_apply
     ///
     /// # Errors
     ///

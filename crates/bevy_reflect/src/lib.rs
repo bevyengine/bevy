@@ -168,7 +168,7 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};

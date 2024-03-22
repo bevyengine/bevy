@@ -419,7 +419,10 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            return Err(ApplyError::WrongType("enum".to_string()));
+            return Err(ApplyError::WrongType(
+                value.reflect_type_path().to_string(),
+                "enum".to_string(),
+            ));
         }
         Ok(())
     }

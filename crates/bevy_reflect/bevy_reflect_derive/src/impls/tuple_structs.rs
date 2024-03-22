@@ -177,17 +177,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::TupleStruct::iter_fields(struct_value)) {
-                        #bevy_reflect_path::TupleStruct::field_mut(self, i).map(|v| v.apply(value));
-                    }
-                } else {
-                    panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
-                }
-            }
-
-            #[inline]
             fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::TupleStruct::iter_fields(struct_value)) {

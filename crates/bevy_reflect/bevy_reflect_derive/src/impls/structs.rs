@@ -208,18 +208,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
-                        let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
-                    }
-                } else {
-                    panic!("Attempted to apply non-struct type to struct type.");
-                }
-            }
-
-            #[inline]
             fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {

@@ -398,14 +398,8 @@ impl_type_path!((in bevy_reflect) DynamicTuple);
 /// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
-    if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        for (i, value) in tuple.iter_fields().enumerate() {
-            if let Some(v) = a.field_mut(i) {
-                v.apply(value);
-            }
-        }
-    } else {
-        panic!("Attempted to apply non-Tuple type to Tuple type.");
+    if let Err(err) = tuple_try_apply(a, b) {
+        panic!("{err}");
     }
 }
 

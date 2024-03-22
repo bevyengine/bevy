@@ -1,10 +1,9 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, map_try_apply, ReflectFromPtr, ReflectFromReflect, ReflectOwned, TypeRegistry};
 use crate::{
-    impl_type_path, map_apply, map_partial_eq, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap,
+    self as bevy_reflect, impl_type_path, map_apply, map_try_apply, map_partial_eq, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap,
     FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
-    TypePath, TypeRegistration, Typed, ValueInfo,
+    Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectOwned, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 
 use crate::utility::{
@@ -1073,22 +1072,14 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
             return Err(ApplyError::WrongType(
-                std::any::type_name::<Self>().to_string(),
+                "Value".to_string(),
+                Self::type_path().to_string(),
             ));
         }
         Ok(())
@@ -1375,22 +1366,14 @@ impl Reflect for &'static str {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
-            *self = value;
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         let value = value.as_any();
         if let Some(&value) = value.downcast_ref::<Self>() {
             *self = value;
         } else {
             return Err(ApplyError::WrongType(
-                std::any::type_name::<Self>().to_string(),
+                "Value".to_string(),
+                Self::type_path().to_string(),
             ));
         }
         Ok(())
@@ -1489,22 +1472,16 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
-            *self = value;
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         let value = value.as_any();
         if let Some(&value) = value.downcast_ref::<Self>() {
             *self = value;
             Ok(())
         } else {
-            Err(ApplyError::WrongType(Self::type_path().to_string()))
+            Err(ApplyError::WrongType(
+                "Value".to_string(),
+                Self::type_path().to_string(),
+            ))
         }
     }
 
@@ -1600,22 +1577,16 @@ impl Reflect for Cow<'static, Path> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
             Ok(())
         } else {
-            Err(ApplyError::WrongType(Self::type_path().to_string()))
+            Err(ApplyError::WrongType(
+                "Value".to_string(),
+                Self::type_path().to_string(),
+            ))
         }
     }
 
@@ -1847,14 +1818,14 @@ mod tests {
 
         // === None on None === //
         let patch = None::<Foo>;
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "Some apply onto None");

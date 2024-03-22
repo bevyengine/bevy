@@ -440,18 +440,8 @@ pub fn list_hash<L: List>(list: &L) -> Option<u64> {
 /// This function panics if `b` is not a list.
 #[inline]
 pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
-    if let ReflectRef::List(list_value) = b.reflect_ref() {
-        for (i, value) in list_value.iter().enumerate() {
-            if i < a.len() {
-                if let Some(v) = a.get_mut(i) {
-                    v.apply(value);
-                }
-            } else {
-                a.push(value.clone_value());
-            }
-        }
-    } else {
-        panic!("Attempted to apply a non-list type to a list type.");
+    if let Err(err) = list_try_apply(a, b) {
+        panic!("{err}");
     }
 }
 

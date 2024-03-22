@@ -506,16 +506,8 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
 /// This function panics if `b` is not a reflected map.
 #[inline]
 pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
-    if let ReflectRef::Map(map_value) = b.reflect_ref() {
-        for (key, b_value) in map_value.iter() {
-            if let Some(a_value) = a.get_mut(key) {
-                a_value.apply(b_value);
-            } else {
-                a.insert_boxed(key.clone_value(), b_value.clone_value());
-            }
-        }
-    } else {
-        panic!("Attempted to apply a non-map type to a map type.");
+    if let Err(err) = map_try_apply(a, b) {
+        panic!("{err}");
     }
 }
 
