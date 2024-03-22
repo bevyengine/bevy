@@ -1004,9 +1004,8 @@ mod tests {
             epsilon = 10e-9
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
-        assert_eq!(
+        assert!(
             default_triangle.is_degenerate(),
-            false,
             "incorrect degenerate check"
         );
         assert_eq!(
@@ -1052,9 +1051,8 @@ mod tests {
 
         // Degenerate triangle tests
         let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
-        assert_eq!(
+        assert!(
             zero_degenerate_triangle.is_degenerate(),
-            true,
             "incorrect degenerate check"
         );
         assert_eq!(
@@ -1081,9 +1079,8 @@ mod tests {
         );
 
         let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
-        assert_eq!(
+        assert!(
             dup_degenerate_triangle.is_degenerate(),
-            true,
             "incorrect degenerate check"
         );
         assert_eq!(
@@ -1117,9 +1114,8 @@ mod tests {
         );
 
         let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
-        assert_eq!(
+        assert!(
             common_degenerate_triangle.is_degenerate(),
-            true,
             "incorrect degenerate check"
         );
         assert_eq!(
