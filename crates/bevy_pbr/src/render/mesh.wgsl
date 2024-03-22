@@ -38,7 +38,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef SKINNED
-    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var model = bevy_pbr::skinning::skin_model(vertex_no_morph.instance_index, vertex.joint_indices, vertex.joint_weights);
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416 .
