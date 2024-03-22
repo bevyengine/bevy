@@ -62,7 +62,9 @@ jobs:
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Install Cargo APK
-        run: cargo install --force cargo-apk
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-apk
 
       - name: Build APK
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
@@ -199,7 +201,9 @@ jobs:
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
       - name: Install wasm-bindgen
-        run: cargo install --force wasm-bindgen-cli
+        uses: taiki-e/install-action
+        with:
+          tool: wasm-bindgen-cli
 
       - name: Setup playwright
         run: |
@@ -278,7 +282,9 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Run cargo udeps

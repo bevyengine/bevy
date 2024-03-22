@@ -50,7 +50,9 @@ jobs:
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
 
       - name: Install Cargo APK
-        run: cargo install --force cargo-apk
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-apk
 
       - name: Build app for Android
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example

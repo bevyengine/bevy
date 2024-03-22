@@ -199,7 +199,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install taplo
-        run: cargo install taplo-cli --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: taplo-cli
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff
@@ -303,7 +305,9 @@ jobs:
       # This currently report a lot of false positives
       # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
       # - name: Installs cargo-deadlinks
-      #   run: cargo install --force cargo-deadlinks
+          # uses: taiki-e/install-action@v2
+          # with:
+          #   tool: cargo-deadlinks
       # - name: Checks dead links
       #   run: cargo deadlinks --dir target/doc/bevy
       #   continue-on-error: true

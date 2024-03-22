@@ -26,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-deny
       - name: Check for security advisories and unmaintained crates
         run: cargo deny check advisories
 
@@ -36,7 +38,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-deny
       - name: Check for banned and duplicated dependencies
         run: cargo deny check bans
 
@@ -46,7 +50,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-deny
       - name: Check for unauthorized licenses
         run: cargo deny check licenses
 
@@ -56,6 +62,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        uses: taiki-e/install-action
+        with:
+          tool: cargo-deny
       - name: Checked for unauthorized crate sources
         run: cargo deny check sources
