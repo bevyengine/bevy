@@ -412,6 +412,10 @@ where
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::INDIRECT) {
+            shader_defs.push("INDIRECT".into());
+        }
+
         if key.mesh_key.intersects(
             MeshPipelineKey::NORMAL_PREPASS
                 | MeshPipelineKey::MOTION_VECTOR_PREPASS
@@ -902,6 +906,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         (view_uniform_offset, previous_view_projection_uniform_offset): (
             &'_ ViewUniformOffset,
             Option<&'_ PreviousViewProjectionUniformOffset>,

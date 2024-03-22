@@ -42,12 +42,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var vertex = vertex_no_morph;
 #endif
 
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    let instance_index = mesh_functions::get_mesh_instance_index(vertex_no_morph.instance_index);
+
 #ifdef SKINNED
     var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
-    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
+    var model = mesh_functions::get_model_matrix(instance_index);
 #endif // SKINNED
 
     out.position = mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
@@ -68,21 +70,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef SKINNED
     out.world_normal = skinning::skin_normals(model, vertex.normal);
 #else // SKINNED
-    out.world_normal = mesh_functions::mesh_normal_local_to_world(
-        vertex.normal,
-        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-        // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
-    );
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal, instance_index);
 #endif // SKINNED
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
-        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-        // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
+        instance_index
     );
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
@@ -97,7 +92,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
-        mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
+        mesh_functions::get_previous_model_matrix(instance_index),
         vec4<f32>(vertex.position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
@@ -105,7 +100,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = vertex_no_morph.instance_index;
+    out.instance_index = instance_index;
 #endif
 
     return out;

@@ -338,6 +338,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,

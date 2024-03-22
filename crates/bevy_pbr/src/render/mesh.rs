@@ -1,6 +1,10 @@
+use std::{any::TypeId, iter, marker::PhantomData, mem};
+
 use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{
+        AlphaMask3d, Camera3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT,
+    },
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -16,20 +20,29 @@ use bevy_render::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
+    indirect::{
+        GpuIndirectInstanceDescriptor, GpuIndirectParameters, IndirectBuffers, MeshIndirectUniform,
+        RenderMeshIndirectInstance, ViewIndirectInstances,
+    },
     mesh::*,
+    primitives::Aabb,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{
+        CachedRenderPipelinePhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
+        TrackedRenderPass,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
-    view::{ViewTarget, ViewUniformOffset, ViewVisibility},
+    view::{GpuCulling, ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
+use bevy_utils::{default, tracing::error, Entry, HashMap, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
+use nonmax::NonMaxU32;
 
 use crate::render::{
     morph::{
@@ -111,6 +124,13 @@ impl Plugin for MeshRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMeshInstances>()
+                .init_resource::<RenderMeshIndirectBatches<Opaque3d>>()
+                .init_resource::<RenderMeshIndirectBatches<Transmissive3d>>()
+                .init_resource::<RenderMeshIndirectBatches<Transparent3d>>()
+                .init_resource::<RenderMeshIndirectBatches<AlphaMask3d>>()
+                .init_resource::<RenderMeshIndirectBatches<Shadow>>()
+                .init_resource::<RenderMeshIndirectBatches<Opaque3dDeferred>>()
+                .init_resource::<RenderMeshIndirectBatches<AlphaMask3dDeferred>>()
                 .init_resource::<MeshBindGroups>()
                 .init_resource::<SkinUniform>()
                 .init_resource::<SkinIndices>()
@@ -125,14 +145,54 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            (
+                                batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                                prepare_indirect_buffers::<Opaque3d>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
+                                prepare_indirect_buffers::<Transmissive3d>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
+                                prepare_indirect_buffers::<Transparent3d>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
+                                prepare_indirect_buffers::<AlphaMask3d>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                                prepare_indirect_buffers::<Shadow>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                                prepare_indirect_buffers::<Opaque3dDeferred>,
+                            )
+                                .chain(),
+                            (
+                                batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                                prepare_indirect_buffers::<AlphaMask3dDeferred>,
+                            )
+                                .chain(),
                         )
+                            .in_set(RenderSet::PrepareResources),
+                        clear_indirect_buffers
+                            .before(batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>)
+                            .before(batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>)
+                            .before(batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>)
+                            .before(batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>)
+                            .before(
+                                batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            )
+                            .before(
+                                batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
@@ -195,6 +255,7 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
+    pub indirect_data_index: u32,
     pub flags: u32,
     // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     //
@@ -209,7 +270,11 @@ pub struct MeshUniform {
 }
 
 impl MeshUniform {
-    pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
+    pub fn new(
+        mesh_transforms: &MeshTransforms,
+        indirect_data_index: Option<NonMaxU32>,
+        maybe_lightmap_uv_rect: Option<Rect>,
+    ) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -218,6 +283,10 @@ impl MeshUniform {
             lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
+            indirect_data_index: match indirect_data_index {
+                Some(indirect_data_index) => indirect_data_index.into(),
+                None => !0,
+            },
             flags: mesh_transforms.flags,
         }
     }
@@ -241,6 +310,7 @@ pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: AtomicMaterialBindGroupId,
+    pub indirect_uniform_index: Option<NonMaxU32>,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
@@ -251,12 +321,73 @@ impl RenderMeshInstance {
     }
 }
 
+struct RenderMeshInstanceBuilder {
+    pub transforms: MeshTransforms,
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub shadow_caster: bool,
+    pub automatic_batching: bool,
+}
+
+impl RenderMeshInstanceBuilder {
+    fn into_render_mesh_instance(
+        self,
+        indirect_uniform_index: Option<NonMaxU32>,
+    ) -> RenderMeshInstance {
+        RenderMeshInstance {
+            transforms: self.transforms,
+            mesh_asset_id: self.mesh_asset_id,
+            material_bind_group_id: AtomicMaterialBindGroupId::default(),
+            indirect_uniform_index,
+            shadow_caster: self.shadow_caster,
+            automatic_batching: self.automatic_batching,
+        }
+    }
+}
+
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
 
+#[derive(Default)]
+pub struct RenderMeshIndirectBatch {
+    pub indirect_parameters_offset: u32,
+}
+
+#[derive(Resource)]
+pub struct RenderMeshIndirectBatches<PI>
+where
+    PI: PhaseItem,
+{
+    /// Maps a view to all the indirect batches that are potentially visible
+    /// from it.
+    ///
+    /// The batches are keyed off first instance index in the batch.
+    pub instances: EntityHashMap<HashMap<u32, RenderMeshIndirectBatch>>,
+    phantom: PhantomData<PI>,
+}
+
+impl<PI> Default for RenderMeshIndirectBatches<PI>
+where
+    PI: PhaseItem,
+{
+    fn default() -> Self {
+        RenderMeshIndirectBatches {
+            instances: default(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct MeshExtractionThreadQueue {
+    entities: Vec<Entity>,
+    instances: Vec<RenderMeshInstanceBuilder>,
+    indirect_instances: Vec<RenderMeshIndirectInstance>,
+}
+
 pub fn extract_meshes(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    mut thread_local_queues: Local<Parallel<Vec<(Entity, RenderMeshInstance)>>>,
+    mut indirect_buffers: ResMut<IndirectBuffers>,
+    mut thread_local_queues: Local<Parallel<MeshExtractionThreadQueue>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -264,13 +395,17 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
+            Option<&Aabb>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
     >,
+    view_query: Extract<Query<Entity, (With<Camera3d>, With<GpuCulling>)>>,
 ) {
+    let indirect_instance_data_needed = !view_query.is_empty();
+
     meshes_query.par_iter().for_each(
         |(
             entity,
@@ -278,6 +413,7 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
+            aabb,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -288,6 +424,7 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+
             let mut flags = if not_shadow_receiver {
                 MeshFlags::empty()
             } else {
@@ -304,24 +441,173 @@ pub fn extract_meshes(
                 previous_transform: (&previous_transform).into(),
                 flags: flags.bits(),
             };
+
+            let aabb = aabb.cloned().unwrap_or_default();
+
             thread_local_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    RenderMeshInstance {
-                        mesh_asset_id: handle.id(),
-                        transforms,
-                        shadow_caster: !not_shadow_caster,
-                        material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                        automatic_batching: !no_automatic_batching,
-                    },
-                ));
+                queue.entities.push(entity);
+                queue.instances.push(RenderMeshInstanceBuilder {
+                    transforms,
+                    mesh_asset_id: handle.id(),
+                    shadow_caster: !not_shadow_caster,
+                    automatic_batching: !no_automatic_batching,
+                });
+
+                if indirect_instance_data_needed {
+                    queue
+                        .indirect_instances
+                        .push(RenderMeshIndirectInstance { aabb });
+                }
             });
         },
     );
 
     render_mesh_instances.clear();
+    indirect_buffers.mesh_indirect_uniform.clear();
+
     for queue in thread_local_queues.iter_mut() {
-        render_mesh_instances.extend(queue.drain(..));
+        for ((entity, render_mesh_instance_builder), render_indirect_uniform) in
+            queue.entities.drain(..).zip(queue.instances.drain(..)).zip(
+                queue
+                    .indirect_instances
+                    .drain(..)
+                    .map(Some)
+                    .chain(iter::repeat(None)),
+            )
+        {
+            let indirect_uniform_index =
+                render_indirect_uniform.and_then(|render_mesh_indirect_instance| {
+                    NonMaxU32::try_from(indirect_buffers.mesh_indirect_uniform.push(
+                        MeshIndirectUniform {
+                            aabb_center: render_mesh_indirect_instance.aabb.center.into(),
+                            aabb_half_extents:
+                                render_mesh_indirect_instance.aabb.half_extents.into(),
+                            pad0: 0,
+                            pad1: 0,
+                        },
+                    ) as u32)
+                    .ok()
+                });
+
+            let render_mesh_instance =
+                render_mesh_instance_builder.into_render_mesh_instance(indirect_uniform_index);
+            render_mesh_instances.insert(entity, render_mesh_instance);
+        }
+    }
+}
+
+pub fn clear_indirect_buffers(mut indirect_buffers: ResMut<IndirectBuffers>) {
+    indirect_buffers.params.clear();
+    indirect_buffers.view_instances.clear();
+}
+
+pub fn prepare_indirect_buffers<PI>(
+    mut render_phase_query: Query<(Entity, &mut RenderPhase<PI>), With<GpuCulling>>,
+    mut indirect_buffers: ResMut<IndirectBuffers>,
+    mut render_mesh_indirect_instances: ResMut<RenderMeshIndirectBatches<PI>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    render_meshes: Res<RenderAssets<Mesh>>,
+) where
+    PI: CachedRenderPipelinePhaseItem,
+{
+    let indirect_buffers = &mut *indirect_buffers;
+    for (view_entity, render_phase) in render_phase_query.iter_mut() {
+        let view_indirect_instances = indirect_buffers
+            .view_instances
+            .entry(view_entity)
+            .or_insert_with(ViewIndirectInstances::new);
+
+        let mut view_indirect_instance_range = None;
+        let mut indirect_instances = HashMap::new();
+        let mut item_instance_index = 0;
+
+        while item_instance_index < render_phase.items.len() {
+            let phase_item = &render_phase.items[item_instance_index];
+
+            let (entity, batch_range) = (phase_item.entity(), phase_item.batch_range());
+            if batch_range.is_empty() {
+                item_instance_index += 1;
+                continue;
+            }
+
+            let Some(render_mesh_instance) = render_mesh_instances.get(&entity) else {
+                item_instance_index += batch_range.len();
+                continue;
+            };
+            let Some(render_mesh) = render_meshes.get(render_mesh_instance.mesh_asset_id) else {
+                item_instance_index += batch_range.len();
+                continue;
+            };
+
+            // Push the indirect instance indices.
+            let mut first_instance_handle_in_batch = None;
+            for batch_item_instance_index in 0..batch_range.len() {
+                let instance_handle = view_indirect_instances.instance_count
+                    + item_instance_index as u32
+                    + batch_item_instance_index as u32;
+                if first_instance_handle_in_batch.is_none() {
+                    first_instance_handle_in_batch = Some(instance_handle);
+                }
+                view_indirect_instance_range = match view_indirect_instance_range {
+                    None => Some(instance_handle..(instance_handle + 1)),
+                    Some(ref view_indirect_instance_range) => {
+                        Some(view_indirect_instance_range.start..(instance_handle + 1))
+                    }
+                }
+            }
+
+            // Push the indirect parameters.
+            let indirect_parameters_index =
+                indirect_buffers.params.push(match render_mesh.buffer_info {
+                    GpuBufferInfo::Indexed { count, .. } => GpuIndirectParameters {
+                        vertex_count: count,
+                        instance_count: 0,
+                        extra_0: 0,
+                        extra_1: 0,
+                        first_instance: first_instance_handle_in_batch.unwrap_or_default(),
+                    },
+                    GpuBufferInfo::NonIndexed => GpuIndirectParameters {
+                        vertex_count: render_mesh.vertex_count,
+                        instance_count: 0,
+                        extra_0: 0,
+                        extra_1: first_instance_handle_in_batch.unwrap_or_default(),
+                        first_instance: first_instance_handle_in_batch.unwrap_or_default(),
+                    },
+                });
+
+            // Push the indirect instances.
+            for instance_index in (*batch_range).clone() {
+                view_indirect_instances
+                    .descriptors
+                    .push(GpuIndirectInstanceDescriptor {
+                        parameters_index: indirect_parameters_index as u32,
+                        instance_index,
+                    });
+            }
+
+            indirect_instances.insert(
+                batch_range.start,
+                RenderMeshIndirectBatch {
+                    indirect_parameters_offset: (indirect_parameters_index
+                        * mem::size_of::<GpuIndirectParameters>())
+                        as u32,
+                },
+            );
+
+            item_instance_index += batch_range.len();
+        }
+
+        view_indirect_instances.instance_count += item_instance_index as u32;
+
+        if let Some(view_indirect_instance_range) = view_indirect_instance_range {
+            view_indirect_instances
+                .phase_item_ranges
+                .insert(TypeId::of::<PI>(), view_indirect_instance_range);
+        }
+
+        render_mesh_indirect_instances
+            .instances
+            .insert(view_entity, indirect_instances);
     }
 }
 
@@ -460,6 +746,7 @@ impl GetBatchData for MeshPipeline {
         Some((
             MeshUniform::new(
                 &mesh_instance.transforms,
+                mesh_instance.indirect_uniform_index,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
             mesh_instance.should_batch().then_some((
@@ -495,6 +782,7 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
         const LIGHTMAPPED                       = 1 << 14;
         const IRRADIANCE_VOLUME                 = 1 << 15;
+        const INDIRECT                          = 1 << 16; // Indirect rendering is being used.
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
@@ -776,6 +1064,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VIEW_PROJECTION_ORTHOGRAPHIC".into());
         }
 
+        if key.contains(MeshPipelineKey::INDIRECT) {
+            shader_defs.push("INDIRECT".into());
+        }
+
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
@@ -1037,6 +1329,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewQuery,
@@ -1075,6 +1368,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _item_query: Option<()>,
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
@@ -1138,19 +1432,30 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewQuery = ();
+    type Param = (
+        SRes<RenderAssets<Mesh>>,
+        SRes<RenderMeshInstances>,
+        SRes<RenderMeshIndirectBatches<P>>,
+        SRes<IndirectBuffers>,
+    );
+    type ViewQuery = Entity;
     type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
-        _view: (),
+        index: usize,
+        view_entity: Entity,
         _item_query: Option<()>,
-        (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, mesh_instances, mesh_indirect_instances, indirect_buffers): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
+        let indirect_buffers = indirect_buffers.into_inner();
 
         let Some(mesh_instance) = mesh_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
@@ -1158,6 +1463,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let Some(gpu_mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
             return RenderCommandResult::Failure;
         };
+        let mesh_indirect_instances = mesh_indirect_instances.instances.get(&view_entity);
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
@@ -1168,6 +1474,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             0,
             &(batch_range.start as i32).to_le_bytes(),
         );
+
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,
@@ -1175,12 +1482,39 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                 count,
             } => {
                 pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, batch_range.clone());
+
+                match mesh_indirect_instances {
+                    Some(indirect_instances) => {
+                        let Some(indirect_buffer) = indirect_buffers.params.buffer() else {
+                            return RenderCommandResult::Failure;
+                        };
+                        pass.draw_indexed_indirect(
+                            indirect_buffer,
+                            indirect_instances[&batch_range.start].indirect_parameters_offset
+                                as u64,
+                        );
+                    }
+                    None => {
+                        pass.draw_indexed(0..*count, 0, batch_range.clone());
+                    }
+                }
             }
-            GpuBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
-            }
+            GpuBufferInfo::NonIndexed => match mesh_indirect_instances {
+                Some(indirect_instances) => {
+                    let Some(indirect_buffer) = indirect_buffers.params.buffer() else {
+                        return RenderCommandResult::Failure;
+                    };
+                    pass.draw_indirect(
+                        indirect_buffer,
+                        indirect_instances[&batch_range.start].indirect_parameters_offset as u64,
+                    );
+                }
+                None => {
+                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                }
+            },
         }
+
         RenderCommandResult::Success
     }
 }

@@ -268,6 +268,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiV
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
@@ -292,6 +293,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
@@ -317,6 +319,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,

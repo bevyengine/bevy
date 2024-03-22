@@ -1,6 +1,7 @@
 mod render_layers;
 
 use bevy_derive::Deref;
+use bevy_render_macros::ExtractComponent;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
@@ -12,6 +13,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::Parallel;
 
 use crate::deterministic::DeterministicRenderingConfig;
+use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -158,6 +160,10 @@ pub struct VisibilityBundle {
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
+#[derive(Clone, Copy, Component, Default, Reflect, ExtractComponent)]
+#[reflect(Component, Default)]
+pub struct GpuCulling;
+
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
@@ -213,42 +219,44 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
-            PostUpdate,
-            (
-                calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<Projection>
-                    .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
-                    .after(TransformSystem::TransformPropagate),
-                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility
-                    .in_set(CheckVisibility)
-                    .after(CalculateBounds)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
-            ),
-        );
+        app.add_plugins(ExtractComponentPlugin::<GpuCulling>::default())
+            .add_systems(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    update_frusta::<OrthographicProjection>
+                        .in_set(UpdateOrthographicFrusta)
+                        .after(camera_system::<OrthographicProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<PerspectiveProjection>
+                        .in_set(UpdatePerspectiveFrusta)
+                        .after(camera_system::<PerspectiveProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<Projection>
+                        .in_set(UpdateProjectionFrusta)
+                        .after(camera_system::<Projection>)
+                        .after(TransformSystem::TransformPropagate),
+                    (visibility_propagate_system, reset_view_visibility)
+                        .in_set(VisibilityPropagate),
+                    check_visibility
+                        .in_set(CheckVisibility)
+                        .after(CalculateBounds)
+                        .after(UpdateOrthographicFrusta)
+                        .after(UpdatePerspectiveFrusta)
+                        .after(UpdateProjectionFrusta)
+                        .after(VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
+                ),
+            );
     }
 }
 
@@ -377,6 +385,7 @@ pub fn check_visibility(
         &Frustum,
         Option<&RenderLayers>,
         &Camera,
+        Has<GpuCulling>,
     )>,
     mut visible_aabb_query: Query<(
         Entity,
@@ -389,7 +398,7 @@ pub fn check_visibility(
     )>,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, camera, gpu_culling) in &mut view_query {
         if !camera.is_active {
             continue;
         }
@@ -420,7 +429,7 @@ pub fn check_visibility(
             }
 
             // If we have an aabb, do frustum culling
-            if !no_frustum_culling {
+            if !no_frustum_culling && !gpu_culling {
                 if let Some(model_aabb) = maybe_model_aabb {
                     let model = transform.affine();
                     let model_sphere = Sphere {

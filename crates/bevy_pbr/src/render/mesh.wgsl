@@ -31,6 +31,10 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    let instance_index = mesh_functions::get_mesh_instance_index(vertex_no_morph.instance_index);
+
 #ifdef MORPH_TARGETS
     var vertex = morph_vertex(vertex_no_morph);
 #else
@@ -40,9 +44,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef SKINNED
     var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416 .
-    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
+    var model = mesh_functions::get_model_matrix(instance_index);
 #endif
 
 #ifdef VERTEX_NORMALS
@@ -51,9 +53,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #else
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
-        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-        // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
+        instance_index
     );
 #endif
 #endif
@@ -75,9 +75,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         model,
         vertex.tangent,
-        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-        // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
+        instance_index
     );
 #endif
 
@@ -86,9 +84,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = vertex_no_morph.instance_index;
+    out.instance_index = instance_index;
 #endif
 
     return out;

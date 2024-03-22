@@ -624,6 +624,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _view: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
@@ -644,6 +645,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _item_query: Option<()>,
         mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
@@ -673,6 +675,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _item_query: Option<()>,
         (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,

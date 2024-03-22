@@ -18,7 +18,7 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::NoFrustumCulling,
+        view::{GpuCulling, NoFrustumCulling},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -47,6 +47,10 @@ struct Args {
     /// whether to disable frustum culling, for stress testing purposes
     #[argh(switch)]
     no_frustum_culling: bool,
+
+    /// whether to use GPU culling
+    #[argh(switch)]
+    gpu_culling: bool,
 }
 
 #[derive(Default, Clone)]
@@ -148,7 +152,10 @@ fn setup(
             }
 
             // camera
-            commands.spawn(Camera3dBundle::default());
+            let mut camera = commands.spawn(Camera3dBundle::default());
+            if args.gpu_culling {
+                camera.insert(GpuCulling);
+            }
         }
         _ => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly

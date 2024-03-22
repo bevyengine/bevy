@@ -161,6 +161,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
@@ -183,6 +184,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         batch: Option<&'w UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
@@ -206,6 +208,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     #[inline]
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         batch: Option<&'w UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,

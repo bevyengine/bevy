@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::mesh_functions
 
 #import bevy_pbr::{
-    mesh_view_bindings::view,
+    mesh_view_bindings::{view, instance_indices},
     mesh_bindings::mesh,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::position_world_to_clip,
@@ -82,4 +82,12 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, in
     } else {
         return vertex_tangent;
     }
+}
+
+fn get_mesh_instance_index(instance_index: u32) -> u32 {
+#ifdef INDIRECT
+    return instance_indices[instance_index];
+#else
+    return instance_index;
+#endif
 }
