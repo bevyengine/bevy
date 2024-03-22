@@ -1,7 +1,7 @@
 mod function_feature;
 pub use function_feature::*;
 
-use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, TableStorage};
+use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, StorageType};
 use bevy_ecs::world::{EntityRef, World};
 use bevy_render::renderer::RenderContext;
 
@@ -326,5 +326,5 @@ pub use SingleIOHandle_Impl as SingleHandle;
 struct FeatureComponent<A: FeatureIO<false>>(A);
 
 impl<A: FeatureIO<false>> Component for FeatureComponent<A> {
-    type Storage = TableStorage;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 }
