@@ -49,7 +49,10 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
+        env:
+          # needs to be in sync with [package.metadata.docs.rs]
+          RUSTDOCFLAGS:  -Zunstable-options -Zrustdoc-scrape-examples --cfg=docsrs
+        run: cargo doc --all-features --no-deps -p bevy
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
