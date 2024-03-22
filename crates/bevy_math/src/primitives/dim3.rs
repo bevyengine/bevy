@@ -798,7 +798,7 @@ impl Bounded3d for Triangle3d {
             let (p1, p2) = self.largest_side();
             let mid_point = (p1 + p2) / 2.0;
             let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(mid_point, rotation);
+            return segment.bounding_sphere(translation + mid_point, rotation);
         }
 
         let [a, b, c] = self.vertices;
