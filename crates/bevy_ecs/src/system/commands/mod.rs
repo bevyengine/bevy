@@ -1,12 +1,14 @@
 mod parallel_scope;
 
-use super::{Deferred, Resource};
+use super::{Deferred, IntoObserverSystem, ObserverSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::{ComponentId, Components},
     entity::{Entities, Entity},
+    prelude::Component,
     system::{RunSystemWithInput, SystemId},
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
+    world::{Command, CommandQueue, DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -68,6 +70,7 @@ use std::marker::PhantomData;
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
+    components: &'w Components,
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -77,7 +80,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, world.entities())
+        Self::new_from_entities(queue, &world.entities, &world.components)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -85,9 +88,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
     ///
     /// [system parameter]: crate::system::SystemParam
-    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+    pub fn new_from_entities(
+        queue: &'s mut CommandQueue,
+        entities: &'w Entities,
+        components: &'w Components,
+    ) -> Self {
         Self {
             queue: Deferred(queue),
+            components,
             entities,
         }
     }
@@ -114,6 +122,7 @@ impl<'w, 's> Commands<'w, 's> {
         Commands {
             queue: self.queue.reborrow(),
             entities: self.entities,
+            components: self.components,
         }
     }
 
@@ -556,6 +565,11 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
     }
+
+    /// Returns a reference to the [`World`]'s [`Components`].
+    pub fn components(&self) -> &Components {
+        self.components
+    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -939,6 +953,19 @@ impl EntityCommands<'_> {
     pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
     }
+
+    /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
+    pub fn observe<E: Component, B: Bundle, M>(
+        &mut self,
+        system: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        self.commands.add(Observe::<E, B, _> {
+            entity: self.entity,
+            system: IntoObserverSystem::into_system(system),
+            marker: PhantomData,
+        });
+        self
+    }
 }
 
 impl<F> Command for F
@@ -1076,6 +1103,83 @@ fn log_components(entity: Entity, world: &mut World) {
         .map(|component_info| component_info.name())
         .collect();
     info!("Entity {:?}: {:?}", entity, debug_infos);
+}
+
+/// A [`Command`] that spawns an observer attached to a specific entity.
+#[derive(Debug)]
+pub struct Observe<E: Component, B: Bundle, C: ObserverSystem<E, B>> {
+    /// The entity that will be observed.
+    pub entity: Entity,
+    /// The callback to run when the event is observed.
+    pub system: C,
+    /// Marker for type parameters
+    pub marker: PhantomData<(E, B)>,
+}
+
+impl<E: Component, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, C> {
+    fn apply(self, world: &mut World) {
+        world.entity_mut(self.entity).observe(self.system);
+    }
+}
+
+/// A [`Command`] that emits an event to be received by observers.
+#[derive(Debug)]
+pub(crate) struct EmitEcsEvent<E> {
+    /// [`ComponentId`] for this event.
+    event: ComponentId,
+    /// Entities to trigger observers for.
+    entities: Vec<Entity>,
+    /// Components to trigger observers for.
+    components: Vec<ComponentId>,
+    /// Data for the event.
+    data: E,
+}
+
+impl<E> EmitEcsEvent<E> {
+    // SAFETY: Caller must ensure the type represented by `event` is accessible as `E`.
+    pub(crate) unsafe fn new(
+        event: ComponentId,
+        entities: Vec<Entity>,
+        components: Vec<ComponentId>,
+        data: E,
+    ) -> Self {
+        Self {
+            event,
+            entities,
+            components,
+            data,
+        }
+    }
+}
+
+impl<E: Send + 'static> Command for EmitEcsEvent<E> {
+    fn apply(mut self, world: &mut World) {
+        let mut world = DeferredWorld::from(world);
+
+        if self.entities.is_empty() {
+            // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
+            unsafe {
+                world.trigger_observers_with_data(
+                    self.event,
+                    None,
+                    self.components.iter().cloned(),
+                    &mut self.data,
+                );
+            };
+        } else {
+            for &target in &self.entities {
+                // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
+                unsafe {
+                    world.trigger_observers_with_data(
+                        self.event,
+                        Some(target),
+                        self.components.iter().cloned(),
+                        &mut self.data,
+                    );
+                };
+            }
+        }
+    }
 }
 
 #[cfg(test)]

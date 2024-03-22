@@ -7,6 +7,8 @@ use bevy_utils::tracing::warn;
 
 use crate::world::{Command, World};
 
+use super::DeferredWorld;
+
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
@@ -127,7 +129,7 @@ impl CommandQueue {
     /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
     /// This clears the queue.
     #[inline]
-    fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
+    pub(crate) fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
         // The range of pointers of the filled portion of `self.bytes`.
         let bytes_range = self.bytes.as_mut_ptr_range();
 
@@ -241,6 +243,11 @@ impl SystemBuffer for CommandQueue {
         #[cfg(feature = "trace")]
         let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
+    }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        world.commands().append(self);
     }
 }
 

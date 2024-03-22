@@ -9,6 +9,7 @@ use crate::{
     change_detection::{MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
@@ -228,6 +229,13 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.removed_components
+    }
+
+    /// Retrieves this world's [`Observers`] collection.
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.observers
     }
 
     /// Retrieves this world's [`Bundles`] collection.
@@ -569,6 +577,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there are no existing mutable references
         // - caller ensures that we have permission to access the queue
         unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that there are no outsanding
+    /// references to `last_event_id`.
+    pub(crate) unsafe fn increment_event_id(self) {
+        // SAFETY: Caller ensure there are no outstanding references
+        unsafe { (*self.0).last_event_id += 1 }
     }
 }
 

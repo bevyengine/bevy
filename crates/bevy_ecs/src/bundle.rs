@@ -2,8 +2,9 @@
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
 
+use std::any::TypeId;
+
 pub use bevy_ecs_macros::Bundle;
-use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::{
     archetype::{
@@ -12,14 +13,15 @@ use crate::{
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT},
 };
+
 use bevy_ptr::{ConstNonNull, OwningPtr};
-use bevy_utils::all_tuples;
-use std::any::TypeId;
+use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 use std::ptr::NonNull;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -150,6 +152,9 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         ids: &mut impl FnMut(ComponentId),
     );
 
+    /// Gets this [`Bundle`]'s component ids, will be `None` if the component has not been registered.
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
     ///
@@ -199,6 +204,10 @@ unsafe impl<C: Component> Bundle for C {
         // Safety: The id given in `component_ids` is for `Self`
         unsafe { ptr.read() }
     }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        ids(components.get_id(TypeId::of::<C>()));
+    }
 }
 
 impl<C: Component> DynamicBundle for C {
@@ -220,6 +229,11 @@ macro_rules! tuple_impl {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            }
+
+            #[allow(unused_variables)]
+            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -427,6 +441,7 @@ impl BundleInfo {
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         components: &Components,
+        observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -435,6 +450,7 @@ impl BundleInfo {
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+        let mut added = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.component_ids.iter().cloned() {
@@ -442,6 +458,7 @@ impl BundleInfo {
                 bundle_status.push(ComponentStatus::Mutated);
             } else {
                 bundle_status.push(ComponentStatus::Added);
+                added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
@@ -454,7 +471,7 @@ impl BundleInfo {
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // the archetype does not change when we add this bundle
-            edges.insert_add_bundle(self.id, archetype_id, bundle_status);
+            edges.insert_add_bundle(self.id, archetype_id, bundle_status, added);
             archetype_id
         } else {
             let table_id;
@@ -493,6 +510,7 @@ impl BundleInfo {
             // SAFETY: ids in self must be valid
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
+                observers,
                 table_id,
                 table_components,
                 sparse_set_components,
@@ -502,6 +520,7 @@ impl BundleInfo {
                 self.id,
                 new_archetype_id,
                 bundle_status,
+                added,
             );
             new_archetype_id
         }
@@ -562,6 +581,7 @@ impl<'w> BundleInserter<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            &world.observers,
             archetype_id,
         );
         if new_archetype_id == archetype_id {
@@ -781,27 +801,29 @@ impl<'w> BundleInserter<'w> {
             }
         };
 
+        let new_archetype = &*new_archetype;
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
 
-        if new_archetype.has_on_add() {
-            // SAFETY: All components in the bundle are guaranteed to exist in the World
-            // as they must be initialized before creating the BundleInfo.
-            unsafe {
-                deferred_world.trigger_on_add(
-                    entity,
-                    bundle_info
-                        .iter_components()
-                        .zip(add_bundle.bundle_status.iter())
-                        .filter(|(_, &status)| status == ComponentStatus::Added)
-                        .map(|(id, _)| id),
+        // SAFETY: All components in the bundle are guaranteed to exist in the World
+        // as they must be initialized before creating the BundleInfo.
+        unsafe {
+            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+            if new_archetype.has_add_observer() {
+                deferred_world.trigger_observers(
+                    ON_ADD,
+                    Some(entity),
+                    add_bundle.added.iter().cloned(),
                 );
             }
-        }
-        if new_archetype.has_on_insert() {
-            // SAFETY: All components in the bundle are guaranteed to exist in the World
-            // as they must be initialized before creating the BundleInfo.
-            unsafe { deferred_world.trigger_on_insert(entity, bundle_info.iter_components()) }
+            deferred_world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
+            if new_archetype.has_insert_observer() {
+                deferred_world.trigger_observers(
+                    ON_INSERT,
+                    Some(entity),
+                    bundle_info.iter_components(),
+                );
+            }
         }
 
         new_location
@@ -848,6 +870,7 @@ impl<'w> BundleSpawner<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            &world.observers,
             ArchetypeId::EMPTY,
         );
         let archetype = &mut world.archetypes[new_archetype_id];
@@ -877,12 +900,12 @@ impl<'w> BundleSpawner<'w> {
         entity: Entity,
         bundle: T,
     ) -> EntityLocation {
-        let table = self.table.as_mut();
-        let archetype = self.archetype.as_mut();
+        // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
-
-        // SAFETY: We do not make any structural changes to the archetype graph through self.world so this pointer always remain valid
         let location = {
+            let table = self.table.as_mut();
+            let archetype = self.archetype.as_mut();
+
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let (sparse_sets, entities) = {
                 let world = self.world.world_mut();
@@ -905,16 +928,28 @@ impl<'w> BundleSpawner<'w> {
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
-        if archetype.has_on_add() {
-            // SAFETY: All components in the bundle are guaranteed to exist in the World
-            // as they must be initialized before creating the BundleInfo.
-            unsafe { deferred_world.trigger_on_add(entity, bundle_info.iter_components()) };
-        }
-        if archetype.has_on_insert() {
-            // SAFETY: All components in the bundle are guaranteed to exist in the World
-            // as they must be initialized before creating the BundleInfo.
-            unsafe { deferred_world.trigger_on_insert(entity, bundle_info.iter_components()) };
-        }
+        // SAFETY: `DeferredWorld` cannot provide mutable access to `Archetypes`.
+        let archetype = self.archetype.as_ref();
+        // SAFETY: All components in the bundle are guaranteed to exist in the World
+        // as they must be initialized before creating the BundleInfo.
+        unsafe {
+            deferred_world.trigger_on_add(archetype, entity, bundle_info.iter_components());
+            if archetype.has_add_observer() {
+                deferred_world.trigger_observers(
+                    ON_ADD,
+                    Some(entity),
+                    bundle_info.iter_components(),
+                );
+            }
+            deferred_world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+            if archetype.has_insert_observer() {
+                deferred_world.trigger_observers(
+                    ON_INSERT,
+                    Some(entity),
+                    bundle_info.iter_components(),
+                );
+            }
+        };
 
         location
     }
@@ -942,7 +977,7 @@ impl<'w> BundleSpawner<'w> {
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {
         // SAFETY: pointers on self can be invalidated,
-        self.world.world_mut().flush_commands();
+        self.world.world_mut().flush();
     }
 }
 

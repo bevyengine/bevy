@@ -4,16 +4,18 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    observer::{AttachObserver, ObserverBuilder, Observers},
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
+    system::IntoObserverSystem,
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -870,6 +872,7 @@ impl<'w> EntityWorldMut<'w> {
                 &mut world.archetypes,
                 storages,
                 components,
+                &world.observers,
                 old_location.archetype_id,
                 bundle_info,
                 false,
@@ -892,10 +895,15 @@ impl<'w> EntityWorldMut<'w> {
             )
         };
 
-        if old_archetype.has_on_remove() {
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                deferred_world.trigger_on_remove(entity, bundle_info.iter_components());
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
+            if old_archetype.has_remove_observer() {
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    Some(self.entity),
+                    bundle_info.iter_components(),
+                );
             }
         }
 
@@ -1045,6 +1053,7 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            &world.observers,
             location.archetype_id,
             bundle_info,
             true,
@@ -1066,10 +1075,15 @@ impl<'w> EntityWorldMut<'w> {
             )
         };
 
-        if old_archetype.has_on_remove() {
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                deferred_world.trigger_on_remove(entity, bundle_info.iter_components());
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
+            if old_archetype.has_remove_observer() {
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    Some(self.entity),
+                    bundle_info.iter_components(),
+                );
             }
         }
 
@@ -1165,10 +1179,15 @@ impl<'w> EntityWorldMut<'w> {
             (&*archetype, world.into_deferred())
         };
 
-        if archetype.has_on_remove() {
-            // SAFETY: All components in the archetype exist in world
-            unsafe {
-                deferred_world.trigger_on_remove(self.entity, archetype.components());
+        // SAFETY: All components in the archetype exist in world
+        unsafe {
+            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            if archetype.has_remove_observer() {
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    Some(self.entity),
+                    archetype.components(),
+                );
             }
         }
 
@@ -1232,12 +1251,12 @@ impl<'w> EntityWorldMut<'w> {
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
-        world.flush_commands();
+        world.flush();
     }
 
-    /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush_commands`]
+    /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
     pub fn flush(self) -> Entity {
-        self.world.flush_commands();
+        self.world.flush();
         self.entity
     }
 
@@ -1352,6 +1371,22 @@ impl<'w> EntityWorldMut<'w> {
                 _marker: PhantomData,
             })
         }
+    }
+
+    /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
+    /// In order to trigger the callback the entity must also match the query when the event is fired.
+    pub fn observe<E: Component, B: Bundle, M>(
+        &mut self,
+        callback: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        let observer = ObserverBuilder::new(self.world.commands())
+            .source(self.entity)
+            .run(IntoObserverSystem::into_system(callback));
+        self.world
+            .ecs_event(AttachObserver(observer))
+            .entity(self.entity)
+            .emit();
+        self
     }
 }
 
@@ -2232,6 +2267,7 @@ unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
     components: &Components,
+    observers: &Observers,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,
@@ -2302,6 +2338,7 @@ unsafe fn remove_bundle_from_archetype(
 
         let new_archetype_id = archetypes.get_id_or_insert(
             components,
+            observers,
             next_table_id,
             next_table_components,
             next_sparse_set_components,
