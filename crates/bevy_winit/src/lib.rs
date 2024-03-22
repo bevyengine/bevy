@@ -49,7 +49,6 @@ use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
-use bevy_log::info;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
@@ -352,6 +351,46 @@ fn handle_winit_event(
     create_windows(event_loop, create_window.get_mut(&mut app.world));
     create_window.apply(&mut app.world);
 
+    #[cfg(target_arch = "wasm32")]
+    {
+        use bevy_window::WindowGlContextLost;
+        use wasm_bindgen::JsCast;
+        use winit::platform::web::WindowExtWebSys;
+
+        fn get_gl_context(
+            window: &winit::window::Window,
+        ) -> Option<web_sys::WebGl2RenderingContext> {
+            if let Some(canvas) = window.canvas() {
+                let context = canvas.get_context("webgl2").ok()??;
+
+                Some(context.dyn_into::<web_sys::WebGl2RenderingContext>().ok()?)
+            } else {
+                None
+            }
+        }
+
+        fn has_gl_context(window: &winit::window::Window) -> bool {
+            get_gl_context(window).map_or(false, |ctx| !ctx.is_context_lost())
+        }
+
+        let (_, windows) = focused_windows_state.get(&app.world);
+
+        if let Some((entity, _)) = windows.iter().next() {
+            let winit_windows = app.world.non_send_resource::<WinitWindows>();
+            let window = winit_windows.get_window(entity).expect("Window must exist");
+
+            if !has_gl_context(&window) {
+                app.world.send_event(WindowGlContextLost { window: entity });
+
+                // Pauses sub-apps to stop WGPU from crashing when there's no OpenGL context.
+                // Ensures that the rest of the systems in the main app keep running (i.e. physics).
+                app.pause_sub_apps();
+            } else {
+                app.resume_sub_apps();
+            }
+        }
+    }
+
     if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
         if redraw_event_reader.read(app_redraw_events).last().is_some() {
             runner_state.redraw_requested = true;
@@ -376,22 +415,8 @@ fn handle_winit_event(
                 runner_state.update_mode = next_update_mode;
             }
 
-            match next_update_mode {
-                UpdateMode::Continuous => {
-                    runner_state.redraw_requested = true;
-                    event_loop.set_control_flow(ControlFlow::Wait);
-                }
-                UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                    if let Some(next) = runner_state.last_update.checked_add(wait) {
-                        if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
-                            if runner_state.wait_elapsed {
-                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                            }
-                        } else {
-                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                        }
-                    }
-                }
+            if next_update_mode == UpdateMode::Continuous {
+                runner_state.redraw_requested = true;
             }
 
             let (config, windows) = focused_windows_state.get(&app.world);
@@ -434,7 +459,6 @@ fn handle_winit_event(
                     let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
                     let entity = query.single(&app.world);
                     app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-                    event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
 
@@ -479,42 +503,36 @@ fn handle_winit_event(
 
                         app.world.entity_mut(entity).insert(wrapper);
                     }
-                    event_loop.set_control_flow(ControlFlow::Wait);
                 }
             }
 
             if should_update {
-                let redraw = runner_state.redraw_requested;
-
-                if redraw && runner_state.active != ActiveState::Suspended {
+                if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
                     let (_, winit_windows, _, _) =
                         event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
-                } else {
-                    if runner_state.wait_elapsed {
-                        // there are no windows, or they are not visible.
-                        // Winit won't send events on some platforms, so trigger an update manually.
-                        run_app_update_if_should(
-                            runner_state,
-                            app,
-                            focused_windows_state,
-                            event_loop,
-                            redraw_event_reader,
-                        );
-                    }
+                } else if runner_state.wait_elapsed {
+                    // There are no windows, or they are not visible.
+                    // Winit won't send events on some platforms, so trigger an update manually.
+                    run_app_update_if_should(runner_state, app);
+                }
+            }
+
+            match next_update_mode {
+                UpdateMode::Continuous => {
                     // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                     // we cannot use the visibility to drive rendering on these platforms
                     // so we cannot discern whether to beneficially use `Poll` or not?
-                    #[cfg(not(any(
-                        target_arch = "wasm32",
-                        target_os = "android",
-                        target_os = "ios",
-                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
-                    {
-                        if runner_state.active != ActiveState::Suspended {
+                    cfg_if::cfg_if! {
+                        if #[cfg(not(any(
+                            target_arch = "wasm32",
+                            target_os = "android",
+                            target_os = "ios",
+                            all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                        )))]
+                        {
                             let (_, windows) = focused_windows_state.get(&app.world);
                             let visible = windows.iter().any(|(_, window)| window.visible);
 
@@ -527,6 +545,20 @@ fn handle_winit_event(
                                 }
                                 _ => {}
                             }
+                        }
+                        else {
+                            event_loop.set_control_flow(ControlFlow::Wait);
+                        }
+                    }
+                }
+                UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                    if let Some(next) = runner_state.last_update.checked_add(wait) {
+                        if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
+                            if runner_state.wait_elapsed {
+                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            }
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
                     }
                 }
@@ -743,13 +775,7 @@ fn handle_winit_event(
                     app.send_event(WindowDestroyed { window });
                 }
                 WindowEvent::RedrawRequested => {
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        focused_windows_state,
-                        event_loop,
-                        redraw_event_reader,
-                    );
+                    run_app_update_if_should(runner_state, app);
                 }
                 _ => {}
             }
@@ -788,57 +814,11 @@ fn handle_winit_event(
     }
 }
 
-fn run_app_update_if_should(
-    runner_state: &mut WinitAppRunnerState,
-    app: &mut App,
-    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
-    event_loop: &EventLoopWindowTarget<UserEvent>,
-    redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
-) {
+fn run_app_update_if_should(runner_state: &mut WinitAppRunnerState, app: &mut App) {
     runner_state.reset_on_update();
 
     if !runner_state.active.should_run() {
         return;
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        use bevy_window::WindowGlContextLost;
-        use wasm_bindgen::JsCast;
-        use winit::platform::web::WindowExtWebSys;
-
-        fn get_gl_context(
-            window: &winit::window::Window,
-        ) -> Option<web_sys::WebGl2RenderingContext> {
-            if let Some(canvas) = window.canvas() {
-                let context = canvas.get_context("webgl2").ok()??;
-
-                Some(context.dyn_into::<web_sys::WebGl2RenderingContext>().ok()?)
-            } else {
-                None
-            }
-        }
-
-        fn has_gl_context(window: &winit::window::Window) -> bool {
-            get_gl_context(window).map_or(false, |ctx| !ctx.is_context_lost())
-        }
-
-        let (_, windows) = focused_windows_state.get(&app.world);
-
-        if let Some((entity, _)) = windows.iter().next() {
-            let winit_windows = app.world.non_send_resource::<WinitWindows>();
-            let window = winit_windows.get_window(entity).expect("Window must exist");
-
-            if !has_gl_context(&window) {
-                app.world.send_event(WindowGlContextLost { window: entity });
-
-                // Pauses sub-apps to stop WGPU from crashing when there's no OpenGL context.
-                // Ensures that the rest of the systems in the main app keep running (i.e. physics).
-                app.pause_sub_apps();
-            } else {
-                app.resume_sub_apps();
-            }
-        }
     }
 
     if app.plugins_state() == PluginsState::Cleaned {

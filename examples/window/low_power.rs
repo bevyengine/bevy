@@ -9,7 +9,6 @@ use bevy::{
     window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::WinitSettings,
 };
-use bevy_internal::log;
 use bevy_internal::winit::EventLoopProxy;
 
 fn main() {

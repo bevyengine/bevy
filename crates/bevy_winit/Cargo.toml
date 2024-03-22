@@ -27,7 +27,7 @@ bevy_math = { path = "../bevy_math", version = "0.13.0" }
 bevy_window = { path = "../bevy_window", version = "0.13.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.13.0" }
-
+cfg-if = "1.0"
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.29", default-features = false, features = ["rwh_06"] }
