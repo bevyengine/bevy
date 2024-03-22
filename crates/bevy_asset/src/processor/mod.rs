@@ -521,15 +521,15 @@ impl AssetProcessor {
             if reader.is_directory(&path).await? {
                 let mut path_stream = reader.read_directory(&path).await?;
                 let mut contains_files = false;
+
                 while let Some(child_path) = path_stream.next().await {
-                    contains_files = Box::pin(get_asset_paths(
+                    contains_files |= Box::pin(get_asset_paths(
                         reader,
                         clean_empty_folders_writer,
                         child_path,
                         paths,
                     ))
-                    .await?
-                        && contains_files;
+                    .await?;
                 }
                 if !contains_files && path.parent().is_some() {
                     if let Some(writer) = clean_empty_folders_writer {
