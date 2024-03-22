@@ -1010,7 +1010,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::Quat;
+    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -1211,7 +1211,7 @@ mod tests {
     }
 
     #[test]
-    fn triangle_math() {
+    fn complex_triangle_math() {
         let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
         let triangle = Triangle3d::new(a, b, c);
 
@@ -1253,5 +1253,120 @@ mod tests {
         let regular_prism = Extrusion::new(polygon, 1.25);
         assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
         assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+    }
+
+    #[test]
+    fn triangle_math() {
+        // Default triangle tests
+        let mut default_triangle = Triangle3d::default();
+        let reverse_default_triangle = Triangle3d::new(
+            Vec3::new(0.5, -0.5, 0.0),
+            Vec3::new(-0.5, -0.5, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        );
+        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
+        assert_relative_eq!(
+            default_triangle.perimeter(),
+            1.0 + 2.0 * 1.25_f32.sqrt(),
+            epsilon = 10e-9
+        );
+        assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
+        assert_eq!(
+            default_triangle.is_degenerate(),
+            false,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            default_triangle.centroid(),
+            Vec3::new(0.0, -0.16666667, 0.0),
+            "incorrect centroid"
+        );
+        assert_eq!(
+            default_triangle.largest_side(),
+            (Vec3::new(0.0, 0.5, 0.0), Vec3::new(-0.5, -0.5, 0.0))
+        );
+        default_triangle.reverse();
+        assert_eq!(
+            default_triangle, reverse_default_triangle,
+            "incorrect reverse"
+        );
+        assert_eq!(
+            default_triangle.circumcenter(),
+            Vec3::new(0.0, -0.125, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Custom triangle tests
+        let right_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::Y);
+        let obtuse_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::X, Vec3::new(0.0, 0.1, 0.0));
+        let acute_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::new(0.5, 5.0, 0.0));
+
+        assert_eq!(
+            right_triangle.circumcenter(),
+            Vec3::new(0.5, 0.5, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            obtuse_triangle.circumcenter(),
+            Vec3::new(0.0, -4.95, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            acute_triangle.circumcenter(),
+            Vec3::new(0.5, 2.475, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Degenerate triangle tests
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        assert_eq!(
+            zero_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::ZERO),
+            "incorrect largest side"
+        );
+
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        assert_eq!(
+            dup_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::X),
+            "incorrect largest side"
+        );
+
+        let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        assert_eq!(
+            common_degenerate_triangle.is_degenerate(),
+            true,
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            common_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            common_degenerate_triangle.largest_side(),
+            (Vec3::NEG_X, Vec3::X),
+            "incorrect largest side"
+        );
     }
 }
