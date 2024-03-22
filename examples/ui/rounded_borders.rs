@@ -1,4 +1,4 @@
-//! Example demonstrating bordered UI nodes
+//! Example demonstrating rounded bordered UI nodes
 
 use bevy::{color::palettes::css::*, prelude::*};
 
@@ -113,10 +113,19 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
+                border_radius: BorderRadius::MAX,
                 background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
+        let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+        let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
+        let border_radius = BorderRadius::px(
+            border_size(border.left, border.top),
+            border_size(border.right, border.top),
+            border_size(border.right, border.bottom),
+            border_size(border.left, border.bottom),
+        );
         let border_node = commands
             .spawn((
                 NodeBundle {
@@ -131,6 +140,7 @@ fn setup(mut commands: Commands) {
                     },
                     background_color: MAROON.into(),
                     border_color: RED.into(),
+                    border_radius,
                     ..Default::default()
                 },
                 Outline {

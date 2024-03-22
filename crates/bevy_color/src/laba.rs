@@ -1,6 +1,6 @@
 use crate::{
-    Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor,
-    Xyza,
+    impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix,
+    Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,8 @@ pub struct Laba {
 }
 
 impl StandardColor for Laba {}
+
+impl_componentwise_point!(Laba, [lightness, a, b, alpha]);
 
 impl Laba {
     /// Construct a new [`Laba`] color from components.
