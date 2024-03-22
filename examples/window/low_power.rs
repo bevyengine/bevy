@@ -9,6 +9,8 @@ use bevy::{
     window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::WinitSettings,
 };
+use bevy_internal::log;
+use bevy_internal::winit::EventLoopProxy;
 
 fn main() {
     App::new()
@@ -55,8 +57,8 @@ enum ExampleMode {
 /// Update winit based on the current `ExampleMode`
 fn update_winit(
     mode: Res<ExampleMode>,
-    mut event: EventWriter<RequestRedraw>,
     mut winit_config: ResMut<WinitSettings>,
+    event_loop_proxy: NonSend<EventLoopProxy>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -82,7 +84,7 @@ fn update_winit(
             // frame regardless of any user input. For example, your application might use
             // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
-            event.send(RequestRedraw);
+            let _ = event_loop_proxy.send_event(RequestRedraw);
             WinitSettings::desktop_app()
         }
     };

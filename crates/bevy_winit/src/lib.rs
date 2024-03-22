@@ -49,6 +49,7 @@ use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
+use bevy_log::info;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
@@ -172,6 +173,8 @@ impl AppSendEvent for App {
 struct WinitAppRunnerState {
     /// Current active state of the app.
     active: ActiveState,
+    /// Current update mode of the app.
+    update_mode: UpdateMode,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] has been received since the last update.
@@ -194,6 +197,22 @@ impl WinitAppRunnerState {
     }
 }
 
+impl Default for WinitAppRunnerState {
+    fn default() -> Self {
+        Self {
+            active: ActiveState::NotYetStarted,
+            update_mode: UpdateMode::Continuous,
+            window_event_received: false,
+            device_event_received: false,
+            redraw_requested: false,
+            wait_elapsed: false,
+            last_update: Instant::now(),
+            // 3 seems to be enough, 5 is a safe margin
+            startup_forced_updates: 5,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 enum ActiveState {
     NotYetStarted,
@@ -209,21 +228,6 @@ impl ActiveState {
         match self {
             Self::NotYetStarted | Self::Suspended => false,
             Self::Active | Self::WillSuspend | Self::WillResume => true,
-        }
-    }
-}
-
-impl Default for WinitAppRunnerState {
-    fn default() -> Self {
-        Self {
-            active: ActiveState::NotYetStarted,
-            window_event_received: false,
-            device_event_received: false,
-            redraw_requested: false,
-            wait_elapsed: false,
-            last_update: Instant::now(),
-            // 3 seems to be enough, 5 is a safe margin
-            startup_forced_updates: 5,
         }
     }
 }
@@ -348,8 +352,48 @@ fn handle_winit_event(
     create_windows(event_loop, create_window.get_mut(&mut app.world));
     create_window.apply(&mut app.world);
 
+    if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+        if redraw_event_reader.read(app_redraw_events).last().is_some() {
+            runner_state.redraw_requested = true;
+        }
+    }
+
     match event {
         Event::AboutToWait => {
+            if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+                if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                    runner_state.redraw_requested = true;
+                }
+            }
+
+            // decide when to run the next update
+            let (config, windows) = focused_windows_state.get(&app.world);
+            let focused = windows.iter().any(|(_, window)| window.focused);
+            let next_update_mode = config.update_mode(focused);
+
+            if next_update_mode != runner_state.update_mode {
+                runner_state.redraw_requested = true;
+                runner_state.update_mode = next_update_mode;
+            }
+
+            match next_update_mode {
+                UpdateMode::Continuous => {
+                    runner_state.redraw_requested = true;
+                    event_loop.set_control_flow(ControlFlow::Wait);
+                }
+                UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                    if let Some(next) = runner_state.last_update.checked_add(wait) {
+                        if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
+                            if runner_state.wait_elapsed {
+                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            }
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                        }
+                    }
+                }
+            }
+
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|(_, window)| window.focused);
 
@@ -439,12 +483,10 @@ fn handle_winit_event(
                 }
             }
 
-
             if should_update {
-                let redraw = runner_state.redraw_requested && runner_state.wait_elapsed;
-                let _visible = windows.iter().any(|(_, window)| window.visible);
+                let redraw = runner_state.redraw_requested;
 
-                if redraw && runner_state.active != ActiveState::WillSuspend {
+                if redraw && runner_state.active != ActiveState::Suspended {
                     let (_, winit_windows, _, _) =
                         event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
@@ -473,11 +515,14 @@ fn handle_winit_event(
                     )))]
                     {
                         if runner_state.active != ActiveState::Suspended {
+                            let (_, windows) = focused_windows_state.get(&app.world);
+                            let visible = windows.iter().any(|(_, window)| window.visible);
+
                             match event_loop.control_flow() {
-                                ControlFlow::Poll if _visible => {
+                                ControlFlow::Poll if visible => {
                                     event_loop.set_control_flow(ControlFlow::Wait)
                                 }
-                                ControlFlow::Wait if !_visible => {
+                                ControlFlow::Wait if !visible => {
                                     event_loop.set_control_flow(ControlFlow::Poll)
                                 }
                                 _ => {}
@@ -800,39 +845,6 @@ fn run_app_update_if_should(
         runner_state.last_update = Instant::now();
 
         app.update();
-
-        // decide when to run the next update
-        let (config, windows) = focused_windows_state.get(&app.world);
-        let focused = windows.iter().any(|(_, window)| window.focused);
-        match config.update_mode(focused) {
-            UpdateMode::Continuous => {
-                runner_state.redraw_requested = true;
-                event_loop.set_control_flow(ControlFlow::Wait);
-            }
-            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                // TODO(bug): this is unexpected behavior.
-                // When Reactive, user expects bevy to actually wait that amount of time,
-                // and not potentially infinitely depending on platform specifics (which this does)
-                // Need to verify the platform specifics (whether this can occur in
-                // rare-but-possible cases) and replace this with a panic or a log warn!
-
-                if let Some(next) = runner_state.last_update.checked_add(*wait) {
-                    if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
-                        if runner_state.wait_elapsed {
-                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                        }
-                    } else {
-                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                    }
-                }
-            }
-        }
-
-        if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                runner_state.redraw_requested = true;
-            }
-        }
     }
 }
 
