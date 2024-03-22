@@ -610,6 +610,54 @@ mod tests {
     use crate::utility::GenericTypePathCell;
 
     #[test]
+    fn try_apply_should_detect_kinds() {
+        #[derive(Reflect, Debug)]
+        struct Struct {
+            a: u32,
+            b: f32,
+        }
+
+        #[derive(Reflect, Debug)]
+        enum Enum {
+            A,
+            B(u32),
+        }
+
+        let mut struct_target = Struct {
+            a: 0xDEADBEEF,
+            b: 3.14,
+        };
+
+        let mut enum_target = Enum::A;
+
+        let array_src = [8, 0, 8];
+
+        let result = struct_target.try_apply(&enum_target);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds(
+                    ReflectKind::Enum,
+                    ReflectKind::Struct
+                ))
+            ),
+            "result was {result:?}"
+        );
+
+        let result = enum_target.try_apply(&array_src);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds(
+                    ReflectKind::Array,
+                    ReflectKind::Enum
+                ))
+            ),
+            "result was {result:?}"
+        );
+    }
+
+    #[test]
     fn reflect_struct() {
         #[derive(Reflect)]
         struct Foo {

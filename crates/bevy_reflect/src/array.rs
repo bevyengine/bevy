@@ -431,21 +431,24 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 /// # Errors
 ///
 /// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
-/// * Returns an [`ApplyError::MismatchedTypes`] if the reflected value is not a
+/// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a
 ///   [valid array](ReflectRef::Array).
 ///
 #[inline]
 pub fn array_try_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
         if array.len() != reflect_array.len() {
-            return Err(ApplyError::DifferentSize("Array".to_string()));
+            return Err(ApplyError::DifferentSize(reflect_array.len(), array.len()));
         }
         for (i, value) in reflect_array.iter().enumerate() {
             let v = array.get_mut(i).unwrap();
             v.try_apply(value)?;
         }
     } else {
-        return Err(ApplyError::MismatchedTypes("Array".to_string()));
+        return Err(ApplyError::MismatchedKinds(
+            reflect.reflect_kind(),
+            ReflectKind::Array,
+        ));
     }
     Ok(())
 }

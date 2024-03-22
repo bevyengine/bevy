@@ -408,7 +408,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 ///
 /// # Errors
 ///
-/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a tuple.
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple.
 #[inline]
 pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -418,7 +418,10 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), Apply
             }
         }
     } else {
-        return Err(ApplyError::MismatchedTypes("Tuple".to_string()));
+        return Err(ApplyError::MismatchedKinds(
+            b.reflect_kind(),
+            ReflectKind::Tuple,
+        ));
     }
     Ok(())
 }

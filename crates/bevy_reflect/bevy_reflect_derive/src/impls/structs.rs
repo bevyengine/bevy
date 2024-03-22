@@ -217,23 +217,26 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                         }
                     }
                 } else {
-                    return Err(#bevy_reflect_path::ApplyError::MismatchedTypes("struct".to_string()));
+                    return Err(#bevy_reflect_path::ApplyError::MismatchedKinds(
+                        #bevy_reflect_path::Reflect::reflect_kind(value),
+                        #bevy_reflect_path::ReflectKind::Struct
+                    ));
                 }
                 Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Struct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Struct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }

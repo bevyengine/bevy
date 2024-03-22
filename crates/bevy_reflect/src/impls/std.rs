@@ -1,13 +1,14 @@
 use crate::std_traits::ReflectDefault;
-use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_try_apply, map_partial_eq, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap,
-    FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectOwned, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
-    TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
-};
-
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
+};
+use crate::{
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
+    Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
+    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -1073,13 +1074,14 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
-            return Err(ApplyError::WrongType(
-                "Value".to_string(),
-                Self::type_path().to_string(),
+            return Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
             ));
         }
         Ok(())
@@ -1367,13 +1369,13 @@ impl Reflect for &'static str {
     }
 
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
         } else {
-            return Err(ApplyError::WrongType(
-                "Value".to_string(),
-                Self::type_path().to_string(),
+            return Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
             ));
         }
         Ok(())
@@ -1473,14 +1475,14 @@ impl Reflect for &'static Path {
     }
 
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
             Ok(())
         } else {
-            Err(ApplyError::WrongType(
-                "Value".to_string(),
-                Self::type_path().to_string(),
+            Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
             ))
         }
     }
@@ -1578,14 +1580,14 @@ impl Reflect for Cow<'static, Path> {
     }
 
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             *self = value.clone();
             Ok(())
         } else {
-            Err(ApplyError::WrongType(
-                "Value".to_string(),
-                Self::type_path().to_string(),
+            Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
             ))
         }
     }

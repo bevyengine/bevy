@@ -518,7 +518,7 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
 ///
 /// # Errors
 ///
-/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a reflected map.
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected map.
 #[inline]
 pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Map(map_value) = b.reflect_ref() {
@@ -530,7 +530,10 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyErro
             }
         }
     } else {
-        return Err(ApplyError::MismatchedTypes("map".to_string()));
+        return Err(ApplyError::MismatchedKinds(
+            b.reflect_kind(),
+            ReflectKind::Map,
+        ));
     }
     Ok(())
 }

@@ -429,11 +429,15 @@ impl Reflect for DynamicStruct {
                 }
             }
         } else {
-            return Err(ApplyError::MismatchedTypes("struct".to_string()));
+            return Err(ApplyError::MismatchedKinds(
+                value.reflect_kind(),
+                ReflectKind::Struct,
+            ));
         }
         Ok(())
     }
 
+    #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())

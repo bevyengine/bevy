@@ -103,18 +103,16 @@ impl_reflect_enum!(ReflectOwned);
 
 #[derive(Error, Debug)]
 pub enum ApplyError {
-    #[error("Attempted to apply `non-{0}` type to `{0}` type")]
-    MismatchedTypes(String),
-    #[error("`{0}` is not a {1}")]
-    WrongType(String, String),
-    #[error("Attempted to apply different sized `{0}` types")]
-    DifferentSize(String),
-    #[error("Field in `Some` variant of `{0}` should exist")]
-    AbsentField(String),
-    #[error("Field in `Some` variant of `{0}` should be of type `{1}`")]
-    MismatchedFieldTypes(String, String),
+    #[error("Attempted to apply a `{0}` to a `{1}`")]
+    MismatchedKinds(ReflectKind, ReflectKind),
+    #[error("Enum variant `{0}` doesn't have a field named `{1}`")]
+    MissingEnumField(Box<str>, Box<str>),
+    #[error("`{0}` is not a `{1}`")]
+    MismatchedTypes(Box<str>, Box<str>),
+    #[error("Attempted to apply type with {0} size to a type with {1} size")]
+    DifferentSize(usize, usize),
     #[error("Variant with name `{0}` does not exist on enum `{1}`")]
-    UnknownVariant(String, String),
+    UnknownVariant(Box<str>, Box<str>),
 }
 
 /// A zero-sized enumuration of the "kinds" of a reflected type.

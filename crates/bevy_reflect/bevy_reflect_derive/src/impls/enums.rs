@@ -231,7 +231,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn try_apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError>  {
-                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
+                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     if #bevy_reflect_path::Enum::variant_name(self) == #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         // Same variant -> just update fields
                         match #bevy_reflect_path::Enum::variant_type(#ref_value) {
@@ -261,8 +261,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             name => {
                                 return Err(
                                     #bevy_reflect_path::ApplyError::UnknownVariant(
-                                        name.to_string(),
-                                        <Self as #bevy_reflect_path::TypePath>::type_path().to_string()
+                                        name.into(),
+                                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(self).into(),
                                     )
                                 );
                             }
@@ -270,9 +270,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                     }
                 } else {
                     return Err(
-                        #bevy_reflect_path::ApplyError::WrongType(
-                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ref_value).to_string(),
-                            "enum".to_string()
+                        #bevy_reflect_path::ApplyError::MismatchedKinds(
+                            #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            #bevy_reflect_path::ReflectKind::Enum,
                         )
                     );
                 }

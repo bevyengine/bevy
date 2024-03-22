@@ -87,14 +87,14 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
              #[inline]
             fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
-                let value = #bevy_reflect_path::Reflect::as_any(value);
-                if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+                let any = #bevy_reflect_path::Reflect::as_any(value);
+                if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(any) {
                     *self = #FQClone::clone(value);
                 } else {
                     return Err(
-                        #bevy_reflect_path::ApplyError::WrongType(
-                            "value".to_string(),
-                            <Self as #bevy_reflect_path::TypePath>::type_path().to_string()
+                        #bevy_reflect_path::ApplyError::MismatchedTypes(
+                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(value).into(),
+                            <Self as #bevy_reflect_path::TypePath>::type_path().into()
                         )
                     );
                 }
@@ -107,18 +107,22 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 #FQResult::Ok(())
             }
 
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Value
             }
 
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Value(self)
             }
 
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Value(self)
             }

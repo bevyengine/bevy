@@ -337,11 +337,15 @@ impl Reflect for DynamicTupleStruct {
                 }
             }
         } else {
-            return Err(ApplyError::MismatchedTypes("TupleStruct".to_string()));
+            return Err(ApplyError::MismatchedKinds(
+                value.reflect_kind(),
+                ReflectKind::TupleStruct,
+            ));
         }
         Ok(())
     }
 
+    #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -372,6 +376,7 @@ impl Reflect for DynamicTupleStruct {
         Box::new(self.clone_dynamic())
     }
 
+    #[inline]
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }

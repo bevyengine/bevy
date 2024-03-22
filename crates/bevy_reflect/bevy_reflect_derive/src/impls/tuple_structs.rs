@@ -112,11 +112,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                     _ => #FQOption::None,
                 }
             }
-
+            #[inline]
             fn field_len(&self) -> usize {
                 #field_count
             }
-
+            #[inline]
             fn iter_fields(&self) -> #bevy_reflect_path::TupleStructFieldIter {
                 #bevy_reflect_path::TupleStructFieldIter::new(self)
             }
@@ -185,23 +185,26 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                         }
                     }
                 } else {
-                    return Err(#bevy_reflect_path::ApplyError::MismatchedTypes("TupleStruct".to_string()));
+                    return Err(#bevy_reflect_path::ApplyError::MismatchedKinds(
+                        #bevy_reflect_path::Reflect::reflect_kind(value),
+                        #bevy_reflect_path::ReflectKind::TupleStruct
+                    ));
                 }
                 Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::TupleStruct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::TupleStruct(self)
             }
