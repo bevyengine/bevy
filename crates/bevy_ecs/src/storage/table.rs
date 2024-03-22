@@ -633,11 +633,6 @@ impl Table {
         self.entities.is_empty()
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for column in self.columns.values_mut() {
-            column.check_change_ticks(change_tick);
-        }
-    }
 
     /// Iterates over the [`Column`]s of the [`Table`].
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
@@ -751,12 +746,6 @@ impl Tables {
             table.clear();
         }
     }
-
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for table in &mut self.tables {
-            table.check_change_ticks(change_tick);
-        }
-    }
 }
 
 impl Index<TableId> for Tables {
@@ -782,7 +771,7 @@ mod tests {
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{
-        component::{Components, Tick},
+        component::{Components},
         entity::Entity,
         storage::{TableBuilder, TableRow},
     };
@@ -808,7 +797,6 @@ mod tests {
                     table.get_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
-                        Tick::new(0),
                     );
                 });
             };

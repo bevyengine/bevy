@@ -3,12 +3,13 @@ use crate::{
     component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{Column, ComponentSparseSet, Table, TableRow},
+    storage::{Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
+use crate::component::ComponentTicks;
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -581,8 +582,7 @@ pub struct Added<T>(PhantomData<T>);
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct AddedFetch<'w> {
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    sparse_set: Option<&'w ComponentSparseSet>,
+    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -610,8 +610,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
-                .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
         }
@@ -631,12 +629,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        if Self::IS_DENSE {
-            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
-            unsafe {
-                Self::set_table(fetch, component_id, table);
-            }
-        }
+        Self::set_table(fetch, component_id, table);
     }
 
     #[inline]
@@ -645,38 +638,22 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(
-            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
+        // TODO: SAFETY:
+        let column = table.get_column(component_id).debug_checked_unwrap();
+        fetch.table_ticks = Some(column.get_data_slice().into());
     }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
+        _entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
+        // TODO: safety
+        let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+        // SAFETY: The caller ensures `table_row` is in range.
+        let tick = unsafe { table.get(table_row.as_usize()) };
+        tick.deref().added.is_newer_than(fetch.last_run, fetch.this_run)
     }
 
     #[inline]
@@ -688,11 +665,18 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        let component_id = world.init_component::<T>();
+        // TODO: deal with the change ticks not existing
+        let component_info = world.components.get_info(component_id).unwrap();
+        let change_component_id = component_info.change_detection_id().unwrap();
+        change_component_id
     }
 
     fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+        let component_id = world.component_id::<T>()?;
+        world.components.get_info(component_id).and_then(|info| {
+            info.change_detection_id()
+        })
     }
 
     fn matches_component_set(
@@ -790,8 +774,7 @@ pub struct Changed<T>(PhantomData<T>);
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct ChangedFetch<'w> {
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    sparse_set: Option<&'w ComponentSparseSet>,
+    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -819,8 +802,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
-                .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
         }
@@ -840,12 +821,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        if Self::IS_DENSE {
-            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
-            unsafe {
-                Self::set_table(fetch, component_id, table);
-            }
-        }
+        Self::set_table(fetch, component_id, table);
     }
 
     #[inline]
@@ -854,10 +830,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(
-            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
-                .into(),
-        );
+        let column = table.get_column(component_id).debug_checked_unwrap();
+        fetch.table_ticks = Some(column.get_data_slice().into());
     }
 
     #[inline(always)]
@@ -866,26 +840,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
+        // TODO: safety
+        let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+        // SAFETY: The caller ensures `table_row` is in range.
+        let tick = unsafe { table.get(table_row.as_usize()) };
+        tick.deref().changed.is_newer_than(fetch.last_run, fetch.this_run)
     }
 
     #[inline]
@@ -897,11 +856,18 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        let component_id = world.init_component::<T>();
+        // TODO: deal with the change ticks not existing
+        let component_info = world.components.get_info(component_id).unwrap();
+        let change_component_id = component_info.change_detection_id().unwrap();
+        change_component_id
     }
 
     fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+        let component_id = world.component_id::<T>()?;
+        world.components.get_info(component_id).and_then(|info| {
+            info.change_detection_id()
+        })
     }
 
     fn matches_component_set(

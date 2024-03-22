@@ -1141,7 +1141,7 @@ impl<'w> EntityWorldMut<'w> {
 
         let to_remove = &old_archetype
             .components()
-            .filter(|c| !retained_bundle_info.iter_all_components().contains(c))
+            .filter(|c| !retained_bundle_info.iter_all_components().any(|comp| comp == *c))
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 

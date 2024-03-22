@@ -971,6 +971,11 @@ unsafe fn get_component_and_ticks(
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
     }
+    // TODO: handle case where component has change detection disabled
+    let change_component_id = world.components().get_info_unchecked(component_id).change_detection_id().unwrap();
+    let column = world.fetch_table(location, change_component_id)?;
+    let ticks = column.get_data_unchecked(location.table_row);
+
 }
 
 /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
