@@ -3,7 +3,6 @@ use bevy_asset::{
     Asset, AssetLoader, LoadContext,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
@@ -43,18 +42,16 @@ impl AssetLoader for AudioLoader {
     type Settings = ();
     type Error = std::io::Error;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<AudioSource, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            Ok(AudioSource {
-                bytes: bytes.into(),
-            })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<AudioSource, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        Ok(AudioSource {
+            bytes: bytes.into(),
         })
     }
 

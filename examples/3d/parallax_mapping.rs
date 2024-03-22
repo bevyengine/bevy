@@ -222,9 +222,8 @@ fn setup(
     // light
     commands
         .spawn(PointLightBundle {
-            transform: Transform::from_xyz(1.8, 0.7, -1.1),
+            transform: Transform::from_xyz(2.0, 1.0, -1.1),
             point_light: PointLight {
-                intensity: 100_000.0, // Mini-sun point light
                 shadows_enabled: true,
                 ..default()
             },
@@ -244,7 +243,7 @@ fn setup(
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
-            ..Color::rgb_u8(0, 80, 0).into()
+            ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()

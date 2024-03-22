@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod error;
 mod font;
@@ -31,7 +32,9 @@ use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
+use bevy_render::{
+    camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
+};
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
 
@@ -75,11 +78,6 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
-            .register_type::<TextSection>()
-            .register_type::<Vec<TextSection>>()
-            .register_type::<TextStyle>()
-            .register_type::<JustifyText>()
-            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasSets>()
@@ -87,6 +85,9 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    calculate_bounds_text2d
+                        .in_set(VisibilitySystems::CalculateBounds)
+                        .after(update_text2d_layout),
                     update_text2d_layout
                         .after(font_atlas_set::remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`

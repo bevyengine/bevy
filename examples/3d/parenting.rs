@@ -30,7 +30,7 @@ fn setup(
 ) {
     let cube_handle = meshes.add(Cuboid::new(2.0, 2.0, 2.0));
     let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });
 
@@ -55,12 +55,8 @@ fn setup(
             });
         });
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, -4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
-            illuminance: light_consts::lux::OVERCAST_DAY,
-            ..default()
-        },
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_xyz(4.0, 5.0, -4.0),
         ..default()
     });
     // camera

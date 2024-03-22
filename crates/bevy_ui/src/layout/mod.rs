@@ -2,21 +2,20 @@ mod convert;
 pub mod debug;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
+use bevy_utils::tracing::warn;
 use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
@@ -53,6 +52,7 @@ struct RootNodePair {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_entity_to_taffy: EntityHashMap<taffy::node::Node>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
@@ -79,6 +79,7 @@ impl Default for UiSurface {
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
+            camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
         }
@@ -167,6 +168,10 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
+        let camera_node = *self
+            .camera_entity_to_taffy
+            .entry(camera_id)
+            .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
@@ -181,22 +186,14 @@ without UI components as a child of an entity with UI components, results may be
                         self.taffy.remove_child(previous_parent, node).unwrap();
                     }
 
+                    self.taffy.add_child(camera_node, node).unwrap();
+
                     RootNodePair {
-                        implicit_viewport_node: self
-                            .taffy
-                            .new_with_children(viewport_style.clone(), &[node])
-                            .unwrap(),
+                        implicit_viewport_node: camera_node,
                         user_root_node: node,
                     }
                 });
             new_roots.push(root_node);
-        }
-
-        // Cleanup the implicit root nodes of any user root nodes that have been removed
-        for old_root in existing_roots {
-            if !new_roots.contains(old_root) {
-                self.taffy.remove(old_root.implicit_viewport_node).unwrap();
-            }
         }
 
         self.camera_roots.insert(camera_id, new_roots);
@@ -216,6 +213,15 @@ without UI components as a child of an entity with UI components, results may be
             self.taffy
                 .compute_layout(root_nodes.implicit_viewport_node, available_space)
                 .unwrap();
+        }
+    }
+
+    /// Removes each camera entity from the internal map and then removes their associated node from taffy
+    pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            if let Some(node) = self.camera_entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node).unwrap();
+            }
         }
     }
 
@@ -253,6 +259,14 @@ pub enum LayoutError {
     TaffyError(#[from] taffy::error::TaffyError),
 }
 
+#[derive(SystemParam)]
+pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
+    removed_cameras: RemovedComponents<'w, 's, Camera>,
+    removed_children: RemovedComponents<'w, 's, Children>,
+    removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
+    removed_nodes: RemovedComponents<'w, 's, Node>,
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
@@ -268,9 +282,7 @@ pub fn ui_layout_system(
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
-    mut removed_children: RemovedComponents<Children>,
-    mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut removed_nodes: RemovedComponents<Node>,
+    mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
 ) {
     struct CameraLayoutInfo {
@@ -357,7 +369,7 @@ pub fn ui_layout_system(
     scale_factor_events.clear();
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.read() {
+    for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
     for (entity, mut content_size) in &mut measure_query {
@@ -367,15 +379,24 @@ pub fn ui_layout_system(
     }
 
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.read());
+    ui_surface.remove_entities(removed_components.removed_nodes.read());
+
+    // clean up removed cameras
+    ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
     // update camera children
-    for (camera_id, CameraLayoutInfo { root_nodes, .. }) in &camera_layout_info {
-        ui_surface.set_camera_children(*camera_id, root_nodes.iter().cloned());
+    for (camera_id, _) in cameras.iter() {
+        let root_nodes =
+            if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
+                root_nodes.iter().cloned()
+            } else {
+                [].iter().cloned()
+            };
+        ui_surface.set_camera_children(camera_id, root_nodes);
     }
 
     // update and remove children
-    for entity in removed_children.read() {
+    for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
@@ -411,7 +432,9 @@ pub fn ui_layout_system(
         mut absolute_location: Vec2,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
-            let layout = ui_surface.get_layout(entity).unwrap();
+            let Ok(layout) = ui_surface.get_layout(entity) else {
+                return;
+            };
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
             let layout_location =
@@ -458,7 +481,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .map(|window| window.size())
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 
@@ -519,17 +542,20 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2dBundle;
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
+    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
     use bevy_ecs::schedule::apply_deferred;
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
     use bevy_hierarchy::despawn_with_children_recursive;
     use bevy_hierarchy::BuildWorldChildren;
     use bevy_hierarchy::Children;
-    use bevy_math::vec2;
     use bevy_math::Vec2;
+    use bevy_math::{vec2, UVec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
+    use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
@@ -653,6 +679,54 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         assert!(!ui_surface.entity_to_taffy.contains_key(&ui_entity));
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    #[test]
+    fn ui_surface_tracks_camera_entities() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        // despawn all cameras so we can reset ui_surface back to a fresh state
+        let camera_entities = world
+            .query_filtered::<Entity, With<Camera>>()
+            .iter(&world)
+            .collect::<Vec<_>>();
+        for camera_entity in camera_entities {
+            world.despawn(camera_entity);
+        }
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+
+        // respawn camera
+        let camera_entity = world.spawn(Camera2dBundle::default()).id();
+
+        let ui_entity = world
+            .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
+            .id();
+
+        // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
+
+        world.despawn(ui_entity);
+        world.despawn(camera_entity);
+
+        // `ui_layout_system` should remove `camera_entity` from `UiSurface::camera_entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(!ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
     }
 
     #[test]
@@ -781,6 +855,149 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    #[test]
+    fn ui_node_should_properly_update_when_changing_target_camera() {
+        #[derive(Component)]
+        struct MovingUiNode;
+
+        fn update_camera_viewports(
+            primary_window_query: Query<&Window, With<PrimaryWindow>>,
+            mut cameras: Query<&mut Camera>,
+        ) {
+            let primary_window = primary_window_query
+                .get_single()
+                .expect("missing primary window");
+            let camera_count = cameras.iter().len();
+            for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
+                let viewport_width =
+                    primary_window.resolution.physical_width() / camera_count as u32;
+                let viewport_height = primary_window.resolution.physical_height();
+                let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
+                let physical_size = UVec2::new(viewport_width, viewport_height);
+                camera.viewport = Some(bevy_render::camera::Viewport {
+                    physical_position,
+                    physical_size,
+                    ..default()
+                });
+            }
+        }
+
+        fn move_ui_node(
+            In(pos): In<Vec2>,
+            mut commands: Commands,
+            cameras: Query<(Entity, &Camera)>,
+            moving_ui_query: Query<Entity, With<MovingUiNode>>,
+        ) {
+            let (target_camera_entity, _) = cameras
+                .iter()
+                .find(|(_, camera)| {
+                    let Some(logical_viewport_rect) = camera.logical_viewport_rect() else {
+                        panic!("missing logical viewport")
+                    };
+                    // make sure cursor is in viewport and that viewport has at least 1px of size
+                    logical_viewport_rect.contains(pos)
+                        && logical_viewport_rect.max.cmpge(Vec2::splat(0.)).any()
+                })
+                .expect("cursor position outside of camera viewport");
+            for moving_ui_entity in moving_ui_query.iter() {
+                commands
+                    .entity(moving_ui_entity)
+                    .insert(TargetCamera(target_camera_entity))
+                    .insert(Style {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(pos.y),
+                        left: Val::Px(pos.x),
+                        ..default()
+                    });
+            }
+        }
+
+        fn do_move_and_test(
+            world: &mut World,
+            ui_schedule: &mut Schedule,
+            new_pos: Vec2,
+            expected_camera_entity: &Entity,
+        ) {
+            world.run_system_once_with(new_pos, move_ui_node);
+            ui_schedule.run(world);
+            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+                .get_single(world)
+                .expect("missing MovingUiNode");
+            assert_eq!(expected_camera_entity, target_camera_entity);
+            let ui_surface = world.resource::<UiSurface>();
+
+            let layout = ui_surface
+                .get_layout(ui_node_entity)
+                .expect("failed to get layout");
+
+            // negative test for #12255
+            assert_eq!(Vec2::new(layout.location.x, layout.location.y), new_pos);
+        }
+
+        fn get_taffy_node_count(world: &World) -> usize {
+            world.resource::<UiSurface>().taffy.total_node_count()
+        }
+
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        world.spawn(Camera2dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            ..default()
+        });
+
+        world.spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(0.),
+                    left: Val::Px(0.),
+                    ..default()
+                },
+                ..default()
+            },
+            MovingUiNode,
+        ));
+
+        ui_schedule.run(&mut world);
+
+        let pos_inc = Vec2::splat(1.);
+        let total_cameras = world.query::<&Camera>().iter(&world).len();
+        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
+        let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
+
+        world.run_system_once(update_camera_viewports);
+
+        ui_schedule.run(&mut world);
+
+        let viewport_rects = world
+            .query::<(Entity, &Camera)>()
+            .iter(&world)
+            .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
+            .collect::<Vec<_>>();
+
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.min + pos_inc;
+            do_move_and_test(&mut world, &mut ui_schedule, target_pos, camera_entity);
+        }
+
+        // reverse direction
+        let mut viewport_rects = viewport_rects.clone();
+        viewport_rects.reverse();
+        for (camera_entity, viewport) in viewport_rects.iter() {
+            let target_pos = viewport.max - pos_inc;
+            do_move_and_test(&mut world, &mut ui_schedule, target_pos, camera_entity);
+        }
+
+        let current_taffy_node_count = get_taffy_node_count(&world);
+        if current_taffy_node_count > expected_max_taffy_node_count {
+            panic!("extra taffy nodes detected: current: {current_taffy_node_count} max expected: {expected_max_taffy_node_count}");
+        }
     }
 
     #[test]

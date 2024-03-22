@@ -1,12 +1,12 @@
 use crate::{
-    graph::LabelsPbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
+    graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
     ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_3d::graph::{Core3d, Node3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -116,15 +116,15 @@ impl Plugin for DeferredPbrLightingPlugin {
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
-                SubGraph3d,
-                LabelsPbr::DeferredLightingPass,
+                Core3d,
+                NodePbr::DeferredLightingPass,
             )
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
-                    Labels3d::StartMainPass,
-                    LabelsPbr::DeferredLightingPass,
-                    Labels3d::MainOpaquePass,
+                    Node3d::StartMainPass,
+                    NodePbr::DeferredLightingPass,
+                    Node3d::MainOpaquePass,
                 ),
             );
     }

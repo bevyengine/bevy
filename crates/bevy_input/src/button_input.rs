@@ -29,6 +29,44 @@ use bevy_ecs::schedule::State;
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
 ///
+/// ## Performance
+///
+/// For all operations, the following conventions are used:
+/// - **n** is the number of stored inputs.
+/// - **m** is the number of input arguments passed to the method.
+/// - **\***-suffix denotes an amortized cost.
+/// - **~**-suffix denotes an expected cost.
+///
+/// See Rust's [std::collections doc on performance](https://doc.rust-lang.org/std/collections/index.html#performance) for more details on the conventions used here.
+///
+/// | **[`ButtonInput`] operations**          | **Computational complexity** |
+/// |-----------------------------------|------------------------------------|
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m*n)                     |
+/// | [`ButtonInput::any_just_released`]      | *O*(m*n)                     |
+/// | [`ButtonInput::any_pressed`]            | *O*(m*n)                     |
+/// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
+/// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
+/// | [`ButtonInput::get_pressed`]            | *O*(n)                       |
+/// | [`ButtonInput::just_pressed`]           | *O*(1)~                      |
+/// | [`ButtonInput::just_released`]          | *O*(1)~                      |
+/// | [`ButtonInput::pressed`]                | *O*(1)~                      |
+/// | [`ButtonInput::press`]                  | *O*(1)~*                     |
+/// | [`ButtonInput::release`]                | *O*(1)~*                     |
+/// | [`ButtonInput::release_all`]            | *O*(n)~*                     |
+/// | [`ButtonInput::clear_just_pressed`]     | *O*(1)~                      |
+/// | [`ButtonInput::clear_just_released`]    | *O*(1)~                      |
+/// | [`ButtonInput::reset_all`]              | *O*(n)                       |
+/// | [`ButtonInput::clear`]                  | *O*(n)                       |
+///
+/// ## Window focus
+///
+/// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
+/// while the window loses focus, [`ButtonInput::just_released`] will be triggered. Similarly if the window
+/// regains focus, [`ButtonInput::just_pressed`] will be triggered. Currently this happens even if the
+/// focus switches from one Bevy window to another (for example because a new window was just spawned).
+///
+/// `ButtonInput<GamepadButton>` is independent of window focus.
+///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:

@@ -5,6 +5,7 @@
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod measurement;
 pub mod node_bundles;
@@ -97,38 +98,21 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .register_type::<AlignContent>()
-            .register_type::<AlignItems>()
-            .register_type::<AlignSelf>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
-            .register_type::<Direction>()
-            .register_type::<Display>()
-            .register_type::<FlexDirection>()
-            .register_type::<FlexWrap>()
             .register_type::<FocusPolicy>()
-            .register_type::<GridAutoFlow>()
-            .register_type::<GridPlacement>()
-            .register_type::<GridTrack>()
             .register_type::<Interaction>()
-            .register_type::<JustifyContent>()
-            .register_type::<JustifyItems>()
-            .register_type::<JustifySelf>()
             .register_type::<Node>()
-            .register_type::<Overflow>()
-            .register_type::<OverflowAxis>()
-            .register_type::<PositionType>()
             .register_type::<RelativeCursorPosition>()
-            .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
-            .register_type::<Val>()
             .register_type::<BorderColor>()
+            .register_type::<BorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
@@ -166,17 +150,15 @@ impl Plugin for UiPlugin {
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
+                widget::update_image_content_size_system
+                    .before(UiSystem::Layout)
+                    .in_set(AmbiguousWithTextSystem)
+                    .in_set(AmbiguousWithUpdateText2DLayout),
                 (
-                    widget::update_image_content_size_system
-                        .before(UiSystem::Layout)
-                        .in_set(AmbiguousWithTextSystem)
-                        .in_set(AmbiguousWithUpdateText2DLayout),
-                    (
-                        texture_slice::compute_slices_on_asset_event,
-                        texture_slice::compute_slices_on_image_change,
-                    ),
+                    texture_slice::compute_slices_on_asset_event,
+                    texture_slice::compute_slices_on_image_change,
                 )
-                    .chain(),
+                    .after(UiSystem::Layout),
             ),
         );
 

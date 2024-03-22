@@ -6,8 +6,9 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetSources, AssetWriter, AssetWriterError, MissingAssetSourceError,
+        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
+        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
+        MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -17,8 +18,8 @@ use crate::{
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{debug, error, trace, warn};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{debug, error, trace, warn};
 use bevy_utils::{BoxedFuture, HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -29,6 +30,10 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+
+// Needed for doc strings
+#[allow(unused_imports)]
+use crate::io::{AssetReader, AssetWriter};
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`] / [`AssetWriter`] pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -56,7 +61,7 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
-    default_processors: RwLock<HashMap<String, &'static str>>,
+    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
     initialized_sender: async_broadcast::Sender<()>,
@@ -482,7 +487,7 @@ impl AssetProcessor {
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.to_string(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), std::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -510,8 +515,8 @@ impl AssetProcessor {
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
         /// folders when they are discovered.
         fn get_asset_paths<'a>(
-            reader: &'a dyn AssetReader,
-            clean_empty_folders_writer: Option<&'a dyn AssetWriter>,
+            reader: &'a dyn ErasedAssetReader,
+            clean_empty_folders_writer: Option<&'a dyn ErasedAssetWriter>,
             path: PathBuf,
             paths: &'a mut Vec<PathBuf>,
         ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
@@ -717,9 +722,7 @@ impl AssetProcessor {
                         (meta, Some(processor))
                     }
                     AssetActionMinimal::Ignore => {
-                        let meta: Box<dyn AssetMetaDyn> =
-                            Box::new(AssetMeta::<(), ()>::deserialize(&meta_bytes)?);
-                        (meta, None)
+                        return Ok(ProcessResult::Ignored);
                     }
                 };
                 (meta, meta_bytes, processor)
@@ -1033,6 +1036,7 @@ impl AssetProcessorData {
 pub enum ProcessResult {
     Processed(ProcessedInfo),
     SkippedNotChanged,
+    Ignored,
 }
 
 /// The final status of processing an asset
@@ -1179,6 +1183,9 @@ impl ProcessorAssetInfos {
                 // If "block until latest state is reflected" is required, we can easily add a less granular
                 // "block until first pass finished" mode
                 info.update_status(ProcessStatus::Processed).await;
+            }
+            Ok(ProcessResult::Ignored) => {
+                debug!("Skipping processing (ignored) \"{:?}\"", asset_path);
             }
             Err(ProcessError::ExtensionRequired) => {
                 // Skip assets without extensions

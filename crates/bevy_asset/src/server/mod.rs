@@ -4,8 +4,8 @@ mod loaders;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
+        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -18,8 +18,8 @@ use crate::{
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{error, info};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::StreamExt;
@@ -29,6 +29,10 @@ use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
+
+// Needed for doc string
+#[allow(unused_imports)]
+use crate::io::{AssetReader, AssetWriter};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
 /// retrieve their current load states.
@@ -657,7 +661,7 @@ impl AssetServer {
         fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
-            reader: &'a dyn AssetReader,
+            reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
         ) -> bevy_utils::BoxedFuture<'a, Result<(), AssetLoadError>> {
@@ -797,16 +801,25 @@ impl AssetServer {
             .map(|h| h.typed_debug_checked())
     }
 
+    /// Get a `Handle` from an `AssetId`.
+    ///
+    /// This only returns `Some` if `id` is derived from a `Handle` that was
+    /// loaded through an `AssetServer`, otherwise it returns `None`.
+    ///
+    /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
+    /// comes from [`Assets::add`].
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
         self.get_id_handle_untyped(id.untyped()).map(|h| h.typed())
     }
 
+    /// Get an `UntypedHandle` from an `UntypedAssetId`.
+    /// See [`AssetServer::get_id_handle`] for details.
     pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
         self.data.infos.read().get_id_handle(id)
     }
 
     /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
-    /// Otherwise, returns false.
+    /// Otherwise, returns `false`.
     pub fn is_managed(&self, id: impl Into<UntypedAssetId>) -> bool {
         self.data.infos.read().contains_key(id.into())
     }
