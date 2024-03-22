@@ -1272,7 +1272,7 @@ mod tests {
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
         assert!(
-            default_triangle.is_degenerate(),
+            !default_triangle.is_degenerate(),
             "incorrect degenerate check"
         );
         assert_eq!(
