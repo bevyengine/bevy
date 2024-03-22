@@ -170,6 +170,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
+        impl std::ops::AddAssign<Self> for $ty {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
         impl std::ops::Sub<Self> for $ty {
             type Output = Self;
 
@@ -177,6 +183,12 @@ macro_rules! impl_componentwise_point {
                 Self::Output {
                     $($element: self.$element - rhs.$element,)+
                 }
+            }
+        }
+
+        impl std::ops::SubAssign<Self> for $ty {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
             }
         }
 
@@ -200,6 +212,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
+        impl std::ops::MulAssign<f32> for $ty {
+            fn mul_assign(&mut self, rhs: f32) {
+                *self = *self * rhs;
+            }
+        }
+
         impl std::ops::Div<f32> for $ty {
             type Output = Self;
 
@@ -207,6 +225,12 @@ macro_rules! impl_componentwise_point {
                 Self::Output {
                     $($element: self.$element / rhs,)+
                 }
+            }
+        }
+
+        impl std::ops::DivAssign<f32> for $ty {
+            fn div_assign(&mut self, rhs: f32) {
+                *self = *self / rhs;
             }
         }
 

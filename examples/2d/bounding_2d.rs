@@ -284,15 +284,19 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
     );
 }
 
+fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
+    for r in [1., 2., 3.] {
+        gizmos.circle_2d(position, r, color);
+    }
+}
+
 fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
     gizmos.line_2d(
         ray.ray.origin,
         ray.ray.origin + *ray.ray.direction * ray.max,
         WHITE,
     );
-    for r in [1., 2., 3.] {
-        gizmos.circle_2d(ray.ray.origin, r, FUCHSIA);
-    }
+    draw_filled_circle(gizmos, ray.ray.origin, FUCHSIA);
 }
 
 fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
@@ -323,9 +327,11 @@ fn ray_cast_system(
         };
         **intersects = toi.is_some();
         if let Some(toi) = toi {
-            for r in [1., 2., 3.] {
-                gizmos.circle_2d(ray_cast.ray.origin + *ray_cast.ray.direction * toi, r, LIME);
-            }
+            draw_filled_circle(
+                &mut gizmos,
+                ray_cast.ray.origin + *ray_cast.ray.direction * toi,
+                LIME,
+            );
         }
     }
 }
@@ -350,9 +356,7 @@ fn aabb_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.rect_2d(
-                aabb_cast.ray.ray.origin
-                    + *aabb_cast.ray.ray.direction * toi
-                    + aabb_cast.aabb.center(),
+                aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
                 0.,
                 aabb_cast.aabb.half_size() * 2.,
                 LIME,
@@ -381,9 +385,7 @@ fn bounding_circle_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.circle_2d(
-                circle_cast.ray.ray.origin
-                    + *circle_cast.ray.ray.direction * toi
-                    + circle_cast.circle.center(),
+                circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
                 circle_cast.circle.radius(),
                 LIME,
             );
