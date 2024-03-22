@@ -333,14 +333,19 @@ fn handle_winit_event(
             app.cleanup();
         }
         runner_state.redraw_requested = true;
+    }
 
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                event_loop.exit();
-                return;
-            }
+    if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+        if app_exit_event_reader.read(app_exit_events).last().is_some() {
+            event_loop.exit();
+            return;
         }
     }
+
+    // create any new windows
+    // (even if app did not update, some may have been created by plugin setup)
+    create_windows(event_loop, create_window.get_mut(&mut app.world));
+    create_window.apply(&mut app.world);
 
     match event {
         Event::AboutToWait => {
@@ -396,8 +401,6 @@ fn handle_winit_event(
                             app,
                             focused_windows_state,
                             event_loop,
-                            create_window,
-                            app_exit_event_reader,
                             redraw_event_reader,
                         );
                     }
@@ -642,8 +645,6 @@ fn handle_winit_event(
                         app,
                         focused_windows_state,
                         event_loop,
-                        create_window,
-                        app_exit_event_reader,
                         redraw_event_reader,
                     );
                 }
@@ -735,8 +736,6 @@ fn run_app_update_if_should(
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
-    create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
-    app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
 ) {
     runner_state.reset_on_update();
@@ -834,18 +833,7 @@ fn run_app_update_if_should(
                 runner_state.redraw_requested = true;
             }
         }
-
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                event_loop.exit();
-            }
-        }
     }
-
-    // create any new windows
-    // (even if app did not update, some may have been created by plugin setup)
-    create_windows(event_loop, create_window.get_mut(&mut app.world));
-    create_window.apply(&mut app.world);
 }
 
 fn react_to_resize(
