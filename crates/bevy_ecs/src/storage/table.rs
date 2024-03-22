@@ -175,7 +175,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
+    pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>) {
         debug_assert!(row.as_usize() < self.len());
         self.data.initialize_unchecked(row.as_usize(), data);
     }
@@ -186,7 +186,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
+    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
     }
@@ -266,7 +266,7 @@ impl Column {
     ///
     /// # Safety
     /// `ptr` must point to valid data of this column's component type
-    pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
+    pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>) {
         self.data.push(ptr);
     }
 

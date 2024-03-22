@@ -154,8 +154,7 @@ use crate::change_detection::ChangeTicks;
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
-    // const CHANGE_DETECTION: bool;
-    type ChangeDetection: Component;
+    const CHANGE_DETECTION: bool;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
@@ -263,6 +262,7 @@ impl ComponentHooks {
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
+    change_detection_id: Option<ComponentId>,
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
 }
@@ -272,6 +272,12 @@ impl ComponentInfo {
     #[inline]
     pub fn id(&self) -> ComponentId {
         self.id
+    }
+
+    /// Returns the [`ComponentId`] for the change detection component associated with this component,
+    /// if it exists.
+    pub fn change_detection_id(&self) -> Option<ComponentId> {
+        self.change_detection_id
     }
 
     /// Returns the name of the current component.
@@ -322,6 +328,7 @@ impl ComponentInfo {
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
             id,
+            change_detection_id: None,
             descriptor,
             hooks: ComponentHooks::default(),
         }
@@ -547,9 +554,7 @@ impl Components {
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
-
-        // also initialize the change detection component
-        self.init_component::<ChangeTicks<T>>(storages);
+        let change_detection_id = T::CHANGE_DETECTION.then(|| self.init_component::<ChangeTicks<T>>(storages));
 
         let Components {
             indices,
@@ -561,6 +566,7 @@ impl Components {
                 components,
                 storages,
                 ComponentDescriptor::new::<T>(),
+                change_detection_id,
             );
             T::register_component_hooks(&mut components[index.index()].hooks);
             index
@@ -583,6 +589,7 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
+        // TODO: optionally disable change detection for this component
         let change_ticks_descriptor = ComponentDescriptor {
             name: Cow::Owned(format!("ChangeTicks<{}>", descriptor.name.as_ref())),
             storage_type: StorageType::Table,
@@ -591,8 +598,8 @@ impl Components {
             layout: Layout::new::<ChangeTicks<()>>(),
             drop: None,
         };
-        Components::init_component_inner(&mut self.components, storages, change_ticks_descriptor);
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        let change_detection_id = Components::init_component_inner(&mut self.components, storages, change_ticks_descriptor, None);
+        Components::init_component_inner(&mut self.components, storages, descriptor, Some(change_detection_id))
     }
 
     #[inline]
@@ -600,9 +607,11 @@ impl Components {
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
+        change_detection_id: Option<ComponentId>,
     ) -> ComponentId {
         let component_id = ComponentId(components.len());
-        let info = ComponentInfo::new(component_id, descriptor);
+        let mut info = ComponentInfo::new(component_id, descriptor);
+        info.change_detection_id = change_detection_id;
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }

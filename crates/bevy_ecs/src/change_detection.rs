@@ -1,5 +1,6 @@
 //! Types that detect when their internal data mutate.
 
+use std::marker::PhantomData;
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -9,7 +10,7 @@ use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use bevy_ecs_macros::Component;
-use crate::component::Component;
+use crate::component::{Component, ComponentId, ComponentTicks};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -480,10 +481,17 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 // TODO: add docs
 #[derive(Component, Clone)]
 pub(crate) struct ChangeTicks<T: Component>{
-    /// The [`Tick`] indicating when the component was added.
-    pub(crate) added: Tick,
-    /// The [`Tick`] indicating when the component was last changed.
-    pub(crate) changed: Tick,
+    ticks: ComponentTicks,
+    _marker: PhantomData<T>,
+}
+
+
+/// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
+#[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub(crate) struct ComponentChangeId {
+    pub(crate) component: ComponentId,
+    // TODO: make this optional is change detection is disabled for this component?
+    pub(crate) change_ticks_component: ComponentId,
 }
 
 

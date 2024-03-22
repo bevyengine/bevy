@@ -2257,7 +2257,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.components().iter().cloned() {
+            for component_id in bundle_info.iter_all_components() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = unsafe { components.get_info_unchecked(component_id) };
