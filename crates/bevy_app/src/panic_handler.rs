@@ -1,4 +1,4 @@
-//! This crate provides panic handlers for [Bevy](https://bevyengine.org)
+//! This module provides panic handlers for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specifics (i.e. WASM or Android).
 //!
 //! By default, the [`PanicHandlerPlugin`] from this crate is included in Bevy's `DefaultPlugins`.
@@ -17,8 +17,7 @@ use crate::Plugin;
 /// * Other platforms are currently not setup.
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup};
-/// # use bevy_panic_handler::PanicHandlerPlugin;
+/// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup, PanicHandlerPlugin};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(MinimalPlugins)
@@ -30,8 +29,7 @@ use crate::Plugin;
 /// If you want to setup your own panic handler, you should disable this
 /// plugin from `DefaultPlugins`:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
-/// # use bevy_panic_handler::PanicHandlerPlugin;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, PanicHandlerPlugin};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins.build().disable::<PanicHandlerPlugin>())
