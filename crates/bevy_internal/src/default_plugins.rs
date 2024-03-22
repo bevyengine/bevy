@@ -43,7 +43,7 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
-            .add(bevy_panic_handler::PanicHandlerPlugin)
+            .add(bevy_app::PanicHandlerPlugin)
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::TaskPoolPlugin::default())
             .add(bevy_core::TypeRegistrationPlugin)
