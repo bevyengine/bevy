@@ -1,12 +1,14 @@
+use crate::renderer::RenderAdapter;
 use crate::{render_resource::*, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_tasks::Task;
+use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet,
+    HashMap, HashSet,
 };
 use naga::valid::Capabilities;
 use std::{
@@ -20,10 +22,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{
-    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
 
 use crate::render_resource::resource_macros::*;
 
@@ -124,7 +123,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -167,7 +166,7 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice) -> Self {
+    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
         const CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
             (Features::SHADER_F64, Capabilities::FLOAT64),
@@ -196,9 +195,13 @@ impl ShaderCache {
             }
         }
 
-        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
-        // We can't compile for native at least without it.
-        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
+        {
+            capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        }
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
@@ -272,14 +275,19 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
+        let module = match data.processed_shaders.entry_ref(shader_defs) {
+            EntryRef::Occupied(entry) => entry.into_mut(),
+            EntryRef::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+                }
+
+                if cfg!(feature = "ios_simulator") {
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
                 shader_defs.push(ShaderDefVal::UInt(
@@ -480,6 +488,9 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {
@@ -488,14 +499,19 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(
+        device: RenderDevice,
+        render_adapter: RenderAdapter,
+        synchronous_pipeline_compilation: bool,
+    ) -> Self {
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            synchronous_pipeline_compilation,
         }
     }
 
@@ -679,88 +695,95 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(async move {
-            let mut shader_cache = shader_cache.lock().unwrap();
-            let mut layout_cache = layout_cache.lock().unwrap();
+        create_pipeline_task(
+            async move {
+                let mut shader_cache = shader_cache.lock().unwrap();
+                let mut layout_cache = layout_cache.lock().unwrap();
 
-            let vertex_module = match shader_cache.get(
-                &device,
-                id,
-                descriptor.vertex.shader.id(),
-                &descriptor.vertex.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => return Err(err),
-            };
-
-            let fragment_module = match &descriptor.fragment {
-                Some(fragment) => {
-                    match shader_cache.get(&device, id, fragment.shader.id(), &fragment.shader_defs)
-                    {
-                        Ok(module) => Some(module),
-                        Err(err) => return Err(err),
-                    }
-                }
-                None => None,
-            };
-
-            let layout =
-                if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                    None
-                } else {
-                    Some(layout_cache.get(
-                        &device,
-                        &descriptor.layout,
-                        descriptor.push_constant_ranges.to_vec(),
-                    ))
+                let vertex_module = match shader_cache.get(
+                    &device,
+                    id,
+                    descriptor.vertex.shader.id(),
+                    &descriptor.vertex.shader_defs,
+                ) {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
                 };
 
-            drop((shader_cache, layout_cache));
+                let fragment_module = match &descriptor.fragment {
+                    Some(fragment) => {
+                        match shader_cache.get(
+                            &device,
+                            id,
+                            fragment.shader.id(),
+                            &fragment.shader_defs,
+                        ) {
+                            Ok(module) => Some(module),
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    None => None,
+                };
 
-            let vertex_buffer_layouts = descriptor
-                .vertex
-                .buffers
-                .iter()
-                .map(|layout| RawVertexBufferLayout {
-                    array_stride: layout.array_stride,
-                    attributes: &layout.attributes,
-                    step_mode: layout.step_mode,
-                })
-                .collect::<Vec<_>>();
+                let layout =
+                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+                        None
+                    } else {
+                        Some(layout_cache.get(
+                            &device,
+                            &descriptor.layout,
+                            descriptor.push_constant_ranges.to_vec(),
+                        ))
+                    };
 
-            let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
-                (
-                    fragment_module.unwrap(),
-                    fragment.entry_point.deref(),
-                    fragment.targets.as_slice(),
-                )
-            });
+                drop((shader_cache, layout_cache));
 
-            let descriptor = RawRenderPipelineDescriptor {
-                multiview: None,
-                depth_stencil: descriptor.depth_stencil.clone(),
-                label: descriptor.label.as_deref(),
-                layout: layout.as_deref(),
-                multisample: descriptor.multisample,
-                primitive: descriptor.primitive,
-                vertex: RawVertexState {
-                    buffers: &vertex_buffer_layouts,
-                    entry_point: descriptor.vertex.entry_point.deref(),
-                    module: &vertex_module,
-                },
-                fragment: fragment_data
-                    .as_ref()
-                    .map(|(module, entry_point, targets)| RawFragmentState {
-                        entry_point,
-                        module,
-                        targets,
-                    }),
-            };
+                let vertex_buffer_layouts = descriptor
+                    .vertex
+                    .buffers
+                    .iter()
+                    .map(|layout| RawVertexBufferLayout {
+                        array_stride: layout.array_stride,
+                        attributes: &layout.attributes,
+                        step_mode: layout.step_mode,
+                    })
+                    .collect::<Vec<_>>();
 
-            Ok(Pipeline::RenderPipeline(
-                device.create_render_pipeline(&descriptor),
-            ))
-        })
+                let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
+                    (
+                        fragment_module.unwrap(),
+                        fragment.entry_point.deref(),
+                        fragment.targets.as_slice(),
+                    )
+                });
+
+                let descriptor = RawRenderPipelineDescriptor {
+                    multiview: None,
+                    depth_stencil: descriptor.depth_stencil.clone(),
+                    label: descriptor.label.as_deref(),
+                    layout: layout.as_deref(),
+                    multisample: descriptor.multisample,
+                    primitive: descriptor.primitive,
+                    vertex: RawVertexState {
+                        buffers: &vertex_buffer_layouts,
+                        entry_point: descriptor.vertex.entry_point.deref(),
+                        module: &vertex_module,
+                    },
+                    fragment: fragment_data
+                        .as_ref()
+                        .map(|(module, entry_point, targets)| RawFragmentState {
+                            entry_point,
+                            module,
+                            targets,
+                        }),
+                };
+
+                Ok(Pipeline::RenderPipeline(
+                    device.create_render_pipeline(&descriptor),
+                ))
+            },
+            self.synchronous_pipeline_compilation,
+        )
     }
 
     fn start_create_compute_pipeline(
@@ -771,44 +794,47 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(async move {
-            let mut shader_cache = shader_cache.lock().unwrap();
-            let mut layout_cache = layout_cache.lock().unwrap();
+        create_pipeline_task(
+            async move {
+                let mut shader_cache = shader_cache.lock().unwrap();
+                let mut layout_cache = layout_cache.lock().unwrap();
 
-            let compute_module = match shader_cache.get(
-                &device,
-                id,
-                descriptor.shader.id(),
-                &descriptor.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => return Err(err),
-            };
-
-            let layout =
-                if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                    None
-                } else {
-                    Some(layout_cache.get(
-                        &device,
-                        &descriptor.layout,
-                        descriptor.push_constant_ranges.to_vec(),
-                    ))
+                let compute_module = match shader_cache.get(
+                    &device,
+                    id,
+                    descriptor.shader.id(),
+                    &descriptor.shader_defs,
+                ) {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
                 };
 
-            drop((shader_cache, layout_cache));
+                let layout =
+                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+                        None
+                    } else {
+                        Some(layout_cache.get(
+                            &device,
+                            &descriptor.layout,
+                            descriptor.push_constant_ranges.to_vec(),
+                        ))
+                    };
 
-            let descriptor = RawComputePipelineDescriptor {
-                label: descriptor.label.as_deref(),
-                layout: layout.as_deref(),
-                module: &compute_module,
-                entry_point: &descriptor.entry_point,
-            };
+                drop((shader_cache, layout_cache));
 
-            Ok(Pipeline::ComputePipeline(
-                device.create_compute_pipeline(&descriptor),
-            ))
-        })
+                let descriptor = RawComputePipelineDescriptor {
+                    label: descriptor.label.as_deref(),
+                    layout: layout.as_deref(),
+                    module: &compute_module,
+                    entry_point: &descriptor.entry_point,
+                };
+
+                Ok(Pipeline::ComputePipeline(
+                    device.create_compute_pipeline(&descriptor),
+                ))
+            },
+            self.synchronous_pipeline_compilation,
+        )
     }
 
     /// Process the pipeline queue and create all pending pipelines if possible.
@@ -867,7 +893,9 @@ impl PipelineCache {
             CachedPipelineState::Err(err) => match err {
                 // Retry
                 PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {}
+                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                    cached_pipeline.state = CachedPipelineState::Queued;
+                }
 
                 // Shader could not be processed ... retrying won't help
                 PipelineCacheError::ProcessShaderError(err) => {
@@ -917,21 +945,34 @@ impl PipelineCache {
     }
 }
 
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    feature = "multi-threaded"
+))]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    sync: bool,
 ) -> CachedPipelineState {
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        not(target_os = "macos"),
-        feature = "multi-threaded"
-    ))]
-    return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+    if !sync {
+        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+    }
 
-    #[cfg(any(
-        target_arch = "wasm32",
-        target_os = "macos",
-        not(feature = "multi-threaded")
-    ))]
+    match futures_lite::future::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
+#[cfg(any(
+    target_arch = "wasm32",
+    target_os = "macos",
+    not(feature = "multi-threaded")
+))]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
     match futures_lite::future::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),

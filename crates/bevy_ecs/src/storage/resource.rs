@@ -154,7 +154,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            self.data.replace_unchecked(Self::ROW, value);
+            unsafe {
+                self.data.replace_unchecked(Self::ROW, value);
+            }
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
@@ -185,7 +187,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            self.data.replace_unchecked(Self::ROW, value);
+            unsafe {
+                self.data.replace_unchecked(Self::ROW, value);
+            }
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());

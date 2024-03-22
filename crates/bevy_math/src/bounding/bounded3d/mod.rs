@@ -1,5 +1,7 @@
 mod primitive_impls;
 
+use glam::Mat3;
+
 use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Quat, Vec3};
 
@@ -87,11 +89,12 @@ impl Aabb3d {
 }
 
 impl BoundingVolume for Aabb3d {
-    type Position = Vec3;
+    type Translation = Vec3;
+    type Rotation = Quat;
     type HalfSize = Vec3;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         (self.min + self.max) / 2.
     }
 
@@ -143,6 +146,88 @@ impl BoundingVolume for Aabb3d {
         debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y && b.min.z <= b.max.z);
         b
     }
+
+    #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        let b = Self {
+            min: self.center() - (self.half_size() * scale),
+            max: self.center() + (self.half_size() * scale),
+        };
+        debug_assert!(b.min.x <= b.max.x && b.min.y <= b.max.y);
+        b
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transformed_by(
+        mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
+        self.transform_by(translation, rotation);
+        self
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn transform_by(
+        &mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) {
+        self.rotate_by(rotation);
+        self.translate_by(translation);
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Self::Translation) {
+        self.min += translation;
+        self.max += translation;
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
+        self.rotate_by(rotation);
+        self
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
+    ///
+    /// Note that the result may not be as tightly fitting as the original, and repeated rotations
+    /// can cause the AABB to grow indefinitely. Avoid applying multiple rotations to the same AABB,
+    /// and consider storing the original AABB and rotating that every time instead.
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rot_mat = Mat3::from_quat(rotation.into());
+        let abs_rot_mat = Mat3::from_cols(
+            rot_mat.x_axis.abs(),
+            rot_mat.y_axis.abs(),
+            rot_mat.z_axis.abs(),
+        );
+        let half_size = abs_rot_mat * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
+    }
 }
 
 impl IntersectsVolume<Self> for Aabb3d {
@@ -170,7 +255,7 @@ mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        Vec3,
+        Quat, Vec3,
     };
 
     #[test]
@@ -271,6 +356,40 @@ mod aabb3d_tests {
         assert!((shrunk.max - Vec3::new(1., 1., 1.)).length() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = Aabb3d {
+            min: Vec3::NEG_ONE,
+            max: Vec3::ONE,
+        };
+        let scaled = a.scale_around_center(Vec3::splat(2.));
+        assert!((scaled.min - Vec3::splat(-2.)).length() < std::f32::EPSILON);
+        assert!((scaled.max - Vec3::splat(2.)).length() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = Aabb3d {
+            min: Vec3::new(-2.0, -2.0, -2.0),
+            max: Vec3::new(2.0, 2.0, 2.0),
+        };
+        let transformed = a.transformed_by(
+            Vec3::new(2.0, -2.0, 4.0),
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+        );
+        let half_length = 2_f32.hypot(2.0);
+        assert_eq!(
+            transformed.min,
+            Vec3::new(2.0 - half_length, -half_length - 2.0, 2.0)
+        );
+        assert_eq!(
+            transformed.max,
+            Vec3::new(2.0 + half_length, half_length - 2.0, 6.0)
+        );
     }
 
     #[test]
@@ -388,11 +507,12 @@ impl BoundingSphere {
 }
 
 impl BoundingVolume for BoundingSphere {
-    type Position = Vec3;
+    type Translation = Vec3;
+    type Rotation = Quat;
     type HalfSize = f32;
 
     #[inline(always)]
-    fn center(&self) -> Self::Position {
+    fn center(&self) -> Self::Translation {
         self.center
     }
 
@@ -451,6 +571,23 @@ impl BoundingVolume for BoundingSphere {
             },
         }
     }
+
+    #[inline(always)]
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+        debug_assert!(scale >= 0.);
+        Self::new(self.center, self.radius() * scale)
+    }
+
+    #[inline(always)]
+    fn translate_by(&mut self, translation: Self::Translation) {
+        self.center += translation;
+    }
+
+    #[inline(always)]
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let rotation: Quat = rotation.into();
+        self.center = rotation * self.center;
+    }
 }
 
 impl IntersectsVolume<Self> for BoundingSphere {
@@ -471,10 +608,12 @@ impl IntersectsVolume<Aabb3d> for BoundingSphere {
 
 #[cfg(test)]
 mod bounding_sphere_tests {
+    use approx::assert_relative_eq;
+
     use super::BoundingSphere;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
-        Vec3,
+        Quat, Vec3,
     };
 
     #[test]
@@ -551,6 +690,29 @@ mod bounding_sphere_tests {
         assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = BoundingSphere::new(Vec3::ONE, 5.);
+        let scaled = a.scale_around_center(2.);
+        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn transform() {
+        let a = BoundingSphere::new(Vec3::ONE, 5.0);
+        let transformed = a.transformed_by(
+            Vec3::new(2.0, -2.0, 4.0),
+            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+        );
+        assert_relative_eq!(
+            transformed.center,
+            Vec3::new(2.0, std::f32::consts::SQRT_2 - 2.0, 5.0)
+        );
+        assert_eq!(transformed.radius(), 5.0);
     }
 
     #[test]

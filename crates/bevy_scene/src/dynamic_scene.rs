@@ -90,7 +90,7 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, &**resource);
+            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
         }
 
         // For each component types that reference other entities, we keep track
@@ -193,7 +193,7 @@ where
 #[cfg(test)]
 mod tests {
     use bevy_ecs::entity::EntityHashMap;
-    use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
+    use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
     use bevy_hierarchy::{Parent, PushChild};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;

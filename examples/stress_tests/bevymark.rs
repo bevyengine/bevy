@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
@@ -226,12 +227,12 @@ fn setup(
         transform_rng: StdRng::seed_from_u64(42),
     };
 
-    let text_section = move |color, value: &str| {
+    let text_section = move |color: Srgba, value: &str| {
         TextSection::new(
             value,
             TextStyle {
                 font_size: 40.0,
-                color,
+                color: color.into(),
                 ..default()
             },
         )
@@ -246,20 +247,20 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(Color::GREEN, "Bird Count: "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (raw): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (SMA): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (EMA): "),
-                    text_section(Color::CYAN, ""),
+                    text_section(LIME, "Bird Count: "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (raw): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (SMA): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (EMA): "),
+                    text_section(AQUA, ""),
                 ]),
                 StatsText,
             ));
@@ -309,7 +310,7 @@ fn mouse_handler(
     let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
+        counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -367,11 +368,7 @@ fn spawn_birds(
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
 
-    let half_extents = 0.5
-        * Vec2::new(
-            primary_window_resolution.width(),
-            primary_window_resolution.height(),
-        );
+    let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
     let current_count = counter.count;
@@ -395,7 +392,7 @@ fn spawn_birds(
                     );
 
                     let color = if args.vary_per_instance {
-                        Color::rgb_linear(
+                        Color::linear_rgb(
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
@@ -463,7 +460,7 @@ fn spawn_birds(
     }
 
     counter.count += spawn_count;
-    counter.color = Color::rgb_linear(
+    counter.color = Color::linear_rgb(
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
@@ -508,7 +505,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_extents = 0.5 * Vec2::new(window.width(), window.height());
+    let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
         handle_collision(half_extents, &transform.translation, &mut bird.velocity);
@@ -580,7 +577,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {
-                color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
             })
         })

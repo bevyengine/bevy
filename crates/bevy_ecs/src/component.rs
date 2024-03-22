@@ -2,10 +2,12 @@
 
 use crate::{
     self as bevy_ecs,
+    archetype::ArchetypeFlags,
     change_detection::MAX_CHANGE_AGE,
+    entity::Entity,
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
-    world::{FromWorld, World},
+    world::{DeferredWorld, FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -149,37 +151,11 @@ use std::{
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
-    /// A marker type indicating the storage type used for this component.
-    /// This must be either [`TableStorage`] or [`SparseStorage`].
-    type Storage: ComponentStorage;
-}
-
-/// Marker type for components stored in a [`Table`](crate::storage::Table).
-pub struct TableStorage;
-
-/// Marker type for components stored in a [`ComponentSparseSet`](crate::storage::ComponentSparseSet).
-pub struct SparseStorage;
-
-/// Types used to specify the storage strategy for a component.
-///
-/// This trait is implemented for [`TableStorage`] and [`SparseStorage`].
-/// Custom implementations are forbidden.
-pub trait ComponentStorage: sealed::Sealed {
-    /// A value indicating the storage strategy specified by this type.
+    /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
-}
 
-impl ComponentStorage for TableStorage {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-}
-impl ComponentStorage for SparseStorage {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::TableStorage {}
-    impl Sealed for super::SparseStorage {}
+    /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
 
 /// The storage used for a specific component type.
@@ -203,11 +179,84 @@ pub enum StorageType {
     SparseSet,
 }
 
+/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+
+/// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
+#[derive(Debug, Clone, Default)]
+pub struct ComponentHooks {
+    pub(crate) on_add: Option<ComponentHook>,
+    pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_remove: Option<ComponentHook>,
+}
+
+impl ComponentHooks {
+    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
+    /// adding all of it's components.
+    ///
+    /// Will panic if the component already has an `on_add` hook
+    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_add(hook)
+            .expect("Component id: {:?}, already has an on_add hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
+    /// or replaced. The hook won't run if the component is already present and is only mutated.
+    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
+    ///
+    /// Will panic if the component already has an `on_insert` hook
+    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_insert(hook)
+            .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Despawning an entity counts as removing all of it's components.
+    ///
+    /// Will panic if the component already has an `on_remove` hook
+    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_remove(hook)
+            .expect("Component id: {:?}, already has an on_remove hook")
+    }
+
+    /// Fallible version of [`Self::on_add`].
+    /// Returns `None` if the component already has an `on_add` hook.
+    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_add.is_some() {
+            return None;
+        }
+        self.on_add = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_insert`].
+    /// Returns `None` if the component already has an `on_insert` hook.
+    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_insert.is_some() {
+            return None;
+        }
+        self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_remove`].
+    /// Returns `None` if the component already has an `on_remove` hook.
+    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_remove.is_some() {
+            return None;
+        }
+        self.on_remove = Some(hook);
+        Some(self)
+    }
+}
+
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
+    hooks: ComponentHooks,
 }
 
 impl ComponentInfo {
@@ -263,7 +312,30 @@ impl ComponentInfo {
 
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+        ComponentInfo {
+            id,
+            descriptor,
+            hooks: ComponentHooks::default(),
+        }
+    }
+
+    /// Update the given flags to include any [`ComponentHook`] registered to self
+    #[inline]
+    pub(crate) fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
+        if self.hooks().on_add.is_some() {
+            flags.insert(ArchetypeFlags::ON_ADD_HOOK);
+        }
+        if self.hooks().on_insert.is_some() {
+            flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
+        }
+        if self.hooks().on_remove.is_some() {
+            flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+    }
+
+    /// Provides a reference to the collection of hooks associated with this [`Component`]
+    pub fn hooks(&self) -> &ComponentHooks {
+        &self.hooks
     }
 }
 
@@ -357,16 +429,21 @@ impl std::fmt::Debug for ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    /// # SAFETY
+    ///
+    /// `x` must points to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: Contract is required to be upheld by the caller.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type: T::Storage::STORAGE_TYPE,
+            storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -397,7 +474,7 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for a resource.
     ///
-    /// The [`StorageType`] for resources is always [`TableStorage`].
+    /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
@@ -469,7 +546,13 @@ impl Components {
             ..
         } = self;
         *indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
+            let index = Components::init_component_inner(
+                components,
+                storages,
+                ComponentDescriptor::new::<T>(),
+            );
+            T::register_component_hooks(&mut components[index.index()].hooks);
+            index
         })
     }
 
@@ -542,7 +625,13 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        // SAFETY: The caller ensures `id` is valid.
+        unsafe { self.components.get_unchecked(id.0) }
+    }
+
+    #[inline]
+    pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
+        self.components.get_mut(id.0).map(|info| &mut info.hooks)
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -763,8 +852,10 @@ impl<'a> TickCells<'a> {
     #[inline]
     pub(crate) unsafe fn read(&self) -> ComponentTicks {
         ComponentTicks {
-            added: self.added.read(),
-            changed: self.changed.read(),
+            // SAFETY: The callers uphold the invariants for `read`.
+            added: unsafe { self.added.read() },
+            // SAFETY: The callers uphold the invariants for `read`.
+            changed: unsafe { self.changed.read() },
         }
     }
 }

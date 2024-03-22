@@ -24,12 +24,12 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
-            .register_type::<Viewport>()
-            .register_type::<Option<Viewport>>()
-            .register_type::<ScalingMode>()
-            .register_type::<RenderTarget>()
             .register_type::<ClearColor>()
-            .register_type::<ClearColorConfig>()
+            .register_type::<CameraRenderGraph>()
+            .register_type::<CameraMainTextureUsages>()
+            .register_type::<Exposure>()
+            .register_type::<TemporalJitter>()
+            .register_type::<MipBias>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
             .add_plugins((

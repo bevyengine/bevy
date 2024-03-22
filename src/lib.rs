@@ -6,7 +6,7 @@
 //! and performance.
 //!
 //! Check out the [Bevy website](https://bevyengine.org) for more information, read the
-//! [Bevy Book](https://bevyengine.org/learn/book/introduction) for a step-by-step guide, and [engage with our
+//! [Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction) for a step-by-step introduction, and [engage with our
 //! community](https://bevyengine.org/community/) if you have any questions or ideas!
 //!
 //! ## Example
@@ -44,6 +44,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub use bevy_internal::*;
 

@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::GOLD,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -85,7 +86,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::GOLD.into(),
+                background_color: GOLD.into(),
                 ..default()
             },
             TargetCamera(texture_camera),

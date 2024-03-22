@@ -39,7 +39,7 @@ impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<crate::UserEvent>,
         entity: Entity,
         window: &Window,
         adapters: &mut AccessKitAdapters,
@@ -103,6 +103,12 @@ impl WinitWindows {
             .with_decorations(window.decorations)
             .with_transparent(window.transparent)
             .with_visible(window.visible);
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowBuilderExtWindows;
+            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar);
+        }
 
         #[cfg(any(
             target_os = "linux",

@@ -1,7 +1,7 @@
 use std::f32::consts::TAU;
 
+use bevy_color::Color;
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
-use bevy_render::color::Color;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 

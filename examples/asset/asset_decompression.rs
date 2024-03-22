@@ -1,6 +1,5 @@
 //! Implements loader for a Gzip compressed asset.
 
-use bevy::utils::thiserror;
 use bevy::{
     asset::{
         io::{Reader, VecReader},
@@ -8,7 +7,6 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
 };
 use flate2::read::GzDecoder;
 use std::io::prelude::*;
@@ -30,7 +28,7 @@ pub enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
-    /// An error caused when the asset path cannot be used ot determine the uncompressed asset type.
+    /// An error caused when the asset path cannot be used to determine the uncompressed asset type.
     #[error("Could not determine file path of uncompressed asset")]
     IndeterminateFilePath,
     /// An error caused by the internal asset loader.
@@ -42,44 +40,42 @@ impl AssetLoader for GzAssetLoader {
     type Asset = GzAsset;
     type Settings = ();
     type Error = GzAssetLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let compressed_path = load_context.path();
-            let file_name = compressed_path
-                .file_name()
-                .ok_or(GzAssetLoaderError::IndeterminateFilePath)?
-                .to_string_lossy();
-            let uncompressed_file_name = file_name
-                .strip_suffix(".gz")
-                .ok_or(GzAssetLoaderError::IndeterminateFilePath)?;
-            let contained_path = compressed_path.join(uncompressed_file_name);
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let compressed_path = load_context.path();
+        let file_name = compressed_path
+            .file_name()
+            .ok_or(GzAssetLoaderError::IndeterminateFilePath)?
+            .to_string_lossy();
+        let uncompressed_file_name = file_name
+            .strip_suffix(".gz")
+            .ok_or(GzAssetLoaderError::IndeterminateFilePath)?;
+        let contained_path = compressed_path.join(uncompressed_file_name);
 
-            let mut bytes_compressed = Vec::new();
+        let mut bytes_compressed = Vec::new();
 
-            reader.read_to_end(&mut bytes_compressed).await?;
+        reader.read_to_end(&mut bytes_compressed).await?;
 
-            let mut decoder = GzDecoder::new(bytes_compressed.as_slice());
+        let mut decoder = GzDecoder::new(bytes_compressed.as_slice());
 
-            let mut bytes_uncompressed = Vec::new();
+        let mut bytes_uncompressed = Vec::new();
 
-            decoder.read_to_end(&mut bytes_uncompressed)?;
+        decoder.read_to_end(&mut bytes_uncompressed)?;
 
-            // Now that we have decompressed the asset, let's pass it back to the
-            // context to continue loading
+        // Now that we have decompressed the asset, let's pass it back to the
+        // context to continue loading
 
-            let mut reader = VecReader::new(bytes_uncompressed);
+        let mut reader = VecReader::new(bytes_uncompressed);
 
-            let uncompressed = load_context
-                .load_direct_with_reader(&mut reader, contained_path)
-                .await?;
+        let uncompressed = load_context
+            .load_direct_with_reader(&mut reader, contained_path)
+            .await?;
 
-            Ok(GzAsset { uncompressed })
-        })
+        Ok(GzAsset { uncompressed })
     }
 
     fn extensions(&self) -> &[&str] {
