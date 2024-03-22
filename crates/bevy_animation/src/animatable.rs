@@ -1,5 +1,5 @@
 use crate::util;
-use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Xyza};
+use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
@@ -96,6 +96,7 @@ impl_float_animatable!(DVec4, f64);
 impl_color_animatable!(LinearRgba);
 impl_color_animatable!(Laba);
 impl_color_animatable!(Oklaba);
+impl_color_animatable!(Srgba);
 impl_color_animatable!(Xyza);
 
 // Vec3 is special cased to use Vec3A internally for blending

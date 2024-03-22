@@ -330,6 +330,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default
 
 [dev-dependencies]
 rand = "0.8.0"
+rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
