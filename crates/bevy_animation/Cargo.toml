@@ -12,6 +12,7 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
