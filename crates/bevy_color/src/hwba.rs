@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -54,11 +54,6 @@ impl Hwba {
     /// * `blackness` - Blackness channel. [0.0, 1.0]
     pub const fn hwb(hue: f32, whiteness: f32, blackness: f32) -> Self {
         Self::new(hue, whiteness, blackness, 1.0)
-    }
-
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
     }
 
     /// Return a copy of this color with the whiteness channel set to the given value.
@@ -113,6 +108,23 @@ impl Alpha for Hwba {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hwba {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 

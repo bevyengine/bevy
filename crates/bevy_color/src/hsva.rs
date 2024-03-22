@@ -52,11 +52,6 @@ impl Hsva {
         Self::new(hue, saturation, value, 1.0)
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the saturation channel set to the given value.
     pub const fn with_saturation(self, saturation: f32) -> Self {
         Self { saturation, ..self }
@@ -109,6 +104,23 @@ impl Alpha for Hsva {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hsva {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
