@@ -22,6 +22,7 @@ use std::{
     marker::PhantomData,
     mem::needs_drop,
 };
+use crate::change_detection::ChangeTicks;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -153,10 +154,17 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+    // const CHANGE_DETECTION: bool;
+    type ChangeDetection: Component;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
+
+// pub(crate) trait ChangeDetectedComponent: Component {
+//     const CHECK: () = assert!(ChangeDetectedComponent::CHANGE_DETECTION);
+// }
+
 
 /// The storage used for a specific component type.
 ///
@@ -540,6 +548,9 @@ impl Components {
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
+        // also initialize the change detection component
+        self.init_component::<ChangeTicks<T>>(storages);
+
         let Components {
             indices,
             components,
@@ -572,6 +583,15 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
+        let change_ticks_descriptor = ComponentDescriptor {
+            name: Cow::Owned(format!("ChangeTicks<{}>", descriptor.name.as_ref())),
+            storage_type: StorageType::Table,
+            is_send_and_sync: true,
+            type_id: None,
+            layout: Layout::new::<ChangeTicks<()>>(),
+            drop: None,
+        };
+        Components::init_component_inner(&mut self.components, storages, change_ticks_descriptor);
         Components::init_component_inner(&mut self.components, storages, descriptor)
     }
 

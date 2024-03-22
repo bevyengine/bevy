@@ -21,6 +21,7 @@ use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::all_tuples;
 use std::any::TypeId;
 use std::ptr::NonNull;
+use crate::change_detection::ChangeTicks;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -142,6 +143,9 @@ use std::ptr::NonNull;
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
+    /// The Bundle that contains the change detection ticks for this bundle
+    type ChangeTicks: Bundle;
+
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
@@ -181,12 +185,15 @@ pub trait DynamicBundle {
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
+    type ChangeTicks = C::ChangeDetection;
+
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
     ) {
         ids(components.init_component::<C>(storages));
+        // ids(components.init_component::<ChangeTicks<C>>(storages));
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
@@ -217,6 +224,8 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+            type ChangeTicks: ($($name::ChangeTicks,)*);
+
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*

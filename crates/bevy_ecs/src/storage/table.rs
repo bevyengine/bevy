@@ -150,8 +150,6 @@ impl TableRow {
 #[derive(Debug)]
 pub struct Column {
     data: BlobVec,
-    added_ticks: Vec<UnsafeCell<Tick>>,
-    changed_ticks: Vec<UnsafeCell<Tick>>,
 }
 
 impl Column {
@@ -161,8 +159,6 @@ impl Column {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
-            added_ticks: Vec::with_capacity(capacity),
-            changed_ticks: Vec::with_capacity(capacity),
         }
     }
 
@@ -182,11 +178,6 @@ impl Column {
     pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
         self.data.initialize_unchecked(row.as_usize(), data);
-        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
     }
 
     /// Writes component data to the column at given row.
@@ -198,10 +189,6 @@ impl Column {
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.as_usize())
-            .get_mut() = change_tick;
     }
 
     /// Gets the current number of elements stored in the column.
@@ -229,11 +216,9 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());
-        self.added_ticks.swap_remove(row.as_usize());
-        self.changed_ticks.swap_remove(row.as_usize());
     }
 
-    /// Removes an element from the [`Column`] and returns it and its change detection ticks.
+    /// Removes an element from the [`Column`] and returns it.
     /// This does not preserve ordering, but is O(1) and does not do any bounds checking.
     ///
     /// The element is replaced with the last element in the [`Column`].
@@ -249,11 +234,9 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
-    ) -> (OwningPtr<'_>, ComponentTicks) {
+    ) -> OwningPtr<'_> {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
-        let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
-        let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
-        (data, ComponentTicks { added, changed })
+        data
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -277,10 +260,6 @@ impl Column {
         debug_assert!(self.data.layout() == other.data.layout());
         let ptr = self.data.get_unchecked_mut(dst_row.as_usize());
         other.data.swap_remove_unchecked(src_row.as_usize(), ptr);
-        *self.added_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.added_ticks.swap_remove(src_row.as_usize());
-        *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.changed_ticks.swap_remove(src_row.as_usize());
     }
 
     /// Pushes a new value onto the end of the [`Column`].
@@ -289,15 +268,11 @@ impl Column {
     /// `ptr` must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
         self.data.push(ptr);
-        self.added_ticks.push(UnsafeCell::new(ticks.added));
-        self.changed_ticks.push(UnsafeCell::new(ticks.changed));
     }
 
     #[inline]
     pub(crate) fn reserve_exact(&mut self, additional: usize) {
         self.data.reserve_exact(additional);
-        self.added_ticks.reserve_exact(additional);
-        self.changed_ticks.reserve_exact(additional);
     }
 
     /// Fetches the data pointer to the first element of the [`Column`].
@@ -322,42 +297,16 @@ impl Column {
         self.data.get_slice()
     }
 
-    /// Fetches the slice to the [`Column`]'s "added" change detection ticks.
-    ///
-    /// Note: The values stored within are [`UnsafeCell`].
-    /// Users of this API must ensure that accesses to each individual element
-    /// adhere to the safety invariants of [`UnsafeCell`].
-    #[inline]
-    pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
-        &self.added_ticks
-    }
-
-    /// Fetches the slice to the [`Column`]'s "changed" change detection ticks.
-    ///
-    /// Note: The values stored within are [`UnsafeCell`].
-    /// Users of this API must ensure that accesses to each individual element
-    /// adhere to the safety invariants of [`UnsafeCell`].
-    #[inline]
-    pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
-        &self.changed_ticks
-    }
-
-    /// Fetches a reference to the data and change detection ticks at `row`.
+    /// Fetches a reference to the data at `row`.
     ///
     /// Returns `None` if `row` is out of bounds.
     #[inline]
-    pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>, TickCells<'_>)> {
+    pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>)> {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
             .then(|| unsafe {
-                (
-                    self.data.get_unchecked(row.as_usize()),
-                    TickCells {
-                        added: self.added_ticks.get_unchecked(row.as_usize()),
-                        changed: self.changed_ticks.get_unchecked(row.as_usize()),
-                    },
-                )
+                self.data.get_unchecked(row.as_usize())
             })
     }
 
@@ -409,98 +358,13 @@ impl Column {
         self.data.get_unchecked_mut(row.as_usize())
     }
 
-    /// Fetches the "added" change detection tick for the value at `row`.
-    ///
-    /// Returns `None` if `row` is out of bounds.
-    ///
-    /// Note: The values stored within are [`UnsafeCell`].
-    /// Users of this API must ensure that accesses to each individual element
-    /// adhere to the safety invariants of [`UnsafeCell`].
-    #[inline]
-    pub fn get_added_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
-        self.added_ticks.get(row.as_usize())
-    }
-
-    /// Fetches the "changed" change detection tick for the value at `row`.
-    ///
-    /// Returns `None` if `row` is out of bounds.
-    ///
-    /// Note: The values stored within are [`UnsafeCell`].
-    /// Users of this API must ensure that accesses to each individual element
-    /// adhere to the safety invariants of [`UnsafeCell`].
-    #[inline]
-    pub fn get_changed_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
-        self.changed_ticks.get(row.as_usize())
-    }
-
-    /// Fetches the change detection ticks for the value at `row`.
-    ///
-    /// Returns `None` if `row` is out of bounds.
-    #[inline]
-    pub fn get_ticks(&self, row: TableRow) -> Option<ComponentTicks> {
-        if row.as_usize() < self.data.len() {
-            // SAFETY: The size of the column has already been checked.
-            Some(unsafe { self.get_ticks_unchecked(row) })
-        } else {
-            None
-        }
-    }
-
-    /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
-    /// this function does not do any bounds checking.
-    ///
-    /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
-    #[inline]
-    pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        debug_assert!(row.as_usize() < self.added_ticks.len());
-        self.added_ticks.get_unchecked(row.as_usize())
-    }
-
-    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
-    /// this function does not do any bounds checking.
-    ///
-    /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
-    #[inline]
-    pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        debug_assert!(row.as_usize() < self.changed_ticks.len());
-        self.changed_ticks.get_unchecked(row.as_usize())
-    }
-
-    /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
-    /// this function does not do any bounds checking.
-    ///
-    /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
-    #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
-        debug_assert!(row.as_usize() < self.added_ticks.len());
-        debug_assert!(row.as_usize() < self.changed_ticks.len());
-        ComponentTicks {
-            added: self.added_ticks.get_unchecked(row.as_usize()).read(),
-            changed: self.changed_ticks.get_unchecked(row.as_usize()).read(),
-        }
-    }
-
     /// Clears the column, removing all values.
     ///
     /// Note that this function has no effect on the allocated capacity of the [`Column`]>
     pub fn clear(&mut self) {
         self.data.clear();
-        self.added_ticks.clear();
-        self.changed_ticks.clear();
     }
 
-    #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for component_ticks in &mut self.added_ticks {
-            component_ticks.get_mut().check_tick(change_tick);
-        }
-        for component_ticks in &mut self.changed_ticks {
-            component_ticks.get_mut().check_tick(change_tick);
-        }
-    }
 }
 
 /// A builder type for constructing [`Table`]s.
@@ -608,7 +472,7 @@ impl Table {
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
-                let (_, _) = column.swap_remove_and_forget_unchecked(row);
+                let _ = column.swap_remove_and_forget_unchecked(row);
             }
         }
         TableMoveResult {
@@ -738,8 +602,6 @@ impl Table {
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
-            column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
         }
         TableRow::from_usize(index)
     }
