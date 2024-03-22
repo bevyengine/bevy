@@ -37,7 +37,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 1500.0,
         },
-        CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6]),
+        CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
     ));
 
     // Plane
@@ -51,7 +51,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section(
             "Press '1..3' to toggle mesh render layers\n\
-            Press '4..6' to toggle directional light render layers",
+            Press '4..6' to toggle directional light render layers\n\
+            Press '1 and 7' to toggle the spot light render layers",
             TextStyle {
                 font_size: 20.,
                 ..default()
@@ -91,7 +92,7 @@ fn setup(
                 transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
                 directional_light: DirectionalLight {
                     shadows_enabled: true,
-                    illuminance: 100000.0,
+                    illuminance: 100_000.0,
                     color: (*color).into(),
                     ..default()
                 },
@@ -100,6 +101,22 @@ fn setup(
             RenderGroups::from_layer(i + 4),
         ));
     }
+
+    // Spawn a spot light that is in the same layer as mesh 1.
+    // - Notice that the mesh does not cast a shadow when the camera can see the light but not the mesh.
+    commands.spawn((
+        SpotLightBundle {
+            transform: Transform::from_xyz(- 3.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            spot_light: SpotLight {
+                shadows_enabled: true,
+                intensity: 10_000_000.0,
+                color: palettes::basic::LIME.into(),
+                ..default()
+            },
+            ..default()
+        },
+        RenderGroups::from_layers(&[1, 7]),
+    ));
 }
 
 fn toggle_layers(mut query_camera: Query<&mut CameraView>, keyboard: Res<ButtonInput<KeyCode>>) {
@@ -124,6 +141,9 @@ fn toggle_layers(mut query_camera: Query<&mut CameraView>, keyboard: Res<ButtonI
     }
     if keyboard.just_pressed(KeyCode::Digit6) {
         toggle_camera_layer(&mut camera_view, 6);
+    }
+    if keyboard.just_pressed(KeyCode::Digit7) {
+        toggle_camera_layer(&mut camera_view, 7);
     }
 }
 
