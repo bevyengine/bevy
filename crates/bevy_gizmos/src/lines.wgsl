@@ -50,7 +50,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
     clip_b = clip_near_plane(clip_b, clip_a);
-    
     let clip = mix(clip_a, clip_b, position.y);
 
     let resolution = view.viewport.zw;
@@ -98,7 +97,6 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     }
     uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
-
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
