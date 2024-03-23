@@ -36,7 +36,7 @@ impl SystemInformationDiagnosticsPlugin {
 ///
 /// # See also
 ///
-/// [`SystemInformationDiagnosticsPlugin`](crate::SystemInformationDiagnosticsPlugin) for more information.
+/// [`SystemInformationDiagnosticsPlugin`] for more information.
 #[derive(Debug, Resource)]
 pub struct SystemInfo {
     pub os: String,
