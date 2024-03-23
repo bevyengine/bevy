@@ -1,4 +1,4 @@
-use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +66,19 @@ impl Hsva {
 impl Default for Hsva {
     fn default() -> Self {
         Self::new(0., 0., 1., 1.)
+    }
+}
+
+impl Mix for Hsva {
+    #[inline]
+    fn mix(&self, other: &Self, factor: f32) -> Self {
+        let n_factor = 1.0 - factor;
+        Self {
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
+            saturation: self.saturation * n_factor + other.saturation * factor,
+            value: self.value * n_factor + other.value * factor,
+            alpha: self.alpha * n_factor + other.alpha * factor,
+        }
     }
 }
 

@@ -6,7 +6,8 @@ use bevy::color::{
 };
 use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
 use bevy::prelude::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
 
 fn main() {
@@ -44,7 +45,7 @@ struct Instructions;
 struct MousePressed(bool);
 
 #[derive(Resource)]
-struct SeededRng(StdRng);
+struct SeededRng(ChaCha8Rng);
 
 // Setup
 
@@ -53,7 +54,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut seeded_rng = StdRng::seed_from_u64(19878367467712);
+    let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin
     commands.spawn(Camera3dBundle {

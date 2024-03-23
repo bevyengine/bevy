@@ -97,10 +97,18 @@ pub trait ClampColor: Sized {
     fn is_within_bounds(&self) -> bool;
 }
 
+/// Utility function for interpolating hue values. This ensures that the interpolation
+/// takes the shortest path around the color wheel, and that the result is always between
+/// 0 and 360.
+pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
+    let diff = (b - a + 180.0).rem_euclid(360.) - 180.;
+    (a + diff * t).rem_euclid(360.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Hsla;
+    use crate::{testing::assert_approx_eq, Hsla};
 
     #[test]
     fn test_rotate_hue() {
@@ -112,5 +120,24 @@ mod tests {
         assert_eq!(hsla.rotate_hue(0.0), hsla);
         assert_eq!(hsla.rotate_hue(360.0), hsla);
         assert_eq!(hsla.rotate_hue(-360.0), hsla);
+    }
+
+    #[test]
+    fn test_hue_wrap() {
+        assert_approx_eq!(lerp_hue(10., 20., 0.25), 12.5, 0.001);
+        assert_approx_eq!(lerp_hue(10., 20., 0.5), 15., 0.001);
+        assert_approx_eq!(lerp_hue(10., 20., 0.75), 17.5, 0.001);
+
+        assert_approx_eq!(lerp_hue(20., 10., 0.25), 17.5, 0.001);
+        assert_approx_eq!(lerp_hue(20., 10., 0.5), 15., 0.001);
+        assert_approx_eq!(lerp_hue(20., 10., 0.75), 12.5, 0.001);
+
+        assert_approx_eq!(lerp_hue(10., 350., 0.25), 5., 0.001);
+        assert_approx_eq!(lerp_hue(10., 350., 0.5), 0., 0.001);
+        assert_approx_eq!(lerp_hue(10., 350., 0.75), 355., 0.001);
+
+        assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
+        assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
+        assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
     }
 }
