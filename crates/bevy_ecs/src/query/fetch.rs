@@ -374,6 +374,8 @@ unsafe impl WorldQuery for EntityLocation {
         world.entities()
     }
 
+    // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
+    // in most practical use case.
     const IS_DENSE: bool = true;
 
     #[inline]
