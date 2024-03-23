@@ -1,4 +1,4 @@
-use crate::{Alpha, ClampColor, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -54,11 +54,6 @@ impl Lcha {
             hue,
             alpha: 1.0,
         }
-    }
-
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
     }
 
     /// Return a copy of this color with the chroma channel set to the given value.
@@ -134,6 +129,23 @@ impl Alpha for Lcha {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Lcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 

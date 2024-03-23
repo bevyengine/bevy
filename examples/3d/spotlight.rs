@@ -7,7 +7,8 @@ use bevy::{
     pbr::NotShadowCaster,
     prelude::*,
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const INSTRUCTIONS: &str = "\
 Controls
@@ -48,7 +49,7 @@ fn setup(
     ));
 
     // cubes
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     let blue = materials.add(Color::srgb_u8(124, 144, 255));
 

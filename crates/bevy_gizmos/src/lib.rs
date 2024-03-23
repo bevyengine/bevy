@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -13,7 +15,6 @@
 //! ```
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]

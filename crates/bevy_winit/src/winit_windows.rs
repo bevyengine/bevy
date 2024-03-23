@@ -107,7 +107,7 @@ impl WinitWindows {
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::WindowBuilderExtWindows;
-            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar)
+            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar);
         }
 
         #[cfg(any(
