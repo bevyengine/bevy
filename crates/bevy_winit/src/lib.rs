@@ -355,6 +355,12 @@ fn handle_winit_event(
 
     match event {
         Event::AboutToWait => {
+            if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+                if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                    runner_state.redraw_requested = true;
+                }
+            }
+
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|window| window.focused);
             let mut should_update = match config.update_mode(focused) {
@@ -382,9 +388,63 @@ fn handle_winit_event(
                 should_update = true;
             }
 
-            // Trigger one last update to enter suspended state
+            // Trigger one last update to enter the suspended state
             if runner_state.active == ActiveState::WillSuspend {
+                runner_state.active = ActiveState::Suspended;
                 should_update = true;
+
+                #[cfg(target_os = "android")]
+                {
+                    // Remove the `RawHandleWrapper` from the primary window.
+                    // This will trigger the surface destruction.
+                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                    let entity = query.single(&app.world);
+                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                }
+            }
+
+            // Trigger one last update to enter the active state
+            if runner_state.active == ActiveState::WillResume {
+                runner_state.active = ActiveState::Active;
+                should_update = true;
+                runner_state.redraw_requested = true;
+
+                #[cfg(target_os = "android")]
+                {
+                    // Get windows that are cached but without raw handles. Those window were already created, but got their
+                    // handle wrapper removed when the app was suspended.
+                    let mut query = app
+                        .world
+                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                        use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+                        let window = window.clone();
+
+                        let (
+                            ..,
+                            mut winit_windows,
+                            mut adapters,
+                            mut handlers,
+                            accessibility_requested,
+                        ) = create_window.get_mut(&mut app.world);
+
+                        let winit_window = winit_windows.create_window(
+                            event_loop,
+                            entity,
+                            &window,
+                            &mut adapters,
+                            &mut handlers,
+                            &accessibility_requested,
+                        );
+
+                        let wrapper = RawHandleWrapper {
+                            window_handle: winit_window.window_handle().unwrap().as_raw(),
+                            display_handle: winit_window.display_handle().unwrap().as_raw(),
+                        };
+
+                        app.world.entity_mut(entity).insert(wrapper);
+                    }
+                }
             }
 
             if should_update {
@@ -403,7 +463,6 @@ fn handle_winit_event(
                         focused_windows_state,
                         event_loop,
                         create_window,
-                        redraw_event_reader,
                         winit_events,
                     );
                     if runner_state.active != ActiveState::Suspended {
@@ -629,7 +688,6 @@ fn handle_winit_event(
                         focused_windows_state,
                         event_loop,
                         create_window,
-                        redraw_event_reader,
                         winit_events,
                     );
                 }
@@ -657,57 +715,11 @@ fn handle_winit_event(
             runner_state.active = ActiveState::WillSuspend;
         }
         Event::Resumed => {
-            #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
-            {
-                if runner_state.active == ActiveState::NotYetStarted {
-                    create_windows(event_loop, create_window.get_mut(&mut app.world));
-                    create_window.apply(&mut app.world);
-                }
-            }
-
             match runner_state.active {
                 ActiveState::NotYetStarted => winit_events.send(ApplicationLifetime::Started),
                 _ => winit_events.send(ApplicationLifetime::Resumed),
             }
-            runner_state.active = ActiveState::Active;
-            runner_state.redraw_requested = true;
-            #[cfg(target_os = "android")]
-            {
-                // Get windows that are cached but without raw handles. Those window were already created, but got their
-                // handle wrapper removed when the app was suspended.
-                let mut query = app
-                        .world
-                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&app.world) {
-                    use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-                    let window = window.clone();
-
-                    let (
-                        ..,
-                        mut winit_windows,
-                        mut adapters,
-                        mut handlers,
-                        accessibility_requested,
-                    ) = create_window.get_mut(&mut app.world);
-
-                    let winit_window = winit_windows.create_window(
-                        event_loop,
-                        entity,
-                        &window,
-                        &mut adapters,
-                        &mut handlers,
-                        &accessibility_requested,
-                    );
-
-                    let wrapper = RawHandleWrapper {
-                        window_handle: winit_window.window_handle().unwrap().as_raw(),
-                        display_handle: winit_window.display_handle().unwrap().as_raw(),
-                    };
-
-                    app.world.entity_mut(entity).insert(wrapper);
-                }
-                event_loop.set_control_flow(ControlFlow::Wait);
-            }
+            runner_state.active = ActiveState::WillResume;
         }
         Event::UserEvent(RequestRedraw) => {
             runner_state.redraw_requested = true;
@@ -728,7 +740,6 @@ fn run_app_update_if_should(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
-    redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
 ) {
     runner_state.reset_on_update();
@@ -738,19 +749,6 @@ fn run_app_update_if_should(
     }
 
     forward_winit_events(winit_events, app);
-
-    if runner_state.active == ActiveState::WillSuspend {
-        runner_state.active = ActiveState::Suspended;
-        #[cfg(target_os = "android")]
-        {
-            // Remove the `RawHandleWrapper` from the primary window.
-            // This will trigger the surface destruction.
-            let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-            let entity = query.single(&app.world);
-            app.world.entity_mut(entity).remove::<RawHandleWrapper>();
-            event_loop.set_control_flow(ControlFlow::Wait);
-        }
-    }
 
     if app.plugins_state() == PluginsState::Cleaned {
         runner_state.last_update = Instant::now();
@@ -776,12 +774,6 @@ fn run_app_update_if_should(
                 } else {
                     event_loop.set_control_flow(ControlFlow::Wait);
                 }
-            }
-        }
-
-        if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                runner_state.redraw_requested = true;
             }
         }
     }
