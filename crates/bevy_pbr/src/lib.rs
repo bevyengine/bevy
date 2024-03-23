@@ -2,12 +2,14 @@
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
+#[cfg(feature = "meshlet")]
 mod meshlet;
 pub mod wireframe;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
+#[cfg(feature = "meshlet")]
 pub mod experimental {
     pub mod meshlet {
         pub use crate::meshlet::*;
@@ -75,9 +77,7 @@ pub mod graph {
     }
 }
 
-use crate::{
-    deferred::DeferredPbrLightingPlugin, graph::NodePbr, meshlet::MeshletDummyShaderPlugin,
-};
+use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -119,6 +119,8 @@ pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
 pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2325134235233421);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -244,6 +246,13 @@ impl Plugin for PbrPlugin {
             "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
+        // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            "meshlet/dummy_visibility_buffer_resolve.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
@@ -268,7 +277,6 @@ impl Plugin for PbrPlugin {
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin,
-                MeshletDummyShaderPlugin,
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()

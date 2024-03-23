@@ -29,12 +29,11 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
-use crate::{
-    meshlet::{
-        prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
-    },
-    *,
+#[cfg(feature = "meshlet")]
+use crate::meshlet::{
+    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
 };
+use crate::*;
 
 use std::{hash::Hash, marker::PhantomData};
 
@@ -171,18 +170,21 @@ where
             .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                (
-                    queue_prepass_material_meshes::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_materials::<M>)
-                        // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
-                        .ambiguous_with(queue_material_meshes::<StandardMaterial>),
-                    prepare_material_meshlet_meshes_prepass::<M>
-                        .in_set(RenderSet::Queue)
-                        .before(queue_material_meshlet_meshes::<M>)
-                        .run_if(resource_exists::<MeshletGpuScene>),
-                ),
+                queue_prepass_material_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_materials::<M>)
+                    // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                    .ambiguous_with(queue_material_meshes::<StandardMaterial>),
             );
+
+        #[cfg(feature = "meshlet")]
+        render_app.add_systems(
+            Render,
+            prepare_material_meshlet_meshes_prepass::<M>
+                .in_set(RenderSet::Queue)
+                .before(queue_material_meshlet_meshes::<M>)
+                .run_if(resource_exists::<MeshletGpuScene>),
+        );
     }
 }
 

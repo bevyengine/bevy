@@ -81,8 +81,6 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
-const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3325134235233421);
 
@@ -119,7 +117,7 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
             "visibility_buffer_resolve.wgsl",
             Shader::from_wgsl
         );
@@ -218,20 +216,6 @@ impl Plugin for MeshletPlugin {
                     prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
-    }
-}
-
-/// Sets up dummy shaders for when [`MeshletPlugin`] is not used to prevent shader import errors.
-pub struct MeshletDummyShaderPlugin;
-
-impl Plugin for MeshletDummyShaderPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "dummy_visibility_buffer_resolve.wgsl",
-            Shader::from_wgsl
-        );
     }
 }
 

@@ -1,10 +1,9 @@
-use crate::{
-    meshlet::{
-        prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-        MeshletGpuScene,
-    },
-    *,
+#[cfg(feature = "meshlet")]
+use crate::meshlet::{
+    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
+    MeshletGpuScene,
 };
+use crate::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
@@ -181,6 +180,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -190,6 +190,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -199,6 +200,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -270,13 +272,6 @@ where
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
-                        (
-                            prepare_material_meshlet_meshes_main_opaque_pass::<M>,
-                            queue_material_meshlet_meshes::<M>,
-                        )
-                            .chain()
-                            .in_set(RenderSet::Queue)
-                            .run_if(resource_exists::<MeshletGpuScene>),
                     ),
                 );
 
@@ -288,6 +283,18 @@ where
                         .after(prepare_materials::<M>),),
                 );
             }
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                (
+                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
+                    queue_material_meshlet_meshes::<M>,
+                )
+                    .chain()
+                    .in_set(RenderSet::Queue)
+                    .run_if(resource_exists::<MeshletGpuScene>),
+            );
         }
 
         if self.shadows_enabled || self.prepass_enabled {

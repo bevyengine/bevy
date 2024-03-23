@@ -823,14 +823,17 @@ impl Material for StandardMaterial {
         PBR_SHADER_HANDLE.into()
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         Self::fragment_shader()
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         Self::prepass_fragment_shader()
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         Self::deferred_fragment_shader()
     }
