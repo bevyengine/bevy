@@ -1001,7 +1001,8 @@ impl Bundles {
         id
     }
 
-    /// SAFETY: a `BundleInfo` with the given `BundleId` must have been initialized
+    /// # Safety
+    /// A `BundleInfo` with the given `BundleId` must have been initialized for this instance of `Bundles`.
     pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
         self.bundle_infos.get_unchecked(id.0)
     }
