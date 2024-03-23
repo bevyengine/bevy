@@ -2821,5 +2821,6 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

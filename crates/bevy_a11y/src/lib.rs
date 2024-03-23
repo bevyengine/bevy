@@ -1,6 +1,7 @@
-//! Accessibility for Bevy
-
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
+//! Accessibility for Bevy
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},

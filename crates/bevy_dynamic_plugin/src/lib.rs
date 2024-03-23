@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! Bevy's dynamic plugin loading functionality.
 //!
 //! This crate allows loading dynamic libraries (`.dylib`, `.so`) that export a single
