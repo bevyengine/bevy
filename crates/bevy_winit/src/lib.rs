@@ -553,10 +553,13 @@ fn handle_winit_event(
                 }
                 UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                     if let Some(next) = runner_state.last_update.checked_add(wait) {
-                        if let ControlFlow::WaitUntil(_) = event_loop.control_flow() {
-                            if runner_state.wait_elapsed {
+                        runner_state.last_update = Instant::now();
+
+                        if let ControlFlow::WaitUntil(current) = event_loop.control_flow() {
+                            if runner_state.wait_elapsed && current != next {
                                 event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                             }
+
                         } else {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
@@ -822,8 +825,6 @@ fn run_app_update_if_should(runner_state: &mut WinitAppRunnerState, app: &mut Ap
     }
 
     if app.plugins_state() == PluginsState::Cleaned {
-        runner_state.last_update = Instant::now();
-
         app.update();
     }
 }
