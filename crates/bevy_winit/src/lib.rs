@@ -344,12 +344,12 @@ fn handle_winit_event(
             app.cleanup();
         }
         runner_state.redraw_requested = true;
+    }
 
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                event_loop.exit();
-                return;
-            }
+    if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+        if app_exit_event_reader.read(app_exit_events).last().is_some() {
+            event_loop.exit();
+            return;
         }
     }
 
@@ -403,7 +403,6 @@ fn handle_winit_event(
                         focused_windows_state,
                         event_loop,
                         create_window,
-                        app_exit_event_reader,
                         redraw_event_reader,
                         winit_events,
                     );
@@ -630,7 +629,6 @@ fn handle_winit_event(
                         focused_windows_state,
                         event_loop,
                         create_window,
-                        app_exit_event_reader,
                         redraw_event_reader,
                         winit_events,
                     );
@@ -730,7 +728,6 @@ fn run_app_update_if_should(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
-    app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
 ) {
@@ -785,12 +782,6 @@ fn run_app_update_if_should(
         if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
             if redraw_event_reader.read(app_redraw_events).last().is_some() {
                 runner_state.redraw_requested = true;
-            }
-        }
-
-        if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
-                event_loop.exit();
             }
         }
     }
