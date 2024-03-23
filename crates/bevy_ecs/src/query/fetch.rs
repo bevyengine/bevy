@@ -1304,7 +1304,6 @@ unsafe impl<T: Component> WorldQuery for &mut T {
         } else {
             // SAFETY: we have initialized the component so the component_info exists;
             let component_info = world.components.get_info(component_id).unwrap();
-            // TODO: handle cases where the change detection is disabled!
             // SAFETY: we know that change detection is enabled, so the change detection id is present
             let change_component_id = component_info
                 .change_detection_id()
