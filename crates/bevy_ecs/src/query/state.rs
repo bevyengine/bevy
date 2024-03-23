@@ -22,10 +22,10 @@ use super::{
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
-/// 
+///
 /// Query iteration is exclusively  dense (over tables) or archetypal (over archetypes) based on whether
 /// both D::IS_DENSE and F::IS_DENSE are true or not.
-/// 
+///
 /// This is a union instead of an enum as the usage is determined at compile time, as all StorageIds for
 /// a QueryState will be TableIds or ArchetypeIds, and not a mixture of both. This removes the need for
 /// discriminator to minimize memory usage and branching during iteration.
