@@ -353,6 +353,11 @@ fn handle_winit_event(
         }
     }
 
+    // create any new windows
+    // (even if app did not update, some may have been created by plugin setup)
+    create_windows(event_loop, create_window.get_mut(&mut app.world));
+    create_window.apply(&mut app.world);
+
     match event {
         Event::AboutToWait => {
             if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
@@ -462,7 +467,6 @@ fn handle_winit_event(
                         app,
                         focused_windows_state,
                         event_loop,
-                        create_window,
                         winit_events,
                     );
                     if runner_state.active != ActiveState::Suspended {
@@ -687,7 +691,6 @@ fn handle_winit_event(
                         app,
                         focused_windows_state,
                         event_loop,
-                        create_window,
                         winit_events,
                     );
                 }
@@ -739,7 +742,6 @@ fn run_app_update_if_should(
     app: &mut App,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
-    create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     winit_events: &mut Vec<WinitEvent>,
 ) {
     runner_state.reset_on_update();
@@ -777,11 +779,6 @@ fn run_app_update_if_should(
             }
         }
     }
-
-    // create any new windows
-    // (even if app did not update, some may have been created by plugin setup)
-    create_windows(event_loop, create_window.get_mut(&mut app.world));
-    create_window.apply(&mut app.world);
 }
 
 fn react_to_resize(
