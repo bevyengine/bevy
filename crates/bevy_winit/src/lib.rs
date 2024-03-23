@@ -197,25 +197,6 @@ impl WinitAppRunnerState {
         self.redraw_requested = false;
         self.window_event_received = false;
         self.device_event_received = false;
-        self.wait_elapsed = false;
-    }
-}
-
-#[derive(PartialEq, Eq)]
-enum ActiveState {
-    NotYetStarted,
-    Active,
-    Suspended,
-    WillSuspend,
-}
-
-impl ActiveState {
-    #[inline]
-    fn should_run(&self) -> bool {
-        match self {
-            ActiveState::NotYetStarted | ActiveState::Suspended => false,
-            ActiveState::Active | ActiveState::WillSuspend => true,
-        }
     }
 }
 
@@ -230,6 +211,25 @@ impl Default for WinitAppRunnerState {
             last_update: Instant::now(),
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum ActiveState {
+    NotYetStarted,
+    Active,
+    Suspended,
+    WillSuspend,
+    WillResume,
+}
+
+impl ActiveState {
+    #[inline]
+    fn should_run(&self) -> bool {
+        match self {
+            Self::NotYetStarted | Self::Suspended => false,
+            Self::Active | Self::WillSuspend | Self::WillResume => true,
         }
     }
 }
