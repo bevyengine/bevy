@@ -379,25 +379,20 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
                                     let Some(sample_type) = image.texture_format.sample_type(None, None) else {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidData(
-                                            format!(
-                                                "binding index {}: no sampler for format `{:?}`", 
-                                                #binding_index, 
-                                                image.texture_format, 
-                                            )
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            "None".to_string(),
+                                            format!("{:?}", #expected_samplers),
                                         ));
                                     };
 
                                     let valid = #expected_samplers.contains(&sample_type);
 
                                     if !valid {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidData(
-                                            format!(
-                                                "binding index {}: image sampler type `{:?}` must be one of `{:?}`", 
-                                                #binding_index, 
-                                                sample_type, 
-                                                #expected_samplers
-                                            )
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            format!("{:?}", sample_type),
+                                            format!("{:?}", #expected_samplers),
                                         ));
                                     }
 

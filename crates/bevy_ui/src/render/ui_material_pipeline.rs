@@ -708,8 +708,11 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((id, material));
             }
-            Err(AsBindGroupError::InvalidData(msg)) => {
-                warn!("UiMaterial<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
+            Err(other) => {
+                warn!(
+                    "UiMaterial<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
             }
         }
     }
@@ -732,8 +735,11 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((handle, material));
             }
-            Err(AsBindGroupError::InvalidData(msg)) => {
-                warn!("UiMaterial<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
+            Err(other) => {
+                warn!(
+                    "UiMaterial<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
             }
         }
     }

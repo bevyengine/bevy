@@ -27,7 +27,10 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract,
 };
-use bevy_utils::{tracing::{error, warn}, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap, HashSet,
+};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::{hash::Hash, num::NonZeroU32};
@@ -963,8 +966,11 @@ pub fn prepare_materials<M: Material>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((id, material));
             }
-            Err(AsBindGroupError::InvalidData(msg)) => {
-                warn!("Material<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
+            Err(other) => {
+                warn!(
+                    "Material<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
             }
         }
     }
@@ -988,8 +994,11 @@ pub fn prepare_materials<M: Material>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((id, material));
             }
-            Err(AsBindGroupError::InvalidData(msg)) => {
-                warn!("Material<{}> Bind group contains invalid data: {msg}", std::any::type_name::<M>());
+            Err(other) => {
+                warn!(
+                    "Material<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
             }
         }
     }
