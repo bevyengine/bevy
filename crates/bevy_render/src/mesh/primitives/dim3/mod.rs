@@ -4,6 +4,7 @@ mod cylinder;
 mod plane;
 mod sphere;
 mod torus;
+mod triangle3d;
 
 pub use capsule::*;
 pub use cylinder::*;

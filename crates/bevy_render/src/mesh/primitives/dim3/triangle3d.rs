@@ -11,9 +11,11 @@ impl Meshable for Triangle3d {
     
     fn mesh(&self) -> Self::Output {
         let positions: Vec<_> = self.vertices.into();
+        let uvs: Vec<_> = uv_coords(&self).into();
+
+        // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate)
         let normal: Vec3 = self.normal().map_or(Vec3::ZERO, |n| n.into());
         let normals = vec![normal; 3];
-        let uvs: Vec<_> = uv_coords(&self).into();
 
         let indices = Indices::U32(vec![0, 1, 2]);
 
@@ -39,10 +41,10 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
     };
     let y = c - a;
 
-    // x is corresponds to one of the axes in uv-coordinates;
+    // `x` corresponds to one of the axes in uv-coordinates;
     // to uv-map the triangle without skewing, we use the orthogonalization
-    // of y with respect to x as the second direction and construct a rectangle that
-    // contains the triangle.
+    // of `y` with respect to `x` as the second direction and construct a rectangle that
+    // contains `triangle`.
     let y_proj = y.project_onto_normalized(x);
 
     // `offset` represents the x-coordinate of the point `c`; note that x has been shrunk by a
