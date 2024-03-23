@@ -79,6 +79,12 @@ pub trait QueryFilter: WorldQuery {
     /// many elements are being iterated (such as `Iterator::collect()`).
     const IS_ARCHETYPAL: bool;
 
+    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
+    /// If false, the entity will be skipped.
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
@@ -357,7 +363,7 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
     }
 }
 
-macro_rules! impl_query_filter_tuple {
+macro_rules! impl_or_query_filter {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
@@ -506,7 +512,7 @@ macro_rules! impl_tuple_query_filter {
 }
 
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
@@ -524,7 +530,7 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// # Time complexity
 ///
 /// `Added` is not [`ArchetypeFilter`], which practically means that
-/// if query (with `T` component filter) matches million entities,
+/// if the query (with `T` component filter) matches a million entities,
 /// `Added<T>` filter will iterate over all of them even if none of them were just added.
 ///
 /// For example, these two systems are roughly equivalent in terms of performance:
