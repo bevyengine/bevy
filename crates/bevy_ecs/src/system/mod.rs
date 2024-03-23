@@ -985,7 +985,8 @@ mod tests {
                     .get_id(TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
                 let bundle_info = bundles.get(bundle_id).unwrap();
-                let mut bundle_components = bundle_info.components().collect::<Vec<_>>();
+                // get all components, including the change detection components
+                let mut bundle_components = bundle_info.iter_all_components().collect::<Vec<_>>();
                 bundle_components.sort();
                 for component_id in &bundle_components {
                     assert!(

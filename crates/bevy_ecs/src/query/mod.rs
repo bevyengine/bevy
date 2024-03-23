@@ -78,6 +78,7 @@ mod tests {
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
     use std::collections::HashSet;
+    use crate::change_detection::Mut;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
     struct A(usize);
@@ -347,7 +348,7 @@ mod tests {
             .collect::<HashSet<_>>()
         );
 
-        let mut query = world.query_filtered::<&mut A, Without<B>>();
+        let mut query = world.query_filtered::<Mut<A>, Without<B>>();
         let mut combinations = query.iter_combinations_mut(&mut world);
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
@@ -395,7 +396,7 @@ mod tests {
 
         let mut query_changed = world.query_filtered::<&A, Changed<A>>();
 
-        let mut query = world.query_filtered::<&mut A, With<B>>();
+        let mut query = world.query_filtered::<Mut<A>, With<B>>();
         let mut combinations = query.iter_combinations_mut(&mut world);
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;

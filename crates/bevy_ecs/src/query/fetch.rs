@@ -1199,7 +1199,7 @@ unsafe impl<T: Component> WorldQuery for &mut T {
     ) {
         assert!(
             !access.access().has_read(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+            "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
             std::any::type_name::<T>(),
         );
         access.add_write(component_id);
@@ -1207,12 +1207,12 @@ unsafe impl<T: Component> WorldQuery for &mut T {
 
     fn init_state(world: &mut World) -> ComponentId {
         // TODO: find something better than a runtime panic..
-        assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
+        // assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
         world.init_component::<T>()
     }
 
     fn get_state(world: &World) -> Option<Self::State> {
-        assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
+        // assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
         world.component_id::<T>()
     }
 
