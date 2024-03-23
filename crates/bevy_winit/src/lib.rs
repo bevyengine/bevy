@@ -469,15 +469,14 @@ fn handle_winit_event(
             }
 
             if should_update {
-                let visible = windows.iter().any(|window| window.visible);
-                let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
-                if visible && runner_state.active != ActiveState::WillSuspend {
+                if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
+                    let (_, winit_windows, _, _) =
+                        event_writer_system_state.get_mut(&mut app.world);
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
-                } else {
-                    // there are no windows, or they are not visible.
-                    // Winit won't send events on some platforms, so trigger an update manually.
+                } else if runner_state.wait_elapsed {
+                    // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(
                         runner_state,
                         app,
