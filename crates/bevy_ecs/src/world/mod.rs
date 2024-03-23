@@ -2443,6 +2443,7 @@ mod tests {
 
     // For bevy_ecs_macros
     use crate as bevy_ecs;
+    use crate::change_detection::ChangeTicks;
 
     type ID = u8;
 
@@ -2707,36 +2708,40 @@ mod tests {
                 .collect()
         }
 
+        let foo_ticks_id = TypeId::of::<ChangeTicks<Foo>>();
         let foo_id = TypeId::of::<Foo>();
+        let bar_ticks_id = TypeId::of::<ChangeTicks<Bar>>();
         let bar_id = TypeId::of::<Bar>();
+        let baz_ticks_id = TypeId::of::<ChangeTicks<Baz>>();
         let baz_id = TypeId::of::<Baz>();
+        // note that the change detection component is registered before the component
         assert_eq!(
             to_type_ids(world.inspect_entity(ent0)),
-            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+            [Some(foo_ticks_id), Some(foo_id), Some(bar_ticks_id), Some(bar_id), Some(baz_ticks_id), Some(baz_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent1)),
-            [Some(foo_id), Some(bar_id)].into()
+            [Some(foo_ticks_id), Some(foo_id), Some(bar_ticks_id), Some(bar_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent2)),
-            [Some(bar_id), Some(baz_id)].into()
+            [Some(bar_ticks_id), Some(bar_id), Some(baz_ticks_id), Some(baz_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent3)),
-            [Some(foo_id), Some(baz_id)].into()
+            [Some(foo_ticks_id), Some(foo_id), Some(baz_ticks_id), Some(baz_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent4)),
-            [Some(foo_id)].into()
+            [Some(foo_ticks_id), Some(foo_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent5)),
-            [Some(bar_id)].into()
+            [Some(bar_ticks_id), Some(bar_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent6)),
-            [Some(baz_id)].into()
+            [Some(baz_ticks_id), Some(baz_id)].into()
         );
     }
 

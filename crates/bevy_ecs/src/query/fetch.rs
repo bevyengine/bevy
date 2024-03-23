@@ -938,8 +938,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        // TODO: 2 options
+        //  - panic if we use Ref<> for a component that does not have change detection
+        //  - or just convert to a normal &T in that case? (return without change ticks?)
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
@@ -956,8 +960,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
 
         let column = table.get_column(component_id.component).debug_checked_unwrap();
@@ -1020,13 +1025,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>(),
         );
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         assert!(
-            !access.access().has_read(component_id.change_ticks_component),
+            !access.access().has_read(change_component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
             std::any::type_name::<ChangeTicks<T>>(),
         );
         access.add_read(component_id.component);
-        access.add_write(component_id.change_ticks_component);
+        access.add_write(change_component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentChangeId {
@@ -1036,10 +1042,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         // SAFETY: we have initialized the component so the component_info exists;
         let component_info = world.components.get_info(component_id).unwrap();
         // TODO: handle cases where the change detection is disabled!
-        let change_component_id = component_info.change_detection_id().unwrap();
+        let change_component_id = component_info.change_detection_id().expect(
+            "change detection is disabled for this component"
+        );
         ComponentChangeId {
             component: component_id,
-            change_ticks_component: change_component_id,
+            change_ticks_component: Some(change_component_id),
         }
     }
 
@@ -1048,7 +1056,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         world.components.get_info(component_id).and_then(|info| {
             info.change_detection_id().map(|change_component_id| ComponentChangeId {
                 component: component_id,
-                change_ticks_component: change_component_id,
+                change_ticks_component: Some(change_component_id),
             })
         })
     }
@@ -1057,7 +1065,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &state: &ComponentChangeId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state.component) && set_contains_id(state.change_ticks_component)
+        set_contains_id(state.component) && set_contains_id(state.change_ticks_component.expect("change detection is disabled for this component"))
     }
 }
 
@@ -1296,8 +1304,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
@@ -1316,8 +1325,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
+        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
         let column = table.get_column(component_id.component).debug_checked_unwrap();
         fetch.table_data = Some(
@@ -1378,18 +1388,19 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &component_id: &ComponentChangeId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
+        let change_component_id = component_id.change_ticks_component.expect("change detection is disabled for this component");
         assert!(
             !access.access().has_read(component_id.component),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
                 std::any::type_name::<T>(),
         );
         assert!(
-            !access.access().has_read(component_id.change_ticks_component),
+            !access.access().has_read(change_component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
             std::any::type_name::<T>(),
         );
         access.add_write(component_id.component);
-        access.add_write(component_id.change_ticks_component);
+        access.add_write(change_component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentChangeId {
@@ -1399,19 +1410,20 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         // SAFETY: we have initialized the component so the component_info exists;
         let component_info = world.components.get_info(component_id).unwrap();
         // TODO: handle cases where the change detection is disabled!
-        let change_component_id = component_info.change_detection_id().unwrap();
+        let change_component_id = component_info.change_detection_id().expect("change detection is disabled for this component");
         ComponentChangeId {
             component: component_id,
-            change_ticks_component: change_component_id,
+            change_ticks_component: Some(change_component_id),
         }
     }
 
     fn get_state(world: &World) -> Option<Self::State> {
         let component_id = world.component_id::<T>()?;
         world.components.get_info(component_id).and_then(|info| {
-            info.change_detection_id().map(|change_component_id| ComponentChangeId {
+            let change_component_id = info.change_detection_id().expect("change detection is disabled for this component");
+            Some(ComponentChangeId {
                 component: component_id,
-                change_ticks_component: change_component_id,
+                change_ticks_component: Some(change_component_id),
             })
         })
     }
@@ -1420,7 +1432,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &state: &ComponentChangeId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state.component) && set_contains_id(state.change_ticks_component)
+        set_contains_id(state.component) && set_contains_id(state.change_ticks_component.expect("change detection is disabled for this component"))
     }
 }
 

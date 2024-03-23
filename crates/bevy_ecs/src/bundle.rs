@@ -189,6 +189,9 @@ pub trait DynamicBundle {
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
+    // TODO: if C::CHANGE_DETECTION = True, ChangeTicks<C>, else ()
+    //  if that doesn't work, add a function has_change_detection() ?
+    //  what to do when Bundle = (A, B, C) and only B has change detection?
     type ChangeTicks = ChangeTicks<C>;
 
     fn component_ids(
@@ -359,13 +362,22 @@ impl BundleInfo {
     /// Returns an iterator over the [ID](ComponentId) of each component and the change detection component
     /// stored in this bundle.
     pub fn iter_all_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.component_ids.iter().flat_map(|id| [id.component, id.change_ticks_component])
+        // TODO: remove copied and vec!
+        self.component_ids
+            .iter()
+            .copied()
+            .flat_map(|id| {
+                match id.change_ticks_component {
+                    None => vec![id.component].into_iter(),
+                    Some(change_ticks_component) => vec![id.component, change_ticks_component].into_iter()
+                }
+            })
     }
 
     /// Returns the [ID](ComponentId) of each change detection component stored in this bundle.
     #[inline]
     pub fn change_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.component_ids.iter().map(|id| id.change_ticks_component)
+        self.component_ids.iter().filter_map(|id| id.change_ticks_component)
     }
 
     /// Returns the [ID](ComponentId) of each component stored in this bundle.
@@ -440,27 +452,32 @@ impl BundleInfo {
                     sparse_set.insert(entity, component_ptr);
                 }
             }
-            let change_status = unsafe { bundle_component_status.get_component_change_status(bundle_component) };
-            // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-            // the target table contains the change detection component.
-            let change_column = unsafe {
-                table
-                    .get_column_mut(component_id.change_ticks_component)
-                    .debug_checked_unwrap()
-            };
-            match change_status {
-                ComponentStatus::Added => {
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires
-                    // that the target table contains the change detection component.
-                    OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
-                        change_column.initialize(table_row, ptr);
-                    });
-                }
-                ComponentStatus::Mutated => {
-                    // SAFETY:
-                    // - we know that the change detection component exists in the table
-                    // - we know that the data contained at this pointer is of type ChangeTicks
-                    change_column.get_data_unchecked_mut(table_row).deref_mut::<ComponentTicks>().changed = change_tick;
+            if let Some(change_component_id) = component_id.change_ticks_component {
+                let change_column =
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // the target table contains the change detection component.
+                    unsafe {
+                        table
+                            .get_column_mut(change_component_id)
+                            .debug_checked_unwrap()
+                    };
+                // SAFETY: bundle_component is a valid index for this bundle
+                // SAFETY: if the change detection component exists, then it will have a component status
+                let change_status = unsafe { bundle_component_status.get_component_change_status(bundle_component).unwrap() };
+                match change_status {
+                    ComponentStatus::Added => {
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires
+                        // that the target table contains the change detection component.
+                        OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
+                            change_column.initialize(table_row, ptr);
+                        });
+                    }
+                    ComponentStatus::Mutated => {
+                        // SAFETY:
+                        // - we know that the change detection component exists in the table
+                        // - we know that the data contained at this pointer is of type ChangeTicks
+                        change_column.get_data_unchecked_mut(table_row).deref_mut::<ComponentTicks>().changed = change_tick;
+                    }
                 }
             }
             bundle_component += 1;
@@ -505,15 +522,16 @@ impl BundleInfo {
 
             // handle the change detection component in a separate loop to maintain the order
             // between the component and its change detection component
-            let change_component_id = component_change_id.change_ticks_component;
-            // TODO: can we avoid this check and re-use the main component's Status?
-            let change_component_status = if current_archetype.contains(change_component_id) {
-                ComponentStatus::Mutated
-            } else {
-                // tick components are always stored in tables
-                new_table_components.push(change_component_id);
-                ComponentStatus::Added
-            };
+            let change_component_status = component_change_id.change_ticks_component.map(|change_component_id| {
+                // TODO: can we avoid this check and re-use the main component's Status?
+                if current_archetype.contains(change_component_id) {
+                    ComponentStatus::Mutated
+                } else {
+                    // tick components are always stored in tables
+                    new_table_components.push(change_component_id);
+                    ComponentStatus::Added
+                }
+            });
             bundle_status.push(ComponentChangeStatus {
                 component: component_status,
                 change_component: change_component_status,
@@ -1056,17 +1074,19 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let mut change_component_ids = Vec::new();
+            // TODO: be smarter here
             T::ChangeTicks::component_ids(components, storages, &mut |id| {
                 change_component_ids.push(id);
             });
-            // it is guaranteed that each component_id has a corresponding change_component_id
+            // TODO: currently it is guaranteed that each component_id has a corresponding change_component_id
+            //  because we didn't enable optional change detection, and we don't init ChangeTicks manually
             let component_change_ids = component_ids
                 .into_iter()
                 .zip(change_component_ids.into_iter())
                 .map(|(component_id, change_component_id)| {
                     ComponentChangeId {
                         component: component_id,
-                        change_ticks_component: change_component_id,
+                        change_ticks_component: Some(change_component_id),
                     }
                 })
                 .collect::<Vec<_>>();
@@ -1168,9 +1188,9 @@ fn initialize_dynamic_bundle(
         }).storage_type()
     }).collect();
 
+    // Fetch the associated change detection component for each component, if it exists
     let component_change_ids = component_ids.iter().map(|&component_id| {
-        // TODO: handle the change detection component not existing!
-        let change_ticks_component = components.get_info(component_id).unwrap().change_detection_id().unwrap();
+        let change_ticks_component = components.get_info(component_id).unwrap().change_detection_id();
         ComponentChangeId {
             component: component_id,
             change_ticks_component,

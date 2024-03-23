@@ -115,7 +115,7 @@ pub(crate) enum ComponentStatus {
 
 pub(crate) struct ComponentChangeStatus {
     pub(crate) component: ComponentStatus,
-    pub(crate) change_component: ComponentStatus,
+    pub(crate) change_component: Option<ComponentStatus>,
 }
 
 pub(crate) struct AddBundle {
@@ -136,10 +136,12 @@ pub(crate) trait BundleComponentStatus {
 
     /// Returns the Bundle's change detection component status for the given "bundle index"
     ///
+    /// Returns None if the component does not have change detection enabled.
+    ///
     /// # Safety
     /// Callers must ensure that index is always a valid bundle index for the
     /// Bundle associated with this [`BundleComponentStatus`]
-    unsafe fn get_component_change_status(&self, index: usize) -> ComponentStatus;
+    unsafe fn get_component_change_status(&self, index: usize) -> Option<ComponentStatus>;
 }
 
 impl BundleComponentStatus for AddBundle {
@@ -150,7 +152,7 @@ impl BundleComponentStatus for AddBundle {
     }
 
     #[inline]
-    unsafe fn get_component_change_status(&self, index: usize) -> ComponentStatus {
+    unsafe fn get_component_change_status(&self, index: usize) -> Option<ComponentStatus> {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
         unsafe { self.bundle_status.get_unchecked(index).change_component }
     }
@@ -166,9 +168,10 @@ impl BundleComponentStatus for SpawnBundleStatus {
     }
 
     #[inline]
-    unsafe fn get_component_change_status(&self, _index: usize) -> ComponentStatus {
+    unsafe fn get_component_change_status(&self, _index: usize) -> Option<ComponentStatus> {
+        // TODO: be able to handle components with no change detection!!
         // Change detection added during a spawn call are always treated as added
-        ComponentStatus::Added
+        Some(ComponentStatus::Added)
     }
 }
 

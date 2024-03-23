@@ -529,7 +529,7 @@ pub struct ChangeTicks<T: Component>{
 pub struct ComponentChangeId {
     pub(crate) component: ComponentId,
     // TODO: make this optional is change detection is disabled for this component?
-    pub(crate) change_ticks_component: ComponentId,
+    pub(crate) change_ticks_component: Option<ComponentId>,
 }
 
 
