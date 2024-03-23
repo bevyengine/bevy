@@ -1338,10 +1338,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            if D::IS_DENSE && F::IS_DENSE {
-                // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = unsafe { &world.storages().tables };
-                for storage_id in &self.matched_storage_ids {
+            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+            let tables = unsafe { &world.storages().tables };
+            let archetypes = world.archetypes();
+            for storage_id in &self.matched_storage_ids {
+                if D::IS_DENSE && F::IS_DENSE {
                     let table_id = storage_id.table_id;
                     let table = &tables[table_id];
                     if table.is_empty() {
@@ -1352,37 +1353,34 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     while offset < table.entity_count() {
                         let mut func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
+                        let batch = offset..offset + len;
                         scope.spawn(async move {
                             #[cfg(feature = "trace")]
                             let _span = self.par_iter_span.enter();
                             let table =
                                 &world.storages().tables.get(table_id).debug_checked_unwrap();
-                            let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_table_range(&mut func, table, batch);
                         });
                         offset += batch_size;
                     }
-                }
-            } else {
-                let archetypes = world.archetypes();
-                for storage_id in &self.matched_storage_ids {
+                } else {
                     let archetype_id = storage_id.archetype_id;
-                    let mut offset = 0;
                     let archetype = &archetypes[archetype_id];
                     if archetype.is_empty() {
                         continue;
                     }
 
+                    let mut offset = 0;
                     while offset < archetype.len() {
                         let mut func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
+                        let batch = offset..offset + len;
                         scope.spawn(async move {
                             #[cfg(feature = "trace")]
                             let _span = self.par_iter_span.enter();
                             let archetype =
                                 world.archetypes().get(archetype_id).debug_checked_unwrap();
-                            let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_archetype_range(&mut func, archetype, batch);
                         });
