@@ -1774,6 +1774,17 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_input_sysparam"
+path = "examples/input/gamepad_input_sysparam.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gamepad_input_sysparam]
+name = "Gamepad Input with System parameters"
+description = "Same as gamepad_input but with sysparam"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "gamepad_rumble"
 path = "examples/input/gamepad_rumble.rs"
 doc-scrape-examples = true
