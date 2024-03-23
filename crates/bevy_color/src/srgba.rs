@@ -4,7 +4,11 @@ use crate::color_difference::EuclideanDistance;
 use crate::{Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
+//use serde::{Deserialize, Serialize};
+use bevy_reflect::Reflect;
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
@@ -12,8 +16,13 @@ use thiserror::Error;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Srgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,

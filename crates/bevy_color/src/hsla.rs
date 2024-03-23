@@ -3,7 +3,9 @@ use crate::{
     Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -11,8 +13,14 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+//#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Hsla {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
