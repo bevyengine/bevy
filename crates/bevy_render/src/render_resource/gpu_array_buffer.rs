@@ -1,6 +1,6 @@
 use super::{
     binding_types::{storage_buffer_read_only, uniform_buffer_sized},
-    BindGroupLayoutEntryBuilder, StorageBuffer,
+    BindGroupLayoutEntryBuilder, EncasedBufferVec,
 };
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
@@ -10,7 +10,7 @@ use bevy_ecs::{prelude::Component, system::Resource};
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
 use std::marker::PhantomData;
-use wgpu::BindingResource;
+use wgpu::{BindingResource, BufferUsages};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
@@ -18,9 +18,10 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 
 /// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
 ///
-/// On platforms that support storage buffers, this is equivalent to [`StorageBuffer<Vec<T>>`].
-/// Otherwise, this falls back to a dynamic offset uniform buffer with the largest
-/// array of T that fits within a uniform buffer binding (within reasonable limits).
+/// On platforms that support storage buffers, this is equivalent to
+/// [`EncasedBufferVec<T>`]. Otherwise, this falls back to a dynamic offset
+/// uniform buffer with the largest array of T that fits within a uniform buffer
+/// binding (within reasonable limits).
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`StorageBuffer`]
@@ -28,11 +29,12 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 #[derive(Resource)]
 pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
     Uniform(BatchedUniformBuffer<T>),
-    Storage(StorageBuffer<Vec<T>>),
+    Storage(EncasedBufferVec<T>),
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
@@ -41,14 +43,14 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
-            GpuArrayBuffer::Storage(StorageBuffer::default())
+            GpuArrayBuffer::Storage(EncasedBufferVec::new(BufferUsages::STORAGE))
         }
     }
 
     pub fn clear(&mut self) {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.clear(),
-            GpuArrayBuffer::Storage(buffer) => buffer.get_mut().clear(),
+            GpuArrayBuffer::Storage(buffer) => buffer.clear(),
         }
     }
 
@@ -56,9 +58,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
             GpuArrayBuffer::Storage(buffer) => {
-                let buffer = buffer.get_mut();
-                let index = buffer.len() as u32;
-                buffer.push(value);
+                let index = buffer.push(value) as u32;
                 GpuArrayBufferIndex {
                     index,
                     dynamic_offset: None,
@@ -91,7 +91,9 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage(buffer) => buffer.binding(),
+            GpuArrayBuffer::Storage(buffer) => {
+                buffer.buffer().map(|buffer| buffer.as_entire_binding())
+            }
         }
     }
 

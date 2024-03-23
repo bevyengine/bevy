@@ -32,6 +32,7 @@ use super::IntoBinding;
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
@@ -169,6 +170,7 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
