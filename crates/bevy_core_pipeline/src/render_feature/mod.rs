@@ -1,4 +1,5 @@
 mod function_feature;
+use bevy_render::settings::{WgpuFeatures, WgpuLimits};
 pub use function_feature::*;
 
 use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, StorageType};
@@ -12,7 +13,6 @@ use bevy_app::App;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, RenderSubGraph};
-use bevy_render::render_resource::{ColorTargetState, WgpuFeatures, WgpuLimits};
 use bevy_utils::{all_tuples, CowArc};
 
 pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
@@ -29,7 +29,9 @@ pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
         &'s self,
         compatibility: Self::CompatibilityKey,
         builder: &'b mut FeatureDependencyBuilder<G, Self>,
-    ) -> RenderHandles<'b, true, FeatureInput<G, Self>>;
+    ) -> RenderHandles<'b, true, FeatureInput<G, Self>> {
+        FeatureInput::<G, Self>::default_render_handles::<'b>()
+    }
 
     fn build(&self, _compatibility: Self::CompatibilityKey, _app: &mut App) {} // for adding systems not associated with the main View
 
@@ -63,9 +65,9 @@ pub struct RenderHandle<'a, A: FeatureIO<false>> {
 }
 
 impl<'a, A: FeatureIO<false>> RenderHandle<'a, A> {
-    pub fn hole<L: Into<CowArc<'static, str>>>(label: Option<L>) -> Self {
+    pub fn hole(label: Option<CowArc<'static, str>>) -> Self {
         RenderHandle {
-            label: label.map(|l| l.into()),
+            label,
             source: RawRenderHandle::hole(),
             data: PhantomData,
         }
@@ -127,7 +129,7 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
     pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
         &'a mut self,
         handles: RenderHandles<'a, false, A>,
-        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
     ) -> RenderHandle<'a, B> {
         todo!()
     }
@@ -135,7 +137,7 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
     pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
         &'a mut self,
         handles: RenderHandles<'a, true, A>,
-        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
     ) -> RenderHandle<'a, B> {
         self.app
             .world
@@ -157,6 +159,8 @@ pub trait FeatureIO<const MULT: bool>: Sized + Send + Sync + 'static {
         entity: EntityRef<'_>,
         handles: Self::RawHandles,
     ) -> Option<<Self as FeatureIO<MULT>>::Item<'_>>;
+
+    fn default_render_handles<'a>() -> Self::Handles<'a>;
 }
 
 impl<A: Send + Sync + 'static> FeatureIO<false> for A {
@@ -169,6 +173,10 @@ impl<A: Send + Sync + 'static> FeatureIO<false> for A {
         handles: Self::RawHandles,
     ) -> Option<<Self as FeatureIO<false>>::Item<'_>> {
         handles.get(entity)
+    }
+
+    fn default_render_handles<'a>() -> Self::Handles<'a> {
+        RenderHandle::<A>::hole(None)
     }
 }
 
@@ -189,6 +197,11 @@ macro_rules! impl_feature_io {
                     ($(Some($r),)*) => Some(($($r,)*)),
                     _ => None,
                 }
+            }
+
+            #[allow(clippy::unused_unit)]
+            fn default_render_handles<'a>() -> Self::Handles<'a> {
+                ($(RenderHandle::<$T>::hole(None),)*)
             }
         }
     };
@@ -229,7 +242,7 @@ pub trait SubFeature: Send + Sync + 'static {
     type Param: SystemParam;
 
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
         input: SubFeatureInput<Self>,
         param: &SystemParamItem<Self::Param>,
@@ -283,7 +296,7 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
     pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
         &'a mut self,
         handles: RenderHandles<'a, false, A>,
-        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
     ) -> RenderHandle<'a, B> {
         todo!()
     }
@@ -291,7 +304,7 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
     pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
         &'a mut self,
         handles: RenderHandles<'a, true, A>,
-        f: impl for<'_w> Fn(A::Item<'_w>) -> B,
+        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
     ) -> RenderHandle<'a, B> {
         self.app
             .world

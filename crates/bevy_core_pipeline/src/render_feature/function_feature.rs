@@ -22,7 +22,7 @@ pub trait SubFeatureFunction<Marker>: Send + Sync + 'static {
     type Param: SystemParam;
 
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
@@ -49,12 +49,12 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>> SubFeature for FunctionSubF
 
     #[inline]
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
         input: SubFeatureInput<Self>,
         param: &SystemParamItem<Self::Param>,
     ) -> SubFeatureOutput<Self> {
-        F::run(&self.fun, view_entity, input, param)
+        F::run(&mut self.fun, view_entity, input, param)
     }
 }
 
@@ -62,14 +62,14 @@ impl<In, Out, Func: Send + Sync + 'static> SubFeatureFunction<fn(Entity, In) -> 
 where
     In: FeatureIO<true>,
     Out: FeatureIO<false>,
-    for<'a> &'a Func: Fn(Entity, In) -> Out + Fn(Entity, In) -> Out,
+    for<'a> &'a mut Func: FnMut(Entity, In) -> Out + FnMut(Entity, In) -> Out,
 {
     type Sig = Sig![In => Out];
     type Param = ();
 
     #[inline]
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         _param: &SystemParamItem<Self::Param>,
@@ -78,7 +78,7 @@ where
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
         fn call_inner<In, Out>(
-            f: impl Fn(Entity, In) -> Out,
+            mut f: impl FnMut(Entity, In) -> Out,
             view_entity: Entity,
             input: In,
         ) -> Out {
@@ -93,15 +93,15 @@ impl<Out, In, Func: Send + Sync + 'static, Param: SystemParam>
 where
     In: FeatureIO<true>,
     Out: FeatureIO<false>,
-    for<'a> &'a Func:
-        Fn(Entity, In, &Param) -> Out + Fn(Entity, In, &SystemParamItem<Param>) -> Out,
+    for<'a> &'a mut Func:
+        FnMut(Entity, In, &Param) -> Out + FnMut(Entity, In, &SystemParamItem<Param>) -> Out,
 {
     type Sig = Sig![In => Out];
     type Param = Param;
 
     #[inline]
     fn run(
-        &self,
+        &mut self,
         view_entity: Entity,
         input: <Self::Sig as FeatureSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
@@ -110,7 +110,7 @@ where
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
         fn call_inner<In, Out, Param>(
-            f: impl Fn(Entity, In, &Param) -> Out,
+            mut f: impl FnMut(Entity, In, &Param) -> Out,
             view_entity: Entity,
             input: In,
             param: &Param,
