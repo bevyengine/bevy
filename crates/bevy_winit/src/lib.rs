@@ -178,6 +178,8 @@ impl AppSendEvent for Vec<WinitEvent> {
 struct WinitAppRunnerState {
     /// Current active state of the app.
     active: ActiveState,
+    /// Current update mode of the app.
+    update_mode: UpdateMode,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] has been received since the last update.
@@ -204,6 +206,7 @@ impl Default for WinitAppRunnerState {
     fn default() -> Self {
         Self {
             active: ActiveState::NotYetStarted,
+            update_mode: UpdateMode::Continuous,
             window_event_received: false,
             device_event_received: false,
             redraw_requested: false,
@@ -368,7 +371,20 @@ fn handle_winit_event(
 
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|window| window.focused);
-            let mut should_update = match config.update_mode(focused) {
+            let next_update_mode = config.update_mode(focused);
+
+            // Trigger next redraw if we're changing the update mode
+            if next_update_mode != runner_state.update_mode {
+                runner_state.redraw_requested = true;
+                runner_state.update_mode = next_update_mode;
+            }
+
+            // Trigger next redraw if mode is continuous
+            if next_update_mode == UpdateMode::Continuous {
+                runner_state.redraw_requested = true;
+            }
+
+            let mut should_update = match next_update_mode {
                 UpdateMode::Continuous => {
                     runner_state.redraw_requested
                         || runner_state.window_event_received
@@ -771,7 +787,7 @@ fn run_app_update_if_should(
                 // and not potentially infinitely depending on platform specifics (which this does)
                 // Need to verify the platform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
-                if let Some(next) = runner_state.last_update.checked_add(*wait) {
+                if let Some(next) = runner_state.last_update.checked_add(wait) {
                     event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                 } else {
                     event_loop.set_control_flow(ControlFlow::Wait);
