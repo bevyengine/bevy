@@ -1206,10 +1206,13 @@ unsafe impl<T: Component> WorldQuery for &mut T {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
+        // TODO: find something better than a runtime panic..
+        assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
         world.init_component::<T>()
     }
 
     fn get_state(world: &World) -> Option<Self::State> {
+        assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
         world.component_id::<T>()
     }
 

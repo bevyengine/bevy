@@ -853,13 +853,17 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
         access.add_read(id);
+        // TODO: should we also restrict access to the actual component? i'm confused
+        //  i think this access is mostly just to find which archetypes match
     }
 
     fn init_state(world: &mut World) -> ComponentId {
         let component_id = world.init_component::<T>();
-        // TODO: deal with the change ticks not existing
         let component_info = world.components.get_info(component_id).unwrap();
-        let change_component_id = component_info.change_detection_id().unwrap();
+        // TODO: is panicking the best solution here?
+        let change_component_id = component_info.change_detection_id().expect(
+            "Component change detection is not enabled for this component!"
+        );
         change_component_id
     }
 
