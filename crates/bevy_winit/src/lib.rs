@@ -495,7 +495,7 @@ fn handle_winit_event(
                         )))]
                         {
                             let (_, windows) = focused_windows_state.get(&app.world);
-                            let visible = windows.iter().any(|(_, window)| window.visible);
+                            let visible = windows.iter().any(|window| window.visible);
 
                             match event_loop.control_flow() {
                                 ControlFlow::Poll if visible => {
