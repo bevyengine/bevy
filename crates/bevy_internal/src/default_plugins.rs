@@ -1,7 +1,7 @@
 use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
-/// * [`PanicHandlerPlugin`](crate::panic_handler::PanicHandlerPlugin)
+/// * [`PanicHandlerPlugin`](crate::app::PanicHandlerPlugin)
 /// * [`LogPlugin`](crate::log::LogPlugin)
 /// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
 /// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
@@ -43,7 +43,7 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
-            .add(bevy_panic_handler::PanicHandlerPlugin)
+            .add(bevy_app::PanicHandlerPlugin)
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::TaskPoolPlugin::default())
             .add(bevy_core::TypeRegistrationPlugin)
