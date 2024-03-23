@@ -477,11 +477,7 @@ fn handle_winit_event(
                     }
                 } else if runner_state.wait_elapsed {
                     // Not redrawing, but the timeout elapsed.
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        winit_events,
-                    );
+                    run_app_update_if_should(runner_state, app, winit_events);
                 }
             }
 
@@ -524,7 +520,6 @@ fn handle_winit_event(
                             if runner_state.wait_elapsed && current != next {
                                 event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                             }
-
                         } else {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
@@ -743,11 +738,7 @@ fn handle_winit_event(
                     winit_events.send(WindowDestroyed { window });
                 }
                 WindowEvent::RedrawRequested => {
-                    run_app_update_if_should(
-                        runner_state,
-                        app,
-                        winit_events,
-                    );
+                    run_app_update_if_should(runner_state, app, winit_events);
                 }
                 _ => {}
             }
