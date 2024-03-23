@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.14.18 --locked
       - name: Check for security advisories and unmaintained crates
         run: cargo deny check advisories
 
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.14.18 --locked
       - name: Check for banned and duplicated dependencies
         run: cargo deny check bans
 
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.14.18 --locked
       - name: Check for unauthorized licenses
         run: cargo deny check licenses
 
@@ -56,6 +56,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.14.18 --locked
       - name: Checked for unauthorized crate sources
         run: cargo deny check sources
