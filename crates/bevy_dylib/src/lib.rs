@@ -51,4 +51,5 @@
 
 // Force linking of the main bevy crate
 #[allow(unused_imports)]
+#[allow(clippy::single_component_path_imports)]
 use bevy_internal;
