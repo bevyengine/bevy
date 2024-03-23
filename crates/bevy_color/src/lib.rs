@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! Representations of colors in various color spaces.
 //!
 //! This crate provides a number of color representations, including:
