@@ -3,10 +3,9 @@ use crate::{
     Mix, StandardColor,
 };
 use bevy_math::Vec4;
+#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-#[cfg(feature = "serialize")]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Linear RGB color with alpha.
 #[doc = include_str!("../docs/conversion.md")]

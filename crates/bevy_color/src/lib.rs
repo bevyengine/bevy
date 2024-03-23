@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! Representations of colors in various color spaces.
 //!
 //! This crate provides a number of color representations, including:
@@ -135,31 +137,6 @@ pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
 #[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
-#[cfg(feature = "serialize")]
-pub(crate) trait StandardColor
-where
-    Self: core::fmt::Debug,
-    Self: Clone + Copy,
-    Self: PartialEq,
-    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
-    Self: bevy_reflect::Reflect,
-    Self: Default,
-    Self: From<Color> + Into<Color>,
-    Self: From<Srgba> + Into<Srgba>,
-    Self: From<LinearRgba> + Into<LinearRgba>,
-    Self: From<Hsla> + Into<Hsla>,
-    Self: From<Hsva> + Into<Hsva>,
-    Self: From<Hwba> + Into<Hwba>,
-    Self: From<Laba> + Into<Laba>,
-    Self: From<Lcha> + Into<Lcha>,
-    Self: From<Oklaba> + Into<Oklaba>,
-    Self: From<Oklcha> + Into<Oklcha>,
-    Self: From<Xyza> + Into<Xyza>,
-    Self: Alpha,
-{
-}
-
-#[cfg(not(feature = "serialize"))]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,
