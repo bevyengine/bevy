@@ -325,8 +325,10 @@ bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 ios_simulator = ["bevy_internal/ios_simulator"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
