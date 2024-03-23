@@ -4,8 +4,8 @@ mod loaders;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
+        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -29,6 +29,10 @@ use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
+
+// Needed for doc string
+#[allow(unused_imports)]
+use crate::io::{AssetReader, AssetWriter};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
 /// retrieve their current load states.
@@ -657,7 +661,7 @@ impl AssetServer {
         fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
-            reader: &'a dyn AssetReader,
+            reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
         ) -> bevy_utils::BoxedFuture<'a, Result<(), AssetLoadError>> {

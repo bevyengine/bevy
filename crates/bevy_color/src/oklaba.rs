@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
-    Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva,
+    Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize, Default)]
 pub struct Oklaba {
-    /// The 'l' channel. [0.0, 1.0]
+    /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
     /// The 'a' channel. [-1.0, 1.0]
     pub a: f32,
@@ -24,6 +24,8 @@ pub struct Oklaba {
 }
 
 impl StandardColor for Oklaba {}
+
+impl_componentwise_point!(Oklaba, [lightness, a, b, alpha]);
 
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
@@ -59,7 +61,7 @@ impl Oklaba {
         }
     }
 
-    /// Return a copy of this color with the 'l' channel set to the given value.
+    /// Return a copy of this color with the 'lightness' channel set to the given value.
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
@@ -146,6 +148,24 @@ impl EuclideanDistance for Oklaba {
         (self.lightness - other.lightness).powi(2)
             + (self.a - other.a).powi(2)
             + (self.b - other.b).powi(2)
+    }
+}
+
+impl ClampColor for Oklaba {
+    fn clamped(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.),
+            a: self.a.clamp(-1., 1.),
+            b: self.b.clamp(-1., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.lightness)
+            && (-1. ..=1.).contains(&self.a)
+            && (-1. ..=1.).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -325,5 +345,22 @@ mod tests {
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Oklaba::lab(-1., 2., -2.);
+        let color_2 = Oklaba::lab(1., 0.42, -0.4);
+        let mut color_3 = Oklaba::lab(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Oklaba::lab(0., 1., -1.));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Oklaba::lab(0., 1., 1.));
     }
 }
