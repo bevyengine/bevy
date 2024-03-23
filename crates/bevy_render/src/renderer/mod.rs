@@ -105,8 +105,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 }
 
 /// A wrapper to safely make `wgpu` types Send / Sync on web with atomics enabled.
-/// On web with atomics enabled the inner value can only be accessed on the
-/// `wgpu` thread or else a panic will occur.
+/// On web with `atomics` enabled the inner value can only be accessed 
+/// or dropped on the `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 #[derive(Debug, Clone, Deref, DerefMut)]

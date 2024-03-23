@@ -63,7 +63,9 @@ image = { version = "0.24", default-features = false }
 # misc
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
-# It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
+# It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
+# When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
+# and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
 wgpu = { version = "0.19.3", default-features = false, features = [
   "wgsl",
   "dx12",
