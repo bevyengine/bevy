@@ -99,7 +99,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
-                base_color: PINK.into(),
+                base_color: DEEP_PINK.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),

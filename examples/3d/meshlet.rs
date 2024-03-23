@@ -1,4 +1,4 @@
-//! Meshlet rendering for dense high-poly scenes.
+//! Meshlet rendering for dense high-poly scenes (experimental).
 
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;

@@ -1,10 +1,9 @@
-use crate::{
-    meshlet::{
-        prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-        MeshletGpuScene,
-    },
-    *,
+#[cfg(feature = "meshlet")]
+use crate::meshlet::{
+    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
+    MeshletGpuScene,
 };
+use crate::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
@@ -178,21 +177,30 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh prepass fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh deferred fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -220,6 +228,8 @@ pub struct MaterialPlugin<M: Material> {
     /// When it is enabled, it will automatically add the [`PrepassPlugin`]
     /// required to make the prepass work on this Material.
     pub prepass_enabled: bool,
+    /// Controls if shadows are enabled for the Material.
+    pub shadows_enabled: bool,
     pub _marker: PhantomData<M>,
 }
 
@@ -227,6 +237,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            shadows_enabled: true,
             _marker: Default::default(),
         }
     }
@@ -258,25 +269,38 @@ where
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<Image>),
-                        queue_shadows::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
-                        (
-                            prepare_material_meshlet_meshes_main_opaque_pass::<M>,
-                            queue_material_meshlet_meshes::<M>,
-                        )
-                            .chain()
-                            .in_set(RenderSet::Queue)
-                            .run_if(resource_exists::<MeshletGpuScene>),
                     ),
                 );
+
+            if self.shadows_enabled {
+                render_app.add_systems(
+                    Render,
+                    (queue_shadows::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_materials::<M>),),
+                );
+            }
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                (
+                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
+                    queue_material_meshlet_meshes::<M>,
+                )
+                    .chain()
+                    .in_set(RenderSet::Queue)
+                    .run_if(resource_exists::<MeshletGpuScene>),
+            );
         }
 
-        // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        if self.shadows_enabled || self.prepass_enabled {
+            // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
+            app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        }
 
         if self.prepass_enabled {
             app.add_plugins(PrepassPlugin::<M>::default());

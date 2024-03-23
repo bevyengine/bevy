@@ -5,7 +5,6 @@ use bevy_asset::{
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
-use bevy_utils::BoxedFuture;
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -70,17 +69,15 @@ impl AssetLoader for MeshletMeshSaverLoad {
     type Settings = ();
     type Error = bincode::Error;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            bincode::deserialize(&bytes)
-        })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        bincode::deserialize(&bytes)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -94,16 +91,14 @@ impl AssetSaver for MeshletMeshSaverLoad {
     type OutputLoader = Self;
     type Error = bincode::Error;
 
-    fn save<'a>(
+    async fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         _settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>> {
-        Box::pin(async move {
-            let bytes = bincode::serialize(asset.get())?;
-            writer.write_all(&bytes).await?;
-            Ok(())
-        })
+    ) -> Result<(), Self::Error> {
+        let bytes = bincode::serialize(asset.get())?;
+        writer.write_all(&bytes).await?;
+        Ok(())
     }
 }

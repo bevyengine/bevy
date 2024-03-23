@@ -272,7 +272,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, dimension);
 
-                    binding_impls.push(quote! {
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
                         ( #binding_index,
                           #render_path::render_resource::OwnedBindingResource::TextureView({
                               let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
@@ -311,7 +312,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
-                    binding_impls.push(quote! {
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -353,7 +355,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
-                    binding_impls.push(quote! {
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler({

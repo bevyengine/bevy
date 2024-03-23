@@ -70,6 +70,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh fragment shader will be used.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -77,6 +78,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh prepass fragment shader will be used.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -84,6 +86,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh deferred fragment shader will be used.
     #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -232,6 +235,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         match E::meshlet_mesh_fragment_shader() {
             ShaderRef::Default => B::meshlet_mesh_fragment_shader(),
@@ -239,6 +243,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         match E::meshlet_mesh_prepass_fragment_shader() {
             ShaderRef::Default => B::meshlet_mesh_prepass_fragment_shader(),
@@ -246,6 +251,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         match E::meshlet_mesh_deferred_fragment_shader() {
             ShaderRef::Default => B::meshlet_mesh_deferred_fragment_shader(),

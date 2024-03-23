@@ -2,7 +2,7 @@ error[E0277]: the trait bound `&mut A: ReadOnlyQueryData` is not satisfied
   --> tests/ui/query_iter_combinations_mut_iterator_safety.rs:10:17
    |
 10 |     is_iterator(iter)
-   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`
+   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`, which is required by `QueryCombinationIter<'_, '_, &mut A, (), _>: Iterator`
    |     |
    |     required by a bound introduced by this call
    |

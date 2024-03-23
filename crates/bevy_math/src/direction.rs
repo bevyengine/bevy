@@ -136,6 +136,11 @@ impl Dir2 {
     pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
     }
+
+    /// Returns the inner [`Vec2`]
+    pub const fn as_vec2(&self) -> Vec2 {
+        self.0
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -143,6 +148,12 @@ impl TryFrom<Vec2> for Dir2 {
 
     fn try_from(value: Vec2) -> Result<Self, Self::Error> {
         Self::new(value)
+    }
+}
+
+impl From<Dir2> for Vec2 {
+    fn from(value: Dir2) -> Self {
+        value.as_vec2()
     }
 }
 
@@ -286,6 +297,11 @@ impl Dir3 {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Returns the inner [`Vec3`]
+    pub const fn as_vec3(&self) -> Vec3 {
+        self.0
     }
 }
 
@@ -446,6 +462,11 @@ impl Dir3A {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3A::new(x, y, z))
+    }
+
+    /// Returns the inner [`Vec3A`]
+    pub const fn as_vec3a(&self) -> Vec3A {
+        self.0
     }
 }
 
