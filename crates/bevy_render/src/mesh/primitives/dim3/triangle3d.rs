@@ -11,7 +11,7 @@ impl Meshable for Triangle3d {
     
     fn mesh(&self) -> Self::Output {
         let positions: Vec<_> = self.vertices.into();
-        let normal: Vec3 = self.normal().unwrap().into(); // TODO: Handle error
+        let normal: Vec3 = self.normal().map_or(Vec3::ZERO, |n| n.into());
         let normals = vec![normal; 3];
         let uvs: Vec<_> = uv_coords(&self).into();
 
@@ -76,29 +76,41 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
     }
 }
 
-#[test]
-fn uv_test() {
-    use bevy_math::vec3;
-    let mut triangle = Triangle3d::new(
-        vec3(0., 0., 0.),
-        vec3(2., 0., 0.),
-        vec3(-1., 1., 0.),
-    );
+impl From<Triangle3d> for Mesh {
+    fn from(triangle: Triangle3d) -> Self {
+        triangle.mesh()
+    }
+}
 
-    let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
-    assert_eq!(a_uv, [1. / 3., 0.]);
-    assert_eq!(b_uv, [1., 0.]);
-    assert_eq!(c_uv, [0., 1.]);
+#[cfg(test)]
+mod tests {
+    use bevy_math::primitives::Triangle3d;
+    use super::uv_coords;
+    
+    #[test]
+    fn uv_test() {
+        use bevy_math::vec3;
+        let mut triangle = Triangle3d::new(
+            vec3(0., 0., 0.),
+            vec3(2., 0., 0.),
+            vec3(-1., 1., 0.),
+        );
 
-    triangle.vertices[2] = vec3(3., 1., 0.);
-    let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
-    assert_eq!(a_uv, [0., 0.]);
-    assert_eq!(b_uv, [2. / 3., 0.]);
-    assert_eq!(c_uv, [1., 1.]);
+        let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
+        assert_eq!(a_uv, [1. / 3., 0.]);
+        assert_eq!(b_uv, [1., 0.]);
+        assert_eq!(c_uv, [0., 1.]);
 
-    triangle.vertices[2] = vec3(2., 1., 0.);
-    let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
-    assert_eq!(a_uv, [0., 0.]);
-    assert_eq!(b_uv, [1., 0.]);
-    assert_eq!(c_uv, [1., 1.]);
+        triangle.vertices[2] = vec3(3., 1., 0.);
+        let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
+        assert_eq!(a_uv, [0., 0.]);
+        assert_eq!(b_uv, [2. / 3., 0.]);
+        assert_eq!(c_uv, [1., 1.]);
+
+        triangle.vertices[2] = vec3(2., 1., 0.);
+        let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
+        assert_eq!(a_uv, [0., 0.]);
+        assert_eq!(b_uv, [1., 0.]);
+        assert_eq!(c_uv, [1., 1.]);
+    }
 }
