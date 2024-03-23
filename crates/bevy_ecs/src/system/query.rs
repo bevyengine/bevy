@@ -1334,9 +1334,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// make limited changes to the types of parameters.
     ///
     /// * Can always add/remove `Entity`
-    /// * `Ref<T>` <-> `&T`
+    /// * `Ref<T>` -> `&T`
     /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
+    /// * `Mut<T>` -> `&mut T`
+    /// * `Mut<T>` -> Ref<T>
+    /// * `Ref<T>/Mut<T>` -> Changed<T>/Added<T>
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
     ///    
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {

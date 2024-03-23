@@ -368,7 +368,7 @@ macro_rules! impl_methods {
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// // When run, zeroes the translation of every entity.
-            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            /// fn reset_positions(mut transforms: Query<Mut<Transform>>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.

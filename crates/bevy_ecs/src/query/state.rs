@@ -1685,9 +1685,10 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(10));
 
-        let q = world.query::<&A>();
-        let mut new_q = q.transmute::<Ref<A>>(&world);
-        assert!(new_q.single(&world).is_added());
+        // can't transmute in this direction anymore, as the access is not a subset
+        // let q = world.query::<&A>();
+        // let mut new_q = q.transmute::<Ref<A>>(&world);
+        // assert!(new_q.single(&world).is_added());
 
         let q = world.query::<Ref<A>>();
         let _ = q.transmute::<&A>(&world);
@@ -1699,8 +1700,10 @@ mod tests {
         world.spawn(A(0));
 
         let q = world.query::<&mut A>();
-        let _ = q.transmute::<Ref<A>>(&world);
         let _ = q.transmute::<&A>(&world);
+
+        let q = world.query::<Mut<A>>();
+        let _ = q.transmute::<Ref<A>>(&world);
     }
 
     #[test]
@@ -1795,7 +1798,11 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn(A(0)).id();
 
-        let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
+        // TODO: should we allow transmute from &A to Added<A>?
+        //  the problem is that right now &A only needs read access to component
+        //  and Added<A> only needs read access to the change detection component
+        //  so transmute is forbidden.
+        let mut query = QueryState::<(Entity, Ref<A>, Has<B>)>::new(&mut world)
             .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
 
         assert_eq!((entity_a, false), query.single(&world));
@@ -1815,10 +1822,11 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn(A(0)).id();
 
-        let mut detection_query = QueryState::<(Entity, &A)>::new(&mut world)
+        let mut detection_query = QueryState::<(Entity, Ref<A>)>::new(&mut world)
             .transmute_filtered::<Entity, Changed<A>>(&world);
 
-        let mut change_query = QueryState::<&mut A>::new(&mut world);
+        // need to use Mut<A> to update the change detection ticks!
+        let mut change_query = QueryState::<Mut<A>>::new(&mut world);
         assert_eq!(entity_a, detection_query.single(&world));
 
         world.clear_trackers();
