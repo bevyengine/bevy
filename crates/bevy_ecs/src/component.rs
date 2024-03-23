@@ -154,15 +154,23 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+    // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
+    /// The type of the Fetch returned when querying for &mut T
+    type WriteFetch<'w>: std::ops::DerefMut<Target=Self>;
+    /// The type of the ChangeDetection component associated with this component.
+    type ChangeDetection: Component;
+    /// Whether or not ChangeDetection is enabled
     const CHANGE_DETECTION: bool;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
 
-// pub(crate) trait ChangeDetectedComponent: Component {
-//     const CHECK: () = assert!(ChangeDetectedComponent::CHANGE_DETECTION);
-// }
+/// A component used to symbolize the absence of change detection
+#[derive(Component)]
+#[component(change_detection = false)]
+pub struct DisabledChangedTicks;
+
 
 /// The storage used for a specific component type.
 ///
@@ -572,10 +580,10 @@ impl Components {
         let change_detection_id = T::CHANGE_DETECTION
             .then(|| {
                 let change_ticks_descriptor = ComponentDescriptor {
-                    name: Cow::Owned(format!("ChangeTicks<{}>", std::any::type_name::<T>())),
-                    storage_type: StorageType::Table,
+                    name: Cow::Borrowed(std::any::type_name::<T::ChangeDetection>()),
+                    storage_type: T::STORAGE_TYPE,
                     is_send_and_sync: true,
-                    type_id: Some(TypeId::of::<ChangeTicks<T>>()),
+                    type_id: Some(TypeId::of::<T::ChangeDetection>()),
                     layout: Layout::new::<ComponentTicks>(),
                     drop: None,
                 };
@@ -587,7 +595,7 @@ impl Components {
                 )
             })
             .inspect(|id| {
-                indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
+                indices.insert(TypeId::of::<T::ChangeDetection>(), *id);
             });
 
         let index = Components::init_component_inner(
@@ -977,7 +985,7 @@ impl ComponentTicks {
     /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
+    /// let mut component_ticks: ComponentTicks = unimplemented!();
     ///
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```

@@ -1,7 +1,7 @@
 //! Types that detect when their internal data mutate.
 
 use crate as bevy_ecs;
-use crate::component::{Component, ComponentId, ComponentTicks};
+use crate::component::{Component, ComponentId, ComponentTicks, StorageType};
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -516,18 +516,31 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 }
 
 // TODO: add docs
-#[derive(Component, Clone)]
-#[component(change_detection = false)]
+#[derive(Clone)]
 pub struct ChangeTicks<T: Component> {
     ticks: ComponentTicks,
     _marker: PhantomData<T>,
 }
 
+/// Manual implementation so that ChangeTicks can use the same storage type as the inner component.
+impl<T: Component> Component for ChangeTicks<T> {
+    const STORAGE_TYPE: StorageType = T::STORAGE_TYPE;
+    const CHANGE_DETECTION: bool = false;
+    type WriteFetch<'w> = &'w mut ChangeTicks<T>;
+    type ChangeDetection = DisabledChangeTicks;
+}
+
+/// Marker component to indicate that change detection is disabled.
+#[derive(Component, Clone)]
+#[component(change_detection = false)]
+pub struct DisabledChangeTicks;
+
+
 /// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
 #[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentChangeId {
     pub(crate) component: ComponentId,
-    // TODO: make this optional is change detection is disabled for this component?
+    /// The component id of the [`Component::ChangeDetection`] type if change detection is enabled.
     pub(crate) change_ticks_component: Option<ComponentId>,
 }
 

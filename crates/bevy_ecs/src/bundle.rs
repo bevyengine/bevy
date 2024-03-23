@@ -145,17 +145,20 @@ use std::ptr::NonNull;
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
-    /// The Bundle that contains the change detection ticks for this bundle
-    type ChangeTicks: Bundle;
-
-    // TODO: should we add a `fn change_ticks_component_ids()` ?
-
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
+    );
+
+    /// Get this [`Bundle`]s component ids along with the corresponding change detection component ids
+    /// if they are enabled, in the order of this bundle's [`Component`]s
+    fn component_change_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentChangeId),
     );
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
@@ -189,18 +192,28 @@ pub trait DynamicBundle {
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
-    // TODO: if C::CHANGE_DETECTION = True, ChangeTicks<C>, else ()
-    //  if that doesn't work, add a function has_change_detection() ?
-    //  what to do when Bundle = (A, B, C) and only B has change detection?
-    type ChangeTicks = ChangeTicks<C>;
-
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
     ) {
         ids(components.init_component::<C>(storages));
-        // ids(components.init_component::<ChangeTicks<C>>(storages));
+    }
+
+    fn component_change_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentChangeId),
+    ) {
+        ids({
+            let component_id = components.init_component::<C>(storages);
+            ComponentChangeId {
+                component: component_id,
+                change_ticks_component: C::CHANGE_DETECTION.then(|| {
+                    components.init_component::<C::ChangeDetection>(storages)
+                }),
+            }
+        });
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
@@ -231,11 +244,15 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            type ChangeTicks = ($($name::ChangeTicks,)*);
 
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            }
+
+            #[allow(unused_variables)]
+            fn component_change_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentChangeId)){
+                $(<$name as Bundle>::component_change_ids(components, storages, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]
@@ -382,12 +399,6 @@ impl BundleInfo {
             .filter_map(|id| id.change_ticks_component)
     }
 
-    /// Returns the [ID](ComponentId) of each component stored in this bundle.
-    #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.component_ids.iter().map(|id| id.component)
-    }
-
     /// Returns an iterator over the [ID](ComponentId) of each component stored in this bundle.
     #[inline]
     pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
@@ -426,14 +437,14 @@ impl BundleInfo {
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self.component_ids.get_unchecked(bundle_component);
+            let component_ids = *self.component_ids.get_unchecked(bundle_component);
 
             match storage_type {
                 StorageType::Table => {
                     let column =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id.component).debug_checked_unwrap() };
+                        unsafe { table.get_column_mut(component_ids.component).debug_checked_unwrap() };
 
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_component_status(bundle_component) };
@@ -445,40 +456,51 @@ impl BundleInfo {
                             column.replace(table_row, component_ptr);
                         }
                     }
+
+                    if let Some(change_component_id) = component_ids.change_ticks_component {
+                        let change_column =
+                            // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                            // the target table contains the change detection component.
+                            unsafe {
+                                table
+                                    .get_column_mut(change_component_id)
+                                    .debug_checked_unwrap()
+                            };
+                        // SAFETY: bundle_component is a valid index for this bundle
+                        // SAFETY: if the change detection component exists, then it will have a component status
+                        let change_status = unsafe { bundle_component_status.get_component_change_status(bundle_component).unwrap() };
+                        match change_status {
+                            ComponentStatus::Added => {
+                                // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires
+                                // that the target table contains the change detection component.
+                                OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
+                                    change_column.initialize(table_row, ptr);
+                                });
+                            }
+                            ComponentStatus::Mutated => {
+                                // SAFETY:
+                                // - we know that the change detection component exists in the table
+                                // - we know that the data contained at this pointer is of type ChangeTicks
+                                change_column.get_data_unchecked_mut(table_row).deref_mut::<ComponentTicks>().changed = change_tick;
+                            }
+                        }
+                    }
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
-                        unsafe { sparse_sets.get_mut(component_id.component).debug_checked_unwrap() };
+                        unsafe { sparse_sets.get_mut(component_ids.component).debug_checked_unwrap() };
                     sparse_set.insert(entity, component_ptr);
-                }
-            }
-            if let Some(change_component_id) = component_id.change_ticks_component {
-                let change_column =
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-                    // the target table contains the change detection component.
-                    unsafe {
-                        table
-                            .get_column_mut(change_component_id)
-                            .debug_checked_unwrap()
-                    };
-                // SAFETY: bundle_component is a valid index for this bundle
-                // SAFETY: if the change detection component exists, then it will have a component status
-                let change_status = unsafe { bundle_component_status.get_component_change_status(bundle_component).unwrap() };
-                match change_status {
-                    ComponentStatus::Added => {
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires
-                        // that the target table contains the change detection component.
+
+                    if let Some(change_component_id) = component_ids.change_ticks_component {
+                        let change_sparse_set =
+                            // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                            // a sparse set exists for the component.
+                            unsafe { sparse_sets.get_mut(change_component_id).debug_checked_unwrap() };
                         OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
-                            change_column.initialize(table_row, ptr);
+                            change_sparse_set.insert(entity, ptr);
                         });
-                    }
-                    ComponentStatus::Mutated => {
-                        // SAFETY:
-                        // - we know that the change detection component exists in the table
-                        // - we know that the data contained at this pointer is of type ChangeTicks
-                        change_column.get_data_unchecked_mut(table_row).deref_mut::<ComponentTicks>().changed = change_tick;
                     }
                 }
             }
@@ -1076,25 +1098,9 @@ impl Bundles {
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids = Vec::new();
-            T::component_ids(components, storages, &mut |id| component_ids.push(id));
-            let mut change_component_ids = Vec::new();
-            // TODO: be smarter here
-            T::ChangeTicks::component_ids(components, storages, &mut |id| {
-                change_component_ids.push(id);
-            });
-            // TODO: currently it is guaranteed that each component_id has a corresponding change_component_id
-            //  because we didn't enable optional change detection, and we don't init ChangeTicks manually
-            let component_change_ids = component_ids
-                .into_iter()
-                .zip(change_component_ids.into_iter())
-                .map(|(component_id, change_component_id)| {
-                    ComponentChangeId {
-                        component: component_id,
-                        change_ticks_component: Some(change_component_id),
-                    }
-                })
-                .collect::<Vec<_>>();
+            let mut component_change_ids = Vec::new();
+            T::component_change_ids(components, storages, &mut |id| component_change_ids.push(id));
+
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures its:
