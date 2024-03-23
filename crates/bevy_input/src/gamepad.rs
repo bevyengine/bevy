@@ -2,13 +2,16 @@
 
 use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
+use bevy_ecs::system::SystemParam;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
+use std::marker::PhantomData;
 use thiserror::Error;
 
 /// Errors that occur when setting axis settings for gamepad input.
@@ -1428,6 +1431,179 @@ impl GamepadRumbleRequest {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
         }
     }
+}
+#[derive(SystemParam)]
+pub struct GamepadsSystemParam<'w> {
+    gamepads: Res<'w, Gamepads>,
+    settings: Res<'w, GamepadSettings>,
+    analog_buttons: Res<'w, Axis<GamepadButton>>,
+    digital_buttons: Res<'w, ButtonInput<GamepadButton>>,
+    axis: Res<'w, Axis<GamepadAxis>>,
+}
+
+impl<'w> GamepadsSystemParam<'w> {
+    pub fn gamepad(&self, gamepad_id: Gamepad) -> Option<WrappedGamepad> {
+        self.gamepads
+            .gamepads
+            .get(&gamepad_id)
+            .and_then(move |gamepad_info| {
+                Some(WrappedGamepad {
+                    id: gamepad_id,
+                    info: gamepad_info,
+                    settings: self.settings.as_ref(),
+                    analog_buttons: self.analog_buttons.as_ref(),
+                    digital_buttons: self.digital_buttons.as_ref(),
+                    axis: self.axis.as_ref(),
+                })
+            })
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = WrappedGamepad> {
+        self.gamepads.iter().map(|gamepad_id| self.gamepad(gamepad_id).expect("Gamepad mapping into WrappedGamepad doesn't exist, this should be impossible since it was directly given to us"))
+    }
+}
+
+pub struct WrappedGamepad<'a> {
+    pub id: Gamepad,
+    pub info: &'a GamepadInfo,
+    pub settings: &'a GamepadSettings,
+    analog_buttons: &'a Axis<GamepadButton>,
+    digital_buttons: &'a ButtonInput<GamepadButton>,
+    axis: &'a Axis<GamepadAxis>,
+}
+
+impl<'a> WrappedGamepad<'a> {
+    pub fn get_axis(&self, axis_type: GamepadAxisType) -> Option<f32> {
+        self.axis.get(GamepadAxis {
+            gamepad: self.id,
+            axis_type,
+        })
+    }
+
+    pub fn get_axis_unclamped(&self, axis_type: GamepadAxisType) -> Option<f32> {
+        self.axis.get_unclamped(GamepadAxis {
+            gamepad: self.id,
+            axis_type,
+        })
+    }
+
+    pub fn get_analog_button(&self, button_type: GamepadButtonType) -> Option<f32> {
+        self.analog_buttons.get(GamepadButton {
+            gamepad: self.id,
+            button_type,
+        })
+    }
+
+    pub fn get_analog_button_unclamped(&self, button_type: GamepadButtonType) -> Option<f32> {
+        self.analog_buttons.get_unclamped(GamepadButton {
+            gamepad: self.id,
+            button_type,
+        })
+    }
+
+    pub fn get_button(&self, button_type: GamepadButtonType) -> Option<GamepadButtonView> {
+        Some(GamepadButtonView {
+            button_type,
+            just_released: self.just_released(button_type),
+            just_pressed: self.just_pressed(button_type),
+            value: self.get_analog_button(button_type)?,
+            marker: PhantomData,
+        })
+    }
+
+    pub fn left_stick(&self) -> Vec2 {
+        Vec2 {
+            x: self.get_axis(GamepadAxisType::LeftStickX).unwrap_or(0.0),
+            y: self.get_axis(GamepadAxisType::LeftStickY).unwrap_or(0.0),
+        }
+    }
+
+    pub fn right_stick(&self) -> Vec2 {
+        Vec2 {
+            x: self.get_axis(GamepadAxisType::RightStickX).unwrap_or(0.0),
+            y: self.get_axis(GamepadAxisType::RightStickY).unwrap_or(0.0),
+        }
+    }
+
+    pub fn pressed(&self, button_type: GamepadButtonType) -> bool {
+        self.digital_buttons.pressed(GamepadButton {
+            gamepad: self.id,
+            button_type,
+        })
+    }
+
+    pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButtonType>) -> bool {
+        button_inputs.into_iter().any(|button_type| {
+            self.pressed(button_type)
+        })
+    }
+
+    pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButtonType>) -> bool {
+        button_inputs.into_iter().all(|button_type| {
+            self.pressed(
+                button_type
+            )
+        })
+    }
+
+    pub fn just_pressed(&self, button_type: GamepadButtonType) -> bool {
+        self.digital_buttons.just_pressed(GamepadButton {
+            gamepad: self.id,
+            button_type,
+        })
+    }
+
+    pub fn any_just_pressed(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButtonType>,
+    ) -> bool {
+        button_inputs
+            .into_iter()
+            .any(|button_type| self.just_pressed(button_type))
+    }
+
+    pub fn all_just_pressed(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButtonType>,
+    ) -> bool {
+        button_inputs
+            .into_iter()
+            .all(|button_type| self.just_pressed(button_type))
+    }
+
+    pub fn just_released(&self, button_type: GamepadButtonType) -> bool {
+        self.digital_buttons.just_released(GamepadButton {
+            gamepad: self.id,
+            button_type,
+        })
+    }
+
+    pub fn any_just_released(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButtonType>,
+    ) -> bool {
+        button_inputs
+            .into_iter()
+            .any(|button_type| self.just_released(button_type))
+    }
+
+    pub fn all_just_released(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButtonType>,
+    ) -> bool {
+        button_inputs
+            .into_iter()
+            .all(|button_type| self.just_released(button_type))
+    }
+}
+
+#[derive(Debug)]
+pub struct GamepadButtonView<'a> {
+    pub button_type: GamepadButtonType,
+    pub just_pressed: bool,
+    pub just_released: bool,
+    pub value: f32,
+    marker: PhantomData<&'a ()>,
 }
 
 #[cfg(test)]
