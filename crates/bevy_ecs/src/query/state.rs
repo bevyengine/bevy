@@ -23,20 +23,21 @@ use super::{
 
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
-/// Query iteration is exclusively  dense (over tables) or archetypal (over archetypes) based on whether
+/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
 /// both D::IS_DENSE and F::IS_DENSE are true or not.
 ///
-/// This is a union instead of an enum as the usage is determined at compile time, as all StorageIds for
-/// a QueryState will be TableIds or ArchetypeIds, and not a mixture of both. This removes the need for
-/// discriminator to minimize memory usage and branching during iteration.
+/// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
+/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This 
+/// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
+/// a safety invariant be verified when disambiguating them.
 ///
 /// # Safety
 /// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
 /// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
 #[derive(Clone, Copy)]
-pub(crate) union StorageId {
-    pub(crate) table_id: TableId,
-    pub(crate) archetype_id: ArchetypeId,
+pub(super) union StorageId {
+    pub(super) table_id: TableId,
+    pub(super) archetype_id: ArchetypeId,
 }
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -51,7 +52,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) matched_archetypes: FixedBitSet,
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
-    pub(crate) matched_storage_ids: Vec<StorageId>,
+    pub(super) matched_storage_ids: Vec<StorageId>,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
