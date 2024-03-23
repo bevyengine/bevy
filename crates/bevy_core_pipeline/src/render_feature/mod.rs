@@ -152,6 +152,7 @@ pub trait FeatureIO<const MULT: bool>: Sized + Send + Sync + 'static {
     type Handles<'a>;
     type Item<'w>;
 
+    //named as such to prevent collisions
     fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
         handles: Self::RawHandles,

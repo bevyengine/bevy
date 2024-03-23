@@ -1,4 +1,4 @@
-use crate::{Alpha, ClampColor, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -52,11 +52,6 @@ impl Hsva {
         Self::new(hue, saturation, value, 1.0)
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the saturation channel set to the given value.
     pub const fn with_saturation(self, saturation: f32) -> Self {
         Self { saturation, ..self }
@@ -74,6 +69,19 @@ impl Default for Hsva {
     }
 }
 
+impl Mix for Hsva {
+    #[inline]
+    fn mix(&self, other: &Self, factor: f32) -> Self {
+        let n_factor = 1.0 - factor;
+        Self {
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
+            saturation: self.saturation * n_factor + other.saturation * factor,
+            value: self.value * n_factor + other.value * factor,
+            alpha: self.alpha * n_factor + other.alpha * factor,
+        }
+    }
+}
+
 impl Alpha for Hsva {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -88,6 +96,23 @@ impl Alpha for Hsva {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hsva {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 

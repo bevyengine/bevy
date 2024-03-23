@@ -1,7 +1,7 @@
-use std::ops::{Div, Mul};
-
 use crate::color_difference::EuclideanDistance;
-use crate::{Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza};
+use crate::{
+    impl_componentwise_point, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza,
+};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,8 @@ pub struct Srgba {
 }
 
 impl StandardColor for Srgba {}
+
+impl_componentwise_point!(Srgba, [red, green, blue, alpha]);
 
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
@@ -387,48 +389,6 @@ pub enum HexColorError {
     /// Invalid character.
     #[error("Invalid hex char")]
     Char(char),
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for Srgba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Self {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-impl Mul<Srgba> for f32 {
-    type Output = Srgba;
-
-    fn mul(self, rhs: Srgba) -> Srgba {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for Srgba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self {
-        Self {
-            red: self.red / rhs,
-            green: self.green / rhs,
-            blue: self.blue / rhs,
-            alpha: self.alpha,
-        }
-    }
 }
 
 #[cfg(test)]
