@@ -966,9 +966,15 @@ unsafe fn get_component_and_ticks(
     };
 
     // TODO: handle case where component has change detection disabled
-    let change_component_id = world.components().get_info_unchecked(component_id).change_detection_id().unwrap();
+    let change_component_id = world
+        .components()
+        .get_info_unchecked(component_id)
+        .change_detection_id()
+        .unwrap();
     let column = world.fetch_table(location, change_component_id)?;
-    let component_ticks = column.get_data_slice::<ComponentTicks>().get(location.table_row.as_usize())?;
+    let component_ticks = column
+        .get_data_slice::<ComponentTicks>()
+        .get(location.table_row.as_usize())?;
     Some((ptr, component_ticks))
 }
 
@@ -989,7 +995,16 @@ unsafe fn get_ticks(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<ComponentTicks> {
-    let change_component_id = world.components().get_info_unchecked(component_id).change_detection_id().unwrap();
+    let change_component_id = world
+        .components()
+        .get_info_unchecked(component_id)
+        .change_detection_id()
+        .unwrap();
     let column = world.fetch_table(location, change_component_id)?;
-    Some(column.get_data_slice::<ComponentTicks>().get(location.table_row.as_usize())?.read())
+    Some(
+        column
+            .get_data_slice::<ComponentTicks>()
+            .get(location.table_row.as_usize())?
+            .read(),
+    )
 }

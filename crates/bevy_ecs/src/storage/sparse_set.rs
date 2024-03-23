@@ -164,11 +164,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
-    pub(crate) unsafe fn insert(
-        &mut self,
-        entity: Entity,
-        value: OwningPtr<'_>,
-    ) {
+    pub(crate) unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);

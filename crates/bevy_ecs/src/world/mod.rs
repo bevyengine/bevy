@@ -35,19 +35,19 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::warn;
+use std::ops::IndexMut;
 use std::{
     any::TypeId,
     fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
-use std::ops::IndexMut;
 
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-pub use identifier::WorldId;
 use crate::storage::TableId;
+pub use identifier::WorldId;
 
 /// A [`World`] mutation.
 ///
@@ -2057,16 +2057,19 @@ impl World {
                 for table_id in 0..tables.len() {
                     if let Some(column) = tables
                         .index_mut(TableId::from_usize(table_id))
-                        .get_column_mut(change_component_id) {
-                            // SAFETY: we have exclusive world access
-                            unsafe {
-                                column.get_data_slice::<ComponentTicks>().iter().for_each(|component_ticks| {
+                        .get_column_mut(change_component_id)
+                    {
+                        // SAFETY: we have exclusive world access
+                        unsafe {
+                            column.get_data_slice::<ComponentTicks>().iter().for_each(
+                                |component_ticks| {
                                     let ticks = component_ticks.deref_mut();
                                     ticks.added.check_tick(change_tick);
                                     ticks.changed.check_tick(change_tick);
-                                })
-                            }
-                        };
+                                },
+                            )
+                        }
+                    };
                 }
             }
         });
@@ -2717,19 +2720,45 @@ mod tests {
         // note that the change detection component is registered before the component
         assert_eq!(
             to_type_ids(world.inspect_entity(ent0)),
-            [Some(foo_ticks_id), Some(foo_id), Some(bar_ticks_id), Some(bar_id), Some(baz_ticks_id), Some(baz_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(bar_ticks_id),
+                Some(bar_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent1)),
-            [Some(foo_ticks_id), Some(foo_id), Some(bar_ticks_id), Some(bar_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(bar_ticks_id),
+                Some(bar_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent2)),
-            [Some(bar_ticks_id), Some(bar_id), Some(baz_ticks_id), Some(baz_id)].into()
+            [
+                Some(bar_ticks_id),
+                Some(bar_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent3)),
-            [Some(foo_ticks_id), Some(foo_id), Some(baz_ticks_id), Some(baz_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent4)),

@@ -1,5 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::change_detection::ChangeTicks;
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
@@ -22,7 +23,6 @@ use std::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use crate::change_detection::ChangeTicks;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -163,7 +163,6 @@ pub trait Component: Send + Sync + 'static {
 // pub(crate) trait ChangeDetectedComponent: Component {
 //     const CHECK: () = assert!(ChangeDetectedComponent::CHANGE_DETECTION);
 // }
-
 
 /// The storage used for a specific component type.
 ///
@@ -561,7 +560,7 @@ impl Components {
             ..
         } = self;
         if let Some(component_id) = indices.get(&type_id) {
-            return *component_id
+            return *component_id;
         };
 
         // Cannot call this recursively because the compiler gets stuck in a recursive loop
@@ -570,19 +569,26 @@ impl Components {
         // } else {
         //     None
         // };
-        let change_detection_id = T::CHANGE_DETECTION.then(|| {
-            let change_ticks_descriptor = ComponentDescriptor {
-                name: Cow::Owned(format!("ChangeTicks<{}>", std::any::type_name::<T>())),
-                storage_type: StorageType::Table,
-                is_send_and_sync: true,
-                type_id: Some(TypeId::of::<ChangeTicks<T>>()),
-                layout: Layout::new::<ComponentTicks>(),
-                drop: None,
-            };
-            Components::init_component_inner(components, storages, change_ticks_descriptor, None)
-        }).inspect(|id| {
-            indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
-        });
+        let change_detection_id = T::CHANGE_DETECTION
+            .then(|| {
+                let change_ticks_descriptor = ComponentDescriptor {
+                    name: Cow::Owned(format!("ChangeTicks<{}>", std::any::type_name::<T>())),
+                    storage_type: StorageType::Table,
+                    is_send_and_sync: true,
+                    type_id: Some(TypeId::of::<ChangeTicks<T>>()),
+                    layout: Layout::new::<ComponentTicks>(),
+                    drop: None,
+                };
+                Components::init_component_inner(
+                    components,
+                    storages,
+                    change_ticks_descriptor,
+                    None,
+                )
+            })
+            .inspect(|id| {
+                indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
+            });
 
         let index = Components::init_component_inner(
             components,
@@ -620,8 +626,18 @@ impl Components {
             layout: Layout::new::<ComponentTicks>(),
             drop: None,
         };
-        let change_detection_id = Components::init_component_inner(&mut self.components, storages, change_ticks_descriptor, None);
-        Components::init_component_inner(&mut self.components, storages, descriptor, Some(change_detection_id))
+        let change_detection_id = Components::init_component_inner(
+            &mut self.components,
+            storages,
+            change_ticks_descriptor,
+            None,
+        );
+        Components::init_component_inner(
+            &mut self.components,
+            storages,
+            descriptor,
+            Some(change_detection_id),
+        )
     }
 
     #[inline]

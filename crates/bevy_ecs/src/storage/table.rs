@@ -305,9 +305,7 @@ impl Column {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
-            .then(|| unsafe {
-                self.data.get_unchecked(row.as_usize())
-            })
+            .then(|| unsafe { self.data.get_unchecked(row.as_usize()) })
     }
 
     /// Fetches a read-only reference to the data at `row`.
@@ -364,7 +362,6 @@ impl Column {
     pub fn clear(&mut self) {
         self.data.clear();
     }
-
 }
 
 /// A builder type for constructing [`Table`]s.
@@ -633,7 +630,6 @@ impl Table {
         self.entities.is_empty()
     }
 
-
     /// Iterates over the [`Column`]s of the [`Table`].
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
@@ -771,7 +767,7 @@ mod tests {
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{
-        component::{Components},
+        component::Components,
         entity::Entity,
         storage::{TableBuilder, TableRow},
     };
@@ -794,10 +790,10 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table.get_column_mut(component_id).unwrap().initialize(
-                        row,
-                        value_ptr,
-                    );
+                    table
+                        .get_column_mut(component_id)
+                        .unwrap()
+                        .initialize(row, value_ptr);
                 });
             };
         }

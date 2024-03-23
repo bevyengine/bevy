@@ -5,6 +5,9 @@
 pub use bevy_ecs_macros::Bundle;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
+use crate::archetype::ComponentChangeStatus;
+use crate::change_detection::{ChangeTicks, ComponentChangeId};
+use crate::component::ComponentTicks;
 use crate::{
     archetype::{
         AddBundle, Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
@@ -21,9 +24,6 @@ use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::all_tuples;
 use std::any::TypeId;
 use std::ptr::NonNull;
-use crate::archetype::ComponentChangeStatus;
-use crate::change_detection::{ChangeTicks, ComponentChangeId};
-use crate::component::ComponentTicks;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -366,10 +366,10 @@ impl BundleInfo {
         self.component_ids
             .iter()
             .copied()
-            .flat_map(|id| {
-                match id.change_ticks_component {
-                    None => vec![id.component].into_iter(),
-                    Some(change_ticks_component) => vec![id.component, change_ticks_component].into_iter()
+            .flat_map(|id| match id.change_ticks_component {
+                None => vec![id.component].into_iter(),
+                Some(change_ticks_component) => {
+                    vec![id.component, change_ticks_component].into_iter()
                 }
             })
     }
@@ -377,7 +377,9 @@ impl BundleInfo {
     /// Returns the [ID](ComponentId) of each change detection component stored in this bundle.
     #[inline]
     pub fn change_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.component_ids.iter().filter_map(|id| id.change_ticks_component)
+        self.component_ids
+            .iter()
+            .filter_map(|id| id.change_ticks_component)
     }
 
     /// Returns the [ID](ComponentId) of each component stored in this bundle.
@@ -522,16 +524,19 @@ impl BundleInfo {
 
             // handle the change detection component in a separate loop to maintain the order
             // between the component and its change detection component
-            let change_component_status = component_change_id.change_ticks_component.map(|change_component_id| {
-                // TODO: can we avoid this check and re-use the main component's Status?
-                if current_archetype.contains(change_component_id) {
-                    ComponentStatus::Mutated
-                } else {
-                    // tick components are always stored in tables
-                    new_table_components.push(change_component_id);
-                    ComponentStatus::Added
-                }
-            });
+            let change_component_status =
+                component_change_id
+                    .change_ticks_component
+                    .map(|change_component_id| {
+                        // TODO: can we avoid this check and re-use the main component's Status?
+                        if current_archetype.contains(change_component_id) {
+                            ComponentStatus::Mutated
+                        } else {
+                            // tick components are always stored in tables
+                            new_table_components.push(change_component_id);
+                            ComponentStatus::Added
+                        }
+                    });
             bundle_status.push(ComponentChangeStatus {
                 component: component_status,
                 change_component: change_component_status,
@@ -1189,13 +1194,19 @@ fn initialize_dynamic_bundle(
     }).collect();
 
     // Fetch the associated change detection component for each component, if it exists
-    let component_change_ids = component_ids.iter().map(|&component_id| {
-        let change_ticks_component = components.get_info(component_id).unwrap().change_detection_id();
-        ComponentChangeId {
-            component: component_id,
-            change_ticks_component,
-        }
-    }).collect::<Vec<_>>();
+    let component_change_ids = component_ids
+        .iter()
+        .map(|&component_id| {
+            let change_ticks_component = components
+                .get_info(component_id)
+                .unwrap()
+                .change_detection_id();
+            ComponentChangeId {
+                component: component_id,
+                change_ticks_component,
+            }
+        })
+        .collect::<Vec<_>>();
 
     let id = BundleId(bundle_infos.len());
     let bundle_info =
