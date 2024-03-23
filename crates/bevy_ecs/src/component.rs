@@ -554,23 +554,45 @@ impl Components {
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        let change_detection_id = T::CHANGE_DETECTION.then(|| self.init_component::<ChangeTicks<T>>(storages));
 
         let Components {
             indices,
             components,
             ..
         } = self;
-        *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
-                components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-                change_detection_id,
-            );
-            T::register_component_hooks(&mut components[index.index()].hooks);
-            index
-        })
+        if let Some(component_id) = indices.get(&type_id) {
+            return *component_id
+        };
+
+        // Cannot call this recursively because the compiler gets stuck in a recursive loop
+        // let change_detection_id = if !T::CHANGE_DETECTION {
+        //     Some(self.init_component::<ChangeTicks<T>>(storages))
+        // } else {
+        //     None
+        // };
+        let change_detection_id = T::CHANGE_DETECTION.then(|| {
+            let change_ticks_descriptor = ComponentDescriptor {
+                name: Cow::Owned(format!("ChangeTicks<{}>", std::any::type_name::<T>())),
+                storage_type: StorageType::Table,
+                is_send_and_sync: true,
+                type_id: Some(TypeId::of::<ChangeTicks<T>>()),
+                layout: Layout::new::<ComponentTicks>(),
+                drop: None,
+            };
+            Components::init_component_inner(components, storages, change_ticks_descriptor, None)
+        }).inspect(|id| {
+            indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
+        });
+
+        let index = Components::init_component_inner(
+            components,
+            storages,
+            ComponentDescriptor::new::<T>(),
+            change_detection_id,
+        );
+        T::register_component_hooks(&mut components[index.index()].hooks);
+        indices.insert(type_id, index);
+        index
     }
 
     /// Initializes a component described by `descriptor`.

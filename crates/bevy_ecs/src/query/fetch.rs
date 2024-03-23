@@ -941,7 +941,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
         let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
-        // Self::set_tick_data(fetch, component_id.change_ticks_component, table);
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
@@ -960,7 +959,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
         let change_column = table.get_column(component_id.change_ticks_component).debug_checked_unwrap();
         fetch.tick_data = Some(change_column.get_data_slice().into());
-        
+
         let column = table.get_column(component_id.component).debug_checked_unwrap();
         fetch.table_data = Some(column.get_data_slice().into());
     }
@@ -1062,13 +1061,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 }
 
-impl<'w, T: Component> Ref<'w, T> {
-    unsafe fn set_tick_data(fetch: &mut RefFetch<'w, T>, change_component_id: ComponentId, table: &'w Table) {
-        // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
-        fetch.tick_data = Some(change_column.get_data_slice().into());
-    }
-}
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {

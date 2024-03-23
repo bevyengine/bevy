@@ -506,15 +506,12 @@ impl BundleInfo {
             // handle the change detection component in a separate loop to maintain the order
             // between the component and its change detection component
             let change_component_id = component_change_id.change_ticks_component;
+            // TODO: can we avoid this check and re-use the main component's Status?
             let change_component_status = if current_archetype.contains(change_component_id) {
                 ComponentStatus::Mutated
             } else {
-                // SAFETY: component_id exists
-                let component_info = unsafe { components.get_info_unchecked(component_id) };
-                match component_info.storage_type() {
-                    StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
-                }
+                // tick components are always stored in tables
+                new_table_components.push(change_component_id);
                 ComponentStatus::Added
             };
             bundle_status.push(ComponentChangeStatus {
