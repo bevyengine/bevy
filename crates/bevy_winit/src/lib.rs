@@ -391,12 +391,6 @@ fn handle_winit_event(
         }
     }
 
-    if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-        if redraw_event_reader.read(app_redraw_events).last().is_some() {
-            runner_state.redraw_requested = true;
-        }
-    }
-
     match event {
         Event::AboutToWait => {
             if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
@@ -405,24 +399,22 @@ fn handle_winit_event(
                 }
             }
 
-            // decide when to run the next update
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|(_, window)| window.focused);
             let next_update_mode = config.update_mode(focused);
 
+            // Trigger next redraw if we're changing the update mode
             if next_update_mode != runner_state.update_mode {
                 runner_state.redraw_requested = true;
                 runner_state.update_mode = next_update_mode;
             }
 
+            // Trigger next redraw if mode is continuous
             if next_update_mode == UpdateMode::Continuous {
                 runner_state.redraw_requested = true;
             }
 
-            let (config, windows) = focused_windows_state.get(&app.world);
-            let focused = windows.iter().any(|(_, window)| window.focused);
-
-            let mut should_update = match config.update_mode(focused) {
+            let mut should_update = match next_update_mode {
                 UpdateMode::Continuous => {
                     runner_state.redraw_requested
                         || runner_state.window_event_received
@@ -514,8 +506,7 @@ fn handle_winit_event(
                         window.request_redraw();
                     }
                 } else if runner_state.wait_elapsed {
-                    // There are no windows, or they are not visible.
-                    // Winit won't send events on some platforms, so trigger an update manually.
+                    // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(runner_state, app);
                 }
             }
