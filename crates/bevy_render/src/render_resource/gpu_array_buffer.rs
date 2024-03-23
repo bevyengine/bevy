@@ -1,6 +1,6 @@
 use super::{
     binding_types::{storage_buffer_read_only, uniform_buffer_sized},
-    BindGroupLayoutEntryBuilder, EncasedBufferVec,
+    BindGroupLayoutEntryBuilder, BufferVec,
 };
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
@@ -19,7 +19,7 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 /// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
 ///
 /// On platforms that support storage buffers, this is equivalent to
-/// [`EncasedBufferVec<T>`]. Otherwise, this falls back to a dynamic offset
+/// [`BufferVec<T>`]. Otherwise, this falls back to a dynamic offset
 /// uniform buffer with the largest array of T that fits within a uniform buffer
 /// binding (within reasonable limits).
 ///
@@ -28,13 +28,14 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 #[derive(Resource)]
 pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
     Uniform(BatchedUniformBuffer<T>),
-    Storage(EncasedBufferVec<T>),
+    Storage(BufferVec<T>),
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
@@ -43,7 +44,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
-            GpuArrayBuffer::Storage(EncasedBufferVec::new(BufferUsages::STORAGE))
+            GpuArrayBuffer::Storage(BufferVec::new(BufferUsages::STORAGE))
         }
     }
 

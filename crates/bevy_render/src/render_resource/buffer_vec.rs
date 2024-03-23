@@ -34,7 +34,7 @@ use wgpu::{BufferAddress, BufferUsages};
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`]
 /// * [`Texture`](crate::render_resource::Texture)
-pub struct BufferVec<T: Pod> {
+pub struct RawBufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
     capacity: usize,
@@ -44,7 +44,7 @@ pub struct BufferVec<T: Pod> {
     label_changed: bool,
 }
 
-impl<T: Pod> BufferVec<T> {
+impl<T: Pod> RawBufferVec<T> {
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             values: Vec::new(),
@@ -83,7 +83,7 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
-    pub fn append(&mut self, other: &mut BufferVec<T>) {
+    pub fn append(&mut self, other: &mut RawBufferVec<T>) {
         self.values.append(&mut other.values);
     }
 
@@ -160,25 +160,26 @@ impl<T: Pod> BufferVec<T> {
     }
 }
 
-impl<T: Pod> Extend<T> for BufferVec<T> {
+impl<T: Pod> Extend<T> for RawBufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.values.extend(iter);
     }
 }
 
-/// Like [`BufferVec`], but doesn't require that the data type `T` be [`Pod`].
+/// Like [`RawBufferVec`], but doesn't require that the data type `T` be
+/// [`Pod`].
 ///
 /// This is a high-performance data structure that you should use whenever
-/// possible if your data is more complex than is suitable for [`BufferVec`].
+/// possible if your data is more complex than is suitable for [`RawBufferVec`].
 /// The [`ShaderType`] trait from the `encase` library is used to ensure that
 /// the data is correctly aligned for use by the GPU.
 ///
-/// For performance reasons, unlike [`BufferVec`], this type doesn't allow CPU
-/// access to the data after it's been added via [`EncasedBufferVec::push`]. If
-/// you need CPU access to the data, consider another type, such as
+/// For performance reasons, unlike [`RawBufferVec`], this type doesn't allow
+/// CPU access to the data after it's been added via [`BufferVec::push`]. If you
+/// need CPU access to the data, consider another type, such as
 /// [`StorageBuffer`].
-pub struct EncasedBufferVec<T>
+pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,
 {
@@ -191,11 +192,11 @@ where
     phantom: PhantomData<T>,
 }
 
-impl<T> EncasedBufferVec<T>
+impl<T> BufferVec<T>
 where
     T: ShaderType + WriteInto,
 {
-    /// Creates a new [`EncasedBufferVec`] with the given [`BufferUsages`].
+    /// Creates a new [`BufferVec`] with the given [`BufferUsages`].
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             data: vec![],
@@ -299,8 +300,8 @@ where
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// Before queuing the write, a [`reserve`](EncasedBufferVec::reserve)
-    /// operation is executed.
+    /// Before queuing the write, a [`reserve`](BufferVec::reserve) operation is
+    /// executed.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         if self.data.is_empty() {
             return;
