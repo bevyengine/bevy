@@ -6,7 +6,7 @@ pub use bevy_ecs_macros::Bundle;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::archetype::ComponentChangeStatus;
-use crate::change_detection::{ChangeTicks, ComponentChangeId};
+use crate::change_detection::ComponentChangeId;
 use crate::component::ComponentTicks;
 use crate::{
     archetype::{

@@ -904,7 +904,7 @@ mod tests {
 
         world.clear_trackers();
 
-        for (i, mut a) in world.query::<Mut<A>>().iter_mut(&mut world).enumerate() {
+        for (i, mut a) in world.query::<&mut A>().iter_mut(&mut world).enumerate() {
             if i % 2 == 0 {
                 a.0 += 1;
             }
@@ -984,7 +984,7 @@ mod tests {
         world.clear_trackers();
 
         for (i, mut a) in world
-            .query::<Mut<SparseStored>>()
+            .query::<&mut SparseStored>()
             .iter_mut(&mut world)
             .enumerate()
         {
@@ -1392,7 +1392,7 @@ mod tests {
     #[test]
     fn filtered_query_access_mut() {
         let mut world = World::new();
-        let query = world.query_filtered::<Mut<A>, Changed<B>>();
+        let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();

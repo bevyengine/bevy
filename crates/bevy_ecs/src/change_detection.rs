@@ -459,7 +459,8 @@ impl<'w> Ticks<'w> {
     }
 }
 
-pub(crate) struct TicksMut<'w> {
+/// Struct that holds change detection information for &mut T  Queries
+pub struct TicksMut<'w> {
     pub(crate) added: &'w mut Tick,
     pub(crate) changed: &'w mut Tick,
     pub(crate) last_run: Tick,
@@ -515,10 +516,10 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
     }
 }
 
-// TODO: add docs
+/// [`Component`] that will store the change detection information for a given component T.
 #[derive(Clone)]
 pub struct ChangeTicks<T: Component> {
-    ticks: ComponentTicks,
+    _ticks: ComponentTicks,
     _marker: PhantomData<T>,
 }
 
@@ -526,8 +527,11 @@ pub struct ChangeTicks<T: Component> {
 impl<T: Component> Component for ChangeTicks<T> {
     const STORAGE_TYPE: StorageType = T::STORAGE_TYPE;
     const CHANGE_DETECTION: bool = false;
-    type WriteFetch<'w> = &'w mut ChangeTicks<T>;
+    type WriteItem<'w> = &'w mut ChangeTicks<T>;
     type ChangeDetection = DisabledChangeTicks;
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
+        item
+    }
 }
 
 /// Marker component to indicate that change detection is disabled.
@@ -863,6 +867,43 @@ change_detection_impl!(Mut<'w, T>, T,);
 change_detection_mut_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
+
+/// Mutable fetch item that can be built from a mutable reference to the inner value.
+pub trait MutFetchItem<'a>: DerefMut + Sized {
+    /// the ReadOnlyQueryData that corresponds to this MutFetchItem
+    type ReadOnly: Deref<Target = Self::Target>;
+
+    /// Build the MutFetchItem from the inner value and the `TicksMut`
+    fn build(
+        inner: &'a mut Self::Target,
+        ticks_mut: Option<TicksMut<'a>>,
+    ) -> Self;
+}
+
+impl<'a, T: Component> MutFetchItem<'a> for Mut<'a, T> {
+    type ReadOnly = Ref<'a, T>;
+    fn build(
+        value: &'a mut T,
+        ticks_mut: Option<TicksMut<'a>>,
+    ) -> Self {
+        Mut {
+            value,
+            // SAFETY: this can only be called if the ticks are provided
+            ticks: ticks_mut.unwrap(),
+        }
+    }
+}
+
+impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
+    type ReadOnly = &'a T;
+    fn build(
+        value: &'a mut T,
+        _ticks_mut: Option<TicksMut<'a>>,
+    ) -> Self {
+        value
+    }
+}
+
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

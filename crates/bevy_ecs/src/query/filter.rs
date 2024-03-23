@@ -603,7 +603,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w>,
+        _world: UnsafeWorldCell<'w>,
         &id: &ComponentId,
         last_run: Tick,
         this_run: Tick,

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote};
+use quote::{quote};
 use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result, LitBool, TypeGenerics};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -59,15 +59,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let change_detection = attrs.change_detection;
-    let write_fetch = write_fetch_associated_type(&bevy_ecs_path, &struct_name, &type_generics, change_detection);
+    let write_item = write_item_associated_type(&bevy_ecs_path, &struct_name, &type_generics, change_detection);
     let change_detection_type = change_detection_associated_type(&bevy_ecs_path, &struct_name, &type_generics, change_detection);
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             const CHANGE_DETECTION: bool = #change_detection;
-            type WriteFetch<'w> = #write_fetch;
+            type WriteItem<'w> = #write_item;
             type ChangeDetection = #change_detection_type;
+            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
+                item
+            }
         }
     })
 }
@@ -122,7 +125,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     Ok(attrs)
 }
 
-fn write_fetch_associated_type(bevy_ecs_path: &Path, struct_name: &Ident, type_generics: &TypeGenerics, change_detection: bool) -> TokenStream2 {
+fn write_item_associated_type(bevy_ecs_path: &Path, struct_name: &Ident, type_generics: &TypeGenerics, change_detection: bool) -> TokenStream2 {
     if change_detection {
         quote! { #bevy_ecs_path::change_detection::Mut<'w, #struct_name #type_generics> }
     } else {

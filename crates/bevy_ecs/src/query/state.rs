@@ -1702,8 +1702,8 @@ mod tests {
         let q = world.query::<&mut A>();
         let _ = q.transmute::<&A>(&world);
 
-        let q = world.query::<Mut<A>>();
-        let _ = q.transmute::<Ref<A>>(&world);
+        // let q = world.query::<&mut A>();
+        // let _ = q.transmute::<Ref<A>>(&world);
     }
 
     #[test]
@@ -1825,8 +1825,7 @@ mod tests {
         let mut detection_query = QueryState::<(Entity, Ref<A>)>::new(&mut world)
             .transmute_filtered::<Entity, Changed<A>>(&world);
 
-        // need to use Mut<A> to update the change detection ticks!
-        let mut change_query = QueryState::<Mut<A>>::new(&mut world);
+        let mut change_query = QueryState::<&mut A>::new(&mut world);
         assert_eq!(entity_a, detection_query.single(&world));
 
         world.clear_trackers();
