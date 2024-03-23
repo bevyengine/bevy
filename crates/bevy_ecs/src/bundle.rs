@@ -554,8 +554,12 @@ impl BundleInfo {
                         if current_archetype.contains(change_component_id) {
                             ComponentStatus::Mutated
                         } else {
-                            // tick components are always stored in tables
-                            new_table_components.push(change_component_id);
+                            // SAFETY: change_componeny_id exists
+                            let component_info = unsafe { components.get_info_unchecked(change_component_id) };
+                            match component_info.storage_type() {
+                                StorageType::Table => new_table_components.push(change_component_id),
+                                StorageType::SparseSet => new_sparse_set_components.push(change_component_id),
+                            }
                             ComponentStatus::Added
                         }
                     });
