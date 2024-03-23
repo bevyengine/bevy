@@ -304,19 +304,31 @@ pub fn prepare_windows(
                 })
         };
 
+        #[cfg(target_os = "linux")]
+        let is_nvidia = || {
+            render_instance
+                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
+                .any(|adapter| adapter.get_info().name.starts_with("NVIDIA"))
+        };
+
         let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
-            window.set_swapchain_texture(frame);
+            match surface.get_current_texture() {
+                Ok(frame) => window.set_swapchain_texture(frame),
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {}
+                Err(err) => panic!("Error configuring surface: {err}"),
+            };
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
                     window.set_swapchain_texture(frame);
                 }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {}
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_data.configuration);
                     let frame = surface
