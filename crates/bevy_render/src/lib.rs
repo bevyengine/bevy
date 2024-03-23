@@ -11,6 +11,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod deterministic;
+pub mod diagnostic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;

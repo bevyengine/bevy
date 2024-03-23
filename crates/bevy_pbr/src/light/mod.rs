@@ -20,6 +20,15 @@ use bevy_utils::tracing::warn;
 
 use crate::*;
 
+mod ambient_light;
+pub use ambient_light::AmbientLight;
+mod point_light;
+pub use point_light::PointLight;
+mod spot_light;
+pub use spot_light::SpotLight;
+mod directional_light;
+pub use directional_light::DirectionalLight;
+
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
     /// Approximations for converting the wattage of lamps to lumens.
@@ -77,61 +86,6 @@ pub mod light_consts {
     }
 }
 
-/// A light that emits light in all directions from a central point.
-///
-/// Real-world values for `intensity` (luminous power in lumens) based on the electrical power
-/// consumption of the type of real-world light are:
-///
-/// | Luminous Power (lumen) (i.e. the intensity member) | Incandescent non-halogen (Watts) | Incandescent halogen (Watts) | Compact fluorescent (Watts) | LED (Watts |
-/// |------|-----|----|--------|-------|
-/// | 200  | 25  |    | 3-5    | 3     |
-/// | 450  | 40  | 29 | 9-11   | 5-8   |
-/// | 800  | 60  |    | 13-15  | 8-12  |
-/// | 1100 | 75  | 53 | 18-20  | 10-16 |
-/// | 1600 | 100 | 72 | 24-28  | 14-17 |
-/// | 2400 | 150 |    | 30-52  | 24-30 |
-/// | 3100 | 200 |    | 49-75  | 32    |
-/// | 4000 | 300 |    | 75-100 | 40.5  |
-///
-/// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
-pub struct PointLight {
-    pub color: Color,
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
-    pub intensity: f32,
-    pub range: f32,
-    pub radius: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it can be small close to the camera and gets larger further
-    /// away.
-    pub shadow_normal_bias: f32,
-}
-
-impl Default for PointLight {
-    fn default() -> Self {
-        PointLight {
-            color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
-            intensity: 1_000_000.0,
-            range: 20.0,
-            radius: 0.0,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-        }
-    }
-}
-
-impl PointLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
-}
-
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
@@ -142,144 +96,6 @@ impl Default for PointLightShadowMap {
     fn default() -> Self {
         Self { size: 1024 }
     }
-}
-
-/// A light that emits light in a given direction from a central point.
-/// Behaves like a point light in a perfectly absorbent housing that
-/// shines light only in a given direction. The direction is taken from
-/// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
-pub struct SpotLight {
-    pub color: Color,
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
-    pub intensity: f32,
-    pub range: f32,
-    pub radius: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it can be small close to the camera and gets larger further
-    /// away.
-    pub shadow_normal_bias: f32,
-    /// Angle defining the distance from the spot light direction to the outer limit
-    /// of the light's cone of effect.
-    /// `outer_angle` should be < `PI / 2.0`.
-    /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
-    /// approaches this limit.
-    pub outer_angle: f32,
-    /// Angle defining the distance from the spot light direction to the inner limit
-    /// of the light's cone of effect.
-    /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
-    /// `inner_angle` should be <= `outer_angle`
-    pub inner_angle: f32,
-}
-
-impl SpotLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
-}
-
-impl Default for SpotLight {
-    fn default() -> Self {
-        // a quarter arc attenuating from the center
-        Self {
-            color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
-            intensity: 1_000_000.0,
-            range: 20.0,
-            radius: 0.0,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
-        }
-    }
-}
-
-/// A Directional light.
-///
-/// Directional lights don't exist in reality but they are a good
-/// approximation for light sources VERY far away, like the sun or
-/// the moon.
-///
-/// The light shines along the forward direction of the entity's transform. With a default transform
-/// this would be along the negative-Z axis.
-///
-/// Valid values for `illuminance` are:
-///
-/// | Illuminance (lux) | Surfaces illuminated by                        |
-/// |-------------------|------------------------------------------------|
-/// | 0.0001            | Moonless, overcast night sky (starlight)       |
-/// | 0.002             | Moonless clear night sky with airglow          |
-/// | 0.05–0.3          | Full moon on a clear night                     |
-/// | 3.4               | Dark limit of civil twilight under a clear sky |
-/// | 20–50             | Public areas with dark surroundings            |
-/// | 50                | Family living room lights                      |
-/// | 80                | Office building hallway/toilet lighting        |
-/// | 100               | Very dark overcast day                         |
-/// | 150               | Train station platforms                        |
-/// | 320–500           | Office lighting                                |
-/// | 400               | Sunrise or sunset on a clear day.              |
-/// | 1000              | Overcast day; typical TV studio lighting       |
-/// | 10,000–25,000     | Full daylight (not direct sun)                 |
-/// | 32,000–100,000    | Direct sunlight                                |
-///
-/// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-///
-/// ## Shadows
-///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
-///
-/// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
-///
-/// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
-///
-/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
-///
-/// ```
-/// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
-/// App::new()
-///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
-/// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct DirectionalLight {
-    pub color: Color,
-    /// Illuminance in lux (lumens per square meter), representing the amount of
-    /// light projected onto surfaces by this light source. Lux is used here
-    /// instead of lumens because a directional light illuminates all surfaces
-    /// more-or-less the same way (depending on the angle of incidence). Lumens
-    /// can only be specified for light sources which emit light from a specific
-    /// area.
-    pub illuminance: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it is automatically adjusted to the orthographic projection.
-    pub shadow_normal_bias: f32,
-}
-
-impl Default for DirectionalLight {
-    fn default() -> Self {
-        DirectionalLight {
-            color: Color::WHITE,
-            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-        }
-    }
-}
-
-impl DirectionalLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
@@ -616,45 +432,6 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-
-/// An ambient light, which lights the entire scene equally.
-///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
-///
-/// # Examples
-///
-/// Make ambient light slightly brighter:
-///
-/// ```
-/// # use bevy_ecs::system::ResMut;
-/// # use bevy_pbr::AmbientLight;
-/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 100.0;
-/// }
-/// ```
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
-pub struct AmbientLight {
-    pub color: Color,
-    /// A direct scale factor multiplied with `color` before being passed to the shader.
-    pub brightness: f32,
-}
-
-impl Default for AmbientLight {
-    fn default() -> Self {
-        Self {
-            color: Color::WHITE,
-            brightness: 80.0,
-        }
-    }
-}
-impl AmbientLight {
-    pub const NONE: AmbientLight = AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.0,
-    };
-}
-
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]

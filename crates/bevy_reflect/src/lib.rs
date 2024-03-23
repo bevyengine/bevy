@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 //! Reflection in Rust.
 //!
@@ -467,7 +468,6 @@
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod array;
 mod fields;
@@ -493,6 +493,7 @@ mod impls {
         mod primitives2d;
         mod primitives3d;
         mod rect;
+        mod rotation2d;
     }
     #[cfg(feature = "petgraph")]
     mod petgraph;

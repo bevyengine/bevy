@@ -2,6 +2,8 @@
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -30,6 +32,9 @@ impl Default for State {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct SeededRng(ChaCha8Rng);
+
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
@@ -57,10 +62,15 @@ fn atlas_render_system(
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
+fn text_update_system(
+    mut state: ResMut<State>,
+    time: Res<Time>,
+    mut query: Query<&mut Text>,
+    mut seeded_rng: ResMut<SeededRng>,
+) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
-            let c = rand::random::<u8>() as char;
+            let c = seeded_rng.gen::<u8>() as char;
             let string = &mut text.sections[0].value;
             if !string.contains(c) {
                 string.push(c);
@@ -95,4 +105,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 },
             ));
         });
+    commands.insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467713)));
 }

@@ -96,7 +96,7 @@ pub struct AssetMetaMinimal {
     pub asset: AssetActionMinimal,
 }
 
-/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetActionMinimal`]
+/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetAction`]
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
@@ -171,12 +171,12 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    fn process<'a>(
+    async fn process<'a>(
         &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext,
+        _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
         _writer: &'a mut bevy_asset::io::Writer,
-    ) -> bevy_utils::BoxedFuture<'a, Result<(), bevy_asset::processor::ProcessError>> {
+    ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
 }
@@ -194,12 +194,12 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        _reader: &'a mut crate::io::Reader,
+        _reader: &'a mut crate::io::Reader<'_>,
         _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        _load_context: &'a mut crate::LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }
 

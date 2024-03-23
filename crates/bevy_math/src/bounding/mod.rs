@@ -48,14 +48,25 @@ pub trait BoundingVolume: Sized {
     /// Decreases the size of the bounding volume in each direction by the given amount.
     fn shrink(&self, amount: Self::HalfSize) -> Self;
 
+    /// Scale the size of the bounding volume around its center by the given amount
+    fn scale_around_center(&self, scale: Self::HalfSize) -> Self;
+
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
-    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+    fn transformed_by(
+        mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
         self.transform_by(translation, rotation);
         self
     }
 
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
-    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+    fn transform_by(
+        &mut self,
+        translation: Self::Translation,
+        rotation: impl Into<Self::Rotation>,
+    ) {
         self.rotate_by(rotation);
         self.translate_by(translation);
     }
@@ -73,7 +84,7 @@ pub trait BoundingVolume: Sized {
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger than the original.
-    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
     }
@@ -82,7 +93,7 @@ pub trait BoundingVolume: Sized {
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger than the original.
-    fn rotate_by(&mut self, rotation: Self::Rotation);
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>);
 }
 
 /// A trait that generalizes intersection tests against a volume.

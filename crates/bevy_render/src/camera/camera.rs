@@ -88,7 +88,7 @@ pub struct ComputedCameraValues {
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect_value(Component)]
+#[reflect_value(Component, Default)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -184,7 +184,7 @@ impl Default for PhysicalCameraParameters {
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -771,7 +771,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
-#[reflect_value(Component)]
+#[reflect_value(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {

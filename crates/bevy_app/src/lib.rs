@@ -1,5 +1,6 @@
-//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
+//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
 mod app;
 mod main_schedule;

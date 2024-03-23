@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! Parent-child relationships for Bevy entities.
 //!
 //! You should use the tools in this crate
@@ -44,7 +46,6 @@
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
 //! [world]: BuildWorldChildren
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod components;
 pub use components::*;

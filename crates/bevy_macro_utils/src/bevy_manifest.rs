@@ -2,11 +2,11 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use std::{env, path::PathBuf};
-use toml_edit::{Document, Item};
+use toml_edit::{DocumentMut, Item};
 
 /// The path to the `Cargo.toml` file for the Bevy project.
 pub struct BevyManifest {
-    manifest: Document,
+    manifest: DocumentMut,
 }
 
 impl Default for BevyManifest {
@@ -25,7 +25,7 @@ impl Default for BevyManifest {
                     let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
                         panic!("Unable to read cargo manifest: {}", path.display())
                     });
-                    manifest.parse::<Document>().unwrap_or_else(|_| {
+                    manifest.parse::<DocumentMut>().unwrap_or_else(|_| {
                         panic!("Failed to parse cargo manifest: {}", path.display())
                     })
                 })
