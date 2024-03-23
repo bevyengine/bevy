@@ -76,7 +76,7 @@ fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
 @group(0) @binding(2) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
-@group(0) @binding(5) var<storage, read_write> draw_command_buffer: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(5) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
 fn get_meshlet_occlusion(cluster_id: u32) -> bool {

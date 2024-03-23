@@ -122,7 +122,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             true,
             render_context,
             meshlet_view_resources,
-            &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
+            &meshlet_view_resources.visibility_buffer_draw_indirect_args_first,
             view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
@@ -154,7 +154,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             false,
             render_context,
             meshlet_view_resources,
-            &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
+            &meshlet_view_resources.visibility_buffer_draw_indirect_args_second,
             view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
@@ -222,7 +222,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 true,
                 render_context,
                 meshlet_view_resources,
-                &meshlet_view_resources.visibility_buffer_draw_command_buffer_first,
+                &meshlet_view_resources.visibility_buffer_draw_indirect_args_first,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
@@ -254,7 +254,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 false,
                 render_context,
                 meshlet_view_resources,
-                &meshlet_view_resources.visibility_buffer_draw_command_buffer_second,
+                &meshlet_view_resources.visibility_buffer_draw_indirect_args_second,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
@@ -312,7 +312,7 @@ fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,
     meshlet_view_resources: &MeshletViewResources,
-    visibility_buffer_draw_command_buffer: &Buffer,
+    visibility_buffer_draw_indirect_args: &Buffer,
     depth_stencil_attachment: RenderPassDepthStencilAttachment,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     view_offset: &ViewUniformOffset,
@@ -374,7 +374,7 @@ fn raster_pass(
         &[view_offset.offset],
     );
     draw_pass.set_render_pipeline(visibility_buffer_raster_pipeline);
-    draw_pass.draw_indirect(visibility_buffer_draw_command_buffer, 0);
+    draw_pass.draw_indirect(visibility_buffer_draw_indirect_args, 0);
 }
 
 fn downsample_depth(

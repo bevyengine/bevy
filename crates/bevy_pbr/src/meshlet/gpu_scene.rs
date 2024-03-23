@@ -323,9 +323,9 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
-        let visibility_buffer_draw_command_buffer_first =
+        let visibility_buffer_draw_indirect_args_first =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("meshlet_visibility_buffer_draw_command_buffer_first"),
+                label: Some("meshlet_visibility_buffer_draw_indirect_args_first"),
                 contents: DrawIndirectArgs {
                     vertex_count: 0,
                     instance_count: 1,
@@ -335,9 +335,9 @@ pub fn prepare_meshlet_per_frame_resources(
                 .as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
-        let visibility_buffer_draw_command_buffer_second =
+        let visibility_buffer_draw_indirect_args_second =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("meshlet_visibility_buffer_draw_command_buffer_second"),
+                label: Some("meshlet_visibility_buffer_draw_indirect_args_second"),
                 contents: DrawIndirectArgs {
                     vertex_count: 0,
                     instance_count: 1,
@@ -422,8 +422,8 @@ pub fn prepare_meshlet_per_frame_resources(
             instance_visibility,
             visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
-            visibility_buffer_draw_command_buffer_first,
-            visibility_buffer_draw_command_buffer_second,
+            visibility_buffer_draw_indirect_args_first,
+            visibility_buffer_draw_indirect_args_second,
             visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
             depth_pyramid,
             depth_pyramid_mips,
@@ -478,7 +478,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
-                .visibility_buffer_draw_command_buffer_first
+                .visibility_buffer_draw_indirect_args_first
                 .as_entire_binding(),
             view_resources
                 .visibility_buffer_draw_index_buffer
@@ -497,7 +497,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.previous_occlusion_buffer.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
-                .visibility_buffer_draw_command_buffer_second
+                .visibility_buffer_draw_indirect_args_second
                 .as_entire_binding(),
             view_resources
                 .visibility_buffer_draw_index_buffer
@@ -943,8 +943,8 @@ pub struct MeshletViewResources {
     pub occlusion_buffer_needs_clearing: bool,
     pub instance_visibility: Buffer,
     pub visibility_buffer: Option<CachedTexture>,
-    pub visibility_buffer_draw_command_buffer_first: Buffer,
-    pub visibility_buffer_draw_command_buffer_second: Buffer,
+    pub visibility_buffer_draw_indirect_args_first: Buffer,
+    pub visibility_buffer_draw_indirect_args_second: Buffer,
     visibility_buffer_draw_index_buffer: Buffer,
     pub depth_pyramid: CachedTexture,
     pub depth_pyramid_mips: Box<[TextureView]>,

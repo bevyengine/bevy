@@ -1,7 +1,7 @@
 #import bevy_pbr::meshlet_bindings::{
     meshlet_thread_meshlet_ids,
     meshlets,
-    draw_command_buffer,
+    draw_indirect_args,
     draw_index_buffer,
     get_meshlet_occlusion,
     get_meshlet_previous_occlusion,
@@ -31,7 +31,7 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
 
     // Reserve space in the buffer for this meshlet's triangles, and broadcast the start of that slice to all threads
     if triangle_id == 0u {
-        draw_index_buffer_start_workgroup = atomicAdd(&draw_command_buffer.vertex_count, meshlet.triangle_count * 3u);
+        draw_index_buffer_start_workgroup = atomicAdd(&draw_indirect_args.vertex_count, meshlet.triangle_count * 3u);
         draw_index_buffer_start_workgroup /= 3u;
     }
     workgroupBarrier();
