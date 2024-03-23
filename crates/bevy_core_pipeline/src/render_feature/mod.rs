@@ -12,7 +12,7 @@ use bevy_app::App;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, RenderSubGraph};
-use bevy_render::render_resource::{WgpuFeatures, WgpuLimits};
+use bevy_render::render_resource::{ColorTargetState, WgpuFeatures, WgpuLimits};
 use bevy_utils::{all_tuples, CowArc};
 
 pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
@@ -152,7 +152,7 @@ pub trait FeatureIO<const MULT: bool>: Sized + Send + Sync + 'static {
     type Handles<'a>;
     type Item<'w>;
 
-    fn get(
+    fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
         handles: Self::RawHandles,
     ) -> Option<<Self as FeatureIO<MULT>>::Item<'_>>;
@@ -163,7 +163,7 @@ impl<A: Send + Sync + 'static> FeatureIO<false> for A {
     type Handles<'a> = RenderHandle<'a, A>;
     type Item<'w> = &'w A;
 
-    fn get(
+    fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
         handles: Self::RawHandles,
     ) -> Option<<Self as FeatureIO<false>>::Item<'_>> {
@@ -179,7 +179,7 @@ macro_rules! impl_feature_io {
             type Item<'w> = ($(&'w $T,)*);
 
             #[allow(unused_variables, unreachable_patterns)]
-            fn get(
+            fn feature_io_get_from_entity(
                 entity: EntityRef<'_>,
                 handles: Self::RawHandles,
             ) -> Option<<Self as FeatureIO<true>>::Item<'_>> {
@@ -301,16 +301,16 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
 }
 
 #[macro_export]
-macro_rules! IOHandles_Impl {
+macro_rules! Handles_Impl {
     ($($h: tt),*) => {
         ($($crate::render_feature::SingleHandle!($h)),*)
     }
 }
 
-pub use IOHandles_Impl as Handles;
+pub use Handles_Impl as Handles;
 
 #[macro_export]
-macro_rules! SingleIOHandle_Impl {
+macro_rules! SingleHandle_Impl {
     (_) => {
         $crate::render_feature::RenderHandle::hole()
     };
@@ -319,7 +319,7 @@ macro_rules! SingleIOHandle_Impl {
     };
 }
 
-pub use SingleIOHandle_Impl as SingleHandle;
+pub use SingleHandle_Impl as SingleHandle;
 
 //SAFETY: this must stay repr(transparent) to make sure it has the same layout as A
 #[repr(transparent)]
