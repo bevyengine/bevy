@@ -86,7 +86,7 @@ fn update_winit(
             // `WinitSettings::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
-            // was as continuous
+            // way as continuous
             let _ = event_loop_proxy.send_event(RequestRedraw);
             WinitSettings::desktop_app()
         }
