@@ -8,6 +8,7 @@ pub use graph_runner::*;
 pub use render_device::*;
 
 use crate::{
+    diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
@@ -27,34 +28,46 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
+
+    let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
+
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
     let render_adapter = world.resource::<RenderAdapter>();
 
-    if let Err(e) = RenderGraphRunner::run(
+    let res = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
+        diagnostics_recorder,
         &render_queue.0,
         &render_adapter.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
-    ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
+    );
+
+    match res {
+        Ok(Some(diagnostics_recorder)) => {
+            world.insert_resource(diagnostics_recorder);
+        }
+        Ok(None) => {}
+        Err(e) => {
+            error!("Error running render graph:");
+            {
+                let mut src: &dyn std::error::Error = &e;
+                loop {
+                    error!("> {}", src);
+                    match src.source() {
+                        Some(s) => src = s,
+                        None => break,
+                    }
                 }
             }
-        }
 
-        panic!("Error running render graph: {e}");
+            panic!("Error running render graph: {e}");
+        }
     }
 
     {
@@ -306,11 +319,16 @@ pub struct RenderContext<'w> {
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
     force_serial: bool,
+    diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
 
 impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice, adapter_info: AdapterInfo) -> Self {
+    pub fn new(
+        render_device: RenderDevice,
+        adapter_info: AdapterInfo,
+        diagnostics_recorder: Option<DiagnosticsRecorder>,
+    ) -> Self {
         // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
         #[cfg(target_os = "windows")]
         let force_serial =
@@ -326,12 +344,19 @@ impl<'w> RenderContext<'w> {
             command_encoder: None,
             command_buffer_queue: Vec::new(),
             force_serial,
+            diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }
     }
 
     /// Gets the underlying [`RenderDevice`].
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
+    }
+
+    /// Gets the diagnostics recorder, used to track elapsed time and pipeline statistics
+    /// of various render and compute passes.
+    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics {
+        self.diagnostics_recorder.clone()
     }
 
     /// Gets the current [`CommandEncoder`].
@@ -353,6 +378,7 @@ impl<'w> RenderContext<'w> {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         });
+
         let render_pass = command_encoder.begin_render_pass(&descriptor);
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
@@ -389,7 +415,13 @@ impl<'w> RenderContext<'w> {
     ///
     /// This function will wait until all command buffer generation tasks are complete
     /// by running them in parallel (where supported).
-    pub fn finish(mut self) -> Vec<CommandBuffer> {
+    pub fn finish(
+        mut self,
+    ) -> (
+        Vec<CommandBuffer>,
+        RenderDevice,
+        Option<DiagnosticsRecorder>,
+    ) {
         self.flush_encoder();
 
         let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
@@ -413,9 +445,30 @@ impl<'w> RenderContext<'w> {
                 }
             }
         });
+
         command_buffers.append(&mut task_based_command_buffers);
         command_buffers.sort_unstable_by_key(|(i, _)| *i);
-        command_buffers.into_iter().map(|(_, cb)| cb).collect()
+
+        let mut command_buffers = command_buffers
+            .into_iter()
+            .map(|(_, cb)| cb)
+            .collect::<Vec<CommandBuffer>>();
+
+        let mut diagnostics_recorder = self.diagnostics_recorder.take().map(|v| {
+            Arc::try_unwrap(v)
+                .ok()
+                .expect("diagnostic recorder shouldn't be held longer than necessary")
+        });
+
+        if let Some(recorder) = &mut diagnostics_recorder {
+            let mut command_encoder = self
+                .render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+            recorder.resolve(&mut command_encoder);
+            command_buffers.push(command_encoder.finish());
+        }
+
+        (command_buffers, self.render_device, diagnostics_recorder)
     }
 
     fn flush_encoder(&mut self) {

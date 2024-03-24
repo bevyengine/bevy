@@ -6,7 +6,6 @@ mod entity_ref;
 pub mod error;
 mod spawn_batch;
 pub mod unsafe_world_cell;
-mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
 pub use crate::world::command_queue::CommandQueue;
@@ -16,7 +15,6 @@ pub use entity_ref::{
     OccupiedEntry, VacantEntry,
 };
 pub use spawn_batch::*;
-pub use world_cell::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
@@ -111,8 +109,6 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: RemovedComponentEvents,
-    /// Access cache used by [`WorldCell`]. Is only accessed in the `Drop` impl of `WorldCell`.
-    pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -129,7 +125,6 @@ impl Default for World {
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
-            archetype_component_access: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
@@ -215,13 +210,6 @@ impl World {
     #[inline]
     pub fn removed_components(&self) -> &RemovedComponentEvents {
         &self.removed_components
-    }
-
-    /// Retrieves a [`WorldCell`], which safely enables multiple mutable World accesses at the same
-    /// time, provided those accesses do not conflict with each other.
-    #[inline]
-    pub fn cell(&mut self) -> WorldCell<'_> {
-        WorldCell::new(self)
     }
 
     /// Creates a new [`Commands`] instance that writes to the world's command queue
@@ -1848,7 +1836,7 @@ impl World {
     }
 
     /// # Panics
-    /// panics if `component_id` is not registered in this world
+    /// Panics if `component_id` is not registered in this world
     #[inline]
     pub(crate) fn initialize_non_send_internal(
         &mut self,

@@ -844,7 +844,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
+        #[allow(dead_code)]
         struct NotSend1(std::rc::Rc<i32>);
+        #[allow(dead_code)]
         struct NotSend2(std::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
@@ -867,7 +869,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
+        #[allow(dead_code)]
         struct NotSend1(std::rc::Rc<i32>);
+        #[allow(dead_code)]
         struct NotSend2(std::rc::Rc<i32>);
 
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));

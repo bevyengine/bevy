@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
@@ -51,6 +53,11 @@ pub mod input {
 pub mod log {
     //! Logging capabilities
     pub use bevy_log::*;
+}
+
+pub mod panic_handler {
+    //! Platform-specific panic handlers
+    pub use bevy_panic_handler::*;
 }
 
 pub mod math {

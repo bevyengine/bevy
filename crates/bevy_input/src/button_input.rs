@@ -29,6 +29,35 @@ use bevy_ecs::schedule::State;
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
 ///
+/// ## Performance
+///
+/// For all operations, the following conventions are used:
+/// - **n** is the number of stored inputs.
+/// - **m** is the number of input arguments passed to the method.
+/// - **\***-suffix denotes an amortized cost.
+/// - **~**-suffix denotes an expected cost.
+///
+/// See Rust's [std::collections doc on performance](https://doc.rust-lang.org/std/collections/index.html#performance) for more details on the conventions used here.
+///
+/// | **[`ButtonInput`] operations**          | **Computational complexity** |
+/// |-----------------------------------|------------------------------------|
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m*n)                     |
+/// | [`ButtonInput::any_just_released`]      | *O*(m*n)                     |
+/// | [`ButtonInput::any_pressed`]            | *O*(m*n)                     |
+/// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
+/// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
+/// | [`ButtonInput::get_pressed`]            | *O*(n)                       |
+/// | [`ButtonInput::just_pressed`]           | *O*(1)~                      |
+/// | [`ButtonInput::just_released`]          | *O*(1)~                      |
+/// | [`ButtonInput::pressed`]                | *O*(1)~                      |
+/// | [`ButtonInput::press`]                  | *O*(1)~*                     |
+/// | [`ButtonInput::release`]                | *O*(1)~*                     |
+/// | [`ButtonInput::release_all`]            | *O*(n)~*                     |
+/// | [`ButtonInput::clear_just_pressed`]     | *O*(1)~                      |
+/// | [`ButtonInput::clear_just_released`]    | *O*(1)~                      |
+/// | [`ButtonInput::reset_all`]              | *O*(n)                       |
+/// | [`ButtonInput::clear`]                  | *O*(n)                       |
+///
 /// ## Window focus
 ///
 /// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
@@ -114,12 +143,14 @@ where
         self.just_released.extend(self.pressed.drain());
     }
 
-    /// Returns `true` if the `input` has just been pressed.
+    /// Returns `true` if the `input` has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
-    /// Returns `true` if any item in `inputs` has just been pressed.
+    /// Returns `true` if any item in `inputs` has been pressed during the current frame.
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
@@ -131,7 +162,9 @@ where
         self.just_pressed.remove(&input)
     }
 
-    /// Returns `true` if the `input` has just been released.
+    /// Returns `true` if the `input` has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
@@ -178,11 +211,15 @@ where
     }
 
     /// An iterator visiting every just pressed input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
     /// An iterator visiting every just released input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }

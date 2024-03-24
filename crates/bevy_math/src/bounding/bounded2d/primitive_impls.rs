@@ -10,17 +10,21 @@ use crate::{
         Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d,
         Triangle2d,
     },
-    Dir2, Mat2, Vec2,
+    Dir2, Mat2, Rotation2d, Vec2,
 };
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
 impl Bounded2d for Circle {
-    fn aabb_2d(&self, translation: Vec2, _rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, _rotation: impl Into<Rotation2d>) -> Aabb2d {
         Aabb2d::new(translation, Vec2::splat(self.radius))
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, self.radius)
     }
 }
@@ -128,7 +132,9 @@ impl Bounded2d for CircularSegment {
 }
 
 impl Bounded2d for Ellipse {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+
         //           V = (hh * cos(beta), hh * sin(beta))
         //      #####*#####
         //   ###     |     ###
@@ -157,14 +163,19 @@ impl Bounded2d for Ellipse {
         Aabb2d::new(translation, half_size)
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, self.semi_major())
     }
 }
 
 impl Bounded2d for Plane2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let normal = Mat2::from_angle(rotation) * *self.normal;
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+        let normal = rotation * *self.normal;
         let facing_x = normal == Vec2::X || normal == Vec2::NEG_X;
         let facing_y = normal == Vec2::Y || normal == Vec2::NEG_Y;
 
@@ -177,14 +188,19 @@ impl Bounded2d for Plane2d {
         Aabb2d::new(translation, half_size)
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded2d for Line2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let direction = Mat2::from_angle(rotation) * *self.direction;
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+        let direction = rotation * *self.direction;
 
         // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
         // like growing or shrinking the AABB without breaking things.
@@ -196,49 +212,66 @@ impl Bounded2d for Line2d {
         Aabb2d::new(translation, half_size)
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded2d for Segment2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         // Rotate the segment by `rotation`
-        let direction = Mat2::from_angle(rotation) * *self.direction;
+        let rotation: Rotation2d = rotation.into();
+        let direction = rotation * *self.direction;
         let half_size = (self.half_length * direction).abs();
 
         Aabb2d::new(translation, half_size)
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, self.half_length)
     }
 }
 
 impl<const N: usize> Bounded2d for Polyline2d<N> {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::from_point_cloud(translation, rotation, &self.vertices)
     }
 }
 
 impl Bounded2d for BoxedPolyline2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::from_point_cloud(translation, rotation, &self.vertices)
     }
 }
 
 impl Bounded2d for Triangle2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
-        let rotation_mat = Mat2::from_angle(rotation);
-        let [a, b, c] = self.vertices.map(|vtx| rotation_mat * vtx);
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+        let [a, b, c] = self.vertices.map(|vtx| rotation * vtx);
 
         let min = Vec2::new(a.x.min(b.x).min(c.x), a.y.min(b.y).min(c.y));
         let max = Vec2::new(a.x.max(b.x).max(c.x), a.y.max(b.y).max(c.y));
@@ -249,8 +282,12 @@ impl Bounded2d for Triangle2d {
         }
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
-        let rotation_mat = Mat2::from_angle(rotation);
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        let rotation: Rotation2d = rotation.into();
         let [a, b, c] = self.vertices;
 
         // The points of the segment opposite to the obtuse or right angle if one exists
@@ -271,17 +308,19 @@ impl Bounded2d for Triangle2d {
             // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
             // We can compute the minimum bounding circle from the line segment of the longest side.
             let (segment, center) = Segment2d::from_points(point1, point2);
-            segment.bounding_circle(rotation_mat * center + translation, rotation)
+            segment.bounding_circle(rotation * center + translation, rotation)
         } else {
             // The triangle is acute, so the smallest bounding circle is the circumcircle.
             let (Circle { radius }, circumcenter) = self.circumcircle();
-            BoundingCircle::new(rotation_mat * circumcenter + translation, radius)
+            BoundingCircle::new(rotation * circumcenter + translation, radius)
         }
     }
 }
 
 impl Bounded2d for Rectangle {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = rotation.sin_cos();
@@ -291,38 +330,52 @@ impl Bounded2d for Rectangle {
         Aabb2d::new(translation, half_size)
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         let radius = self.half_size.length();
         BoundingCircle::new(translation, radius)
     }
 }
 
 impl<const N: usize> Bounded2d for Polygon<N> {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::from_point_cloud(translation, rotation, &self.vertices)
     }
 }
 
 impl Bounded2d for BoxedPolygon {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(translation, rotation, &self.vertices)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::from_point_cloud(translation, rotation, &self.vertices)
     }
 }
 
 impl Bounded2d for RegularPolygon {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+
         let mut min = Vec2::ZERO;
         let mut max = Vec2::ZERO;
 
-        for vertex in self.vertices(rotation) {
+        for vertex in self.vertices(rotation.as_radians()) {
             min = min.min(vertex);
             max = max.max(vertex);
         }
@@ -333,17 +386,23 @@ impl Bounded2d for RegularPolygon {
         }
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, self.circumcircle.radius)
     }
 }
 
 impl Bounded2d for Capsule2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation: Rotation2d = rotation.into();
+
         // Get the line segment between the hemicircles of the rotated capsule
         let segment = Segment2d {
             // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: Dir2::new_unchecked(Mat2::from_angle(rotation) * Vec2::Y),
+            direction: rotation * Dir2::Y,
             half_length: self.half_length,
         };
         let (a, b) = (segment.point1(), segment.point2());
@@ -358,7 +417,11 @@ impl Bounded2d for Capsule2d {
         }
     }
 
-    fn bounding_circle(&self, translation: Vec2, _rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         BoundingCircle::new(translation, self.radius + self.half_length)
     }
 }

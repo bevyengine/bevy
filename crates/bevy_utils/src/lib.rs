@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
@@ -36,21 +38,36 @@ use hashbrown::hash_map::RawEntryMut;
 use std::{
     any::TypeId,
     fmt::Debug,
-    future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin,
 };
 
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
 #[cfg(not(target_arch = "wasm32"))]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+mod conditional_send {
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. WASM),
+    /// futures aren't Send.
+    pub trait ConditionalSend: Send {}
+    impl<T: Send> ConditionalSend for T {}
+}
 
-#[allow(missing_docs)]
 #[cfg(target_arch = "wasm32")]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+#[allow(missing_docs)]
+mod conditional_send {
+    pub trait ConditionalSend {}
+    impl<T> ConditionalSend for T {}
+}
+
+pub use conditional_send::*;
+
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. WASM),
+/// futures aren't Send.
+pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
+impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+
+/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 pub type Entry<'a, K, V, S = BuildHasherDefault<AHasher>> = hashbrown::hash_map::Entry<'a, K, V, S>;
