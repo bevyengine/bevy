@@ -1,7 +1,8 @@
 //! Shows how to iterate over combinations of query results.
 
 use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -45,7 +46,7 @@ fn generate_bodies(
     let vel_range = -0.5..0.5;
 
     // Make it deterministic for testing purposes.
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;

@@ -1,7 +1,8 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
 
 const TRANSITION_DURATION: f32 = 2.0;
@@ -34,7 +35,7 @@ struct TransformTracking {
 }
 
 #[derive(Resource)]
-struct SeededRng(StdRng);
+struct SeededRng(ChaCha8Rng);
 
 fn setup(
     mut commands: Commands,
@@ -42,7 +43,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Make it deterministic for testing purposes.
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     // Lights...
     commands.spawn(PointLightBundle {

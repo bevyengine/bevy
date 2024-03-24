@@ -2,7 +2,7 @@ error[E0277]: the trait bound `&mut A: ReadOnlyQueryData` is not satisfied
   --> tests/ui/query_iter_many_mut_iterator_safety.rs:10:17
    |
 10 |     is_iterator(iter)
-   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`
+   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`, which is required by `QueryManyIter<'_, '_, &mut A, (), std::array::IntoIter<bevy_ecs::entity::Entity, 1>>: Iterator`
    |     |
    |     required by a bound introduced by this call
    |

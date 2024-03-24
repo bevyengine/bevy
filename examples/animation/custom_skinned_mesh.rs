@@ -14,7 +14,8 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -123,7 +124,7 @@ fn setup(
     let mesh = meshes.add(mesh);
 
     // Make it deterministic for testing purposes.
-    let mut rng = StdRng::seed_from_u64(42);
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
 
     for i in -5..5 {
         // Create joint entities

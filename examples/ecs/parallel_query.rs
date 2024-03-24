@@ -2,7 +2,8 @@
 
 use bevy::ecs::query::BatchingStrategy;
 use bevy::prelude::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Deref)]
 struct Velocity(Vec2);
@@ -12,7 +13,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let texture = asset_server.load("branding/icon.png");
 
     // Make it deterministic for testing purposes.
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..128 {
         commands.spawn((
             SpriteBundle {

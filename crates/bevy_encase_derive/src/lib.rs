@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};
