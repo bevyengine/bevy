@@ -69,13 +69,13 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
 };
-use bevy_ecs::change_detection::ChangeTicks;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///

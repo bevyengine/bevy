@@ -48,6 +48,7 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
@@ -57,7 +58,6 @@ use bevy_ecs::{
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
-use bevy_ecs::change_detection::ChangeTicks;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
 compile_error!(

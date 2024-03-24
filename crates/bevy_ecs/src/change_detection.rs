@@ -8,10 +8,10 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_reflect::Reflect;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use bevy_reflect::Reflect;
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -881,7 +881,6 @@ impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
         value
     }
 }
-
 
 impl<'a, T: Component> DetectChanges for &'a mut T {
     fn is_added(&self) -> bool {
