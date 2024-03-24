@@ -1,4 +1,4 @@
-use crate::serde::deserialize_reflect::ReflectDeserializeReflect;
+use crate::serde::deserialize_with_registry::ReflectDeserializeWithRegistry;
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
@@ -431,8 +431,10 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             return Ok(value);
         }
 
-        if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserializeReflect>() {
-            let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
+        if let Some(deserialize_with_registry) =
+            self.registration.data::<ReflectDeserializeWithRegistry>()
+        {
+            let value = deserialize_with_registry.deserialize(deserializer, self.registry)?;
             return Ok(value);
         }
 

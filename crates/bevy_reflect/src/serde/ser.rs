@@ -1,4 +1,4 @@
-use crate::serde::serialize_reflect::ReflectSerializeReflect;
+use crate::serde::serialize_with_registry::ReflectSerializeWithRegistry;
 use crate::{
     Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
@@ -30,7 +30,7 @@ impl<'a> Serializable<'a> {
 }
 
 /// Attempts to serialize the given value using a custom serialization implementation
-/// from [`ReflectSerialize`] or [`ReflectSerializeReflect`].
+/// from [`ReflectSerialize`] or [`ReflectSerializeWithRegistry`].
 ///
 /// If no custom implementation exists, returns an `Err` containing the original serializer.
 fn try_custom_serialize<S: serde::Serializer>(
@@ -56,10 +56,14 @@ fn try_custom_serialize<S: serde::Serializer>(
             .serialize(serializer));
     }
 
-    if let Some(reflect_serialize_reflect) =
-        type_registry.get_type_data::<ReflectSerializeReflect>(reflect_value.type_id())
+    if let Some(reflect_serialize_with_registry) =
+        type_registry.get_type_data::<ReflectSerializeWithRegistry>(reflect_value.type_id())
     {
-        return Ok(reflect_serialize_reflect.serialize(reflect_value, serializer, type_registry));
+        return Ok(reflect_serialize_with_registry.serialize(
+            reflect_value,
+            serializer,
+            type_registry,
+        ));
     }
 
     Err(serializer)
@@ -130,7 +134,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        // Handle both Value case and types that have a custom `Serialize` or `SerializeReflect`
+        // Handle both Value case and types that have a custom `Serialize` or `SerializeWithRegistry`
         let serializer = match try_custom_serialize(self.value, serializer, self.registry) {
             Ok(result) => return result,
             Err(serializer) => serializer,
@@ -173,7 +177,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             }
             .serialize(serializer),
             ReflectRef::Value(_) => Err(S::Error::custom(format_args!(
-                "Type '{}' did not register `ReflectSerialize` or `ReflectSerializeReflect`",
+                "Type '{}' did not register `ReflectSerialize` or `ReflectSerializeWithRegistry`",
                 self.value.reflect_type_path()
             ))),
         }
@@ -192,7 +196,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
     {
         try_custom_serialize(self.value, serializer, self.registry).map_err(|_| {
             S::Error::custom(format_args!(
-                "Type '{}' did not register `ReflectSerialize` nor `ReflectSerializeReflect`",
+                "Type '{}' did not register `ReflectSerialize` nor `ReflectSerializeWithRegistry`",
                 self.value.reflect_type_path()
             ))
         })?

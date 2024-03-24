@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer};
 /// want to handle parts of the serialization process, but temporarily pass control
 /// to the standard reflection serializer for other parts.
 ///
-/// For the deserializtion equivalent of this trait, see [`DeserializeReflect`].
+/// For the deserializtion equivalent of this trait, see [`DeserializeWithRegistry`].
 ///
 /// # Rationale
 ///
@@ -29,25 +29,25 @@ use serde::{Serialize, Serializer};
 ///
 /// In order for this to work with the reflection serializers like [`TypedReflectSerializer`]
 /// and [`ReflectSerializer`], implementors should be sure to register the
-/// [`ReflectSerializeReflect`] type data.
-/// This can be done [via the registry] or by adding `#[reflect(SerializeReflect)]` to
+/// [`ReflectSerializeWithRegistry`] type data.
+/// This can be done [via the registry] or by adding `#[reflect(SerializeWithRegistry)]` to
 /// the type definition.
 ///
 /// Note that this trait has a blanket implementation for all types that implement
 /// [`Reflect`] and [`Serialize`] which just calls the normal [`Serialize`] implementation.
 ///
-/// [`DeserializeReflect`]: crate::serde::DeserializeReflect
-/// [type data]: ReflectSerializeReflect
+/// [`DeserializeWithRegistry`]: crate::serde::DeserializeWithRegistry
+/// [type data]: ReflectSerializeWithRegistry
 /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [via the registry]: TypeRegistry::register_type_data
-pub trait SerializeReflect {
+pub trait SerializeWithRegistry {
     fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
         S: Serializer;
 }
 
-impl<T: Reflect + Serialize> SerializeReflect for T {
+impl<T: Reflect + Serialize> SerializeWithRegistry for T {
     fn serialize<S>(&self, serializer: S, _registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -56,17 +56,17 @@ impl<T: Reflect + Serialize> SerializeReflect for T {
     }
 }
 
-/// Type data used to serialize a [`Reflect`] type with a custom [`SerializeReflect`] implementation.
+/// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`] implementation.
 #[derive(Clone)]
-pub struct ReflectSerializeReflect {
+pub struct ReflectSerializeWithRegistry {
     serialize: for<'a> fn(
         value: &'a dyn Reflect,
         registry: &'a TypeRegistry,
     ) -> Box<dyn erased_serde::Serialize + 'a>,
 }
 
-impl ReflectSerializeReflect {
-    /// Serialize a [`Reflect`] type with this type data's custom [`SerializeReflect`] implementation.
+impl ReflectSerializeWithRegistry {
+    /// Serialize a [`Reflect`] type with this type data's custom [`SerializeWithRegistry`] implementation.
     pub fn serialize<S>(
         &self,
         value: &dyn Reflect,
@@ -80,7 +80,7 @@ impl ReflectSerializeReflect {
     }
 }
 
-impl<T: Reflect + SerializeReflect> FromType<T> for ReflectSerializeReflect {
+impl<T: Reflect + SerializeWithRegistry> FromType<T> for ReflectSerializeWithRegistry {
     fn from_type() -> Self {
         Self {
             serialize: |value, registry| {
@@ -91,12 +91,12 @@ impl<T: Reflect + SerializeReflect> FromType<T> for ReflectSerializeReflect {
     }
 }
 
-struct SerializableWithRegistry<'a, T: SerializeReflect> {
+struct SerializableWithRegistry<'a, T: SerializeWithRegistry> {
     value: &'a T,
     registry: &'a TypeRegistry,
 }
 
-impl<'a, T: SerializeReflect> Serialize for SerializableWithRegistry<'a, T> {
+impl<'a, T: SerializeWithRegistry> Serialize for SerializableWithRegistry<'a, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

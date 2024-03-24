@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer};
 /// want to handle parts of the deserialization process, but temporarily pass control
 /// to the standard reflection deserializer for other parts.
 ///
-/// For the serialization equivalent of this trait, see [`SerializeReflect`].
+/// For the serialization equivalent of this trait, see [`SerializeWithRegistry`].
 ///
 /// # Rationale
 ///
@@ -29,25 +29,25 @@ use serde::{Deserialize, Deserializer};
 ///
 /// In order for this to work with the reflection deserializers like [`TypedReflectDeserializer`]
 /// and [`UntypedReflectDeserializer`], implementors should be sure to register the
-/// [`ReflectDeserializeReflect`] type data.
-/// This can be done [via the registry] or by adding `#[reflect(DeserializeReflect)]` to
+/// [`ReflectDeserializeWithRegistry`] type data.
+/// This can be done [via the registry] or by adding `#[reflect(DeserializeWithRegistry)]` to
 /// the type definition.
 ///
 /// Note that this trait has a blanket implementation for all types that implement
 /// [`Reflect`] and [`Deserialize`] which just calls the normal [`Deserialize`] implementation.
 ///
-/// [`SerializeReflect`]: crate::serde::SerializeReflect
-/// [type data]: ReflectDeserializeReflect
+/// [`SerializeWithRegistry`]: crate::serde::SerializeWithRegistry
+/// [type data]: ReflectDeserializeWithRegistry
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`UntypedReflectDeserializer`]: crate::serde::UntypedReflectDeserializer
 /// [via the registry]: TypeRegistry::register_type_data
-pub trait DeserializeReflect<'de>: Reflect + Sized {
+pub trait DeserializeWithRegistry<'de>: Reflect + Sized {
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;
 }
 
-impl<'de, T: Reflect + Deserialize<'de>> DeserializeReflect<'de> for T {
+impl<'de, T: Reflect + Deserialize<'de>> DeserializeWithRegistry<'de> for T {
     fn deserialize<D>(deserializer: D, _registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -56,17 +56,17 @@ impl<'de, T: Reflect + Deserialize<'de>> DeserializeReflect<'de> for T {
     }
 }
 
-/// Type data used to deserialize a [`Reflect`] type with a custom [`DeserializeReflect`] implementation.
+/// Type data used to deserialize a [`Reflect`] type with a custom [`DeserializeWithRegistry`] implementation.
 #[derive(Clone)]
-pub struct ReflectDeserializeReflect {
+pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
         registry: &TypeRegistry,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
 }
 
-impl ReflectDeserializeReflect {
-    /// Deserialize a [`Reflect`] type with this type data's custom [`DeserializeReflect`] implementation.
+impl ReflectDeserializeWithRegistry {
+    /// Deserialize a [`Reflect`] type with this type data's custom [`DeserializeWithRegistry`] implementation.
     pub fn deserialize<'de, D>(
         &self,
         deserializer: D,
@@ -81,7 +81,9 @@ impl ReflectDeserializeReflect {
     }
 }
 
-impl<T: Reflect + for<'de> DeserializeReflect<'de>> FromType<T> for ReflectDeserializeReflect {
+impl<T: Reflect + for<'de> DeserializeWithRegistry<'de>> FromType<T>
+    for ReflectDeserializeWithRegistry
+{
     fn from_type() -> Self {
         Self {
             deserialize: |deserializer, registry| {
