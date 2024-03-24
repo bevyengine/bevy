@@ -904,7 +904,7 @@ mod tests {
 
         world.clear_trackers();
 
-        for (i, mut a) in world.query::<Mut<A>>().iter_mut(&mut world).enumerate() {
+        for (i, mut a) in world.query::<&mut A>().iter_mut(&mut world).enumerate() {
             if i % 2 == 0 {
                 a.0 += 1;
             }
@@ -984,7 +984,7 @@ mod tests {
         world.clear_trackers();
 
         for (i, mut a) in world
-            .query::<Mut<SparseStored>>()
+            .query::<&mut SparseStored>()
             .iter_mut(&mut world)
             .enumerate()
         {
@@ -1377,12 +1377,17 @@ mod tests {
 
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
-        let b_tick_id = world
+        let a_ticks_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<A>>())
+            .unwrap();
+        let b_ticks_id = world
             .components
             .get_id(TypeId::of::<ChangeTicks<B>>())
             .unwrap();
         expected.add_write(a_id);
-        expected.add_read(b_tick_id);
+        expected.add_write(a_ticks_id);
+        expected.add_read(b_ticks_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"
@@ -1392,7 +1397,7 @@ mod tests {
     #[test]
     fn filtered_query_access_mut() {
         let mut world = World::new();
-        let query = world.query_filtered::<Mut<A>, Changed<B>>();
+        let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();

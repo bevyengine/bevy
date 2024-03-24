@@ -1,7 +1,7 @@
 //! Types that detect when their internal data mutate.
 
 use crate as bevy_ecs;
-use crate::component::{Component, ComponentId, ComponentTicks};
+use crate::component::{Component, ComponentId, ComponentTicks, StorageType};
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -368,7 +368,7 @@ macro_rules! impl_methods {
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// // When run, zeroes the translation of every entity.
-            /// fn reset_positions(mut transforms: Query<Mut<Transform>>) {
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
@@ -457,9 +457,24 @@ impl<'w> Ticks<'w> {
             this_run,
         }
     }
+
+    /// # Safety
+    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
+    #[inline]
+    pub(crate) unsafe fn from_ptr(cells: Ptr<'w>, last_run: Tick, this_run: Tick) -> Self {
+        // SAFETY: Caller ensures there is no mutable access to the cell.
+        let ticks = unsafe { cells.deref::<ComponentTicks>() };
+        Self {
+            added: &ticks.added,
+            changed: &ticks.changed,
+            last_run,
+            this_run,
+        }
+    }
 }
 
-pub(crate) struct TicksMut<'w> {
+/// Struct that holds change detection information for &mut T  Queries
+pub struct TicksMut<'w> {
     pub(crate) added: &'w mut Tick,
     pub(crate) changed: &'w mut Tick,
     pub(crate) last_run: Tick,
@@ -502,6 +517,20 @@ impl<'w> TicksMut<'w> {
             this_run,
         }
     }
+
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_ptr(cells: Ptr<'w>, last_run: Tick, this_run: Tick) -> Self {
+        // SAFETY: Caller ensures there is no alias to the cell.
+        let ticks = unsafe { cells.assert_unique().deref_mut::<ComponentTicks>() };
+        Self {
+            added: &mut ticks.added,
+            changed: &mut ticks.changed,
+            last_run,
+            this_run,
+        }
+    }
 }
 
 impl<'w> From<TicksMut<'w>> for Ticks<'w> {
@@ -515,19 +544,34 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
     }
 }
 
-// TODO: add docs
-#[derive(Component, Clone)]
-#[component(change_detection = false)]
+/// [`Component`] that will store the change detection information for a given component T.
+#[derive(Clone)]
 pub struct ChangeTicks<T: Component> {
-    ticks: ComponentTicks,
+    _ticks: ComponentTicks,
     _marker: PhantomData<T>,
 }
+
+/// Manual implementation so that ChangeTicks can use the same storage type as the inner component.
+impl<T: Component> Component for ChangeTicks<T> {
+    const STORAGE_TYPE: StorageType = T::STORAGE_TYPE;
+    const CHANGE_DETECTION: bool = false;
+    type WriteItem<'w> = &'w mut ChangeTicks<T>;
+    type ChangeDetection = DisabledChangeTicks;
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
+        item
+    }
+}
+
+/// Marker component to indicate that change detection is disabled.
+#[derive(Component, Clone)]
+#[component(change_detection = false)]
+pub struct DisabledChangeTicks;
 
 /// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
 #[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentChangeId {
     pub(crate) component: ComponentId,
-    // TODO: make this optional is change detection is disabled for this component?
+    /// The component id of the [`Component::ChangeDetection`] type if change detection is enabled.
     pub(crate) change_ticks_component: Option<ComponentId>,
 }
 
@@ -850,6 +894,33 @@ change_detection_impl!(Mut<'w, T>, T,);
 change_detection_mut_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
+
+/// Mutable fetch item that can be built from a mutable reference to the inner value.
+pub trait MutFetchItem<'a>: DerefMut + Sized {
+    /// the ReadOnlyQueryData that corresponds to this MutFetchItem
+    type ReadOnly: Deref<Target = Self::Target>;
+
+    /// Build the MutFetchItem from the inner value and the `TicksMut`
+    fn build(inner: &'a mut Self::Target, ticks_mut: Option<TicksMut<'a>>) -> Self;
+}
+
+impl<'a, T: Component> MutFetchItem<'a> for Mut<'a, T> {
+    type ReadOnly = Ref<'a, T>;
+    fn build(value: &'a mut T, ticks_mut: Option<TicksMut<'a>>) -> Self {
+        Mut {
+            value,
+            // SAFETY: this can only be called if the ticks are provided
+            ticks: ticks_mut.unwrap(),
+        }
+    }
+}
+
+impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
+    type ReadOnly = &'a T;
+    fn build(value: &'a mut T, _ticks_mut: Option<TicksMut<'a>>) -> Self {
+        value
+    }
+}
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

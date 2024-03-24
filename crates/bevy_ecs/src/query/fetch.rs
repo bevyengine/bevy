@@ -1,4 +1,4 @@
-use crate::change_detection::{ChangeTicks, ComponentChangeId};
+use crate::change_detection::{ChangeTicks, ComponentChangeId, MutFetchItem};
 use crate::component::ComponentTicks;
 use crate::{
     archetype::Archetype,
@@ -9,7 +9,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, FilteredEntityMut,
-        FilteredEntityRef, Mut, Ref, World,
+        FilteredEntityRef, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -734,7 +734,8 @@ impl<T> Copy for ReadFetch<'_, T> {}
 unsafe impl<T: Component> WorldQuery for &T {
     type Item<'w> = &'w T;
     type Fetch<'w> = ReadFetch<'w, T>;
-    type State = ComponentId;
+    // Use `ComponentChangeId` as `State` to allow transmutes between Mut<C> and &C
+    type State = ComponentChangeId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -743,7 +744,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
-        &component_id: &ComponentId,
+        &component_id: &ComponentChangeId,
         _last_run: Tick,
         _this_run: Tick,
     ) -> ReadFetch<'w, T> {
@@ -758,7 +759,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                     world
                         .storages()
                         .sparse_sets
-                        .get(component_id)
+                        .get(component_id.component)
                         .debug_checked_unwrap()
                 }
             }),
@@ -775,7 +776,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        component_id: &ComponentId,
+        component_id: &ComponentChangeId,
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
@@ -790,12 +791,12 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        &component_id: &ComponentId,
+        &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
         fetch.table_components = Some(
             table
-                .get_column(component_id)
+                .get_column(component_id.component)
                 .debug_checked_unwrap()
                 .get_data_slice()
                 .into(),
@@ -827,30 +828,36 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     fn update_component_access(
-        &component_id: &ComponentId,
+        &component_id: &ComponentChangeId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            !access.access().has_write(component_id),
+            !access.access().has_write(component_id.component),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
                 std::any::type_name::<T>(),
         );
-        access.add_read(component_id);
+        access.add_read(component_id.component);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentChangeId {
+        ComponentChangeId {
+            component: world.init_component::<T>(),
+            change_ticks_component: None,
+        }
     }
 
     fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+        Some(ComponentChangeId {
+            component: world.component_id::<T>()?,
+            change_ticks_component: None,
+        })
     }
 
     fn matches_component_set(
-        &state: &ComponentId,
+        &state: &ComponentChangeId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state)
+        set_contains_id(state.component)
     }
 }
 
@@ -866,10 +873,10 @@ unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 pub struct RefFetch<'w, T> {
     // T::STORAGE_TYPE = StorageType::Table
     table_data: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+    table_tick_data: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
-
-    tick_data: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+    sparse_tick_data: Option<&'w ComponentSparseSet>,
 
     last_run: Tick,
     this_run: Tick,
@@ -905,6 +912,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> RefFetch<'w, T> {
         RefFetch {
             table_data: None,
+            table_tick_data: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -918,7 +926,18 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         .debug_checked_unwrap()
                 }
             }),
-            tick_data: None,
+            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION)
+                .then(|| {
+                    // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
+                    // and it uses the same storage type as the original component
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id.change_ticks_component.unwrap())
+                            .debug_checked_unwrap()
+                    }
+                }),
             last_run,
             this_run,
         }
@@ -938,22 +957,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        // TODO: 2 options
-        //  - panic if we use Ref<> for a component that does not have change detection
-        //  - or just convert to a normal &T in that case? (return without change ticks?)
-        let change_component_id = component_id
-            .change_ticks_component
-            .expect("change detection is disabled for this component");
-        // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
-        fetch.tick_data = Some(change_column.get_data_slice().into());
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                let column = table
-                    .get_column(component_id.component)
-                    .debug_checked_unwrap();
-                fetch.table_data = Some(column.get_data_slice().into());
+                Self::set_table(fetch, component_id, table);
             }
         }
     }
@@ -964,12 +971,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
+        // TODO: 2 options
+        //  - panic if we use Ref<> for a component that does not have change detection
+        //  - or just convert to a normal &T in that case? (return without change ticks?)
         let change_component_id = component_id
             .change_ticks_component
             .expect("change detection is disabled for this component");
         // SAFETY: if change detection is enabled, the change ticks are present in the same table
         let change_column = table.get_column(change_component_id).debug_checked_unwrap();
-        fetch.tick_data = Some(change_column.get_data_slice().into());
+        fetch.table_tick_data = Some(change_column.get_data_slice().into());
 
         let column = table
             .get_column(component_id.component)
@@ -983,17 +993,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        // SAFETY: the tick data is always present in the same table
-        let table_change_ticks = unsafe { fetch.tick_data.debug_checked_unwrap() };
-        // SAFETY: The caller ensures `table_row` is in range.
-        let component_ticks = unsafe { table_change_ticks.get(table_row.as_usize()) };
-        let ticks = Ticks {
-            added: &component_ticks.deref().added,
-            changed: &component_ticks.deref().changed,
-            this_run: fetch.this_run,
-            last_run: fetch.last_run,
-        };
-        match T::STORAGE_TYPE {
+        let (component, ticks) = match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table_components = unsafe { fetch.table_data.debug_checked_unwrap() };
@@ -1001,10 +1001,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
 
-                Ref {
-                    value: component.deref(),
-                    ticks,
-                }
+                // SAFETY: the tick data is always present in the same table
+                let table_change_ticks = unsafe { fetch.table_tick_data.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let component_ticks = unsafe { table_change_ticks.get(table_row.as_usize()) };
+                (component.deref(), component_ticks.deref())
             }
             StorageType::SparseSet => {
                 // SAFETY: STORAGE_TYPE = SparseSet
@@ -1013,11 +1014,22 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let component = unsafe { component_sparse_set.get(entity).debug_checked_unwrap() };
 
-                Ref {
-                    value: component.deref(),
-                    ticks,
-                }
+                let change_ticks_sparse_set =
+                    unsafe { fetch.sparse_tick_data.debug_checked_unwrap() };
+
+                let ticks = unsafe { change_ticks_sparse_set.get(entity).debug_checked_unwrap() };
+                (component.deref(), ticks.deref())
             }
+        };
+        let ticks = Ticks {
+            added: &ticks.added,
+            changed: &ticks.changed,
+            this_run: fetch.this_run,
+            last_run: fetch.last_run,
+        };
+        Ref {
+            value: component,
+            ticks,
         }
     }
 
@@ -1049,6 +1061,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         // SAFETY: we have initialized the component so the component_info exists;
         let component_info = world.components.get_info(component_id).unwrap();
         // TODO: handle cases where the change detection is disabled!
+        //  - do we panic if we call Ref<> for a component that does not have change detection?
+        //  - or do we try to return &C instead?
         let change_component_id = component_info
             .change_detection_id()
             .expect("change detection is disabled for this component");
@@ -1094,8 +1108,12 @@ unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 pub struct WriteFetch<'w, T> {
     // T::STORAGE_TYPE = StorageType::Table
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+    table_tick_data: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
+    sparse_tick_data: Option<&'w ComponentSparseSet>,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl<T> Clone for crate::query::WriteFetch<'_, T> {
@@ -1111,169 +1129,12 @@ impl<T> Copy for crate::query::WriteFetch<'_, T> {}
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &mut T {
-    type Item<'w> = &'w mut T;
+    type Item<'w> = T::WriteItem<'w>;
     type Fetch<'w> = crate::query::WriteFetch<'w, T>;
-    type State = ComponentId;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong mut T) -> &'wshort mut T {
-        item
-    }
-
-    #[inline]
-    unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w>,
-        &component_id: &ComponentId,
-        _last_run: Tick,
-        _this_run: Tick,
-    ) -> crate::query::WriteFetch<'w, T> {
-        crate::query::WriteFetch {
-            table_components: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                // SAFETY: The underlying type associated with `component_id` is `T`,
-                // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                // Note that we do not actually access any components in this function, we just get a shared
-                // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id)
-                        .debug_checked_unwrap()
-                }
-            }),
-        }
-    }
-
-    const IS_DENSE: bool = {
-        match T::STORAGE_TYPE {
-            StorageType::Table => true,
-            StorageType::SparseSet => false,
-        }
-    };
-
-    #[inline]
-    unsafe fn set_archetype<'w>(
-        fetch: &mut crate::query::WriteFetch<'w, T>,
-        component_id: &ComponentId,
-        _archetype: &'w Archetype,
-        table: &'w Table,
-    ) {
-        if Self::IS_DENSE {
-            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
-            unsafe {
-                Self::set_table(fetch, component_id, table);
-            }
-        }
-    }
-
-    #[inline]
-    unsafe fn set_table<'w>(
-        fetch: &mut crate::query::WriteFetch<'w, T>,
-        &component_id: &ComponentId,
-        table: &'w Table,
-    ) {
-        fetch.table_components = Some(
-            table
-                .get_column(component_id)
-                .debug_checked_unwrap()
-                .get_data_slice()
-                .into(),
-        );
-    }
-
-    #[inline(always)]
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_components.debug_checked_unwrap() };
-                // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.as_usize()) };
-                item.deref_mut()
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
-                // SAFETY: Caller ensures `entity` is in range.
-                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
-                item.assert_unique().deref_mut()
-            }
-        }
-    }
-
-    fn update_component_access(
-        &component_id: &ComponentId,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
-        assert!(
-            !access.access().has_read(component_id),
-            "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            std::any::type_name::<T>(),
-        );
-        access.add_write(component_id);
-    }
-
-    fn init_state(world: &mut World) -> ComponentId {
-        // TODO: find something better than a runtime panic..
-        // assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
-        world.init_component::<T>()
-    }
-
-    fn get_state(world: &World) -> Option<Self::State> {
-        // assert!(!T::CHANGE_DETECTION, "Can fetch &mut T only for components without change detection");
-        world.component_id::<T>()
-    }
-
-    fn matches_component_set(
-        &state: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
-    ) -> bool {
-        set_contains_id(state)
-    }
-}
-
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'w, T: Component> QueryData for &'w mut T {
-    type ReadOnly = &'w T;
-}
-
-#[doc(hidden)]
-pub struct MutFetch<'w, T> {
-    // T::STORAGE_TYPE = StorageType::Table
-    table_data: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::STORAGE_TYPE = StorageType::SparseSet
-    sparse_set: Option<&'w ComponentSparseSet>,
-
-    tick_data: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-
-    last_run: Tick,
-    this_run: Tick,
-}
-
-impl<T> Clone for MutFetch<'_, T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T> Copy for MutFetch<'_, T> {}
-
-/// SAFETY:
-/// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
-    // TODO: figure out how to change the Item type based on T::CHANGE_DETECTION
-    type Item<'w> = Mut<'w, T>;
-    type Fetch<'w> = MutFetch<'w, T>;
     type State = ComponentChangeId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
-        item
+    fn shrink<'wlong: 'wshort, 'wshort>(item: T::WriteItem<'wlong>) -> T::WriteItem<'wshort> {
+        T::shrink(item)
     }
 
     #[inline]
@@ -1282,9 +1143,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &component_id: &ComponentChangeId,
         last_run: Tick,
         this_run: Tick,
-    ) -> MutFetch<'w, T> {
-        MutFetch {
-            table_data: None,
+    ) -> crate::query::WriteFetch<'w, T> {
+        crate::query::WriteFetch {
+            table_components: None,
+            table_tick_data: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1298,7 +1160,19 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
                         .debug_checked_unwrap()
                 }
             }),
-            tick_data: None,
+            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION)
+                .then(|| {
+                    // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
+                    // and it uses the same storage type as the original component
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id.change_ticks_component.unwrap())
+                            .debug_checked_unwrap()
+                    }
+                }),
+            // TODO: remove these from fetch if change detection is disabled?
             last_run,
             this_run,
         }
@@ -1313,44 +1187,41 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut MutFetch<'w, T>,
+        fetch: &mut crate::query::WriteFetch<'w, T>,
         component_id: &ComponentChangeId,
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        let change_component_id = component_id
-            .change_ticks_component
-            .expect("change detection is disabled for this component");
-        // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
-        fetch.tick_data = Some(change_column.get_data_slice().into());
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                let column = table
-                    .get_column(component_id.component)
-                    .debug_checked_unwrap();
-                fetch.table_data = Some(column.get_data_slice().into());
+                Self::set_table(fetch, component_id, table);
             }
         }
     }
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut MutFetch<'w, T>,
+        fetch: &mut crate::query::WriteFetch<'w, T>,
         &component_id: &ComponentChangeId,
         table: &'w Table,
     ) {
-        let change_component_id = component_id
-            .change_ticks_component
-            .expect("change detection is disabled for this component");
-        // SAFETY: if change detection is enabled, the change ticks are present in the same table
-        let change_column = table.get_column(change_component_id).debug_checked_unwrap();
-        fetch.tick_data = Some(change_column.get_data_slice().into());
-        let column = table
-            .get_column(component_id.component)
-            .debug_checked_unwrap();
-        fetch.table_data = Some(column.get_data_slice().into());
+        fetch.table_components = Some(
+            table
+                .get_column(component_id.component)
+                .debug_checked_unwrap()
+                .get_data_slice()
+                .into(),
+        );
+        T::CHANGE_DETECTION.then(|| {
+            fetch.table_tick_data = Some(
+                table
+                    .get_column(component_id.change_ticks_component.unwrap())
+                    .debug_checked_unwrap()
+                    .get_data_slice()
+                    .into(),
+            );
+        });
     }
 
     #[inline(always)]
@@ -1359,41 +1230,49 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        // SAFETY: the tick data is always present in the same table
-        let table_change_ticks = unsafe { fetch.tick_data.debug_checked_unwrap() };
-        // SAFETY: The caller ensures `table_row` is in range.
-        let component_ticks = unsafe { table_change_ticks.get(table_row.as_usize()) };
-        let ticks = TicksMut {
-            added: &mut component_ticks.deref_mut().added,
-            changed: &mut component_ticks.deref_mut().changed,
-            this_run: fetch.this_run,
-            last_run: fetch.last_run,
-        };
-        match T::STORAGE_TYPE {
+        // TODO: build Mut or &mut based on T::CHANGE_DETECTION
+        let component = match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
-                let table_components = unsafe { fetch.table_data.debug_checked_unwrap() };
-
-                // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
-
-                Mut {
-                    value: component.deref_mut(),
-                    ticks,
-                }
+                let table = unsafe { fetch.table_components.debug_checked_unwrap() };
+                // SAFETY: Caller ensures `table_row` is in range.
+                let item = unsafe { table.get(table_row.as_usize()) };
+                item.deref_mut()
             }
             StorageType::SparseSet => {
                 // SAFETY: STORAGE_TYPE = SparseSet
-                let component_sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
-
-                // SAFETY: The caller ensures `entity` is in range.
-                let component = unsafe { component_sparse_set.get(entity).debug_checked_unwrap() };
-
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks,
-                }
+                let sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: Caller ensures `entity` is in range.
+                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                item.assert_unique().deref_mut()
             }
+        };
+        if !T::CHANGE_DETECTION {
+            Self::Item::build(component, None)
+        } else {
+            let ticks = match T::STORAGE_TYPE {
+                StorageType::Table => {
+                    // SAFETY: STORAGE_TYPE = Table
+                    let table = unsafe { fetch.table_tick_data.debug_checked_unwrap() };
+                    // SAFETY: Caller ensures `table_row` is in range.
+                    let item = unsafe { table.get(table_row.as_usize()) };
+                    item.deref_mut()
+                }
+                StorageType::SparseSet => {
+                    // SAFETY: STORAGE_TYPE = SparseSet
+                    let sparse_set = unsafe { fetch.sparse_tick_data.debug_checked_unwrap() };
+                    // SAFETY: Caller ensures `entity` is in range.
+                    let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                    item.assert_unique().deref_mut()
+                }
+            };
+            let ticks_mut = TicksMut {
+                added: &mut ticks.added,
+                changed: &mut ticks.changed,
+                this_run: fetch.this_run,
+                last_run: fetch.last_run,
+            };
+            Self::Item::build(component, Some(ticks_mut))
         }
     }
 
@@ -1401,68 +1280,87 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &component_id: &ComponentChangeId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        let change_component_id = component_id
-            .change_ticks_component
-            .expect("change detection is disabled for this component");
         assert!(
             !access.access().has_read(component_id.component),
-            "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-                std::any::type_name::<T>(),
-        );
-        assert!(
-            !access.access().has_read(change_component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
             std::any::type_name::<T>(),
         );
         access.add_write(component_id.component);
-        access.add_write(change_component_id);
+        if T::CHANGE_DETECTION {
+            let change_component_id = component_id.change_ticks_component.unwrap();
+            assert!(
+                !access.access().has_read(change_component_id),
+                "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
+                std::any::type_name::<T>(),
+            );
+            access.add_write(change_component_id);
+        }
     }
 
     fn init_state(world: &mut World) -> ComponentChangeId {
-        // TODO: is it necessary to call init_component here?
-        //  the components aren't initialized somewhere else before?
         let component_id = world.init_component::<T>();
-        // SAFETY: we have initialized the component so the component_info exists;
-        let component_info = world.components.get_info(component_id).unwrap();
-        // TODO: handle cases where the change detection is disabled!
-        let change_component_id = component_info
-            .change_detection_id()
-            .expect("change detection is disabled for this component");
-        ComponentChangeId {
-            component: component_id,
-            change_ticks_component: Some(change_component_id),
+        if !T::CHANGE_DETECTION {
+            ComponentChangeId {
+                component: component_id,
+                change_ticks_component: None,
+            }
+        } else {
+            // SAFETY: we have initialized the component so the component_info exists;
+            let component_info = world.components.get_info(component_id).unwrap();
+            // SAFETY: we know that change detection is enabled, so the change detection id is present
+            let change_component_id = component_info.change_detection_id().unwrap();
+            ComponentChangeId {
+                component: component_id,
+                change_ticks_component: Some(change_component_id),
+            }
         }
     }
 
     fn get_state(world: &World) -> Option<Self::State> {
         let component_id = world.component_id::<T>()?;
-        world.components.get_info(component_id).and_then(|info| {
-            let change_component_id = info
-                .change_detection_id()
-                .expect("change detection is disabled for this component");
+        if !T::CHANGE_DETECTION {
             Some(ComponentChangeId {
                 component: component_id,
-                change_ticks_component: Some(change_component_id),
+                change_ticks_component: None,
             })
-        })
+        } else {
+            world.components.get_info(component_id).and_then(|info| {
+                let change_component_id = info.change_detection_id()?;
+                Some(ComponentChangeId {
+                    component: component_id,
+                    change_ticks_component: Some(change_component_id),
+                })
+            })
+        }
     }
 
     fn matches_component_set(
         &state: &ComponentChangeId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state.component)
-            && set_contains_id(
-                state
-                    .change_ticks_component
-                    .expect("change detection is disabled for this component"),
-            )
+        if T::CHANGE_DETECTION {
+            set_contains_id(state.component)
+                && set_contains_id(state.change_ticks_component.unwrap())
+        } else {
+            set_contains_id(state.component)
+        }
     }
 }
 
-/// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
-    type ReadOnly = Ref<'__w, T>;
+// TODO: this code makes &T the readonly version of &mut T if change detection is disabled,
+//  otherwise it is Ref<T>.
+//  However I see that plenty of tests function under the assumption that &T if the readonly version of &mut T (not Ref<T>)
+//  so I just left it as is for now
+// /// SAFETY: `Self` is the same as `Self::ReadOnly`
+// unsafe impl<'w, T: Component> QueryData for &'w mut T
+// where <T::WriteItem<'w> as MutFetchItem<'w>>::ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>
+// {
+//     type ReadOnly = <T::WriteItem<'w> as MutFetchItem<'w>>::ReadOnly;
+// }
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl<'w, T: Component> QueryData for &'w mut T {
+    type ReadOnly = &'w T;
 }
 
 #[doc(hidden)]

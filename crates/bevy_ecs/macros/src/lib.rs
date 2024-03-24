@@ -73,8 +73,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut change_ticks = Vec::new();
     let mut field_component_ids = Vec::new();
+    let mut field_component_change_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -85,11 +85,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         match field_kind {
             BundleFieldKind::Component => {
-                change_ticks.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::ChangeTicks
-                });
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_component_change_ids.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::component_change_ids(components, storages, &mut *ids);
                 });
                 match field {
                     Some(field) => {
@@ -129,13 +129,20 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
-            type ChangeTicks = (#(#change_ticks,)*);
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
+            }
+
+            fn component_change_ids(
+                components: &mut #ecs_path::component::Components,
+                storages: &mut #ecs_path::storage::Storages,
+                ids: &mut impl FnMut(#ecs_path::change_detection::ComponentChangeId)
+            ){
+                #(#field_component_change_ids)*
             }
 
             #[allow(unused_variables, non_snake_case)]

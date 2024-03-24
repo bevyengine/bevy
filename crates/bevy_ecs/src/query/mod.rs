@@ -71,7 +71,6 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use bevy_ecs_macros::{QueryData, QueryFilter};
 
-    use crate::change_detection::Mut;
     use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
     use crate::schedule::{IntoSystemConfigs, Schedule};
@@ -348,7 +347,7 @@ mod tests {
             .collect::<HashSet<_>>()
         );
 
-        let mut query = world.query_filtered::<Mut<A>, Without<B>>();
+        let mut query = world.query_filtered::<&mut A, Without<B>>();
         let mut combinations = query.iter_combinations_mut(&mut world);
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
@@ -396,7 +395,7 @@ mod tests {
 
         let mut query_changed = world.query_filtered::<&A, Changed<A>>();
 
-        let mut query = world.query_filtered::<Mut<A>, With<B>>();
+        let mut query = world.query_filtered::<&mut A, With<B>>();
         let mut combinations = query.iter_combinations_mut(&mut world);
         while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
             a.0 += 10;
@@ -783,13 +782,13 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(1)));
 
-        fn propagate_system(mut query: Query<(&A, Mut<B>), Changed<A>>) {
+        fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
             query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }
 
-        fn modify_system(mut query: Query<Mut<A>>) {
+        fn modify_system(mut query: Query<&mut A>) {
             for mut a in &mut query {
                 a.0 = 2;
             }
