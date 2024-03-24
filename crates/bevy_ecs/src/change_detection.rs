@@ -896,7 +896,7 @@ impl<'a, T: Component> DetectChangesMut for &'a mut T {
 
     fn set_changed(&mut self) {}
 
-    fn set_last_changed(&mut self, last_changed: Tick) {}
+    fn set_last_changed(&mut self, _last_changed: Tick) {}
 
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         self
