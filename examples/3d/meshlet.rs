@@ -1,11 +1,13 @@
 //! Meshlet rendering for dense high-poly scenes (experimental).
 
+// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
+
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
 use bevy::{
     pbr::{
-        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
+        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
@@ -13,8 +15,6 @@ use bevy::{
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
-
-// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
 fn main() {
     App::new()
@@ -26,7 +26,6 @@ fn main() {
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, draw_bounding_spheres)
         .run();
 }
 
@@ -37,8 +36,6 @@ fn setup(
     mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    info!("\nMeshlet Controls:\n    Space - Toggle bounding spheres");
-
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
@@ -61,7 +58,7 @@ fn setup(
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
-            maximum_distance: 5.0,
+            maximum_distance: 15.0,
             ..default()
         }
         .build(),
@@ -123,54 +120,6 @@ fn setup(
         }),
         ..default()
     });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn draw_bounding_spheres(
-    query: Query<(&Handle<MeshletMesh>, &Transform), With<Handle<MeshletDebugMaterial>>>,
-    debug: Query<&MeshletBoundingSpheresDebug>,
-    camera: Query<&Transform, With<Camera>>,
-    mut commands: Commands,
-    meshlets: Res<Assets<MeshletMesh>>,
-    mut gizmos: Gizmos,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut should_draw: Local<bool>,
-) {
-    if keys.just_pressed(KeyCode::Space) {
-        *should_draw = !*should_draw;
-    }
-
-    match debug.get_single() {
-        Ok(meshlet_debug) if *should_draw => {
-            let camera_pos = camera.single().translation;
-            for circle in &meshlet_debug.circles {
-                gizmos.circle(
-                    circle.0,
-                    Dir3::new(camera_pos - circle.0).unwrap(),
-                    circle.1,
-                    Color::BLACK,
-                );
-            }
-        }
-        Err(_) => {
-            if let Some((handle, transform)) = query.iter().last() {
-                if let Some(meshlets) = meshlets.get(handle) {
-                    let mut circles = Vec::new();
-                    for bounding_sphere in meshlets.meshlet_bounding_spheres.iter() {
-                        let center = transform.transform_point(bounding_sphere.center);
-                        circles.push((center, transform.scale.x * bounding_sphere.radius));
-                    }
-                    commands.spawn(MeshletBoundingSpheresDebug { circles });
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-#[derive(Component)]
-struct MeshletBoundingSpheresDebug {
-    circles: Vec<(Vec3, f32)>,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
