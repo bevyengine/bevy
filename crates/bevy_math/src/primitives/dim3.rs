@@ -830,7 +830,6 @@ pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],
 }
-
 impl Primitive3d for Tetrahedron {}
 
 impl Default for Tetrahedron {
@@ -857,7 +856,7 @@ impl Tetrahedron {
         }
     }
 
-    /// Get the area of the tetrahedron.
+    /// Get the surface area of the tetrahedron.
     #[inline(always)]
     pub fn area(&self) -> f32 {
         let [a, b, c, d] = self.vertices;
@@ -869,6 +868,16 @@ impl Tetrahedron {
             + ac.cross(ad).length()
             + (ac - ab).cross(ad - ab).length())
             / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        ab.dot(ac.cross(ad)) / 6.0
     }
 }
 
