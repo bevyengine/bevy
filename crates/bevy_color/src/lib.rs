@@ -143,7 +143,6 @@ where
     Self: core::fmt::Debug,
     Self: Clone + Copy,
     Self: PartialEq,
-    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
     Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,

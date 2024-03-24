@@ -5,15 +5,19 @@ use crate::{
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, Pod, Zeroable)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, Pod, Zeroable)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 #[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]
