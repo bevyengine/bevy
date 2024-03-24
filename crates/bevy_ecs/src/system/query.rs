@@ -1336,9 +1336,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Can always add/remove `Entity`
     /// * `Ref<T>` -> `&T`
     /// * `&mut T` -> `&T`
-    /// * `Mut<T>` -> `&mut T`
-    /// * `Mut<T>` -> Ref<T>
-    /// * `Ref<T>/Mut<T>` -> Changed<T>/Added<T>
+    /// * `Ref<T>` -> `Changed<T>`/`Added<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
     ///    
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {

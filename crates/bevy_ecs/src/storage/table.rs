@@ -141,8 +141,7 @@ impl TableRow {
 /// contiguous buffers internally. An element shares its data across these buffers by using the
 /// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at
 /// index 3). A slice to these contiguous blocks of memory can be fetched
-/// via [`Column::get_data_slice`], [`Column::get_added_ticks_slice`], and
-/// [`Column::get_changed_ticks_slice`].
+/// via [`Column::get_data_slice`].
 ///
 /// Like many other low-level storage types, [`Column`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
