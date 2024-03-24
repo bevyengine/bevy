@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
@@ -65,8 +65,6 @@ impl Circle {
     }
 }
 
-const HALF_PI: f32 = PI / 2.0;
-
 /// A primitive representing an arc between two points on a circle.
 ///
 /// An arc has no area.
@@ -87,17 +85,17 @@ const HALF_PI: f32 = PI / 2.0;
 pub struct Arc2d {
     /// The radius of the circle
     pub radius: f32,
-    /// Half the angle subtended by the arc.
+    /// Half the angle defining the arc
     pub half_angle: f32,
 }
 impl Primitive2d for Arc2d {}
 
 impl Default for Arc2d {
-    /// Returns the default [`Arc2d`] with radius `0.5`, covering one third of a circle.
+    /// Returns the default [`Arc2d`] with radius `0.5`, covering one third of a circle
     fn default() -> Self {
         Self {
             radius: 0.5,
-            half_angle: 2.0 * PI / 3.0,
+            half_angle: 2.0 * FRAC_PI_3,
         }
     }
 }
@@ -109,7 +107,7 @@ impl Arc2d {
         Self { radius, half_angle }
     }
 
-    /// Create a new [`Arc2d`] from a `radius` and an `angle` in radians.
+    /// Create a new [`Arc2d`] from a `radius` and an `angle` in radians
     #[inline(always)]
     pub fn from_radians(radius: f32, angle: f32) -> Self {
         Self {
@@ -127,9 +125,9 @@ impl Arc2d {
         }
     }
 
-    /// Create a new [`Arc2d`] from a `radius` and a `fraction` of a circle.
+    /// Create a new [`Arc2d`] from a `radius` and a `fraction` of a circle
     ///
-    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle
     #[inline(always)]
     pub fn from_fraction(radius: f32, fraction: f32) -> Self {
         Self {
@@ -150,24 +148,16 @@ impl Arc2d {
         self.angle() * self.radius
     }
 
-    /// Get the center of the circle defining the arc
-    ///
-    /// Always returns `Vec2::ZERO`
-    #[inline(always)]
-    pub fn circle_center(&self) -> Vec2 {
-        Vec2::ZERO
-    }
-
     /// Get the right-hand end point of the arc
     #[inline(always)]
     pub fn right_endpoint(&self) -> Vec2 {
-        self.radius * Vec2::from_angle(HALF_PI - self.half_angle)
+        self.radius * Vec2::from_angle(FRAC_PI_2 - self.half_angle)
     }
 
     /// Get the left-hand end point of the arc
     #[inline(always)]
     pub fn left_endpoint(&self) -> Vec2 {
-        self.radius * Vec2::from_angle(HALF_PI + self.half_angle)
+        self.radius * Vec2::from_angle(FRAC_PI_2 + self.half_angle)
     }
 
     /// Get the endpoints of the arc
@@ -182,19 +172,19 @@ impl Arc2d {
         self.radius * Vec2::Y
     }
 
-    /// Get half the length of the chord subtended by the arc
+    /// Get half the distance between the endpoints (half the length of the chord)
     #[inline(always)]
     pub fn half_chord_length(&self) -> f32 {
         self.radius * f32::sin(self.half_angle)
     }
 
-    /// Get the length of the chord subtended by the arc
+    /// Get the distance between the endpoints (the length of the chord)
     #[inline(always)]
     pub fn chord_length(&self) -> f32 {
         2.0 * self.half_chord_length()
     }
 
-    /// Get the midpoint of the chord subtended by the arc
+    /// Get the midpoint of the two endpoints (the midpoint of the chord)
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
         self.apothem() * Vec2::Y
@@ -228,7 +218,7 @@ impl Arc2d {
     /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is both major and minor.
     #[inline(always)]
     pub fn is_minor(&self) -> bool {
-        self.half_angle <= HALF_PI
+        self.half_angle <= FRAC_PI_2
     }
 
     /// Produces true if the arc is at least half a circle.
@@ -236,7 +226,7 @@ impl Arc2d {
     /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is both major and minor.
     #[inline(always)]
     pub fn is_major(&self) -> bool {
-        self.half_angle >= HALF_PI
+        self.half_angle >= FRAC_PI_2
     }
 }
 
@@ -251,7 +241,7 @@ impl Arc2d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSector {
-    /// The arc subtending the sector
+    /// The arc defining the sector
     #[cfg_attr(feature = "serialize", serde(flatten))]
     pub arc: Arc2d,
 }
@@ -315,34 +305,31 @@ impl CircularSector {
         self.arc.radius
     }
 
-    /// Get the length of the arc subtending the sector
+    /// Get the length of the arc defining the sector
     #[inline(always)]
     pub fn arc_length(&self) -> f32 {
         self.arc.length()
     }
 
-    /// Get the center of the circle defining the sector, corresponding to the apex of the sector
+    /// Get half the length of the chord defined by the sector
     ///
-    /// Always returns `Vec2::ZERO`
-    #[inline(always)]
-    #[doc(alias = "apex")]
-    pub fn circle_center(&self) -> Vec2 {
-        Vec2::ZERO
-    }
-
-    /// Get half the length of the chord subtended by the sector
+    /// See [`Arc2d::half_chord_length`]
     #[inline(always)]
     pub fn half_chord_length(&self) -> f32 {
         self.arc.half_chord_length()
     }
 
-    /// Get the length of the chord subtended by the sector
+    /// Get the length of the chord defined by the sector
+    ///
+    /// See [`Arc2d::chord_length`]
     #[inline(always)]
     pub fn chord_length(&self) -> f32 {
         self.arc.chord_length()
     }
 
-    /// Get the midpoint of the chord subtended by the sector
+    /// Get the midpoint of the chord defined by the sector
+    ///
+    /// See [`Arc2d::chord_midpoint`]
     #[inline(always)]
     pub fn chord_midpoint(&self) -> Vec2 {
         self.arc.chord_midpoint()
@@ -384,14 +371,14 @@ impl CircularSector {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CircularSegment {
-    /// The arc subtending the segment
+    /// The arc defining the segment
     #[cfg_attr(feature = "serialize", serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
-    /// Returns the default [`CircularSegment`] with radius `0.5` and covering a third of a circle.
+    /// Returns the default [`CircularSegment`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
     }
@@ -416,7 +403,7 @@ impl CircularSegment {
         Self::from(Arc2d::from_radians(radius, angle))
     }
 
-    /// Create a new [`CircularSegment`] from a `radius` and an angle in `degrees`.
+    /// Create a new [`CircularSegment`] from a `radius` and an angle in `degrees`
     #[inline(always)]
     pub fn from_degrees(radius: f32, degrees: f32) -> Self {
         Self::from(Arc2d::from_degrees(radius, degrees))
@@ -448,28 +435,20 @@ impl CircularSegment {
         self.arc.radius
     }
 
-    /// Get the length of the arc subtending the segment
+    /// Get the length of the arc defining the segment
     #[inline(always)]
     pub fn arc_length(&self) -> f32 {
         self.arc.length()
     }
 
-    /// Get the center of the circle defining the segment
-    ///
-    /// Always returns `Vec2::ZERO`
-    #[inline(always)]
-    pub fn circle_center(&self) -> Vec2 {
-        Vec2::ZERO
-    }
-
-    /// Get half the length of the chord, which is the segment's base
+    /// Get half the length of the segment's base, also known as its chord
     #[inline(always)]
     #[doc(alias = "half_base_length")]
     pub fn half_chord_length(&self) -> f32 {
         self.arc.half_chord_length()
     }
 
-    /// Get the length of the chord, which is the segment's base
+    /// Get the length of the segment's base, also known as its chord
     #[inline(always)]
     #[doc(alias = "base_length")]
     #[doc(alias = "base")]
@@ -477,7 +456,7 @@ impl CircularSegment {
         self.arc.chord_length()
     }
 
-    /// Get the midpoint of the chord, which is the segment's base
+    /// Get the midpoint of the segment's base, also known as its chord
     #[inline(always)]
     #[doc(alias = "base_midpoint")]
     pub fn chord_midpoint(&self) -> Vec2 {
@@ -485,7 +464,7 @@ impl CircularSegment {
     }
 
     /// Get the length of the apothem of this segment,
-    /// which is the signed distance between the segment and the [center of its circle](Self::circle_center)
+    /// which is the signed distance between the segment and the center of its circle
     ///
     /// See [`Arc2d::apothem`]
     #[inline(always)]
@@ -511,6 +490,8 @@ impl CircularSegment {
 
 #[cfg(test)]
 mod arc_tests {
+    use std::f32::consts::FRAC_PI_4;
+
     use approx::assert_abs_diff_eq;
 
     use super::*;
@@ -520,7 +501,6 @@ mod arc_tests {
         half_angle: f32,
         angle: f32,
         length: f32,
-        circle_center: Vec2,
         right_endpoint: Vec2,
         left_endpoint: Vec2,
         endpoints: [Vec2; 2],
@@ -542,7 +522,6 @@ mod arc_tests {
             assert_abs_diff_eq!(self.half_angle, arc.half_angle);
             assert_abs_diff_eq!(self.angle, arc.angle());
             assert_abs_diff_eq!(self.length, arc.length());
-            assert_abs_diff_eq!(self.circle_center, arc.circle_center());
             assert_abs_diff_eq!(self.right_endpoint, arc.right_endpoint());
             assert_abs_diff_eq!(self.left_endpoint, arc.left_endpoint());
             assert_abs_diff_eq!(self.endpoints[0], arc.endpoints()[0]);
@@ -561,7 +540,6 @@ mod arc_tests {
             assert_abs_diff_eq!(self.radius, sector.radius());
             assert_abs_diff_eq!(self.half_angle, sector.half_angle());
             assert_abs_diff_eq!(self.angle, sector.angle());
-            assert_abs_diff_eq!(self.circle_center, sector.circle_center());
             assert_abs_diff_eq!(self.half_chord_length, sector.half_chord_length());
             assert_abs_diff_eq!(self.chord_length, sector.chord_length(), epsilon = 0.00001);
             assert_abs_diff_eq!(self.chord_midpoint, sector.chord_midpoint());
@@ -574,7 +552,6 @@ mod arc_tests {
             assert_abs_diff_eq!(self.radius, segment.radius());
             assert_abs_diff_eq!(self.half_angle, segment.half_angle());
             assert_abs_diff_eq!(self.angle, segment.angle());
-            assert_abs_diff_eq!(self.circle_center, segment.circle_center());
             assert_abs_diff_eq!(self.half_chord_length, segment.half_chord_length());
             assert_abs_diff_eq!(self.chord_length, segment.chord_length(), epsilon = 0.00001);
             assert_abs_diff_eq!(self.chord_midpoint, segment.chord_midpoint());
@@ -591,7 +568,6 @@ mod arc_tests {
             half_angle: 0.0,
             angle: 0.0,
             length: 0.0,
-            circle_center: Vec2::ZERO,
             left_endpoint: Vec2::Y,
             right_endpoint: Vec2::Y,
             endpoints: [Vec2::Y, Vec2::Y],
@@ -616,10 +592,9 @@ mod arc_tests {
     fn zero_radius() {
         let tests = ArcTestCase {
             radius: 0.0,
-            half_angle: HALF_PI / 2.0,
-            angle: HALF_PI,
+            half_angle: FRAC_PI_4,
+            angle: FRAC_PI_2,
             length: 0.0,
-            circle_center: Vec2::ZERO,
             left_endpoint: Vec2::ZERO,
             right_endpoint: Vec2::ZERO,
             endpoints: [Vec2::ZERO, Vec2::ZERO],
@@ -635,9 +610,9 @@ mod arc_tests {
             segment_area: 0.0,
         };
 
-        tests.check_arc(Arc2d::new(0.0, HALF_PI / 2.0));
-        tests.check_sector(CircularSector::new(0.0, HALF_PI / 2.0));
-        tests.check_segment(CircularSegment::new(0.0, HALF_PI / 2.0));
+        tests.check_arc(Arc2d::new(0.0, FRAC_PI_4));
+        tests.check_sector(CircularSector::new(0.0, FRAC_PI_4));
+        tests.check_segment(CircularSegment::new(0.0, FRAC_PI_4));
     }
 
     #[test]
@@ -645,10 +620,9 @@ mod arc_tests {
         let sqrt_half: f32 = f32::sqrt(0.5);
         let tests = ArcTestCase {
             radius: 1.0,
-            half_angle: HALF_PI / 2.0,
-            angle: HALF_PI,
-            length: HALF_PI,
-            circle_center: Vec2::ZERO,
+            half_angle: FRAC_PI_4,
+            angle: FRAC_PI_2,
+            length: FRAC_PI_2,
             left_endpoint: Vec2::new(-sqrt_half, sqrt_half),
             right_endpoint: Vec2::splat(sqrt_half),
             endpoints: [Vec2::new(-sqrt_half, sqrt_half), Vec2::splat(sqrt_half)],
@@ -660,8 +634,8 @@ mod arc_tests {
             sagitta: 1.0 - sqrt_half,
             is_minor: true,
             is_major: false,
-            sector_area: PI / 4.0,
-            segment_area: PI / 4.0 - 0.5,
+            sector_area: FRAC_PI_4,
+            segment_area: FRAC_PI_4 - 0.5,
         };
 
         tests.check_arc(Arc2d::from_fraction(1.0, 0.25));
@@ -673,10 +647,9 @@ mod arc_tests {
     fn half_circle() {
         let tests = ArcTestCase {
             radius: 1.0,
-            half_angle: HALF_PI,
+            half_angle: FRAC_PI_2,
             angle: PI,
             length: PI,
-            circle_center: Vec2::ZERO,
             left_endpoint: Vec2::NEG_X,
             right_endpoint: Vec2::X,
             endpoints: [Vec2::NEG_X, Vec2::X],
@@ -688,8 +661,8 @@ mod arc_tests {
             sagitta: 1.0,
             is_minor: true,
             is_major: true,
-            sector_area: HALF_PI,
-            segment_area: HALF_PI,
+            sector_area: FRAC_PI_2,
+            segment_area: FRAC_PI_2,
         };
 
         tests.check_arc(Arc2d::from_radians(1.0, PI));
@@ -704,7 +677,6 @@ mod arc_tests {
             half_angle: PI,
             angle: 2.0 * PI,
             length: 2.0 * PI,
-            circle_center: Vec2::ZERO,
             left_endpoint: Vec2::NEG_Y,
             right_endpoint: Vec2::NEG_Y,
             endpoints: [Vec2::NEG_Y, Vec2::NEG_Y],

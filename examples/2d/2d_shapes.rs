@@ -13,31 +13,31 @@ fn main() {
         .run();
 }
 
+struct Shape {
+    mesh: Mesh2dHandle,
+    transform: Transform,
+}
+
+impl Shape {
+    fn new(mesh: Handle<Mesh>, transform: Transform) -> Self {
+        Self {
+            mesh: Mesh2dHandle(mesh),
+            transform,
+        }
+    }
+}
+impl From<Handle<Mesh>> for Shape {
+    fn from(mesh: Handle<Mesh>) -> Self {
+        Self::new(mesh, default())
+    }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dBundle::default());
-
-    struct Shape {
-        mesh: Mesh2dHandle,
-        transform: Transform,
-    }
-
-    impl Shape {
-        fn new(mesh: Handle<Mesh>, transform: Transform) -> Self {
-            Self {
-                mesh: Mesh2dHandle(mesh),
-                transform,
-            }
-        }
-    }
-    impl From<Handle<Mesh>> for Shape {
-        fn from(mesh: Handle<Mesh>) -> Self {
-            Self::new(mesh, default())
-        }
-    }
 
     let shapes = [
         Shape::from(meshes.add(Circle { radius: 50.0 })),

@@ -408,7 +408,7 @@ name = "mesh2d_arcs"
 path = "examples/2d/mesh2d_arcs.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.mesh2d_circular]
+[package.metadata.example.mesh2d_arcs]
 name = "Arc 2D Meshes"
 description = "Demonstrates UV-mapping of the circular segment and sector primitives"
 category = "2D Rendering"

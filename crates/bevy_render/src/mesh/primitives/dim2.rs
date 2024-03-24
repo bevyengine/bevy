@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 
 use crate::{
     mesh::{Indices, Mesh},
@@ -172,8 +172,8 @@ impl CircularSectorMeshBuilder {
         positions.push([0.0; 3]);
         uvs.push([0.5; 2]);
 
-        let first_angle = PI / 2.0 - self.sector.half_angle();
-        let last_angle = PI / 2.0 + self.sector.half_angle();
+        let first_angle = FRAC_PI_2 - self.sector.half_angle();
+        let last_angle = FRAC_PI_2 + self.sector.half_angle();
         let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
             let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
@@ -298,14 +298,14 @@ impl CircularSegmentMeshBuilder {
         // This is similar to the computation inside the loop for the arc vertices,
         // but the vertex angle is PI/2, and we must scale by the ratio of the apothem to the radius
         // to correctly position the vertex.
-        let midpoint_uv = Vec2::from_angle(-uv_angle - PI / 2.0).mul_add(
+        let midpoint_uv = Vec2::from_angle(-uv_angle - FRAC_PI_2).mul_add(
             Vec2::splat(0.5 * (self.segment.apothem() / self.segment.radius())),
             Vec2::splat(0.5),
         );
         uvs.push([midpoint_uv.x, midpoint_uv.y]);
 
-        let first_angle = PI / 2.0 - self.segment.half_angle();
-        let last_angle = PI / 2.0 + self.segment.half_angle();
+        let first_angle = FRAC_PI_2 - self.segment.half_angle();
+        let last_angle = FRAC_PI_2 + self.segment.half_angle();
         let last_i = (self.resolution - 1) as f32;
         for i in 0..self.resolution {
             let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
