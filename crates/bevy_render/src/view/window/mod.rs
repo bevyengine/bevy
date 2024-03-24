@@ -331,6 +331,14 @@ pub fn prepare_windows(
                         of your Linux GPU driver, so it can be safely ignored."
                     );
                 }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Lost) => {
+                    bevy_utils::tracing::trace!(
+                        "The swap chain was lost. If you are using XWayland and the app \
+                        is exiting this is normal, ignore it while it is properly fixed."
+                    );
+                    continue;
+                }
                 Err(err) => {
                     panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
                 }
