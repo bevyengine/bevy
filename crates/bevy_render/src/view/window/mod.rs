@@ -319,7 +319,12 @@ pub fn prepare_windows(
             match surface.get_current_texture() {
                 Ok(frame) => window.set_swapchain_texture(frame),
                 #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {}
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    bevy_utils::tracing::debug!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the Nvidia 550 driver. It can be safely ignored."
+                    );
+                }
                 Err(err) => panic!("Error configuring surface: {err}"),
             };
         } else {
@@ -328,7 +333,12 @@ pub fn prepare_windows(
                     window.set_swapchain_texture(frame);
                 }
                 #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {}
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    bevy_utils::tracing::debug!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the Nvidia 550 driver. It can be safely ignored."
+                    );
+                }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_data.configuration);
                     let frame = surface
