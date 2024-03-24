@@ -1158,6 +1158,7 @@ wasm = true
 [[example]]
 name = "log_layers"
 path = "examples/app/log_layers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers]
 name = "Log layers"
@@ -1168,6 +1169,7 @@ wasm = false
 [[example]]
 name = "log_layers_ecs"
 path = "examples/app/log_layers_ecs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers_ecs]
 name = "Advanced log layers"
