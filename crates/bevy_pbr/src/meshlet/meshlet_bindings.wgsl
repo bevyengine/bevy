@@ -32,9 +32,20 @@ struct Meshlet {
     triangle_count: u32,
 }
 
+struct MeshletBoundingSpheres {
+    self_culling: MeshletBoundingSphere,
+    self_lod: MeshletBoundingSphere,
+    parent_lod: MeshletBoundingSphere,
+}
+
 struct MeshletBoundingSphere {
     center: vec3<f32>,
     radius: f32,
+}
+
+struct MeshletLodErrors {
+    self_: f32,
+    parent: f32,
 }
 
 struct DrawIndirectArgs {
@@ -46,8 +57,8 @@ struct DrawIndirectArgs {
 
 #ifdef MESHLET_CULLING_PASS
 @group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>; // 2 per asset meshlet (self and parent)
-@group(0) @binding(2) var<storage, read> meshlet_lod_errors: array<f32>; // 2 per asset meshlet (self and parent)
+@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per asset meshlet
+@group(0) @binding(2) var<storage, read> meshlet_lod_errors: array<MeshletLodErrors>; // Per asset meshlet
 @group(0) @binding(3) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(5) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask

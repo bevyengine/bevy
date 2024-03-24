@@ -1,4 +1,6 @@
-use super::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
+use super::asset::{
+    Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh,
+};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
@@ -32,11 +34,22 @@ impl MeshletMesh {
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
-        let mut lod_errors = iter::repeat([0.0, f32::MAX])
-            .take(meshlets.len())
-            .flatten()
+        let mut bounding_spheres = meshlets
+            .iter()
+            .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
+            .map(convert_meshlet_bounds)
+            .map(|bounding_sphere| MeshletBoundingSpheres {
+                self_culling: bounding_sphere,
+                self_lod: bounding_sphere,
+                parent_lod: bounding_sphere,
+            })
             .collect::<Vec<_>>();
-        let mut parent_bounding_spheres = vec![MeshletBoundingSphere::default(); meshlets.len()];
+        let mut lod_errors = iter::repeat(MeshletLodErrors {
+            self_: 0.0,
+            parent: f32::MAX,
+        })
+        .take(meshlets.len())
+        .collect::<Vec<_>>();
         let worst_case_meshlet_triangles = meshlets
             .meshlets
             .iter()
@@ -71,19 +84,19 @@ impl MeshletMesh {
 
                 // Enforce that parent_error >= child_error (we're currently building the parent from its children)
                 let group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
-                    acc.max(lod_errors[*meshlet_id * 2])
+                    acc.max(lod_errors[*meshlet_id].self_)
                 });
 
-                // Build a new bounding sphere for the simplified group as a whole
+                // Build a new bounding sphere for the simplified group as a whole for LOD calculations
                 let group_bounding_sphere = convert_meshlet_bounds(compute_cluster_bounds(
                     &simplified_group_indices,
                     &vertices,
                 ));
 
-                // For each meshlet in the group, set their parent error and bounding sphere to that of the simplified group
+                // For each meshlet in the group, set their parent error and parent LOD bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
-                    lod_errors[*meshlet_id * 2 + 1] = group_error;
-                    parent_bounding_spheres[*meshlet_id] = group_bounding_sphere;
+                    lod_errors[*meshlet_id].parent = group_error;
+                    bounding_spheres[*meshlet_id].parent_lod = group_bounding_sphere;
                 }
 
                 // Build new meshlets using the simplified group
@@ -93,30 +106,34 @@ impl MeshletMesh {
                     &mut meshlets,
                 );
 
+                // Calculate the culling bounding sphere for the new meshlets and set the LOD bounding spheres
+                let new_meshlet_ids = (meshlets.len() - new_meshlets_count)..meshlets.len();
+                bounding_spheres.extend(
+                    new_meshlet_ids
+                        .map(|meshlet_id| {
+                            compute_meshlet_bounds(meshlets.get(meshlet_id), &vertices)
+                        })
+                        .map(convert_meshlet_bounds)
+                        .map(|bounding_sphere| MeshletBoundingSpheres {
+                            self_culling: bounding_sphere,
+                            self_lod: group_bounding_sphere,
+                            parent_lod: group_bounding_sphere,
+                        }),
+                );
+
                 // The error for each new meshlet is the error from simplifying the group
                 lod_errors.extend(
-                    iter::repeat([group_error, f32::MAX])
-                        .take(new_meshlets_count)
-                        .flatten(),
-                );
-                parent_bounding_spheres.extend(
-                    iter::repeat(MeshletBoundingSphere::default()).take(new_meshlets_count),
+                    iter::repeat(MeshletLodErrors {
+                        self_: group_error,
+                        parent: f32::MAX,
+                    })
+                    .take(new_meshlets_count),
                 );
             }
 
             simplification_queue = next_lod_start..meshlets.len();
             lod_level += 1;
         }
-
-        // Calculate meshlet bounding spheres and interleave parent bounding spheres
-        let meshlet_bounding_spheres = meshlets
-            .iter()
-            .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
-            .map(convert_meshlet_bounds);
-        let meshlet_bounding_spheres = meshlet_bounding_spheres
-            .into_iter()
-            .interleave(parent_bounding_spheres)
-            .collect();
 
         // Convert meshopt_Meshlet data to a custom format
         let bevy_meshlets = meshlets
@@ -135,8 +152,8 @@ impl MeshletMesh {
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
             meshlets: bevy_meshlets,
-            meshlet_bounding_spheres,
-            meshlet_lod_errors: lod_errors.into(),
+            bounding_spheres: bounding_spheres.into(),
+            lod_errors: lod_errors.into(),
         })
     }
 }
@@ -270,9 +287,6 @@ fn simplfy_meshlet_groups(
         SimplifyOptions::LockBorder,
         Some(&mut error),
     );
-
-    // Pre-divide to save a shader operation in cull_meshlets::lod_error_is_imperceptible()
-    error /= 2.0;
 
     (simplified_group_indices, error)
 }

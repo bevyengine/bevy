@@ -1,4 +1,7 @@
-use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
+use super::{
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh},
+    persistent_buffer::PersistentGpuBuffer,
+};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
@@ -615,8 +618,8 @@ pub struct MeshletGpuScene {
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
-    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
-    meshlet_lod_errors: PersistentGpuBuffer<Arc<[f32]>>,
+    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
+    meshlet_lod_errors: PersistentGpuBuffer<Arc<[MeshletLodErrors]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 6], u64)>,
 
     scene_meshlet_count: u32,
@@ -847,10 +850,10 @@ impl MeshletGpuScene {
             );
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+                .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
             let meshlet_lod_errors_slice = self
                 .meshlet_lod_errors
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_lod_errors), ());
+                .queue_write(Arc::clone(&meshlet_mesh.lod_errors), ());
 
             (
                 [

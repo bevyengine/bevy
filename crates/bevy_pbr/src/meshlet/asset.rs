@@ -35,10 +35,10 @@ pub struct MeshletMesh {
     pub indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
     pub meshlets: Arc<[Meshlet]>,
-    /// A list of spherical bounding volumes, 2 per meshlet (self and parent).
-    pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
-    /// A list of simplification errors used for choosing level of detail, 2 per meshlet (self and parent).
-    pub meshlet_lod_errors: Arc<[f32]>,
+    /// Spherical bounding volumes.
+    pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    /// Simplification errors used for choosing level of detail.
+    pub lod_errors: Arc<[MeshletLodErrors]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -53,12 +53,34 @@ pub struct Meshlet {
     pub triangle_count: u32,
 }
 
-/// A spherical bounding volume used for culling a [`Meshlet`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable, Default)]
+/// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletBoundingSpheres {
+    /// The bounding sphere used for frustum and occlusion culling for this meshlet.
+    pub self_culling: MeshletBoundingSphere,
+    /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
+    pub self_lod: MeshletBoundingSphere,
+    /// The bounding sphere used for determining if this meshlet's parent is at the correct level of detail for a given view.
+    pub parent_lod: MeshletBoundingSphere,
+}
+
+/// A spherical bounding volume used for a [`Meshlet`].
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
+}
+
+/// Simplification errors used for determining level of detail for a [`Meshlet`].
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletLodErrors {
+    /// The simplification error used for creating this meshlet (from its children).
+    pub self_: f32,
+    /// The simplification error used for creating this meshlet's parent (from this meshlet, and its siblings).
+    pub parent: f32,
 }
 
 /// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
