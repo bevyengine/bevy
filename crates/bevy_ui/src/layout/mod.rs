@@ -1,9 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{
-    ContentSize, DefaultUiCamera, Node, Outline, PositionType, Style, TargetCamera, UiScale,
-};
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::{Entity, EntityHashMap},
@@ -18,7 +16,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
-use bevy_utils::{default, warn_once, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};
@@ -320,12 +318,18 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
-    for (entity, target_camera, style) in &root_node_query {
-        if style.position_type != PositionType::Absolute {
-            // Regression introduced from https://github.com/bevyengine/bevy/issues/12255
-            // To restore behavior prior to 0.13.1: users are required to update the `style.position_type` of their root nodes to `PositionType::Absolute`
-            // More information: https://github.com/bevyengine/bevy/issues/12624#issuecomment-2016810861
-            warn_once!(">=0.13.1 Layout Regression Warning: Root nodes need `style.position_type=PositionType::Absolute` to restore independent layouts. Affected: {entity:?}");
+    for (entity, target_camera, _style) in &root_node_query {
+        #[cfg(not(feature = "ignore_regression_warning_root_node_position_type_not_absolute"))]
+        {
+            use crate::PositionType;
+            use bevy_utils::warn_once;
+            if _style.position_type != PositionType::Absolute {
+                // Regression introduced from https://github.com/bevyengine/bevy/issues/12255
+                // To restore behavior prior to 0.13.1: users are required to update the `style.position_type` of their root nodes to `PositionType::Absolute`
+                // More information: https://github.com/bevyengine/bevy/issues/12624#issuecomment-2016810861
+                warn_once!(">=0.13.1 Layout Regression Warning: Root nodes need `style.position_type=PositionType::Absolute` to restore independent layouts. Affected: {entity:?}");
+                warn_once!("To permanently ignore the ^ above regression warning without action: --features=ignore_regression_warning_root_node_position_type_not_absolute");
+            }
         }
         match camera_with_default(target_camera) {
             Some(camera_entity) => {

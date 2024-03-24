@@ -324,6 +324,11 @@ bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
 
+# Ignore regression warning for root node's not behaving like 0.13 unless position_type is set to absolute
+ignore_regression_warning_root_node_position_type_not_absolute = [
+  "bevy_internal/ignore_regression_warning_root_node_position_type_not_absolute",
+]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }

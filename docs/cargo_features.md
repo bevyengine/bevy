@@ -62,6 +62,7 @@ The default feature set enables most of the expected features of a game engine, 
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|ignore_regression_warning_root_node_position_type_not_absolute|Ignore regression warning for root node's not behaving like 0.13 unless position_type is set to absolute|
 |ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|

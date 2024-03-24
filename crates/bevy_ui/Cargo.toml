@@ -41,6 +41,8 @@ smallvec = "1.11"
 [features]
 serialize = ["serde", "smallvec/serde"]
 
+# Ignore regression warning for root node's not behaving like 0.13 unless position_type is set to absolute
+ignore_regression_warning_root_node_position_type_not_absolute = []
 
 [lints]
 workspace = true

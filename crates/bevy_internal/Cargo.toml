@@ -165,6 +165,11 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
+# Ignore regression warning for root node's not behaving like 0.13 unless position_type is set to absolute
+ignore_regression_warning_root_node_position_type_not_absolute = [
+  "bevy_ui/ignore_regression_warning_root_node_position_type_not_absolute",
+]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
