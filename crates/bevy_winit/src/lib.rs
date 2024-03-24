@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
