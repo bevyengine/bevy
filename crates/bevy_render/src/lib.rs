@@ -92,7 +92,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
