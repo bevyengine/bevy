@@ -1,7 +1,10 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{Dir3, Vec2, Vec3};
+use crate::{
+    bounding::{Aabb3d, Bounded3d, BoundingSphere},
+    Dir3, InvalidDirectionError, Quat, Vec2, Vec3,
+};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -689,6 +692,197 @@ impl Torus {
     #[inline(always)]
     pub fn volume(&self) -> f32 {
         2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+    }
+}
+
+/// A 3D triangle primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Triangle3d {
+    /// The vertices of the triangle.
+    pub vertices: [Vec3; 3],
+}
+
+impl Primitive3d for Triangle3d {}
+
+impl Default for Triangle3d {
+    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+            ],
+        }
+    }
+}
+
+impl Triangle3d {
+    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+
+    /// Get the area of the triangle.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() / 2.0
+    }
+
+    /// Get the perimeter of the triangle.
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        a.distance(b) + b.distance(c) + c.distance(a)
+    }
+
+    /// Get the normal of the triangle in the direction of the right-hand rule, assuming
+    /// the vertices are ordered in a counter-clockwise direction.
+    ///
+    /// The normal is computed as the cross product of the vectors `ab` and `ac`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    #[inline(always)]
+    pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        Dir3::new(ab.cross(ac))
+    }
+
+    /// Checks if the triangle is degenerate, meaning it has zero area.
+    ///
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `f32::EPSILON`.
+    /// This indicates that the three vertices are collinear or nearly collinear.
+    #[inline(always)]
+    pub fn is_degenerate(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() < 10e-7
+    }
+
+    /// Reverse the triangle by swapping the first and last vertices.
+    #[inline(always)]
+    pub fn reverse(&mut self) {
+        self.vertices.swap(0, 2);
+    }
+
+    /// Get the centroid of the triangle.
+    ///
+    /// This function finds the geometric center of the triangle by averaging the vertices:
+    /// `centroid = (a + b + c) / 3`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
+    }
+
+    /// Get the largest side of the triangle.
+    ///
+    /// Returns the two points that form the largest side of the triangle.
+    #[inline(always)]
+    pub fn largest_side(&self) -> (Vec3, Vec3) {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        let mut largest_side_points = (a, b);
+        let mut largest_side_length = ab.length();
+
+        if bc.length() > largest_side_length {
+            largest_side_points = (b, c);
+            largest_side_length = bc.length();
+        }
+
+        if ca.length() > largest_side_length {
+            largest_side_points = (a, c);
+        }
+
+        largest_side_points
+    }
+
+    /// Get the circumcenter of the triangle.
+    #[inline(always)]
+    pub fn circumcenter(&self) -> Vec3 {
+        if self.is_degenerate() {
+            // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
+            let (p1, p2) = self.largest_side();
+            return (p1 + p2) / 2.0;
+        }
+
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let n = ab.cross(ac);
+
+        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
+        a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
+            / (2.0 * n.length_squared()))
+    }
+}
+
+impl Bounded3d for Triangle3d {
+    /// Get the bounding box of the triangle.
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let [a, b, c] = self.vertices;
+
+        let a = rotation * a;
+        let b = rotation * b;
+        let c = rotation * c;
+
+        let min = a.min(b).min(c);
+        let max = a.max(b).max(c);
+
+        let bounding_center = (max + min) / 2.0 + translation;
+        let half_extents = (max - min) / 2.0;
+
+        Aabb3d::new(bounding_center, half_extents)
+    }
+
+    /// Get the bounding sphere of the triangle.
+    ///
+    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
+    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
+    /// that contains the largest side of the triangle.
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        if self.is_degenerate() {
+            let (p1, p2) = self.largest_side();
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            return segment.bounding_sphere(translation, rotation);
+        }
+
+        let [a, b, c] = self.vertices;
+
+        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
+            Some((b, c))
+        } else if (c - b).dot(a - b) <= 0.0 {
+            Some((c, a))
+        } else if (a - c).dot(b - c) <= 0.0 {
+            Some((a, b))
+        } else {
+            None
+        };
+
+        if let Some((p1, p2)) = side_opposite_to_non_acute {
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            segment.bounding_sphere(translation, rotation)
+        } else {
+            let circumcenter = self.circumcenter();
+            let radius = circumcenter.distance(a);
+            BoundingSphere::new(circumcenter + translation, radius)
+        }
     }
 }
 

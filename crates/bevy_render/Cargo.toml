@@ -39,7 +39,9 @@ ios_simulator = []
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
+  "serialize",
+] }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
@@ -122,4 +124,5 @@ wasm-bindgen = "0.2"
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
