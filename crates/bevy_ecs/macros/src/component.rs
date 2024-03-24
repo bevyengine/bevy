@@ -1,7 +1,9 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result, LitBool, TypeGenerics};
+use quote::quote;
+use syn::{
+    parse_macro_input, parse_quote, DeriveInput, Ident, LitBool, LitStr, Path, Result, TypeGenerics,
+};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -59,8 +61,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let change_detection = attrs.change_detection;
-    let write_item = write_item_associated_type(&bevy_ecs_path, &struct_name, &type_generics, change_detection);
-    let change_detection_type = change_detection_associated_type(&bevy_ecs_path, &struct_name, &type_generics, change_detection);
+    let write_item = write_item_associated_type(
+        &bevy_ecs_path,
+        &struct_name,
+        &type_generics,
+        change_detection,
+    );
+    let change_detection_type = change_detection_associated_type(
+        &bevy_ecs_path,
+        &struct_name,
+        &type_generics,
+        change_detection,
+    );
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
@@ -125,7 +137,12 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     Ok(attrs)
 }
 
-fn write_item_associated_type(bevy_ecs_path: &Path, struct_name: &Ident, type_generics: &TypeGenerics, change_detection: bool) -> TokenStream2 {
+fn write_item_associated_type(
+    bevy_ecs_path: &Path,
+    struct_name: &Ident,
+    type_generics: &TypeGenerics,
+    change_detection: bool,
+) -> TokenStream2 {
     if change_detection {
         quote! { #bevy_ecs_path::change_detection::Mut<'w, #struct_name #type_generics> }
     } else {
@@ -133,7 +150,12 @@ fn write_item_associated_type(bevy_ecs_path: &Path, struct_name: &Ident, type_ge
     }
 }
 
-fn change_detection_associated_type(bevy_ecs_path: &Path, struct_name: &Ident, type_generics: &TypeGenerics, change_detection: bool) -> TokenStream2 {
+fn change_detection_associated_type(
+    bevy_ecs_path: &Path,
+    struct_name: &Ident,
+    type_generics: &TypeGenerics,
+    change_detection: bool,
+) -> TokenStream2 {
     if change_detection {
         quote! { #bevy_ecs_path::change_detection::ChangeTicks<#struct_name #type_generics> }
     } else {

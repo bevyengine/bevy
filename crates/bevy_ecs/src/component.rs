@@ -1,6 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::change_detection::{MutFetchItem};
+use crate::change_detection::MutFetchItem;
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
@@ -156,7 +156,7 @@ pub trait Component: Send + Sync + 'static {
     const STORAGE_TYPE: StorageType;
     // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
     /// The type of the Fetch returned when querying for &mut T
-    type WriteItem<'w>: std::ops::DerefMut<Target=Self> + MutFetchItem<'w>;
+    type WriteItem<'w>: std::ops::DerefMut<Target = Self> + MutFetchItem<'w>;
     /// The type of the ChangeDetection component associated with this component.
     type ChangeDetection: Component;
     /// Whether or not ChangeDetection is enabled
@@ -173,7 +173,6 @@ pub trait Component: Send + Sync + 'static {
 #[derive(Component)]
 #[component(change_detection = false)]
 pub struct DisabledChangedTicks;
-
 
 /// The storage used for a specific component type.
 ///

@@ -368,7 +368,7 @@ macro_rules! impl_methods {
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// // When run, zeroes the translation of every entity.
-            /// fn reset_positions(mut transforms: Query<Mut<Transform>>) {
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
@@ -457,6 +457,20 @@ impl<'w> Ticks<'w> {
             this_run,
         }
     }
+
+    /// # Safety
+    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
+    #[inline]
+    pub(crate) unsafe fn from_ptr(cells: Ptr<'w>, last_run: Tick, this_run: Tick) -> Self {
+        // SAFETY: Caller ensures there is no mutable access to the cell.
+        let ticks = unsafe { cells.deref::<ComponentTicks>() };
+        Self {
+            added: &ticks.added,
+            changed: &ticks.changed,
+            last_run,
+            this_run,
+        }
+    }
 }
 
 /// Struct that holds change detection information for &mut T  Queries
@@ -503,6 +517,20 @@ impl<'w> TicksMut<'w> {
             this_run,
         }
     }
+
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_ptr(cells: Ptr<'w>, last_run: Tick, this_run: Tick) -> Self {
+        // SAFETY: Caller ensures there is no alias to the cell.
+        let ticks = unsafe { cells.assert_unique().deref_mut::<ComponentTicks>() };
+        Self {
+            added: &mut ticks.added,
+            changed: &mut ticks.changed,
+            last_run,
+            this_run,
+        }
+    }
 }
 
 impl<'w> From<TicksMut<'w>> for Ticks<'w> {
@@ -538,7 +566,6 @@ impl<T: Component> Component for ChangeTicks<T> {
 #[derive(Component, Clone)]
 #[component(change_detection = false)]
 pub struct DisabledChangeTicks;
-
 
 /// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
 #[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
@@ -874,18 +901,12 @@ pub trait MutFetchItem<'a>: DerefMut + Sized {
     type ReadOnly: Deref<Target = Self::Target>;
 
     /// Build the MutFetchItem from the inner value and the `TicksMut`
-    fn build(
-        inner: &'a mut Self::Target,
-        ticks_mut: Option<TicksMut<'a>>,
-    ) -> Self;
+    fn build(inner: &'a mut Self::Target, ticks_mut: Option<TicksMut<'a>>) -> Self;
 }
 
 impl<'a, T: Component> MutFetchItem<'a> for Mut<'a, T> {
     type ReadOnly = Ref<'a, T>;
-    fn build(
-        value: &'a mut T,
-        ticks_mut: Option<TicksMut<'a>>,
-    ) -> Self {
+    fn build(value: &'a mut T, ticks_mut: Option<TicksMut<'a>>) -> Self {
         Mut {
             value,
             // SAFETY: this can only be called if the ticks are provided
@@ -896,14 +917,10 @@ impl<'a, T: Component> MutFetchItem<'a> for Mut<'a, T> {
 
 impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
     type ReadOnly = &'a T;
-    fn build(
-        value: &'a mut T,
-        _ticks_mut: Option<TicksMut<'a>>,
-    ) -> Self {
+    fn build(value: &'a mut T, _ticks_mut: Option<TicksMut<'a>>) -> Self {
         value
     }
 }
-
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

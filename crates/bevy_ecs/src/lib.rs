@@ -1377,7 +1377,10 @@ mod tests {
 
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
-        let a_ticks_id = world.components.get_id(TypeId::of::<ChangeTicks<A>>()).unwrap();
+        let a_ticks_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<A>>())
+            .unwrap();
         let b_ticks_id = world
             .components
             .get_id(TypeId::of::<ChangeTicks<B>>())

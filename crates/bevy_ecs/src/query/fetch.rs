@@ -926,17 +926,18 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         .debug_checked_unwrap()
                 }
             }),
-            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION).then(|| {
-                // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
-                // and it uses the same storage type as the original component
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id.change_ticks_component.unwrap())
-                        .debug_checked_unwrap()
-                }
-            }),
+            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION)
+                .then(|| {
+                    // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
+                    // and it uses the same storage type as the original component
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id.change_ticks_component.unwrap())
+                            .debug_checked_unwrap()
+                    }
+                }),
             last_run,
             this_run,
         }
@@ -1013,7 +1014,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let component = unsafe { component_sparse_set.get(entity).debug_checked_unwrap() };
 
-                let change_ticks_sparse_set = unsafe { fetch.sparse_tick_data.debug_checked_unwrap() };
+                let change_ticks_sparse_set =
+                    unsafe { fetch.sparse_tick_data.debug_checked_unwrap() };
 
                 let ticks = unsafe { change_ticks_sparse_set.get(entity).debug_checked_unwrap() };
                 (component.deref(), ticks.deref())
@@ -1158,17 +1160,18 @@ unsafe impl<T: Component> WorldQuery for &mut T {
                         .debug_checked_unwrap()
                 }
             }),
-            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION).then(|| {
-                // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
-                // and it uses the same storage type as the original component
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id.change_ticks_component.unwrap())
-                        .debug_checked_unwrap()
-                }
-            }),
+            sparse_tick_data: ((T::STORAGE_TYPE == StorageType::SparseSet) && T::CHANGE_DETECTION)
+                .then(|| {
+                    // SAFETY: if change detection is enabled, the change_ticks_component is guaranteed to exists
+                    // and it uses the same storage type as the original component
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id.change_ticks_component.unwrap())
+                            .debug_checked_unwrap()
+                    }
+                }),
             // TODO: remove these from fetch if change detection is disabled?
             last_run,
             this_run,
@@ -1305,9 +1308,7 @@ unsafe impl<T: Component> WorldQuery for &mut T {
             // SAFETY: we have initialized the component so the component_info exists;
             let component_info = world.components.get_info(component_id).unwrap();
             // SAFETY: we know that change detection is enabled, so the change detection id is present
-            let change_component_id = component_info
-                .change_detection_id()
-                .unwrap();
+            let change_component_id = component_info.change_detection_id().unwrap();
             ComponentChangeId {
                 component: component_id,
                 change_ticks_component: Some(change_component_id),
@@ -1324,8 +1325,7 @@ unsafe impl<T: Component> WorldQuery for &mut T {
             })
         } else {
             world.components.get_info(component_id).and_then(|info| {
-                let change_component_id = info
-                    .change_detection_id()?;
+                let change_component_id = info.change_detection_id()?;
                 Some(ComponentChangeId {
                     component: component_id,
                     change_ticks_component: Some(change_component_id),
@@ -1359,12 +1359,9 @@ unsafe impl<T: Component> WorldQuery for &mut T {
 // }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'w, T: Component> QueryData for &'w mut T
-{
+unsafe impl<'w, T: Component> QueryData for &'w mut T {
     type ReadOnly = &'w T;
 }
-
-
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {

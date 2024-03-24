@@ -209,9 +209,8 @@ unsafe impl<C: Component> Bundle for C {
             let component_id = components.init_component::<C>(storages);
             ComponentChangeId {
                 component: component_id,
-                change_ticks_component: C::CHANGE_DETECTION.then(|| {
-                    components.init_component::<C::ChangeDetection>(storages)
-                }),
+                change_ticks_component: C::CHANGE_DETECTION
+                    .then(|| components.init_component::<C::ChangeDetection>(storages)),
             }
         });
     }
@@ -498,9 +497,20 @@ impl BundleInfo {
                             // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                             // a sparse set exists for the component.
                             unsafe { sparse_sets.get_mut(change_component_id).debug_checked_unwrap() };
-                        OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
-                            change_sparse_set.insert(entity, ptr);
-                        });
+                        // SAFETY: bundle_component is a valid index for this bundle
+                        // SAFETY: if the change detection component exists, then it will have a component status
+                        let change_status = unsafe { bundle_component_status.get_component_change_status(bundle_component).unwrap() };
+                        match change_status {
+                            ComponentStatus::Added => {
+                                OwningPtr::make(ComponentTicks::new(change_tick), |ptr| {
+                                    change_sparse_set.insert(entity, ptr);
+                                });
+                            },
+                            ComponentStatus::Mutated => {
+                                let ptr = unsafe { change_sparse_set.get(entity).debug_checked_unwrap() };
+                                ptr.assert_unique().deref_mut::<ComponentTicks>().changed = change_tick;
+                            },
+                        }
                     }
                 }
             }
@@ -555,10 +565,15 @@ impl BundleInfo {
                             ComponentStatus::Mutated
                         } else {
                             // SAFETY: change_componeny_id exists
-                            let component_info = unsafe { components.get_info_unchecked(change_component_id) };
+                            let component_info =
+                                unsafe { components.get_info_unchecked(change_component_id) };
                             match component_info.storage_type() {
-                                StorageType::Table => new_table_components.push(change_component_id),
-                                StorageType::SparseSet => new_sparse_set_components.push(change_component_id),
+                                StorageType::Table => {
+                                    new_table_components.push(change_component_id)
+                                }
+                                StorageType::SparseSet => {
+                                    new_sparse_set_components.push(change_component_id)
+                                }
                             }
                             ComponentStatus::Added
                         }
