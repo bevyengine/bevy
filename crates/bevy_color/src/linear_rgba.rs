@@ -373,6 +373,7 @@ impl encase::private::CreateFrom for LinearRgba {
 ///
 /// SAFETY: [`LinearRgba`] is inhabited
 /// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
+#[allow(unsafe_code)]
 unsafe impl Zeroable for LinearRgba {
     fn zeroed() -> Self {
         LinearRgba {
@@ -394,6 +395,7 @@ unsafe impl Zeroable for LinearRgba {
 /// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
 /// SAFETY: [`LinearRgba`] is `repr(C)`
 /// SAFETY: [`LinearRgba`] does not permit interior mutability.
+#[allow(unsafe_code)]
 unsafe impl Pod for LinearRgba {}
 
 impl encase::ShaderSize for LinearRgba {}

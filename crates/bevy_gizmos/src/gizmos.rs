@@ -49,7 +49,9 @@ type GizmosState<T> = (
 pub struct GizmosFetchState<T: GizmoConfigGroup> {
     state: <GizmosState<T> as SystemParam>::State,
 }
+
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
+#[allow(unsafe_code)]
 unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
     type State = GizmosFetchState<T>;
     type Item<'w, 's> = Gizmos<'w, 's, T>;
@@ -90,7 +92,9 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
         }
     }
 }
+
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
+#[allow(unsafe_code)]
 unsafe impl<'w, 's, T: GizmoConfigGroup> ReadOnlySystemParam for Gizmos<'w, 's, T>
 where
     Deferred<'s, GizmoBuffer<T>>: ReadOnlySystemParam,
