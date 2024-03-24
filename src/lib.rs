@@ -1,3 +1,7 @@
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 #![allow(clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
@@ -40,11 +44,8 @@
 //! If you prefer, you can also consume the individual bevy crates directly.
 //! Each module in the root of this crate, except for the prelude, can be found on crates.io
 //! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/*/bevy_app/).
+
 #![doc = include_str!("../docs/cargo_features.md")]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
 
 pub use bevy_internal::*;
 
