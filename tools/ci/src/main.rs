@@ -25,6 +25,7 @@ bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Flag: u32 {
         const KEEP_GOING = 0b00000001;
+        const DEPLOY_DOCS = 0b00000010;
     }
 }
 
@@ -68,7 +69,10 @@ fn main() {
         ("doc-test", Check::DOC_TEST),
     ];
 
-    let flag_arguments = [("--keep-going", Flag::KEEP_GOING)];
+    let flag_arguments = [
+        ("--keep-going", Flag::KEEP_GOING),
+        ("--deploy-docs", Flag::DEPLOY_DOCS),
+    ];
 
     // Parameters are parsed disregarding their order. Note that the first arg is generally the name of
     // the executable, so it is ignored. Any parameter may either be a flag or the name of a battery of tests
@@ -220,24 +224,33 @@ fn main() {
     }
 
     if checks.contains(Check::DOC_CHECK) {
-        // Check that building docs work and does not emit warnings
+        // Check that building docs work
         let mut args = vec![
             "--workspace",
             "--all-features",
             "--no-deps",
-            "--document-private-items",
+            "-Zunstable-options",
+            "-Zrustdoc-scrape-examples",
         ];
         if flags.contains(Flag::KEEP_GOING) {
             args.push("--keep-going");
+        }
+        if flags.contains(Flag::DEPLOY_DOCS) {
+            args.remove(args.iter().position(|&arg| arg == "--workspace").unwrap());
+            args.push("-p");
+            args.push("bevy");
         }
 
         test_suite.insert(
             Check::DOC_CHECK,
             vec![CITest {
-                command: cmd!(sh, "cargo doc {args...}"),
+                command: cmd!(sh, "cargo +nightly doc {args...}"),
                 failure_message: "Please fix doc warnings in output above.",
                 subdir: None,
-                env_vars: vec![("RUSTDOCFLAGS", "-D warnings")],
+                env_vars: vec![(
+                    "RUSTDOCFLAGS",
+                    "-D warnings -Zunstable-options --cfg=docsrs",
+                )],
             }],
         );
     }
