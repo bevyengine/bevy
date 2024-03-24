@@ -79,6 +79,7 @@ pub struct App {
     /// This is initially set to [`Main`].
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
+    run_sub_apps: bool,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<Box<str>>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
@@ -231,6 +232,7 @@ impl App {
             world,
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            run_sub_apps: true,
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
             main_schedule_label: Main.intern(),
@@ -258,11 +260,13 @@ impl App {
             let _bevy_main_update_span = info_span!("main app").entered();
             self.world.run_schedule(self.main_schedule_label);
         }
-        for (_label, sub_app) in &mut self.sub_apps {
-            #[cfg(feature = "trace")]
-            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
-            sub_app.extract(&mut self.world);
-            sub_app.run();
+        if self.run_sub_apps {
+            for (_label, sub_app) in &mut self.sub_apps {
+                #[cfg(feature = "trace")]
+                let _sub_app_span = info_span!("sub app", name = ?_label).entered();
+                sub_app.extract(&mut self.world);
+                sub_app.run();
+            }
         }
 
         self.world.clear_trackers();
@@ -863,6 +867,16 @@ impl App {
             .get(&label.intern())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+
+    /// Resumes sub apps
+    pub fn resume_sub_apps(&mut self) {
+        self.run_sub_apps = true;
+    }
+
+    /// Pauses sub apps from running.
+    pub fn pause_sub_apps(&mut self) {
+        self.run_sub_apps = false;
     }
 
     /// Adds a new `schedule` to the [`App`].
