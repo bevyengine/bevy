@@ -288,7 +288,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- doc
+        run: cargo run -p ci -- doc-check
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0"
@@ -299,6 +299,30 @@ jobs:
       # - name: Checks dead links
       #   run: cargo deadlinks --dir target/doc/bevy
       #   continue-on-error: true
+
+  check-doc-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-check-doc-test-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Build and check doc
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- doc-test
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0"
 
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
