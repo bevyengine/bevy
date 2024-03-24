@@ -663,6 +663,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "auto_exposure"
+path = "examples/3d/auto_exposure.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_exposure]
+name = "Auto Exposure"
+description = "A scene showcasing auto exposure"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "blend_modes"
 path = "examples/3d/blend_modes.rs"
 doc-scrape-examples = true
