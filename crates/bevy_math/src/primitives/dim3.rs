@@ -1044,4 +1044,18 @@ mod tests {
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
     }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+    }
 }
