@@ -287,6 +287,9 @@ pub fn prepare_meshlet_per_frame_resources(
         upload_storage_buffer(instance_visibility, &render_device, &render_queue);
         let instance_visibility = instance_visibility.buffer().unwrap().clone();
 
+        // Early submission for GPU data uploads to start while the render graph records commands
+        render_queue.submit([]);
+
         let create_occlusion_buffer = || {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_occlusion_buffer"),
