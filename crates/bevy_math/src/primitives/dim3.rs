@@ -834,7 +834,8 @@ pub struct Tetrahedron {
 impl Primitive3d for Tetrahedron {}
 
 impl Default for Tetrahedron {
-    /// Returns the default [`Tetrahedron`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, `[0.5, -0.5, 0.0]` and `[0.0, 0.0, 0.5]`.
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, `[0.5, -0.5, 0.0]` and `[0.0, 0.0, 0.5]`.
     fn default() -> Self {
         Self {
             vertices: [
@@ -863,13 +864,11 @@ impl Tetrahedron {
         let ab = b - a;
         let ac = c - a;
         let ad = d - a;
-        let bc = c - b;
-        let bd = d - b;
-        let abc = ab.cross(ac).length() / 2.0;
-        let abd = ab.cross(ad).length() / 2.0;
-        let acd = ac.cross(ad).length() / 2.0;
-        let bcd = bc.cross(bd).length() / 2.0;
-        abc + abd + acd + bcd
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + (ac - ab).cross(ad - ab).length())
+            / 2.0
     }
 }
 
