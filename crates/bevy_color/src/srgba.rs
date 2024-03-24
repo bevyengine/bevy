@@ -3,7 +3,6 @@ use crate::{
     impl_componentwise_point, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
 use bevy_math::Vec4;
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;
 

@@ -1,7 +1,6 @@
 use crate::{
     Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// An enumerated type that can represent any of the color types in this crate.

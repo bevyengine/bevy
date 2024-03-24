@@ -2,7 +2,6 @@ use crate::{
     Alpha, ClampColor, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.

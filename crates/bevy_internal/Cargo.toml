@@ -73,7 +73,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_ui?/serialize",
-  "bevy_color?/serialize"
+  "bevy_color?/serialize",
 ]
 multi-threaded = [
   "bevy_asset?/multi-threaded",

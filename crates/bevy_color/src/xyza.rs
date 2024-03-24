@@ -1,7 +1,6 @@
 use crate::{
     impl_componentwise_point, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
 };
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.

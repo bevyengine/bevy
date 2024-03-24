@@ -1,5 +1,4 @@
 use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha

@@ -3,7 +3,6 @@ use crate::{
     Mix, StandardColor,
 };
 use bevy_math::Vec4;
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 

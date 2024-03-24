@@ -3,7 +3,6 @@
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.

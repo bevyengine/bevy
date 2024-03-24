@@ -2,7 +2,6 @@ use crate::{
     impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix,
     Oklaba, Srgba, StandardColor, Xyza,
 };
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// Color in LAB color space, with alpha

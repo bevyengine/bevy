@@ -2,7 +2,6 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
     LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-#[cfg(feature = "serialize")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklch color space, with alpha
