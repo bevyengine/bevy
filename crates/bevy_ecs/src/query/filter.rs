@@ -671,31 +671,30 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        if T::CHANGE_DETECTION {
-            match T::STORAGE_TYPE {
-                StorageType::Table => {
-                    // SAFETY: STORAGE_TYPE = Table
-                    let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let tick = unsafe { table.get(table_row.as_usize()) };
-
-                    tick.deref()
-                        .added
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                }
-                StorageType::SparseSet => {
-                    // SAFETY: STORAGE_TYPE = SparseSet
-                    let sparse_set = unsafe { fetch.sparse_ticks.debug_checked_unwrap() };
-                    // SAFETY: Caller ensures `entity` is in range.
-                    let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
-                    item.deref::<ComponentTicks>()
-                        .added
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                }
-            }
-        } else {
+        if !T::CHANGE_DETECTION {
             // if change detection is disabled, match all entities with this component
             return true;
+        }
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref()
+                    .added
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+            }
+            StorageType::SparseSet => {
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { fetch.sparse_ticks.debug_checked_unwrap() };
+                // SAFETY: Caller ensures `entity` is in range.
+                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                item.deref::<ComponentTicks>()
+                    .added
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+            }
         }
     }
 
@@ -719,8 +718,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             // SAFETY: we have initialized the component so the component_info exists;
             let component_info = world.components.get_info(component_id).unwrap();
             // SAFETY: we know that change detection is enabled, so the change detection id is present
-            let change_component_id = component_info.change_detection_id().unwrap();
-            change_component_id
+            component_info.change_detection_id().unwrap()
         })
     }
 
@@ -923,31 +921,30 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        if T::CHANGE_DETECTION {
-            match T::STORAGE_TYPE {
-                StorageType::Table => {
-                    // SAFETY: STORAGE_TYPE = Table
-                    let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let tick = unsafe { table.get(table_row.as_usize()) };
-
-                    tick.deref()
-                        .changed
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                }
-                StorageType::SparseSet => {
-                    // SAFETY: STORAGE_TYPE = SparseSet
-                    let sparse_set = unsafe { fetch.sparse_ticks.debug_checked_unwrap() };
-                    // SAFETY: Caller ensures `entity` is in range.
-                    let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
-                    item.deref::<ComponentTicks>()
-                        .changed
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                }
-            }
-        } else {
+        if !T::CHANGE_DETECTION {
             // if change detection is disabled, match all entities with this component
             return true;
+        }
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref()
+                    .changed
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+            }
+            StorageType::SparseSet => {
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { fetch.sparse_ticks.debug_checked_unwrap() };
+                // SAFETY: Caller ensures `entity` is in range.
+                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                item.deref::<ComponentTicks>()
+                    .changed
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+            }
         }
     }
 
@@ -973,8 +970,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             // SAFETY: we have initialized the component so the component_info exists;
             let component_info = world.components.get_info(component_id).unwrap();
             // SAFETY: we know that change detection is enabled, so the change detection id is present
-            let change_component_id = component_info.change_detection_id().unwrap();
-            change_component_id
+            component_info.change_detection_id().unwrap()
         })
     }
 

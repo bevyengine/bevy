@@ -513,7 +513,7 @@ pub struct ChangeTicks<T: Component> {
     _marker: PhantomData<T>,
 }
 
-/// Manual implementation so that ChangeTicks can use the same storage type as the inner component.
+/// Manual implementation so that `ChangeTicks` can use the same storage type as the inner component.
 impl<T: Component> Component for ChangeTicks<T> {
     const STORAGE_TYPE: StorageType = T::STORAGE_TYPE;
     const CHANGE_DETECTION: bool = false;
@@ -853,10 +853,10 @@ impl_debug!(Mut<'w, T>,);
 
 /// Mutable fetch item that can be built from a mutable reference to the inner value.
 pub trait MutFetchItem<'a>: DerefMut + Sized {
-    /// the ReadOnlyQueryData that corresponds to this MutFetchItem
+    /// the `ReadOnlyQueryData` that corresponds to this `MutFetchItem`
     type ReadOnly: Deref<Target = Self::Target>;
 
-    /// Build the MutFetchItem from the inner value and the `TicksMut`
+    /// Build the `MutFetchItem` from the inner value and the `TicksMut`
     fn build(inner: &'a mut Self::Target, ticks_mut: Option<TicksMut<'a>>) -> Self;
 }
 

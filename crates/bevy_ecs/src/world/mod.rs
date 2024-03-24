@@ -2070,7 +2070,7 @@ impl World {
                                             ticks.added.check_tick(change_tick);
                                             ticks.changed.check_tick(change_tick);
                                         },
-                                    )
+                                    );
                                 }
                             };
                         }

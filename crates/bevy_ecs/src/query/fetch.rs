@@ -1014,9 +1014,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let component = unsafe { component_sparse_set.get(entity).debug_checked_unwrap() };
 
+                // SAFETY: STORAGE_TYPE = SparseSet
                 let change_ticks_sparse_set =
                     unsafe { fetch.sparse_tick_data.debug_checked_unwrap() };
 
+                // SAFETY: The caller ensures `entity` is in range.
                 let ticks = unsafe { change_ticks_sparse_set.get(entity).debug_checked_unwrap() };
                 (component.deref(), ticks.deref())
             }

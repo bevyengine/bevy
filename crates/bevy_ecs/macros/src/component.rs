@@ -63,8 +63,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let change_detection = attrs.change_detection;
     let write_item = write_item_associated_type(
         &bevy_ecs_path,
-        &struct_name,
-        &type_generics,
+        struct_name,
+        type_generics,
         change_detection,
     );
 

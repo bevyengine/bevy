@@ -507,6 +507,8 @@ impl BundleInfo {
                                 });
                             },
                             ComponentStatus::Mutated => {
+                                // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                                // a sparse set exists for the component.
                                 let ptr = unsafe { change_sparse_set.get(entity).debug_checked_unwrap() };
                                 ptr.assert_unique().deref_mut::<ComponentTicks>().changed = change_tick;
                             },
@@ -569,10 +571,10 @@ impl BundleInfo {
                                 unsafe { components.get_info_unchecked(change_component_id) };
                             match component_info.storage_type() {
                                 StorageType::Table => {
-                                    new_table_components.push(change_component_id)
+                                    new_table_components.push(change_component_id);
                                 }
                                 StorageType::SparseSet => {
-                                    new_sparse_set_components.push(change_component_id)
+                                    new_sparse_set_components.push(change_component_id);
                                 }
                             }
                             ComponentStatus::Added
@@ -926,7 +928,7 @@ impl<'w> BundleInserter<'w> {
                     bundle_info
                         .iter_components()
                         .zip(add_bundle.bundle_status.iter())
-                        .filter(|(_, &ref status)| status.component == ComponentStatus::Added)
+                        .filter(|(_, status)| status.component == ComponentStatus::Added)
                         .map(|(id, _)| id),
                 );
             }

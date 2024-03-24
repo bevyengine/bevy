@@ -154,7 +154,7 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
-    /// Whether or not ChangeDetection is enabled
+    /// Whether or not change detection is enabled
     const CHANGE_DETECTION: bool;
     // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
     /// The type of the Fetch returned when querying for &mut T
