@@ -353,7 +353,7 @@ fn handle_winit_event(
         }
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     {
         use bevy_window::WindowGlContextLost;
         use wasm_bindgen::JsCast;
@@ -363,7 +363,7 @@ fn handle_winit_event(
             window: &winit::window::Window,
         ) -> Option<web_sys::WebGl2RenderingContext> {
             if let Some(canvas) = window.canvas() {
-                let context = canvas.get_context("webgpu").ok()??;
+                let context = canvas.get_context("webgl2").ok()??;
 
                 Some(context.dyn_into::<web_sys::WebGl2RenderingContext>().ok()?)
             } else {
