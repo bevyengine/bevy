@@ -61,12 +61,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let change_detection = attrs.change_detection;
-    let write_item = write_item_associated_type(
-        &bevy_ecs_path,
-        struct_name,
-        type_generics,
-        change_detection,
-    );
+    let write_item =
+        write_item_associated_type(&bevy_ecs_path, struct_name, type_generics, change_detection);
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
