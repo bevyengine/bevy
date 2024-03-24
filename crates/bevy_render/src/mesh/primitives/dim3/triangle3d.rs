@@ -8,10 +8,10 @@ use crate::{
 
 impl Meshable for Triangle3d {
     type Output = Mesh;
-    
+
     fn mesh(&self) -> Self::Output {
         let positions: Vec<_> = self.vertices.into();
-        let uvs: Vec<_> = uv_coords(&self).into();
+        let uvs: Vec<_> = uv_coords(self).into();
 
         // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate)
         let normal: Vec3 = self.normal().map_or(Vec3::ZERO, |n| n.into());
@@ -30,7 +30,7 @@ impl Meshable for Triangle3d {
     }
 }
 
-/// Unskewed uv-coordinates for a [`Triangle3d`]. 
+/// Unskewed uv-coordinates for a [`Triangle3d`].
 #[inline]
 pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
     let [a, b, c] = triangle.vertices;
@@ -59,7 +59,7 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
         let c_uv = [0., 1.];
 
         [a_uv, b_uv, c_uv]
-    } 
+    }
     // Obtuse triangle leaning to the right => x direction extends to the right, shifting b from 1.
     else if offset > 1. {
         let a_uv = [0., 0.];
@@ -86,17 +86,13 @@ impl From<Triangle3d> for Mesh {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::primitives::Triangle3d;
     use super::uv_coords;
-    
+    use bevy_math::primitives::Triangle3d;
+
     #[test]
     fn uv_test() {
         use bevy_math::vec3;
-        let mut triangle = Triangle3d::new(
-            vec3(0., 0., 0.),
-            vec3(2., 0., 0.),
-            vec3(-1., 1., 0.),
-        );
+        let mut triangle = Triangle3d::new(vec3(0., 0., 0.), vec3(2., 0., 0.), vec3(-1., 1., 0.));
 
         let [a_uv, b_uv, c_uv] = uv_coords(&triangle);
         assert_eq!(a_uv, [1. / 3., 0.]);
