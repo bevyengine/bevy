@@ -46,6 +46,7 @@ use std::{
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+use crate::component::StorageType;
 use crate::storage::TableId;
 pub use identifier::WorldId;
 
@@ -2052,24 +2053,44 @@ impl World {
         let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
 
         // check table change ticks
-        self.components.iter().for_each(|component_id| {
-            if let Some(change_component_id) = component_id.change_detection_id() {
-                for table_id in 0..tables.len() {
-                    if let Some(column) = tables
-                        .index_mut(TableId::from_usize(table_id))
-                        .get_column_mut(change_component_id)
-                    {
-                        // SAFETY: we have exclusive world access
-                        unsafe {
-                            column.get_data_slice::<ComponentTicks>().iter().for_each(
-                                |component_ticks| {
-                                    let ticks = component_ticks.deref_mut();
-                                    ticks.added.check_tick(change_tick);
-                                    ticks.changed.check_tick(change_tick);
-                                },
-                            )
+        self.components.iter().for_each(|component_info| {
+            if let Some(change_component_id) = component_info.change_detection_id() {
+                match component_info.storage_type() {
+                    StorageType::Table => {
+                        for table_id in 0..tables.len() {
+                            if let Some(column) = tables
+                                .index_mut(TableId::from_usize(table_id))
+                                .get_column_mut(change_component_id)
+                            {
+                                // SAFETY: we have exclusive world access
+                                unsafe {
+                                    column.get_data_slice::<ComponentTicks>().iter().for_each(
+                                        |component_ticks| {
+                                            let ticks = component_ticks.deref_mut();
+                                            ticks.added.check_tick(change_tick);
+                                            ticks.changed.check_tick(change_tick);
+                                        },
+                                    )
+                                }
+                            };
                         }
-                    };
+                    }
+                    StorageType::SparseSet => {
+                        if let Some(sparse_set) = sparse_sets.get_mut(change_component_id) {
+                            // SAFETY: we have exclusive world access
+                            unsafe {
+                                sparse_set
+                                    .get_dense()
+                                    .get_data_slice::<ComponentTicks>()
+                                    .iter()
+                                    .for_each(|component_ticks| {
+                                        let ticks = component_ticks.deref_mut();
+                                        ticks.added.check_tick(change_tick);
+                                        ticks.changed.check_tick(change_tick);
+                                    });
+                            }
+                        }
+                    }
                 }
             }
         });

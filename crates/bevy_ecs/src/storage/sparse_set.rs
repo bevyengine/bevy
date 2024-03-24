@@ -262,6 +262,10 @@ impl ComponentSparseSet {
             false
         }
     }
+
+    pub(crate) fn get_dense(&self) -> &Column {
+        &self.dense
+    }
 }
 
 /// A data structure that blends dense and sparse storage
