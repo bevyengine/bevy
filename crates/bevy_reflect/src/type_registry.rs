@@ -663,6 +663,7 @@ pub struct ReflectFromPtr {
     from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
+#[allow(unsafe_code)]
 impl ReflectFromPtr {
     /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for.
     pub fn type_id(&self) -> TypeId {
@@ -714,6 +715,7 @@ impl ReflectFromPtr {
     }
 }
 
+#[allow(unsafe_code)]
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {

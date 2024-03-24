@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![allow(unsafe_code)]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
