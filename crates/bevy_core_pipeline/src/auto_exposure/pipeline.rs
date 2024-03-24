@@ -2,7 +2,7 @@ use std::num::NonZeroU64;
 
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_render::{render_resource::*, renderer::RenderDevice, texture::Image};
+use bevy_render::{render_resource::*, renderer::RenderDevice, texture::Image, view::ViewUniform};
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
@@ -104,6 +104,16 @@ impl FromWorld for AutoExposurePipeline {
                             ty: BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: NonZeroU64::new(4),
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 6,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
                         },
                         count: None,
                     },

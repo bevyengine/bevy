@@ -1,3 +1,5 @@
+#import bevy_render::view::View
+
 // Taken from RTR vol 4 pg. 278
 const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
 
@@ -22,7 +24,9 @@ var tex_compensation: texture_1d<f32>;
 @group(0) @binding(4)
 var<storage, read_write> histogram: array<atomic<u32>, 256>;
 @group(0) @binding(5)
-var<storage, read_write> result: f32;
+var<storage, read_write> exposure: f32;
+@group(0) @binding(6)
+var<storage, read_write> view: View;
 
 var<workgroup> histogram_shared: array<atomic<u32>, 256>;
 
@@ -96,5 +100,6 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
         target_exposure += -8.0 + textureLoad(tex_compensation, i32(avg_bin), 0).r * 16.0 - avg_lum;
     }
 
-    result = result + clamp(target_exposure - result, -params.speed_up, params.speed_down);
+    exposure = exposure + clamp(target_exposure - exposure, -params.speed_up, params.speed_down);
+    view.color_grading.exposure = exposure;
 }

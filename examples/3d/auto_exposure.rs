@@ -114,8 +114,8 @@ fn setup(
             min: -16.0,
             max: 16.0,
             compensation_curve: vec![vec2(-8.0, -2.0), vec2(0.0, 0.0), vec2(8.0, 2.0)],
-            speed_down: 1000.0,
-            speed_up: 1000.0,
+            // speed_down: 1000.0,
+            // speed_up: 1000.0,
             ..default()
         },
     ));

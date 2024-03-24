@@ -9,7 +9,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderContext,
     texture::{FallbackImage, Image},
-    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 
 use crate::auto_exposure::{
@@ -52,6 +52,10 @@ impl Node for AutoExposureNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<AutoExposurePipeline>();
         let resources = world.resource::<AutoExposureResources>();
+
+        let view_uniforms_resource = world.resource::<ViewUniforms>();
+        let view_uniforms = &view_uniforms_resource.uniforms;
+        let view_uniforms_buffer = view_uniforms.buffer().unwrap();
 
         let (view_uniform_offset, view_target, auto_exposure, view) =
             match self.query.get_manual(world, view_entity) {
@@ -115,6 +119,14 @@ impl Node for AutoExposureNode {
                     binding: 5,
                     resource: auto_exposure.state.as_entire_binding(),
                 },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: BindingResource::Buffer(BufferBinding {
+                        buffer: view_uniforms_buffer,
+                        size: Some(ViewUniform::min_size()),
+                        offset: 0,
+                    }),
+                },
             ],
         );
 
@@ -126,7 +138,7 @@ impl Node for AutoExposureNode {
                     timestamp_writes: None,
                 });
 
-        compute_pass.set_bind_group(0, &compute_bind_group, &[]);
+        compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
         compute_pass.dispatch_workgroups(
             (view.viewport.z + 15) / 16,
@@ -135,22 +147,6 @@ impl Node for AutoExposureNode {
         );
         compute_pass.set_pipeline(average_pipeline);
         compute_pass.dispatch_workgroups(1, 1, 1);
-
-        drop(compute_pass);
-
-        // Copy the computed exposure value to the view uniforms.
-        // If this wasn't a plugin, we could just add the STORAGE access modifier to the view uniforms buffer
-        // and write directly to it. But since this is a plugin, we have to resort to this hack.
-        if let Some(view_uniforms_buffer) = world.resource::<ViewUniforms>().uniforms.buffer() {
-            let exposure_offset = view_uniform_offset.offset + 576;
-            render_context.command_encoder().copy_buffer_to_buffer(
-                &auto_exposure.state,
-                0,
-                &view_uniforms_buffer,
-                exposure_offset as u64,
-                4,
-            );
-        }
 
         Ok(())
     }
