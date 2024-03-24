@@ -8,8 +8,9 @@ use bevy_render::{
 use bevy_utils::{HashMap, HashSet};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
-    Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
+    ffi::{meshopt_Bounds, meshopt_simplifyScale},
+    simplify, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use std::{borrow::Cow, iter, ops::Range};
@@ -79,19 +80,22 @@ impl MeshletMesh {
 
             for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let (simplified_group_indices, group_error) =
+                let (simplified_group_indices, mut group_error) =
                     simplfy_meshlet_groups(group_meshlets, &meshlets, &vertices);
-
-                // Enforce that parent_error >= child_error (we're currently building the parent from its children)
-                let group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
-                    acc.max(lod_errors[*meshlet_id].self_)
-                });
 
                 // Build a new bounding sphere for the simplified group as a whole for LOD calculations
                 let group_bounding_sphere = convert_meshlet_bounds(compute_cluster_bounds(
                     &simplified_group_indices,
                     &vertices,
                 ));
+
+                // Adjust error based on the LOD bounding sphere diameter
+                group_error /= 2.0 * group_bounding_sphere.radius;
+
+                // Enforce that parent_error >= child_error (we're currently building the parent from its children)
+                let group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
+                    acc.max(lod_errors[*meshlet_id].self_)
+                });
 
                 // For each meshlet in the group, set their parent error and parent LOD bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
@@ -287,6 +291,15 @@ fn simplfy_meshlet_groups(
         SimplifyOptions::LockBorder,
         Some(&mut error),
     );
+
+    // Convert error to object-space
+    error *= unsafe {
+        meshopt_simplifyScale(
+            vertices.pos_ptr(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+        )
+    };
 
     (simplified_group_indices, error)
 }
