@@ -835,7 +835,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
-/// An object that enables parallel iteration over `Event`s.
+/// A parallel iterator over `Event`s.
 #[derive(Debug)]
 pub struct EventParIter<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
