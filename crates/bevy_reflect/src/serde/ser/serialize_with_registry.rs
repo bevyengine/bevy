@@ -83,8 +83,14 @@ impl ReflectSerializeWithRegistry {
 impl<T: Reflect + SerializeWithRegistry> FromType<T> for ReflectSerializeWithRegistry {
     fn from_type() -> Self {
         Self {
-            serialize: |value, registry| {
-                let value = value.downcast_ref::<T>().unwrap();
+            serialize: |value: &dyn Reflect, registry| {
+                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
+                    panic!(
+                        "Expected value to be of type {:?} but received {:?}",
+                        core::any::type_name::<T>(),
+                        value.reflect_type_path()
+                    )
+                });
                 Box::new(SerializableWithRegistry { value, registry })
             },
         }
