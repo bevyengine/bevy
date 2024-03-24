@@ -16,6 +16,7 @@ enum GameState {
 #[derive(Resource)]
 struct BonusSpawnTimer(Timer);
 
+// TODO: example is broken right now. Need to regenerate the scene to include the ChangeTicks<C> components?
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

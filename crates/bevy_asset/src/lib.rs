@@ -57,6 +57,7 @@ use bevy_ecs::{
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
+use bevy_ecs::change_detection::ChangeTicks;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
 compile_error!(
@@ -377,6 +378,7 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
+            .register_type::<ChangeTicks<Handle<A>>>()
             .add_systems(
                 Last,
                 Assets::<A>::asset_events

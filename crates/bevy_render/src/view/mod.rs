@@ -34,6 +34,7 @@ use wgpu::{
     Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
+use bevy_ecs::change_detection::ChangeTicks;
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
@@ -44,11 +45,14 @@ impl Plugin for ViewPlugin {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
         app.register_type::<InheritedVisibility>()
+            .register_type::<ChangeTicks<InheritedVisibility>>()
             .register_type::<ViewVisibility>()
+            .register_type::<ChangeTicks<ViewVisibility>>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
+            .register_type::<ChangeTicks<Visibility>>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()

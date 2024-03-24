@@ -18,6 +18,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_math::{Affine3A, Mat4, Vec3};
@@ -99,7 +100,9 @@ impl Plugin for TransformPlugin {
         struct PropagateTransformsSet;
 
         app.register_type::<Transform>()
+            .register_type::<ChangeTicks<Transform>>()
             .register_type::<GlobalTransform>()
+            .register_type::<ChangeTicks<GlobalTransform>>()
             .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_sets(
                 PostStartup,

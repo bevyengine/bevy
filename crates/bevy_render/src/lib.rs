@@ -75,6 +75,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
 };
+use bevy_ecs::change_detection::ChangeTicks;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -333,9 +334,13 @@ impl Plugin for RenderPlugin {
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
+            .register_type::<ChangeTicks<primitives::Aabb>>()
             .register_type::<primitives::CascadesFrusta>()
+            .register_type::<ChangeTicks<primitives::CascadesFrusta>>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>();
+            .register_type::<ChangeTicks<primitives::CubemapFrusta>>()
+            .register_type::<primitives::Frustum>()
+            .register_type::<ChangeTicks<primitives::Frustum>>();
     }
 
     fn ready(&self, app: &App) -> bool {

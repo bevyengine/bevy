@@ -1,6 +1,7 @@
 //! Types that detect when their internal data mutate.
 
 use crate::component::{Component, ComponentId, ComponentTicks, StorageType};
+use crate::reflect::ReflectComponent;
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -10,6 +11,7 @@ use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
+use bevy_reflect::Reflect;
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -507,9 +509,11 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 }
 
 /// [`Component`] that will store the change detection information for a given component T.
-#[derive(Clone)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct ChangeTicks<T: Component> {
     _ticks: ComponentTicks,
+    #[reflect(ignore)]
     _marker: PhantomData<T>,
 }
 
@@ -852,7 +856,7 @@ impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
 
 /// Mutable fetch item that can be built from a mutable reference to the inner value.
-pub trait MutFetchItem<'a>: DerefMut + Sized {
+pub trait MutFetchItem<'a>: DerefMut + DetectChangesMut + Sized {
     /// the `ReadOnlyQueryData` that corresponds to this `MutFetchItem`
     type ReadOnly: Deref<Target = Self::Target>;
 
@@ -877,6 +881,7 @@ impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
         value
     }
 }
+
 
 impl<'a, T: Component> DetectChanges for &'a mut T {
     fn is_added(&self) -> bool {

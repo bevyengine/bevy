@@ -22,11 +22,17 @@ struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    const CHANGE_DETECTION: bool = true;
+    type WriteItem<'w> = Mut<'w, MyComponent>;
 
     /// Hooks can also be registered during component initialisation by
     /// implementing `register_component_hooks`
     fn register_component_hooks(_hooks: &mut ComponentHooks) {
         // Register hooks...
+    }
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
+        item
     }
 }
 

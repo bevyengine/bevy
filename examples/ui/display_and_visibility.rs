@@ -1,5 +1,6 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
+use std::ops::DerefMut;
 use bevy::winit::WinitSettings;
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
@@ -446,7 +447,7 @@ fn buttons_handler<T>(
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
-                    text.sections[0].value = target.update_target(target_value.as_mut());
+                    text.sections[0].value = target.update_target(target_value.deref_mut());
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
                         || text.sections[0].value.contains("Hidden")
                     {

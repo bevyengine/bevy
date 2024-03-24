@@ -77,6 +77,7 @@ pub mod prelude {
 
 #[cfg(feature = "bevy_app")]
 use bevy_app::prelude::*;
+use bevy_ecs::change_detection::ChangeTicks;
 
 /// Provides hierarchy functionality to a Bevy app.
 ///
@@ -89,7 +90,9 @@ pub struct HierarchyPlugin;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
+            .register_type::<ChangeTicks<Children>>()
             .register_type::<Parent>()
+            .register_type::<ChangeTicks<Parent>>()
             .add_event::<HierarchyEvent>();
     }
 }
