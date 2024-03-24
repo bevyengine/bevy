@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, Pod, Zeroable)]
 #[reflect(PartialEq, Serialize, Deserialize, Default)]
 #[repr(C)]
 pub struct LinearRgba {
@@ -368,35 +368,6 @@ impl encase::private::CreateFrom for LinearRgba {
         }
     }
 }
-
-/// A [`Zeroable`] type is one whose bytes can be filled with zeroes while remaining valid.
-///
-/// SAFETY: [`LinearRgba`] is inhabited
-/// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
-#[allow(unsafe_code)]
-unsafe impl Zeroable for LinearRgba {
-    fn zeroed() -> Self {
-        LinearRgba {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-            alpha: 0.0,
-        }
-    }
-}
-
-/// The [`Pod`] trait is [`bytemuck`]'s marker for types that can be safely transmuted from a byte array.
-///
-/// It is intended to only be implemented for types which are "Plain Old Data".
-///
-/// SAFETY: [`LinearRgba`] is inhabited.
-/// SAFETY: [`LinearRgba`] permits any bit value.
-/// SAFETY: [`LinearRgba`] does not have padding bytes.
-/// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
-/// SAFETY: [`LinearRgba`] is `repr(C)`
-/// SAFETY: [`LinearRgba`] does not permit interior mutability.
-#[allow(unsafe_code)]
-unsafe impl Pod for LinearRgba {}
 
 impl encase::ShaderSize for LinearRgba {}
 
