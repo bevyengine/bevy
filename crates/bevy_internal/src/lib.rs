@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 

@@ -1,6 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 pub mod wireframe;
 

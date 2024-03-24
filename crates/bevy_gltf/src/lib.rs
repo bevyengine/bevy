@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.

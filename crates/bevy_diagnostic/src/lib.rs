@@ -1,6 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing

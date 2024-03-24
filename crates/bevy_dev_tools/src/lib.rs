@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
 //! focused on improving developer experience.

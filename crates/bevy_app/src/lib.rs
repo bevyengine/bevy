@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 

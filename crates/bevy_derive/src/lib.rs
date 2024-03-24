@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;

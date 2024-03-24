@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
