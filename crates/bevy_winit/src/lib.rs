@@ -797,8 +797,6 @@ fn run_app_update_if_should(
     forward_winit_events(winit_events, app);
 
     if app.plugins_state() == PluginsState::Cleaned {
-        runner_state.last_update = Instant::now();
-
         app.update();
     }
 }
