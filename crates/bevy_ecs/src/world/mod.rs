@@ -18,7 +18,7 @@ pub use spawn_batch::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
-    bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
+    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
@@ -2084,6 +2084,20 @@ impl World {
     pub fn clear_resources(&mut self) {
         self.storages.resources.clear();
         self.storages.non_send_resources.clear();
+    }
+
+    /// Initializes all of the components in the given [`Bundle`] and returns both the component
+    /// ids and the bundle id.
+    ///
+    /// This is largely equivalent to calling [`init_component`](Self::init_component) on each
+    /// component in the bundle.
+    #[inline]
+    pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+        let id = self
+            .bundles
+            .init_info::<B>(&mut self.components, &mut self.storages);
+        // SAFETY: We just initialised the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 }
 
