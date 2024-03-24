@@ -8,6 +8,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+#[cfg(target_os = "linux")]
+use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
@@ -320,7 +322,7 @@ pub fn prepare_windows(
                 Ok(frame) => window.set_swapchain_texture(frame),
                 #[cfg(target_os = "linux")]
                 Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    bevy_utils::tracing::debug!(
+                    warn_once!(
                         "Couldn't get swap chain texture. This often happens with \
                         the Nvidia 550 driver. It can be safely ignored."
                     );
@@ -334,7 +336,7 @@ pub fn prepare_windows(
                 }
                 #[cfg(target_os = "linux")]
                 Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    bevy_utils::tracing::debug!(
+                    warn_once!(
                         "Couldn't get swap chain texture. This often happens with \
                         the Nvidia 550 driver. It can be safely ignored."
                     );
