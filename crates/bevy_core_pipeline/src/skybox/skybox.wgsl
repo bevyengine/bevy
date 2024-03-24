@@ -10,7 +10,12 @@ struct SkyboxUniforms {
 #endif
 }
 
+#ifdef CUBEMAP
 @group(0) @binding(0) var skybox: texture_cube<f32>;
+#else 
+@group(0) @binding(0) var skybox: texture_2d<f32>;
+#endif
+
 @group(0) @binding(1) var skybox_sampler: sampler;
 @group(0) @binding(2) var<uniform> view: View;
 @group(0) @binding(3) var<uniform> uniforms: SkyboxUniforms;
@@ -67,10 +72,18 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return VertexOutput(clip_position);
 }
 
+const PI = 3.14159265358979323;
+
 @fragment
 fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_direction = coords_to_ray_direction(in.position.xy, view.viewport);
-
+#ifdef CUBEMAP
     // Cube maps are left-handed so we negate the z coordinate.
     return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0)) * uniforms.brightness;
+#else
+    let uv_lon = atan2(ray_direction.x, -ray_direction.z) / PI / 2.0 + 0.5;
+    let uv_lat = asin(-ray_direction.y) / PI + 0.5;
+
+    return textureSample(skybox, skybox_sampler, vec2(uv_lon, uv_lat)) * uniforms.brightness;
+#endif
 }

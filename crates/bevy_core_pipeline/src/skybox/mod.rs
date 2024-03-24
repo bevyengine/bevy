@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryItem, With},
+    query::QueryItem,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -14,7 +14,7 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{sampler, texture_cube, uniform_buffer},
+        binding_types::{sampler, texture_2d, texture_cube, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
@@ -64,7 +64,22 @@ impl Plugin for SkyboxPlugin {
     }
 }
 
-/// Adds a skybox to a 3D camera, based on a cubemap texture.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+/// An option configuring the layout of the texture used as a skybox.
+pub enum SkyboxTextureLayout {
+    /// The skybox texture is a cubemap.
+    ///
+    /// See <https://en.wikipedia.org/wiki/Cube_mapping>.
+    Cubemap,
+    /// The skybox texture is an equirectangular projection.
+    /// Equirectangular projections are commonly used for maps but have some drawbacks
+    /// as you may encounter visual artifacts at both the top and bottom of the skybox.
+    ///
+    /// See <https://en.wikipedia.org/wiki/Equirectangular_projection>.
+    Equirectangular,
+}
+
+/// Adds a skybox to a 3D camera, based on a texture.
 ///
 /// Note that this component does not (currently) affect the scene's lighting.
 /// To do so, use `EnvironmentMapLight` alongside this component.
@@ -77,6 +92,8 @@ pub struct Skybox {
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
+    /// The layout of the given texture.
+    pub skybox_texture_layout: SkyboxTextureLayout,
 }
 
 impl ExtractComponent for Skybox {
@@ -118,14 +135,28 @@ pub struct SkyboxUniforms {
 
 #[derive(Resource)]
 struct SkyboxPipeline {
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout_tex_2d: BindGroupLayout,
+    bind_group_layout_tex_cube: BindGroupLayout,
 }
 
 impl SkyboxPipeline {
     fn new(render_device: &RenderDevice) -> Self {
         Self {
-            bind_group_layout: render_device.create_bind_group_layout(
-                "skybox_bind_group_layout",
+            bind_group_layout_tex_2d: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout_texture_2d",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                        uniform_buffer::<ViewUniform>(true)
+                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                        uniform_buffer::<SkyboxUniforms>(true),
+                    ),
+                ),
+            ),
+            bind_group_layout_tex_cube: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout_texture_cube",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
@@ -146,19 +177,29 @@ struct SkyboxPipelineKey {
     hdr: bool,
     samples: u32,
     depth_format: TextureFormat,
+    skybox_texture_layout: SkyboxTextureLayout,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = vec![];
+        if key.skybox_texture_layout == SkyboxTextureLayout::Cubemap {
+            shader_defs.push("CUBEMAP".into());
+        };
+        let layout = match key.skybox_texture_layout {
+            SkyboxTextureLayout::Cubemap => &self.bind_group_layout_tex_cube,
+            SkyboxTextureLayout::Equirectangular => &self.bind_group_layout_tex_2d,
+        };
+
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
                 shader: SKYBOX_SHADER_HANDLE,
-                shader_defs: Vec::new(),
+                shader_defs: shader_defs.clone(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
             },
@@ -186,7 +227,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: SKYBOX_SHADER_HANDLE,
-                shader_defs: Vec::new(),
+                shader_defs,
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
@@ -212,9 +253,9 @@ fn prepare_skybox_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
     msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView), With<Skybox>>,
+    views: Query<(Entity, &Skybox, &ExtractedView)>,
 ) {
-    for (entity, view) in &views {
+    for (entity, skybox, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
@@ -222,6 +263,7 @@ fn prepare_skybox_pipelines(
                 hdr: view.hdr,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
+                skybox_texture_layout: skybox.skybox_texture_layout,
             },
         );
 
@@ -244,17 +286,22 @@ fn prepare_skybox_bind_groups(
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
-        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
+        if let (Some(skybox_texture), Some(view_uniforms), Some(skybox_uniforms)) = (
             images.get(&skybox.image),
             view_uniforms.uniforms.binding(),
             skybox_uniforms.binding(),
         ) {
+            let layout = match skybox.skybox_texture_layout {
+                SkyboxTextureLayout::Cubemap => &pipeline.bind_group_layout_tex_cube,
+                SkyboxTextureLayout::Equirectangular => &pipeline.bind_group_layout_tex_2d,
+            };
+
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
-                &pipeline.bind_group_layout,
+                layout,
                 &BindGroupEntries::sequential((
-                    &skybox.texture_view,
-                    &skybox.sampler,
+                    &skybox_texture.texture_view,
+                    &skybox_texture.sampler,
                     view_uniforms,
                     skybox_uniforms,
                 )),
