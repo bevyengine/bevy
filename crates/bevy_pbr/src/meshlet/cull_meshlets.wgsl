@@ -80,7 +80,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
         let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
         let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
         let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
-        let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like self being a u32
+        let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
         let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
 
