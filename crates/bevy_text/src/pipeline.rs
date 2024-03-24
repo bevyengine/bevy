@@ -133,7 +133,7 @@ impl TextMeasureInfo {
         let mut out_sections = Vec::with_capacity(sections.len());
         for (i, section) in sections.iter().enumerate() {
             match fonts.get(&section.style.font) {
-                Some(font) =>  {
+                Some(font) => {
                     auto_fonts.push(font.font.clone());
                     out_sections.push(TextMeasureSection {
                         font_id: FontId(i),
