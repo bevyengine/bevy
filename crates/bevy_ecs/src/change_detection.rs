@@ -878,6 +878,31 @@ impl<'a, T: Component> MutFetchItem<'a> for &'a mut T {
     }
 }
 
+impl<'a, T: Component> DetectChanges for &'a mut T {
+    fn is_added(&self) -> bool {
+        true
+    }
+
+    fn is_changed(&self) -> bool {
+        true
+    }
+
+    fn last_changed(&self) -> Tick {
+        Tick::new(0)
+    }
+}
+impl<'a, T: Component> DetectChangesMut for &'a mut T {
+    type Inner = T;
+
+    fn set_changed(&mut self) {}
+
+    fn set_last_changed(&mut self, last_changed: Tick) {}
+
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
 /// Unique mutable borrow of resources or an entity's component.
 ///
 /// Similar to [`Mut`], but not generic over the component type, instead

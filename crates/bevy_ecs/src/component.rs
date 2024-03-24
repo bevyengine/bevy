@@ -1,6 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::change_detection::{ChangeTicks, MutFetchItem};
+use crate::change_detection::{ChangeTicks, DetectChangesMut, MutFetchItem};
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
@@ -158,7 +158,7 @@ pub trait Component: Send + Sync + 'static {
     const CHANGE_DETECTION: bool;
     // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
     /// The type of the Fetch returned when querying for &mut T
-    type WriteItem<'w>: std::ops::DerefMut<Target = Self> + MutFetchItem<'w>;
+    type WriteItem<'w>: std::ops::DerefMut<Target = Self> + MutFetchItem<'w> + DetectChangesMut;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
@@ -166,11 +166,6 @@ pub trait Component: Send + Sync + 'static {
     /// Shrink the given item to a shorter lifetime
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort>;
 }
-
-/// A component used to symbolize the absence of change detection
-#[derive(Component)]
-#[component(change_detection = false)]
-pub struct DisabledChangedTicks;
 
 /// The storage used for a specific component type.
 ///
