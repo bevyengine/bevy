@@ -2097,7 +2097,7 @@ impl World {
             .bundles
             .init_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialised the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).unwrap_unchecked() }
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 }
 
