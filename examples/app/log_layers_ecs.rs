@@ -4,9 +4,9 @@
 //! parts of the program to communicate (in this case, [`Layer`]s and Bevy's ECS).
 //!
 //! Inside the [`update_subscriber`] function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
-//! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the [`AdvancedLayer`] and the [`Receiver`](mpsc::Receiver) will
-//! go into a non-send resource called [`LogEvents`] (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
-//! From there we will use [`transfer_log_events`] to transfer log events from [`LogEvents`] to an ECS event called [`LogEvent`].
+//! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
+//! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
+//! From there we will use [`transfer_log_events`] to transfer log events from `LogEvents` to an ECS event called [`LogEvent`].
 //!
 //! Finally, after all that we can access the [`LogEvent`] event from our systems and use it.
 //! In this example we build a simple log viewer.
@@ -23,17 +23,17 @@ use bevy::{
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
 #[derive(Debug, Event)]
-struct LogEvent {
+pub struct LogEvent {
     message: String,
 }
 
 /// This non-send resource temporarily stores [`LogEvent`]s before they are
 /// written to [`Events<LogEvent>`] by [`transfer_log_events`].
 #[derive(Deref, DerefMut)]
-struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
+pub struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
-/// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
-fn transfer_log_events(
+/// Transfers information from the `LCogEvents` resource to [`Events<LogEvent>`](LogEvent).
+pub fn transfer_log_events(
     receiver: NonSend<CapturedLogEvents>,
     mut log_events: EventWriter<LogEvent>,
 ) {
@@ -43,7 +43,7 @@ fn transfer_log_events(
 
 /// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
 /// ECS via it's [`mpsc::Sender`].
-struct CaptureLayer {
+pub struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }
 impl<S: Subscriber> Layer<S> for CaptureLayer {
@@ -77,7 +77,8 @@ impl tracing::field::Visit for CaptureLayerVisitor<'_> {
         }
     }
 }
-fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
+/// Update Subscriber
+pub fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
     let (sender, receiver) = mpsc::channel();
 
     let layer = CaptureLayer { sender };
