@@ -823,6 +823,56 @@ impl Bounded3d for Triangle3d {
     }
 }
 
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+
+impl Primitive3d for Tetrahedron {}
+
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, `[0.5, -0.5, 0.0]` and `[0.0, 0.0, 0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+                Vec3::new(0.0, 0.0, 0.5),
+            ],
+        }
+    }
+}
+
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
+    }
+
+    /// Get the area of the tetrahedron.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        let abc = ab.cross(ac).length() / 2.0
+        let abd = ab.cross(ad).length() / 2.0
+        let acd = ac.cross(ad).length() / 2.0
+        let bcd = bc.cross(bd).length() / 2.0
+        abc + abd + acd + bcd
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
