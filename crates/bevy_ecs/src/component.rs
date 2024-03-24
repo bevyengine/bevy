@@ -1,6 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
-use crate::change_detection::MutFetchItem;
+use crate::change_detection::{ChangeTicks, MutFetchItem};
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
@@ -154,13 +154,11 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+    /// Whether or not ChangeDetection is enabled
+    const CHANGE_DETECTION: bool;
     // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
     /// The type of the Fetch returned when querying for &mut T
     type WriteItem<'w>: std::ops::DerefMut<Target = Self> + MutFetchItem<'w>;
-    /// The type of the ChangeDetection component associated with this component.
-    type ChangeDetection: Component;
-    /// Whether or not ChangeDetection is enabled
-    const CHANGE_DETECTION: bool;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
@@ -582,10 +580,10 @@ impl Components {
         let change_detection_id = T::CHANGE_DETECTION
             .then(|| {
                 let change_ticks_descriptor = ComponentDescriptor {
-                    name: Cow::Borrowed(std::any::type_name::<T::ChangeDetection>()),
+                    name: Cow::Borrowed(std::any::type_name::<ChangeTicks<T>>()),
                     storage_type: T::STORAGE_TYPE,
                     is_send_and_sync: true,
-                    type_id: Some(TypeId::of::<T::ChangeDetection>()),
+                    type_id: Some(TypeId::of::<ChangeTicks<T>>()),
                     layout: Layout::new::<ComponentTicks>(),
                     drop: None,
                 };
@@ -597,7 +595,7 @@ impl Components {
                 )
             })
             .inspect(|id| {
-                indices.insert(TypeId::of::<T::ChangeDetection>(), *id);
+                indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
             });
 
         let index = Components::init_component_inner(

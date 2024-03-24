@@ -67,19 +67,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         &type_generics,
         change_detection,
     );
-    let change_detection_type = change_detection_associated_type(
-        &bevy_ecs_path,
-        &struct_name,
-        &type_generics,
-        change_detection,
-    );
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             const CHANGE_DETECTION: bool = #change_detection;
             type WriteItem<'w> = #write_item;
-            type ChangeDetection = #change_detection_type;
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
                 item
             }
@@ -150,18 +143,6 @@ fn write_item_associated_type(
     }
 }
 
-fn change_detection_associated_type(
-    bevy_ecs_path: &Path,
-    struct_name: &Ident,
-    type_generics: &TypeGenerics,
-    change_detection: bool,
-) -> TokenStream2 {
-    if change_detection {
-        quote! { #bevy_ecs_path::change_detection::ChangeTicks<#struct_name #type_generics> }
-    } else {
-        quote! { #bevy_ecs_path::change_detection::DisabledChangeTicks }
-    }
-}
 
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let storage_type = match ty {

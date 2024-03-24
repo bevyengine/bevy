@@ -1,6 +1,5 @@
 //! Types that detect when their internal data mutate.
 
-use crate as bevy_ecs;
 use crate::component::{Component, ComponentId, ComponentTicks, StorageType};
 use crate::{
     component::{Tick, TickCells},
@@ -8,7 +7,6 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -443,24 +441,6 @@ impl<'w> Ticks<'w> {
     /// # Safety
     /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
     #[inline]
-    pub(crate) unsafe fn from_unsafe_cell(
-        cells: &'w UnsafeCell<ComponentTicks>,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Self {
-        // SAFETY: Caller ensures there is no mutable access to the cell.
-        let ticks = unsafe { cells.deref() };
-        Self {
-            added: &ticks.added,
-            changed: &ticks.changed,
-            last_run,
-            this_run,
-        }
-    }
-
-    /// # Safety
-    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
-    #[inline]
     pub(crate) unsafe fn from_ptr(cells: Ptr<'w>, last_run: Tick, this_run: Tick) -> Self {
         // SAFETY: Caller ensures there is no mutable access to the cell.
         let ticks = unsafe { cells.deref::<ComponentTicks>() };
@@ -495,24 +475,6 @@ impl<'w> TicksMut<'w> {
             added: unsafe { cells.added.deref_mut() },
             // SAFETY: Caller ensures there is no alias to the cell.
             changed: unsafe { cells.changed.deref_mut() },
-            last_run,
-            this_run,
-        }
-    }
-
-    /// # Safety
-    /// This should never alias the underlying ticks. All access must be unique.
-    #[inline]
-    pub(crate) unsafe fn from_unsafe_cell(
-        cells: &'w UnsafeCell<ComponentTicks>,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Self {
-        // SAFETY: Caller ensures there is no alias to the cell.
-        let ticks = unsafe { cells.deref_mut() };
-        Self {
-            added: &mut ticks.added,
-            changed: &mut ticks.changed,
             last_run,
             this_run,
         }
@@ -556,22 +518,16 @@ impl<T: Component> Component for ChangeTicks<T> {
     const STORAGE_TYPE: StorageType = T::STORAGE_TYPE;
     const CHANGE_DETECTION: bool = false;
     type WriteItem<'w> = &'w mut ChangeTicks<T>;
-    type ChangeDetection = DisabledChangeTicks;
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort> {
         item
     }
 }
 
-/// Marker component to indicate that change detection is disabled.
-#[derive(Component, Clone)]
-#[component(change_detection = false)]
-pub struct DisabledChangeTicks;
-
 /// Stores the component's [`ComponentId`] as well as the id of the component storing the change ticks.
 #[derive(Copy, Clone, Hash, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentChangeId {
     pub(crate) component: ComponentId,
-    /// The component id of the [`Component::ChangeDetection`] type if change detection is enabled.
+    /// The component id of the associated change detection component type if change detection is enabled.
     pub(crate) change_ticks_component: Option<ComponentId>,
 }
 

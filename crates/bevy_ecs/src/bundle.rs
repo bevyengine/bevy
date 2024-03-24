@@ -6,7 +6,7 @@ pub use bevy_ecs_macros::Bundle;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 
 use crate::archetype::ComponentChangeStatus;
-use crate::change_detection::ComponentChangeId;
+use crate::change_detection::{ChangeTicks, ComponentChangeId};
 use crate::component::ComponentTicks;
 use crate::{
     archetype::{
@@ -210,7 +210,7 @@ unsafe impl<C: Component> Bundle for C {
             ComponentChangeId {
                 component: component_id,
                 change_ticks_component: C::CHANGE_DETECTION
-                    .then(|| components.init_component::<C::ChangeDetection>(storages)),
+                    .then(|| components.init_component::<ChangeTicks<C>>(storages)),
             }
         });
     }
