@@ -10,10 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_reflect,
-        serde::{ReflectDeserializer, ReflectSerializer},
-        type_registry::TypeRegistry,
-        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, Struct,
+        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
+        FromReflect, PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
@@ -187,6 +185,9 @@ mod tests {
 
     mod type_data {
         use super::*;
+        use crate::from_reflect::FromReflect;
+        use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
+        use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
         use crate::{ReflectFromReflect, TypePath};
         use alloc::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
@@ -239,10 +240,10 @@ mod tests {
         }
 
         #[derive(Reflect, Debug)]
-        #[reflect(SerializeReflect, DeserializeReflect)]
+        #[reflect(SerializeWithRegistry, DeserializeWithRegistry)]
         struct EnemyList(Vec<Arc<dyn Enemy>>);
 
-        impl SerializeReflect for EnemyList {
+        impl SerializeWithRegistry for EnemyList {
             fn serialize<S>(
                 &self,
                 serializer: S,
@@ -262,7 +263,7 @@ mod tests {
             }
         }
 
-        impl<'de> DeserializeReflect<'de> for EnemyList {
+        impl<'de> DeserializeWithRegistry<'de> for EnemyList {
             fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
             where
                 D: Deserializer<'de>,
@@ -330,7 +331,7 @@ mod tests {
         }
 
         #[test]
-        fn should_serialize_with_serialize_reflect() {
+        fn should_serialize_with_serialize_with_registry() {
             let registry = create_registry();
 
             let level = Level {
@@ -347,7 +348,7 @@ mod tests {
         }
 
         #[test]
-        fn should_deserialize_with_deserialize_reflect() {
+        fn should_deserialize_with_deserialize_with_registry() {
             let registry = create_registry();
 
             let input = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(20)}])}"#;

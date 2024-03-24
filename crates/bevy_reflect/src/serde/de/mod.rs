@@ -1,9 +1,9 @@
-pub use deserialize_reflect::*;
+pub use deserialize_with_registry::*;
 pub use deserializer::*;
 pub use registrations::*;
 
 mod arrays;
-mod deserialize_reflect;
+mod deserialize_with_registry;
 mod deserializer;
 mod enums;
 mod error_utils;

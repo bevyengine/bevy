@@ -1,6 +1,6 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
-use crate::serde::ReflectDeserializeReflect;
+use crate::serde::ReflectDeserializeWithRegistry;
 use crate::{
     serde::{
         de::{
@@ -287,7 +287,8 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 return Ok(value.into_partial_reflect());
             }
 
-            if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserializeReflect>()
+            if let Some(deserialize_reflect) =
+                self.registration.data::<ReflectDeserializeWithRegistry>()
             {
                 let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
                 return Ok(value);
