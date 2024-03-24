@@ -1,7 +1,7 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},
@@ -85,7 +85,7 @@ fn setup(
         // opposite angle to preserve the orientation of Bevy. But the angle is not the angle of the
         // texture itself, rather it is the angle at which the vertices are mapped onto the texture.
         // so it is the negative of what you might otherwise expect.
-        let segment_angle = -PI / 2.0;
+        let segment_angle = -FRAC_PI_2;
         let segment_mesh =
             CircularSegmentMeshBuilder::new(segment).uv_mode(CircularMeshUvMode::Mask {
                 angle: -segment_angle,

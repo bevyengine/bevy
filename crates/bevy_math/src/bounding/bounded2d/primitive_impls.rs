@@ -111,7 +111,7 @@ impl Bounded2d for CircularSector {
             // The circumcircle will always have a greater curvature than the circle itself, so it will contain
             // the entire circular sector.
             Triangle2d::new(
-                self.circle_center(),
+                Vec2::ZERO,
                 self.arc.left_endpoint(),
                 self.arc.right_endpoint(),
             )
@@ -427,7 +427,7 @@ impl Bounded2d for Capsule2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{PI, TAU};
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
@@ -475,7 +475,7 @@ mod tests {
             // Test case: a basic minor arc
             TestCase {
                 name: "1/6th circle untransformed",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-0.5, apothem),
@@ -486,7 +486,7 @@ mod tests {
             // Test case: a smaller arc, verifying that radius scaling works
             TestCase {
                 name: "1/6th circle with radius 0.5",
-                arc: Arc2d::from_radians(0.5, PI / 3.0),
+                arc: Arc2d::from_radians(0.5, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-0.25, apothem / 2.0),
@@ -497,7 +497,7 @@ mod tests {
             // Test case: a larger arc, verifying that radius scaling works
             TestCase {
                 name: "1/6th circle with radius 2.0",
-                arc: Arc2d::from_radians(2.0, PI / 3.0),
+                arc: Arc2d::from_radians(2.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-1.0, 2.0 * apothem),
@@ -508,7 +508,7 @@ mod tests {
             // Test case: translation of a minor arc
             TestCase {
                 name: "1/6th circle translated",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::new(2.0, 3.0),
                 rotation: 0.0,
                 aabb_min: Vec2::new(1.5, 3.0 + apothem),
@@ -519,10 +519,10 @@ mod tests {
             // Test case: rotation of a minor arc
             TestCase {
                 name: "1/6th circle rotated",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 // Rotate left by 1/12 of a circle, so the right endpoint is on the y-axis.
-                rotation: PI / 6.0,
+                rotation: FRAC_PI_6,
                 aabb_min: Vec2::new(-apothem, 0.5),
                 aabb_max: Vec2::new(0.0, 1.0),
                 // The exact coordinates here are not obvious, but can be computed by constructing
@@ -534,10 +534,10 @@ mod tests {
             // Test case: handling of axis-aligned extrema
             TestCase {
                 name: "1/4er circle rotated to be axis-aligned",
-                arc: Arc2d::from_radians(1.0, PI / 2.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_2),
                 translation: Vec2::ZERO,
                 // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
-                rotation: -PI / 4.0,
+                rotation: -FRAC_PI_4,
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
@@ -546,7 +546,7 @@ mod tests {
             // Test case: a basic major arc
             TestCase {
                 name: "5/6th circle untransformed",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-1.0, -apothem),
@@ -557,7 +557,7 @@ mod tests {
             // Test case: a translated major arc
             TestCase {
                 name: "5/6th circle translated",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::new(2.0, 3.0),
                 rotation: 0.0,
                 aabb_min: Vec2::new(1.0, 3.0 - apothem),
@@ -568,10 +568,10 @@ mod tests {
             // Test case: a rotated major arc, with inverted left/right angles
             TestCase {
                 name: "5/6th circle rotated",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::ZERO,
                 // Rotate left by 1/12 of a circle, so the left endpoint is on the y-axis.
-                rotation: PI / 6.0,
+                rotation: FRAC_PI_6,
                 aabb_min: Vec2::new(-1.0, -1.0),
                 aabb_max: Vec2::new(1.0, 1.0),
                 bounding_circle_center: Vec2::ZERO,
@@ -633,7 +633,7 @@ mod tests {
             // The remaining test cases are selected as for arc_and_segment.
             TestCase {
                 name: "1/6th circle untransformed",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-0.5, 0.0),
@@ -645,7 +645,7 @@ mod tests {
             },
             TestCase {
                 name: "1/6th circle with radius 0.5",
-                arc: Arc2d::from_radians(0.5, PI / 3.0),
+                arc: Arc2d::from_radians(0.5, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-0.25, 0.0),
@@ -655,7 +655,7 @@ mod tests {
             },
             TestCase {
                 name: "1/6th circle with radius 2.0",
-                arc: Arc2d::from_radians(2.0, PI / 3.0),
+                arc: Arc2d::from_radians(2.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-1.0, 0.0),
@@ -665,7 +665,7 @@ mod tests {
             },
             TestCase {
                 name: "1/6th circle translated",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::new(2.0, 3.0),
                 rotation: 0.0,
                 aabb_min: Vec2::new(1.5, 3.0),
@@ -675,10 +675,10 @@ mod tests {
             },
             TestCase {
                 name: "1/6th circle rotated",
-                arc: Arc2d::from_radians(1.0, PI / 3.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
                 translation: Vec2::ZERO,
                 // Rotate left by 1/12 of a circle, so the right endpoint is on the y-axis.
-                rotation: PI / 6.0,
+                rotation: FRAC_PI_6,
                 aabb_min: Vec2::new(-apothem, 0.0),
                 aabb_max: Vec2::new(0.0, 1.0),
                 // The x-coordinate is now the inradius of the equilateral triangle, which is sqrt(3)/2.
@@ -687,10 +687,10 @@ mod tests {
             },
             TestCase {
                 name: "1/4er circle rotated to be axis-aligned",
-                arc: Arc2d::from_radians(1.0, PI / 2.0),
+                arc: Arc2d::from_radians(1.0, FRAC_PI_2),
                 translation: Vec2::ZERO,
                 // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
-                rotation: -PI / 4.0,
+                rotation: -FRAC_PI_4,
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
@@ -698,7 +698,7 @@ mod tests {
             },
             TestCase {
                 name: "5/6th circle untransformed",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::ZERO,
                 rotation: 0.0,
                 aabb_min: Vec2::new(-1.0, -apothem),
@@ -708,7 +708,7 @@ mod tests {
             },
             TestCase {
                 name: "5/6th circle translated",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::new(2.0, 3.0),
                 rotation: 0.0,
                 aabb_min: Vec2::new(1.0, 3.0 - apothem),
@@ -718,10 +718,10 @@ mod tests {
             },
             TestCase {
                 name: "5/6th circle rotated",
-                arc: Arc2d::from_radians(1.0, 5.0 * PI / 3.0),
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
                 translation: Vec2::ZERO,
                 // Rotate left by 1/12 of a circle, so the left endpoint is on the y-axis.
-                rotation: PI / 6.0,
+                rotation: FRAC_PI_6,
                 aabb_min: Vec2::new(-1.0, -1.0),
                 aabb_max: Vec2::new(1.0, 1.0),
                 bounding_circle_center: Vec2::ZERO,
