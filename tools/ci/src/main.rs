@@ -224,7 +224,7 @@ fn main() {
     }
 
     if checks.contains(Check::DOC_CHECK) {
-        // Check that building docs work
+        // Check that building docs work and does not emit warnings
         let mut args = vec![
             "--workspace",
             "--all-features",
