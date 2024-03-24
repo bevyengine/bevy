@@ -735,6 +735,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod test {
     use crate::{GetTypeRegistration, ReflectFromPtr};
     use bevy_ptr::{Ptr, PtrMut};
