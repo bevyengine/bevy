@@ -143,7 +143,6 @@ fn write_item_associated_type(
     }
 }
 
-
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let storage_type = match ty {
         StorageTy::Table => Ident::new("Table", Span::call_site()),

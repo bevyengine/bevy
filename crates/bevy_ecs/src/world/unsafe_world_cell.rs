@@ -997,16 +997,23 @@ unsafe fn get_ticks(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<ComponentTicks> {
-    let change_component_id = world
-        .components()
-        .get_info_unchecked(component_id)
-        .change_detection_id()
-        .unwrap();
-    let column = world.fetch_table(location, change_component_id)?;
-    Some(
-        column
-            .get_data_slice::<ComponentTicks>()
-            .get(location.table_row.as_usize())?
-            .read(),
-    )
+    let component_info = world.components().get_info_unchecked(component_id);
+    let change_component_id = component_info.change_detection_id()?;
+    match storage_type {
+        StorageType::Table => {
+            let column = world.fetch_table(location, change_component_id)?;
+            Some(
+                column
+                    .get_data_slice::<ComponentTicks>()
+                    .get(location.table_row.as_usize())?
+                    .read(),
+            )
+        }
+        StorageType::SparseSet => {
+            let sparse_set = world.fetch_sparse_set(change_component_id)?;
+            sparse_set
+                .get(entity)
+                .map(|ptr| ptr.assert_unique().promote().read())
+        }
+    }
 }
