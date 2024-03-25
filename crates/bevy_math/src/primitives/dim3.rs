@@ -877,7 +877,7 @@ impl Tetrahedron {
         let ab = b - a;
         let ac = c - a;
         let ad = d - a;
-        ab.dot(ac.cross(ad)) / 6.0
+        ab.dot(ac.cross(ad)).abs() / 6.0
     }
 }
 
