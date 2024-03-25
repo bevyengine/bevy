@@ -38,7 +38,7 @@ pub struct AutoExposurePlugin;
 /// Component that enables auto exposure for a camera.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component)]
-pub struct AutoExposure {
+pub struct AutoExposureSettings {
     /// The minimum exposure value for the camera.
     pub min: f32,
     /// The maximum exposure value for the camera.
@@ -88,7 +88,7 @@ struct AutoExposureBuffers {
     buffers: HashMap<Entity, AutoExposureBuffer>,
 }
 
-impl Default for AutoExposure {
+impl Default for AutoExposureSettings {
     fn default() -> Self {
         Self {
             min: -8.0,
@@ -103,7 +103,7 @@ impl Default for AutoExposure {
     }
 }
 
-impl ExtractComponent for AutoExposure {
+impl ExtractComponent for AutoExposureSettings {
     type QueryData = Read<Self>;
     type QueryFilter = With<Camera>;
     type Out = Self;
@@ -122,8 +122,8 @@ impl Plugin for AutoExposurePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<AutoExposure>();
-        app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
+        app.register_type::<AutoExposureSettings>();
+        app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -174,8 +174,8 @@ impl FromWorld for AutoExposureResources {
 
 fn extract_auto_exposure_buffers(
     mut commands: Commands,
-    changed: Extract<Query<(Entity, &AutoExposure), Changed<AutoExposure>>>,
-    mut removed: Extract<RemovedComponents<AutoExposure>>,
+    changed: Extract<Query<(Entity, &AutoExposureSettings), Changed<AutoExposureSettings>>>,
+    mut removed: Extract<RemovedComponents<AutoExposureSettings>>,
 ) {
     commands.insert_resource(ExtractedAutoExposureBuffers {
         changed: changed
@@ -285,7 +285,7 @@ fn queue_view_auto_exposure_pipelines(
     pipeline: Res<AutoExposurePipeline>,
     // time: Res<Time>,
     buffers: Res<AutoExposureBuffers>,
-    view_targets: Query<(Entity, &AutoExposure)>,
+    view_targets: Query<(Entity, &AutoExposureSettings)>,
 ) {
     for (entity, auto_exposure) in view_targets.iter() {
         let histogram_pipeline =
