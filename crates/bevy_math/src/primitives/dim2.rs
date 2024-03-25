@@ -176,7 +176,7 @@ impl Annulus {
     }
 
     /// Get the perimeter or circumference of the annulus,
-    /// which is the sum of the outer and inner edges.
+    /// which is the sum of the perimeters of the inner and outer circles.
     #[inline(always)]
     #[doc(alias = "circumference")]
     pub fn perimeter(&self) -> f32 {
@@ -185,11 +185,9 @@ impl Annulus {
 
     /// Finds the point on the annulus that is closest to the given `point`:
     ///
-    /// - If the point is outside the annulus and closer to the outer perimeter
-    /// (outside the annulus completely), the returned point will be on the outer edge of the perimeter.
-    /// - If the point is outside the annulus and closer to the inner perimeter
-    /// (inside the inner circle), the returned point will be on the inner edge of the perimeter.
-    /// - Otherwise, it will be inside the annulus and returned as is.
+    /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
+    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
+    /// - Otherwise, the returned point is overlapping the annulus and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
