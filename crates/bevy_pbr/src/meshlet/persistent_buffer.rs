@@ -1,3 +1,4 @@
+
 use bevy_render::{
     render_resource::{
         BindingResource, Buffer, BufferAddress, BufferDescriptor, BufferUsages,
@@ -112,6 +113,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 /// # Safety
 /// * All data must be a multiple of `wgpu::COPY_BUFFER_ALIGNMENT` bytes.
 /// * The amount of bytes written to `buffer` in `write_bytes_le()` must match `size_in_bytes()`.
+#![allow(unsafe_code)]
 pub unsafe trait PersistentGpuBufferable {
     /// Additional metadata associated with each item, made available during `write_bytes_le`.
     type Metadata;
