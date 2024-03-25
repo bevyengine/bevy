@@ -73,9 +73,11 @@ pub struct AssetProcessorData {
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
     pub fn new(source: &mut AssetSourceBuilders) -> Self {
-        let data = Arc::new(AssetProcessorData::new(source.build_sources(true, false)));
+        let data = Arc::new(AssetProcessorData::new(
+            source.build_sources_and_watch_for_unprocessed_changes(),
+        ));
         // The asset processor uses its own asset server with its own id space
-        let mut sources = source.build_sources(false, false);
+        let mut sources = source.build_sources();
         sources.gate_on_processor(data.clone());
         let server = AssetServer::new_with_meta_check(
             sources,
