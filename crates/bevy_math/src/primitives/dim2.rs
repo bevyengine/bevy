@@ -128,6 +128,7 @@ impl Ellipse {
 /// An annulus primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Ring")]
 pub struct Annulus {
     /// The inner radius of the annulus
     pub inner_radius: f32,
