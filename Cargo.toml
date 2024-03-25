@@ -1302,6 +1302,16 @@ description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
 
+[[example]]
+name = "modify_sprite"
+path = "examples/asset/modify_sprite.rs"
+
+[package.metadata.example.modify_sprite]
+name = "Modify Sprite"
+description = "Demonstrates changing sprite texture and color at runtime"
+category = "Assets"
+wasm = true
+
 # Async Tasks
 [[example]]
 name = "async_compute"
