@@ -1349,18 +1349,18 @@ mod tests {
             "incorrect largest side"
         );
 
-        let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
         assert!(
-            common_degenerate_triangle.is_degenerate(),
+            collinear_degenerate_triangle.is_degenerate(),
             "incorrect degenerate check"
         );
         assert_eq!(
-            common_degenerate_triangle.normal(),
+            collinear_degenerate_triangle.normal(),
             Err(InvalidDirectionError::Zero),
             "incorrect normal"
         );
         assert_eq!(
-            common_degenerate_triangle.largest_side(),
+            collinear_degenerate_triangle.largest_side(),
             (Vec3::NEG_X, Vec3::X),
             "incorrect largest side"
         );
