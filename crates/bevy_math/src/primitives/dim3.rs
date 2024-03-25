@@ -813,8 +813,9 @@ impl Bounded3d for Triangle3d {
         };
 
         if let Some((p1, p2)) = side_opposite_to_non_acute {
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            segment.bounding_sphere(translation, rotation)
+            let mid_point = (p1 + p2) / 2.0;
+            let radius = mid_point.distance(p1);
+            BoundingSphere::new(mid_point + translation, radius)
         } else {
             let circumcenter = self.circumcenter();
             let radius = circumcenter.distance(a);
