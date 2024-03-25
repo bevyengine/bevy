@@ -1057,5 +1057,12 @@ mod tests {
         };
         assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
         assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+
+        assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.083333336,
+            "incorrect volume"
+        );
     }
 }
