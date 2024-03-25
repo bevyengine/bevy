@@ -814,8 +814,8 @@ mod tests {
         };
         assert_eq!(annulus.closest_point(Vec2::X * 10.0), Vec2::X * 2.0);
         assert_eq!(
-            annulus.closest_point(Vec2::NEG_ONE * 10.0),
-            Vec2::NEG_ONE.normalize() * 2.0
+            annulus.closest_point(Vec2::NEG_ONE),
+            Vec2::NEG_ONE.normalize() * 1.5
         );
         assert_eq!(
             annulus.closest_point(Vec2::new(1.55, 0.85)),
