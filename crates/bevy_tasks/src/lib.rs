@@ -1,5 +1,9 @@
-#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
@@ -31,6 +35,7 @@ pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
+pub use futures_lite::future::poll_once;
 
 mod iter;
 pub use iter::ParallelIterator;

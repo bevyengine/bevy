@@ -1,3 +1,4 @@
+use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
@@ -21,6 +22,10 @@ pub struct Camera2d;
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
+    /// Note: default value for `OrthographicProjection.near` is `0.0`
+    /// which makes objects on the screen plane invisible to 2D camera.
+    /// `Camera2dBundle::default()` sets `near` to negative value,
+    /// so be careful when initializing this field manually.
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
@@ -40,16 +45,9 @@ impl Default for Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::default();
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -79,16 +77,9 @@ impl Camera2dBundle {
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        let frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation,
-            &transform.back(),
-            projection.far(),
-        );
+        let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,

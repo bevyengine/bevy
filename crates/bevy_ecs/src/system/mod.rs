@@ -114,7 +114,7 @@ mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 pub use adapter_system::*;
 pub use combinator::*;
@@ -194,6 +194,12 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let system = Self::into_system(self);
         let name = system.name();
         AdapterSystem::new(f, system, name)
+    }
+
+    /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
+    #[inline]
+    fn system_type_id(&self) -> TypeId {
+        TypeId::of::<Self::System>()
     }
 }
 
@@ -393,64 +399,6 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);
-    }
-
-    #[test]
-    fn query_system_gets() {
-        fn query_system(
-            mut ran: ResMut<SystemRan>,
-            entity_query: Query<Entity, With<A>>,
-            b_query: Query<&B>,
-            a_c_query: Query<(&A, &C)>,
-            d_query: Query<&D>,
-        ) {
-            let entities = entity_query.iter().collect::<Vec<Entity>>();
-            assert!(
-                b_query.get_component::<B>(entities[0]).is_err(),
-                "entity 0 should not have B"
-            );
-            assert!(
-                b_query.get_component::<B>(entities[1]).is_ok(),
-                "entity 1 should have B"
-            );
-            assert!(
-                b_query.get_component::<A>(entities[1]).is_err(),
-                "entity 1 should have A, but b_query shouldn't have access to it"
-            );
-            assert!(
-                b_query.get_component::<D>(entities[3]).is_err(),
-                "entity 3 should have D, but it shouldn't be accessible from b_query"
-            );
-            assert!(
-                b_query.get_component::<C>(entities[2]).is_err(),
-                "entity 2 has C, but it shouldn't be accessible from b_query"
-            );
-            assert!(
-                a_c_query.get_component::<C>(entities[2]).is_ok(),
-                "entity 2 has C, and it should be accessible from a_c_query"
-            );
-            assert!(
-                a_c_query.get_component::<D>(entities[3]).is_err(),
-                "entity 3 should have D, but it shouldn't be accessible from b_query"
-            );
-            assert!(
-                d_query.get_component::<D>(entities[3]).is_ok(),
-                "entity 3 should have D"
-            );
-
-            *ran = SystemRan::Yes;
-        }
-
-        let mut world = World::default();
-        world.insert_resource(SystemRan::No);
-        world.spawn(A);
-        world.spawn((A, B));
-        world.spawn((A, C));
-        world.spawn((A, D));
-
-        run_system(&mut world, query_system);
-
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
@@ -896,7 +844,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
+        #[allow(dead_code)]
         struct NotSend1(std::rc::Rc<i32>);
+        #[allow(dead_code)]
         struct NotSend2(std::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
@@ -919,7 +869,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
+        #[allow(dead_code)]
         struct NotSend1(std::rc::Rc<i32>);
+        #[allow(dead_code)]
         struct NotSend2(std::rc::Rc<i32>);
 
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
@@ -1555,21 +1507,6 @@ mod tests {
     }
 
     #[test]
-    fn readonly_query_get_mut_component_fails() {
-        use crate::query::QueryComponentError;
-
-        let mut world = World::new();
-        let entity = world.spawn(W(42u32)).id();
-        run_system(&mut world, move |q: Query<&mut W<u32>>| {
-            let mut rq = q.to_readonly();
-            assert_eq!(
-                QueryComponentError::MissingWriteAccess,
-                rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
-            );
-        });
-    }
-
-    #[test]
     #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();
@@ -1582,7 +1519,6 @@ mod tests {
                 &qstate,
                 Tick::new(0),
                 Tick::new(0),
-                false,
             )
         };
         query.iter();

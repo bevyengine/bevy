@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -27,7 +27,7 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
@@ -95,23 +95,23 @@ impl Plugin for FxaaPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(CORE_3D, core_3d::graph::node::FXAA)
+            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core3d, Node3d::Fxaa)
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    core_3d::graph::node::TONEMAPPING,
-                    core_3d::graph::node::FXAA,
-                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                ],
+                Core3d,
+                (
+                    Node3d::Tonemapping,
+                    Node3d::Fxaa,
+                    Node3d::EndMainPassPostProcessing,
+                ),
             )
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(CORE_2D, core_2d::graph::node::FXAA)
+            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core2d, Node2d::Fxaa)
             .add_render_graph_edges(
-                CORE_2D,
-                &[
-                    core_2d::graph::node::TONEMAPPING,
-                    core_2d::graph::node::FXAA,
-                    core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                ],
+                Core2d,
+                (
+                    Node2d::Tonemapping,
+                    Node2d::Fxaa,
+                    Node2d::EndMainPassPostProcessing,
+                ),
             );
     }
 

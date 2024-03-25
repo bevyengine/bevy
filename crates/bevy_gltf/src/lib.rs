@@ -1,9 +1,13 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
-
-#![warn(missing_docs)]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -28,7 +32,7 @@ use bevy_scene::Scene;
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 impl GltfPlugin {
@@ -42,8 +46,7 @@ impl GltfPlugin {
         name: &str,
         attribute: MeshVertexAttribute,
     ) -> Self {
-        self.custom_vertex_attributes
-            .insert(name.to_string(), attribute);
+        self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 }
@@ -77,19 +80,19 @@ pub struct Gltf {
     /// All scenes loaded from the glTF file.
     pub scenes: Vec<Handle<Scene>>,
     /// Named scenes loaded from the glTF file.
-    pub named_scenes: HashMap<String, Handle<Scene>>,
+    pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
     /// All meshes loaded from the glTF file.
     pub meshes: Vec<Handle<GltfMesh>>,
     /// Named meshes loaded from the glTF file.
-    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
+    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
     /// All materials loaded from the glTF file.
     pub materials: Vec<Handle<StandardMaterial>>,
     /// Named materials loaded from the glTF file.
-    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
+    pub named_materials: HashMap<Box<str>, Handle<StandardMaterial>>,
     /// All nodes loaded from the glTF file.
     pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
-    pub named_nodes: HashMap<String, Handle<GltfNode>>,
+    pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
     /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
     /// All animations loaded from the glTF file.
@@ -97,7 +100,7 @@ pub struct Gltf {
     pub animations: Vec<Handle<AnimationClip>>,
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
-    pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    pub named_animations: HashMap<Box<str>, Handle<AnimationClip>>,
     /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
     pub source: Option<gltf::Gltf>,
 }

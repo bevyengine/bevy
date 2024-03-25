@@ -1,15 +1,12 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, generate_bodies)
         .add_systems(FixedUpdate, (interact_bodies, integrate))
@@ -38,23 +35,17 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
-    time: Res<Time>,
+    time: Res<Time<Fixed>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 1.0,
-            subdivisions: 3,
-        })
-        .unwrap(),
-    );
+    let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;
@@ -76,7 +67,7 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(Color::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
@@ -91,7 +82,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * time.delta_seconds(),
+                    ) * time.timestep().as_secs_f32(),
             ),
         });
     }
@@ -103,16 +94,10 @@ fn generate_bodies(
             BodyBundle {
                 pbr: PbrBundle {
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(
-                        Mesh::try_from(shape::Icosphere {
-                            radius: 1.0,
-                            subdivisions: 5,
-                        })
-                        .unwrap(),
-                    ),
+                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
-                        base_color: Color::ORANGE_RED,
-                        emissive: (Color::ORANGE_RED * 18.),
+                        base_color: ORANGE_RED.into(),
+                        emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
                         ..default()
                     }),
                     ..default()
@@ -126,7 +111,6 @@ fn generate_bodies(
             p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    intensity: 100_000.0,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

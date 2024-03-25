@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
+use bevy_app::{App, AppExit, AppLabel, Main, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
@@ -17,13 +17,53 @@ use crate::RenderApp;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderExtractApp;
 
-/// Channel to send the render app from the main thread to the rendering thread
+/// Channels used by the main app to send and receive the render app.
 #[derive(Resource)]
-pub struct MainToRenderAppSender(pub Sender<SubApp>);
+pub struct RenderAppChannels {
+    app_to_render_sender: Sender<SubApp>,
+    render_to_app_receiver: Receiver<SubApp>,
+    render_app_in_render_thread: bool,
+}
 
-/// Channel to send the render app from the render thread to the main thread
-#[derive(Resource)]
-pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
+impl RenderAppChannels {
+    /// Create a `RenderAppChannels` from a [`async_channel::Receiver`] and [`async_channel::Sender`]
+    pub fn new(
+        app_to_render_sender: Sender<SubApp>,
+        render_to_app_receiver: Receiver<SubApp>,
+    ) -> Self {
+        Self {
+            app_to_render_sender,
+            render_to_app_receiver,
+            render_app_in_render_thread: false,
+        }
+    }
+
+    /// Send the `render_app` to the rendering thread.
+    pub fn send_blocking(&mut self, render_app: SubApp) {
+        self.app_to_render_sender.send_blocking(render_app).unwrap();
+        self.render_app_in_render_thread = true;
+    }
+
+    /// Receive the `render_app` from the rendering thread.
+    /// Return `None` if the render thread has panicked.
+    pub async fn recv(&mut self) -> Option<SubApp> {
+        let render_app = self.render_to_app_receiver.recv().await.ok()?;
+        self.render_app_in_render_thread = false;
+        Some(render_app)
+    }
+}
+
+impl Drop for RenderAppChannels {
+    fn drop(&mut self) {
+        if self.render_app_in_render_thread {
+            // Any non-send data in the render world was initialized on the main thread.
+            // So on dropping the main world and ending the app, we block and wait for
+            // the render world to return to drop it. Which allows the non-send data
+            // drop methods to run on the correct thread.
+            self.render_to_app_receiver.recv_blocking().ok();
+        }
+    }
+}
 
 /// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
 /// This moves rendering into a different thread, so that the Nth frame's rendering can
@@ -96,8 +136,10 @@ impl Plugin for PipelinedRenderingPlugin {
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 
-        app.insert_resource(MainToRenderAppSender(app_to_render_sender));
-        app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
+        app.insert_resource(RenderAppChannels::new(
+            app_to_render_sender,
+            render_to_app_receiver,
+        ));
 
         std::thread::spawn(move || {
             #[cfg(feature = "trace")]
@@ -136,21 +178,23 @@ impl Plugin for PipelinedRenderingPlugin {
 // runs extract, and then sends the rendering world back to the render thread.
 fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
-        // we use a scope here to run any main thread tasks that the render world still needs to run
-        // while we wait for the render world to be received.
-        let mut render_app = ComputeTaskPool::get()
-            .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
-                s.spawn(async {
-                    let receiver = world.get_resource::<RenderToMainAppReceiver>().unwrap();
-                    receiver.0.recv().await.unwrap()
-                });
-            })
-            .pop()
-            .unwrap();
+        world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
+            // we use a scope here to run any main thread tasks that the render world still needs to run
+            // while we wait for the render world to be received.
+            if let Some(mut render_app) = ComputeTaskPool::get()
+                .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
+                    s.spawn(async { render_channels.recv().await });
+                })
+                .pop()
+                .unwrap()
+            {
+                render_app.extract(world);
 
-        render_app.extract(world);
-
-        let sender = world.resource::<MainToRenderAppSender>();
-        sender.0.send_blocking(render_app).unwrap();
+                render_channels.send_blocking(render_app);
+            } else {
+                // Renderer thread panicked
+                world.send_event(AppExit);
+            }
+        });
     });
 }

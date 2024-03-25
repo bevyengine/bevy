@@ -6,7 +6,7 @@ use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::render_asset::{RenderAssetPersistencePolicy, RenderAssets};
+use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
 use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
@@ -14,6 +14,8 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+#[cfg(not(feature = "tonemapping_luts"))]
+use bevy_utils::tracing::error;
 
 mod node;
 
@@ -199,7 +201,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
             Tonemapping::AgX => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -211,7 +213,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::TonyMcMapface => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -220,7 +222,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::BlenderFilmic => {
                 #[cfg(not(feature = "tonemapping_luts"))]
-                bevy_log::error!(
+                error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
                     or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
@@ -355,12 +357,14 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         ..default()
     });
     Image::from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))]
+        "Tonemapping LUT sampler".to_string(),
         bytes,
         image_type,
         CompressedImageFormats::NONE,
         false,
         image_sampler,
-        RenderAssetPersistencePolicy::Unload,
+        RenderAssetUsages::RENDER_WORLD,
     )
     .unwrap()
 }
@@ -386,6 +390,6 @@ pub fn lut_placeholder() -> Image {
         },
         sampler: ImageSampler::Default,
         texture_view_descriptor: None,
-        cpu_persistent_access: RenderAssetPersistencePolicy::Unload,
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
     }
 }

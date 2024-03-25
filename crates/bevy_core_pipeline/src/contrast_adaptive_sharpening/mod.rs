@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -124,31 +124,37 @@ impl Plugin for CASPlugin {
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_3D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_3D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CASNode>(Core3d, Node3d::ContrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    Core3d,
+                    Node3d::Tonemapping,
+                    Node3d::ContrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_3D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    Core3d,
+                    (
+                        Node3d::Fxaa,
+                        Node3d::ContrastAdaptiveSharpening,
+                        Node3d::EndMainPassPostProcessing,
+                    ),
                 );
         }
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_2D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_2D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CASNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    Core2d,
+                    Node2d::Tonemapping,
+                    Node2d::ContrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_2D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    Core2d,
+                    (
+                        Node2d::Fxaa,
+                        Node2d::ContrastAdaptiveSharpening,
+                        Node2d::EndMainPassPostProcessing,
+                    ),
                 );
         }
     }

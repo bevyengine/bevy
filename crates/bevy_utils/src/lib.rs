@@ -1,9 +1,13 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
-
-#![warn(missing_docs)]
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -17,53 +21,60 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
-pub mod uuid;
-
 mod cow_arc;
 mod default;
 mod float_ord;
 pub mod intern;
 mod once;
+mod parallel_queue;
 
-pub use crate::uuid::Uuid;
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
-pub use petgraph;
-pub use smallvec;
-pub use thiserror;
+pub use parallel_queue::*;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
-#[allow(missing_docs)]
-pub mod nonmax {
-    pub use nonmax::*;
-}
-
 use hashbrown::hash_map::RawEntryMut;
 use std::{
+    any::TypeId,
     fmt::Debug,
-    future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin,
 };
 
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
 #[cfg(not(target_arch = "wasm32"))]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+mod conditional_send {
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. WASM),
+    /// futures aren't Send.
+    pub trait ConditionalSend: Send {}
+    impl<T: Send> ConditionalSend for T {}
+}
 
-#[allow(missing_docs)]
 #[cfg(target_arch = "wasm32")]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+#[allow(missing_docs)]
+mod conditional_send {
+    pub trait ConditionalSend {}
+    impl<T> ConditionalSend for T {}
+}
+
+pub use conditional_send::*;
+
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. WASM),
+/// futures aren't Send.
+pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
+impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+
+/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefault<AHasher>>;
+pub type Entry<'a, K, V, S = BuildHasherDefault<AHasher>> = hashbrown::hash_map::Entry<'a, K, V, S>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
@@ -88,30 +99,44 @@ impl BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashMap`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashMap<K, V, FixedState>"
+)]
 pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
 /// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashSet`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashSet`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashSet<K, FixedState>"
+)]
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
@@ -225,6 +250,7 @@ impl Hasher for PassHasher {
 }
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
 /// Extension methods intended to add functionality to [`PreHashMap`].
@@ -323,10 +349,52 @@ impl Hasher for EntityHasher {
 }
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
+
+/// A specialized hashmap type with Key of [`TypeId`]
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpHash>;
+
+/// [`BuildHasher`] for types that already contain a high-quality hash.
+#[derive(Clone, Default)]
+pub struct NoOpHash;
+
+impl BuildHasher for NoOpHash {
+    type Hasher = NoOpHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        NoOpHasher(0)
+    }
+}
+
+#[doc(hidden)]
+pub struct NoOpHasher(u64);
+
+// This is for types that already contain a high-quality hash and want to skip
+// re-hashing that hash.
+impl std::hash::Hasher for NoOpHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // This should never be called by consumers. Prefer to call `write_u64` instead.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
+    }
+}
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
@@ -423,6 +491,36 @@ mod tests {
     use static_assertions::assert_impl_all;
 
     // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<u64, usize>: Clone);
     assert_impl_all!(PreHashMap::<u64, usize>: Clone);
+
+    #[test]
+    fn fast_typeid_hash() {
+        struct Hasher;
+
+        impl std::hash::Hasher for Hasher {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, _: &[u8]) {
+                panic!("Hashing of std::any::TypeId changed");
+            }
+            fn write_u64(&mut self, _: u64) {}
+        }
+
+        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+    }
+
+    #[test]
+    fn stable_hash_within_same_program_execution() {
+        let mut map_1 = HashMap::new();
+        let mut map_2 = HashMap::new();
+        for i in 1..10 {
+            map_1.insert(i, i);
+            map_2.insert(i, i);
+        }
+        assert_eq!(
+            map_1.iter().collect::<Vec<_>>(),
+            map_2.iter().collect::<Vec<_>>()
+        );
+    }
 }

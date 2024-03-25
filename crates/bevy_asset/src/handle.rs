@@ -3,8 +3,8 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::{get_short_name, Uuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_utils::get_short_name;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
@@ -23,6 +24,7 @@ pub struct AssetHandleProvider {
     pub(crate) type_id: TypeId,
 }
 
+#[derive(Debug)]
 pub(crate) struct DropEvent {
     pub(crate) id: InternalAssetId,
     pub(crate) asset_server_managed: bool,
@@ -121,8 +123,7 @@ impl std::fmt::Debug for StrongHandle {
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Component, Reflect)]
-#[reflect(Component)]
-#[reflect(where A: Asset)]
+#[reflect(Default, Component, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -248,24 +249,10 @@ impl<A: Asset> PartialEq for Handle<A> {
 
 impl<A: Asset> Eq for Handle<A> {}
 
-impl<A: Asset> From<Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id()
-    }
-}
-
 impl<A: Asset> From<&Handle<A>> for AssetId<A> {
     #[inline]
     fn from(value: &Handle<A>) -> Self {
         value.id()
-    }
-}
-
-impl<A: Asset> From<Handle<A>> for UntypedAssetId {
-    #[inline]
-    fn from(value: Handle<A>) -> Self {
-        value.id().into()
     }
 }
 
@@ -428,13 +415,6 @@ impl PartialOrd for UntypedHandle {
     }
 }
 
-impl From<UntypedHandle> for UntypedAssetId {
-    #[inline]
-    fn from(value: UntypedHandle) -> Self {
-        value.id()
-    }
-}
-
 impl From<&UntypedHandle> for UntypedAssetId {
     #[inline]
     fn from(value: &UntypedHandle) -> Self {
@@ -508,13 +488,13 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
     }
 }
 
-/// Errors preventing the conversion of to/from an [`UntypedHandle`] and an [`Handle`].
+/// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
 #[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetConversionError {
-    /// Caused when trying to convert an [`UntypedHandle`] into an [`Handle`] of the wrong type.
+    /// Caused when trying to convert an [`UntypedHandle`] into a [`Handle`] of the wrong type.
     #[error(
-        "This UntypedHandle is for {found:?} and cannot be converted into an Handle<{expected:?}>"
+        "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
     TypeIdMismatch { expected: TypeId, found: TypeId },
 }

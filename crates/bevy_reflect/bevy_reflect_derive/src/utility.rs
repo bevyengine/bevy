@@ -5,9 +5,11 @@ use bevy_macro_utils::{
     fq_std::{FQAny, FQOption, FQSend, FQSync},
     BevyManifest,
 };
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, LitStr, Member, Path, WhereClause};
+use syn::parse::{Parse, ParseStream, Peek};
+use syn::punctuated::Punctuated;
+use syn::{spanned::Spanned, LitStr, Member, Path, Token, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -69,64 +71,36 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 /// Options defining how to extend the `where` clause for reflection.
 pub(crate) struct WhereClauseOptions<'a, 'b> {
     meta: &'a ReflectMeta<'b>,
-    additional_bounds: proc_macro2::TokenStream,
-    required_bounds: proc_macro2::TokenStream,
+    active_fields: Box<[Type]>,
 }
 
 impl<'a, 'b> WhereClauseOptions<'a, 'b> {
-    /// Create [`WhereClauseOptions`] for a reflected struct or enum type.
     pub fn new(meta: &'a ReflectMeta<'b>) -> Self {
-        let bevy_reflect_path = meta.bevy_reflect_path();
-
-        let active_bound = if meta.from_reflect().should_auto_derive() {
-            quote!(#bevy_reflect_path::FromReflect)
-        } else {
-            quote!(#bevy_reflect_path::Reflect)
-        };
-
-        let type_path_bound = if meta.traits().type_path_attrs().should_auto_derive() {
-            Some(quote!(#bevy_reflect_path::TypePath +))
-        } else {
-            None
-        };
-
         Self {
             meta,
-            additional_bounds: quote!(#type_path_bound #active_bound),
-            required_bounds: quote!(#type_path_bound #FQAny + #FQSend + #FQSync),
+            active_fields: Box::new([]),
         }
     }
 
-    /// Create [`WhereClauseOptions`] with the minimum bounds needed to fulfill `TypePath`.
-    pub fn new_type_path(meta: &'a ReflectMeta<'b>) -> Self {
-        let bevy_reflect_path = meta.bevy_reflect_path();
-
+    pub fn new_with_fields(meta: &'a ReflectMeta<'b>, active_fields: Box<[Type]>) -> Self {
         Self {
             meta,
-            additional_bounds: quote!(#bevy_reflect_path::TypePath),
-            required_bounds: quote!(#bevy_reflect_path::TypePath + #FQAny + #FQSend + #FQSync),
+            active_fields,
         }
     }
 
-    /// Extends the `where` clause in reflection with additional bounds needed for reflection.
+    /// Extends the `where` clause for a type with additional bounds needed for the reflection impls.
     ///
-    /// This will only add bounds for generic type parameters.
+    /// The default bounds added are as follows:
+    /// - `Self` has the bounds `Any + Send + Sync`
+    /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
+    /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
+    ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
     ///
-    /// If the container has a `#[reflect(where)]` attribute,
-    /// this method will extend the type parameters with the _required_ bounds.
-    /// If the attribute is not present, it will extend the type parameters with the _additional_ bounds.
-    ///
-    /// The required bounds are the minimum bounds needed for a type to be reflected.
-    /// These include `TypePath`, `Any`, `Send`, and `Sync`.
-    ///
-    /// The additional bounds are added bounds used to enforce that a generic type parameter
-    /// is itself reflectable.
-    /// These include `Reflect` and `FromReflect`, as well as `TypePath`.
+    /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
     ///
     /// # Example
     ///
-    /// Take the following struct:
-    ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// #[derive(Reflect)]
     /// struct Foo<T, U> {
@@ -136,82 +110,149 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// }
     /// ```
     ///
-    /// It has type parameters `T` and `U`.
-    ///
-    /// Since there is no `#[reflect(where)]` attribute, this method will extend the type parameters
-    /// with the additional bounds:
+    /// Generates the following where clause:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// where
-    ///   T: FromReflect + TypePath, // additional bounds
-    ///   U: FromReflect + TypePath, // additional bounds
+    ///   // `Self` bounds:
+    ///   Self: Any + Send + Sync,
+    ///   // Type parameter bounds:
+    ///   T: TypePath,
+    ///   U: TypePath,
+    ///   // Field bounds
+    ///   T: FromReflect + TypePath,
     /// ```
     ///
-    /// If we had this struct:
-    /// ```ignore (bevy_reflect is not accessible from this crate)
-    /// #[derive(Reflect)]
-    /// #[reflect(where T: FromReflect + Default)]
-    /// struct Foo<T, U> {
-    ///   a: T,
-    ///   #[reflect(ignore)]
-    ///   b: U
-    /// }
-    /// ```
-    ///
-    /// Since there is a `#[reflect(where)]` attribute, this method will extend the type parameters
-    /// with _just_ the required bounds along with the predicates specified in the attribute:
+    /// If we had added `#[reflect(where T: MyTrait)]` to the type, it would instead generate:
     ///
     /// ```ignore (bevy_reflect is not accessible from this crate)
     /// where
-    ///   T: FromReflect + Default, // predicates from attribute
-    ///   T: TypePath + Any + Send + Sync, // required bounds
-    ///   U: TypePath + Any + Send + Sync, // required bounds
+    ///   // `Self` bounds:
+    ///   Self: Any + Send + Sync,
+    ///   // Type parameter bounds:
+    ///   T: TypePath,
+    ///   U: TypePath,
+    ///   // Field bounds
+    ///   T: FromReflect + TypePath,
+    ///   // Custom bounds
+    ///   T: MyTrait,
+    /// ```
+    ///
+    /// And if we also added `#[reflect(no_field_bounds)]` to the type, it would instead generate:
+    ///
+    /// ```ignore (bevy_reflect is not accessible from this crate)
+    /// where
+    ///   // `Self` bounds:
+    ///   Self: Any + Send + Sync,
+    ///   // Type parameter bounds:
+    ///   T: TypePath,
+    ///   U: TypePath,
+    ///   // Custom bounds
+    ///   T: MyTrait,
     /// ```
     pub fn extend_where_clause(
         &self,
         where_clause: Option<&WhereClause>,
     ) -> proc_macro2::TokenStream {
+        let required_bounds = self.required_bounds();
         // Maintain existing where clause, if any.
         let mut generic_where_clause = if let Some(where_clause) = where_clause {
             let predicates = where_clause.predicates.iter();
-            quote! {where Self: 'static, #(#predicates,)*}
+            quote! {where Self: #required_bounds, #(#predicates,)*}
         } else {
-            quote!(where Self: 'static,)
+            quote!(where Self: #required_bounds,)
         };
 
         // Add additional reflection trait bounds
-        let types = self.type_param_idents();
-        let custom_where = self
-            .meta
-            .traits()
-            .custom_where()
-            .map(|clause| &clause.predicates);
-        let trait_bounds = self.trait_bounds();
-
+        let predicates = self.predicates();
         generic_where_clause.extend(quote! {
-            #(#types: #trait_bounds,)*
-            #custom_where
+            #predicates
         });
 
         generic_where_clause
     }
 
-    /// Returns the trait bounds to use for all type parameters.
-    fn trait_bounds(&self) -> &proc_macro2::TokenStream {
-        if self.meta.traits().custom_where().is_some() {
-            &self.required_bounds
+    /// Returns an iterator the where clause predicates to extended the where clause with.
+    fn predicates(&self) -> Punctuated<TokenStream, Token![,]> {
+        let mut predicates = Punctuated::new();
+
+        if let Some(type_param_predicates) = self.type_param_predicates() {
+            predicates.extend(type_param_predicates);
+        }
+
+        if let Some(field_predicates) = self.active_field_predicates() {
+            predicates.extend(field_predicates);
+        }
+
+        if let Some(custom_where) = self.meta.attrs().custom_where() {
+            predicates.push(custom_where.predicates.to_token_stream());
+        }
+
+        predicates
+    }
+
+    /// Returns an iterator over the where clause predicates for the type parameters
+    /// if they require one.
+    fn type_param_predicates(&self) -> Option<impl Iterator<Item = TokenStream> + '_> {
+        self.type_path_bound().map(|type_path_bound| {
+            self.meta
+                .type_path()
+                .generics()
+                .type_params()
+                .map(move |param| {
+                    let ident = &param.ident;
+
+                    quote!(#ident : #type_path_bound)
+                })
+        })
+    }
+
+    /// Returns an iterator over the where clause predicates for the active fields.
+    fn active_field_predicates(&self) -> Option<impl Iterator<Item = TokenStream> + '_> {
+        if self.meta.attrs().no_field_bounds() {
+            None
         } else {
-            &self.additional_bounds
+            let bevy_reflect_path = self.meta.bevy_reflect_path();
+            let reflect_bound = self.reflect_bound();
+
+            // `TypePath` is always required for active fields since they are used to
+            // construct `NamedField` and `UnnamedField` instances for the `Typed` impl.
+            // Likewise, `GetTypeRegistration` is always required for active fields since
+            // they are used to register the type's dependencies.
+            Some(self.active_fields.iter().map(move |ty| {
+                quote!(
+                    #ty : #reflect_bound
+                        + #bevy_reflect_path::TypePath
+                        + #bevy_reflect_path::__macro_exports::RegisterForReflection
+                )
+            }))
         }
     }
 
-    /// Returns an iterator of the type parameter idents for the reflected type.
-    fn type_param_idents(&self) -> impl Iterator<Item = &Ident> {
-        self.meta
-            .type_path()
-            .generics()
-            .type_params()
-            .map(|param| &param.ident)
+    /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    fn reflect_bound(&self) -> TokenStream {
+        let bevy_reflect_path = self.meta.bevy_reflect_path();
+
+        if self.meta.from_reflect().should_auto_derive() {
+            quote!(#bevy_reflect_path::FromReflect)
+        } else {
+            quote!(#bevy_reflect_path::Reflect)
+        }
+    }
+
+    /// The `TypePath` bounds to use based on `#[reflect(type_path = false)]`.
+    fn type_path_bound(&self) -> Option<TokenStream> {
+        if self.meta.type_path_attrs().should_auto_derive() {
+            let bevy_reflect_path = self.meta.bevy_reflect_path();
+            Some(quote!(#bevy_reflect_path::TypePath))
+        } else {
+            None
+        }
+    }
+
+    /// The minimum required bounds for a type to be reflected.
+    fn required_bounds(&self) -> proc_macro2::TokenStream {
+        quote!(#FQAny + #FQSend + #FQSync)
     }
 }
 
@@ -367,5 +408,39 @@ impl FromIterator<StringExpr> for StringExpr {
             }
             None => Default::default(),
         }
+    }
+}
+
+/// Returns a [`syn::parse::Parser`] which parses a stream of zero or more occurrences of `T`
+/// separated by punctuation of type `P`, with optional trailing punctuation.
+///
+/// This is functionally the same as [`Punctuated::parse_terminated`],
+/// but accepts a closure rather than a function pointer.
+pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+    terminator: P,
+    mut parser: F,
+) -> impl FnOnce(ParseStream) -> syn::Result<Punctuated<T, P::Token>>
+where
+    P: Peek,
+    P::Token: Parse,
+{
+    let _ = terminator;
+    move |stream: ParseStream| {
+        let mut punctuated = Punctuated::new();
+
+        loop {
+            if stream.is_empty() {
+                break;
+            }
+            let value = parser(stream)?;
+            punctuated.push_value(value);
+            if stream.is_empty() {
+                break;
+            }
+            let punct = stream.parse()?;
+            punctuated.push_punct(punct);
+        }
+
+        Ok(punctuated)
     }
 }

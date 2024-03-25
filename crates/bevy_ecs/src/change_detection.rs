@@ -427,8 +427,10 @@ impl<'w> Ticks<'w> {
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref(),
-            changed: cells.changed.deref(),
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            added: unsafe { cells.added.deref() },
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            changed: unsafe { cells.changed.deref() },
             last_run,
             this_run,
         }
@@ -452,8 +454,10 @@ impl<'w> TicksMut<'w> {
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
+            // SAFETY: Caller ensures there is no alias to the cell.
+            added: unsafe { cells.added.deref_mut() },
+            // SAFETY: Caller ensures there is no alias to the cell.
+            changed: unsafe { cells.changed.deref_mut() },
             last_run,
             this_run,
         }
@@ -711,7 +715,7 @@ where
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component
+/// Unique mutable borrow of an entity's component or of a resource.
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -879,7 +883,8 @@ impl<'w> MutUntyped<'w> {
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
     pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
         Mut {
-            value: self.value.deref_mut(),
+            // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
+            value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
         }
     }
@@ -930,6 +935,15 @@ impl std::fmt::Debug for MutUntyped<'_> {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
+    }
+}
+
+impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
+    fn from(value: Mut<'w, T>) -> Self {
+        MutUntyped {
+            value: value.value.into(),
+            ticks: value.ticks,
+        }
     }
 }
 
@@ -1248,5 +1262,30 @@ mod tests {
         new.reflect_mut();
 
         assert!(new.is_changed());
+    }
+
+    #[test]
+    fn mut_untyped_from_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run: Tick::new(3),
+            this_run: Tick::new(4),
+        };
+        let mut c = C {};
+        let mut_typed = Mut {
+            value: &mut c,
+            ticks,
+        };
+
+        let into_mut: MutUntyped = mut_typed.into();
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 }

@@ -1,3 +1,11 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Provides 2D sprite rendering functionality.
 mod bundle;
 mod dynamic_texture_atlas_builder;
@@ -8,15 +16,17 @@ mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
-pub mod collide_aabb;
-
 pub mod prelude {
+    #[allow(deprecated)]
+    #[doc(hidden)]
+    pub use crate::bundle::SpriteSheetBundle;
+
     #[doc(hidden)]
     pub use crate::{
-        bundle::{SpriteBundle, SpriteSheetBundle},
+        bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
-        texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -123,7 +133,6 @@ impl Plugin for SpritePlugin {
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2dHandle` component,
 /// - a `Sprite` and `Handle<Image>` components,
-/// - a `TextureAtlasSprite` and `Handle<TextureAtlas>` components,
 /// and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
@@ -136,7 +145,7 @@ pub fn calculate_bounds_2d(
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -153,7 +162,9 @@ pub fn calculate_bounds_2d(
             // We default to the texture size for regular sprites
             None => images.get(texture_handle).map(|image| image.size_f32()),
             // We default to the drawn rect for atlas sprites
-            Some(atlas) => atlas.texture_rect(&atlases).map(|rect| rect.size()),
+            Some(atlas) => atlas
+                .texture_rect(&atlases)
+                .map(|rect| rect.size().as_vec2()),
         }) {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
@@ -189,7 +200,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app.world.spawn((Sprite::default(), image_handle)).id();
 
         // Verify that the entity does not have an AABB
@@ -227,7 +238,7 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app
             .world
             .spawn((

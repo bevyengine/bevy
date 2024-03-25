@@ -1,5 +1,9 @@
-#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 /// Common run conditions
 pub mod common_conditions;
@@ -25,7 +29,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{event_queue_update_system, EventUpdateSignal};
+use bevy_ecs::event::{signal_event_update_system, EventUpdateSignal, EventUpdates};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
@@ -52,7 +56,6 @@ impl Plugin for TimePlugin {
             .register_type::<Time<Virtual>>()
             .register_type::<Time<Fixed>>()
             .register_type::<Timer>()
-            .register_type::<Stopwatch>()
             .add_systems(
                 First,
                 (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
@@ -61,20 +64,11 @@ impl Plugin for TimePlugin {
 
         // ensure the events are not dropped until `FixedMain` systems can observe them
         app.init_resource::<EventUpdateSignal>()
-            .add_systems(FixedPostUpdate, event_queue_update_system);
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if let Some(ci_testing_config) = app
-            .world
-            .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            if let Some(frame_time) = ci_testing_config.frame_time {
-                app.world
-                    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                        frame_time,
-                    )));
-            }
-        }
+            .add_systems(
+                First,
+                bevy_ecs::event::reset_event_update_signal_system.after(EventUpdates),
+            )
+            .add_systems(FixedPostUpdate, signal_event_update_system);
     }
 }
 
@@ -140,5 +134,67 @@ fn time_system(
         TimeUpdateStrategy::Automatic => time.update_with_instant(new_time),
         TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => time.update_with_duration(*duration),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
+    use bevy_app::{App, Startup, Update};
+    use bevy_ecs::event::{Event, EventReader, EventWriter};
+    use std::error::Error;
+
+    #[derive(Event)]
+    struct TestEvent<T: Default> {
+        sender: std::sync::mpsc::Sender<T>,
+    }
+
+    impl<T: Default> Drop for TestEvent<T> {
+        fn drop(&mut self) {
+            self.sender
+                .send(T::default())
+                .expect("Failed to send drop signal");
+        }
+    }
+
+    #[test]
+    fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
+        let (tx1, rx1) = std::sync::mpsc::channel();
+        let (tx2, rx2) = std::sync::mpsc::channel();
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_event::<TestEvent<i32>>()
+            .add_event::<TestEvent<()>>()
+            .add_systems(Startup, move |mut ev2: EventWriter<TestEvent<()>>| {
+                ev2.send(TestEvent {
+                    sender: tx2.clone(),
+                });
+            })
+            .add_systems(Update, move |mut ev1: EventWriter<TestEvent<i32>>| {
+                // Keep adding events so this event type is processed every update
+                ev1.send(TestEvent {
+                    sender: tx1.clone(),
+                });
+            })
+            .add_systems(
+                Update,
+                |mut ev1: EventReader<TestEvent<i32>>, mut ev2: EventReader<TestEvent<()>>| {
+                    // Read events so they can be dropped
+                    for _ in ev1.read() {}
+                    for _ in ev2.read() {}
+                },
+            )
+            .insert_resource(TimeUpdateStrategy::ManualDuration(
+                Time::<Fixed>::default().timestep(),
+            ));
+
+        for _ in 0..10 {
+            app.update();
+        }
+
+        // Check event type 1 as been dropped at least once
+        let _drop_signal = rx1.try_recv()?;
+        // Check event type 2 has been dropped
+        rx2.try_recv()
     }
 }

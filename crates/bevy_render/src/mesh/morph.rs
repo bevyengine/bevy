@@ -1,6 +1,6 @@
 use crate::{
     mesh::Mesh,
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -9,7 +9,7 @@ use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Children;
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use std::{iter, mem};
 use thiserror::Error;
@@ -68,7 +68,7 @@ impl MorphTargetImage {
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
-        cpu_persistent_access: RenderAssetPersistencePolicy,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -108,7 +108,7 @@ impl MorphTargetImage {
             TextureDimension::D3,
             data,
             TextureFormat::R32Float,
-            cpu_persistent_access,
+            asset_usage,
         );
         Ok(MorphTargetImage(image))
     }
@@ -128,7 +128,7 @@ impl MorphTargetImage {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component)]
+#[reflect(Debug, Component, Default)]
 pub struct MorphWeights {
     weights: Vec<f32>,
     /// The first mesh primitive assigned to these weights
@@ -173,7 +173,7 @@ impl MorphWeights {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component)]
+#[reflect(Debug, Component, Default)]
 pub struct MeshMorphWeights {
     weights: Vec<f32>,
 }

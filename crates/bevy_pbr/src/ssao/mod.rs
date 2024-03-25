@@ -1,7 +1,8 @@
+use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D,
+    core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
@@ -36,13 +37,6 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use std::mem;
-
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the screen space ambient occlusion render node.
-        pub const SCREEN_SPACE_AMBIENT_OCCLUSION: &str = "screen_space_ambient_occlusion";
-    }
-}
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -117,17 +111,17 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
-                CORE_3D,
-                draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+                Core3d,
+                NodePbr::ScreenSpaceAmbientOcclusion,
             )
             .add_render_graph_edges(
-                CORE_3D,
-                &[
+                Core3d,
+                (
                     // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    bevy_core_pipeline::core_3d::graph::node::END_PREPASSES,
-                    draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
-                    bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
-                ],
+                    Node3d::EndPrepasses,
+                    NodePbr::ScreenSpaceAmbientOcclusion,
+                    Node3d::StartMainPass,
+                ),
             );
     }
 }

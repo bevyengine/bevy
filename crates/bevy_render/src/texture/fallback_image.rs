@@ -1,13 +1,10 @@
-use crate::{
-    render_asset::RenderAssetPersistencePolicy, render_resource::*, texture::DefaultImageSampler,
-};
+use crate::{render_asset::RenderAssetUsages, render_resource::*, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
 use bevy_utils::HashMap;
-use wgpu::{Extent3d, TextureFormat};
 
 use crate::{
     prelude::Image,
@@ -83,7 +80,7 @@ fn fallback_image_new(
             image_dimension,
             &data,
             format,
-            RenderAssetPersistencePolicy::Unload,
+            RenderAssetUsages::RENDER_WORLD,
         )
     } else {
         let mut image = Image::default();
@@ -124,7 +121,7 @@ fn fallback_image_new(
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.size_f32(),
+        size: image.size(),
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

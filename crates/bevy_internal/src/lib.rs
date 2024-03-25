@@ -1,4 +1,9 @@
-#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
@@ -28,6 +33,12 @@ pub mod core {
     pub use bevy_core::*;
 }
 
+#[cfg(feature = "bevy_color")]
+pub mod color {
+    //! Shared color types and operations.
+    pub use bevy_color::*;
+}
+
 pub mod diagnostic {
     //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;
@@ -46,6 +57,11 @@ pub mod input {
 pub mod log {
     //! Logging capabilities
     pub use bevy_log::*;
+}
+
+pub mod panic_handler {
+    //! Platform-specific panic handlers
+    pub use bevy_panic_handler::*;
 }
 
 pub mod math {
@@ -178,8 +194,9 @@ pub mod gizmos {
     //! # use bevy_gizmos::prelude::*;
     //! # use bevy_render::prelude::*;
     //! # use bevy_math::prelude::*;
+    //! # use bevy_color::palettes::basic::GREEN;
     //! fn system(mut gizmos: Gizmos) {
-    //!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    //!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
     //! }
     //! # bevy_ecs::system::assert_is_system(system);
     //! ```
@@ -192,4 +209,10 @@ pub mod gizmos {
 pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
+}
+
+#[cfg(feature = "bevy_dev_tools")]
+pub mod dev_tools {
+    //! Collection of developer tools
+    pub use bevy_dev_tools::*;
 }

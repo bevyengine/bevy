@@ -1,7 +1,15 @@
 #![allow(
     unsafe_op_in_unsafe_fn,
     clippy::all,
-    clippy::undocumented_unsafe_blocks
+    clippy::undocumented_unsafe_blocks,
+    clippy::ptr_cast_constness
+)]
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
 use glam::{Vec2, Vec3};

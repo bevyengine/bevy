@@ -7,9 +7,9 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssetPersistencePolicy,
+        render_asset::RenderAssetUsages,
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
@@ -48,8 +48,8 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         },
         TextureDimension::D2,
         &[0, 0, 0, 255],
-        TextureFormat::Rgba8Unorm,
-        RenderAssetPersistencePolicy::Unload,
+        TextureFormat::R32Float,
+        RenderAssetUsages::RENDER_WORLD,
     );
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -68,7 +68,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(GameOfLifeImage { texture: image });
 }
 
-pub struct GameOfLifeComputePlugin;
+struct GameOfLifeComputePlugin;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+struct GameOfLifeLabel;
 
 impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
@@ -82,11 +85,8 @@ impl Plugin for GameOfLifeComputePlugin {
         );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph.add_node_edge(
-            "game_of_life",
-            bevy::render::main_graph::node::CAMERA_DRIVER,
-        );
+        render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
+        render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
     }
 
     fn finish(&self, app: &mut App) {
@@ -97,7 +97,7 @@ impl Plugin for GameOfLifeComputePlugin {
 
 #[derive(Resource, Clone, Deref, ExtractResource, AsBindGroup)]
 struct GameOfLifeImage {
-    #[storage_texture(0, image_format = Rgba8Unorm, access = ReadWrite)]
+    #[storage_texture(0, image_format = R32Float, access = ReadWrite)]
     texture: Handle<Image>,
 }
 
@@ -121,7 +121,7 @@ fn prepare_bind_group(
 }
 
 #[derive(Resource)]
-pub struct GameOfLifePipeline {
+struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
     init_pipeline: CachedComputePipelineId,
     update_pipeline: CachedComputePipelineId,
@@ -131,9 +131,7 @@ impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let texture_bind_group_layout = GameOfLifeImage::bind_group_layout(render_device);
-        let shader = world
-            .resource::<AssetServer>()
-            .load("shaders/game_of_life.wgsl");
+        let shader = world.load_asset("shaders/game_of_life.wgsl");
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,

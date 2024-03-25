@@ -3,15 +3,32 @@
 use crate as bevy_gizmos;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-use bevy_ecs::{component::Component, system::Resource};
-use bevy_reflect::{Reflect, TypePath};
+use bevy_ecs::{component::Component, reflect::ReflectResource, system::Resource};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::view::RenderLayers;
-use bevy_utils::HashMap;
+use bevy_utils::TypeIdMap;
 use core::panic;
 use std::{
     any::TypeId,
     ops::{Deref, DerefMut},
 };
+
+/// An enum configuring how line joints will be drawn.
+#[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+pub enum GizmoLineJoint {
+    /// Does not draw any line joints.
+    #[default]
+    None,
+    /// Extends both lines at the joining point until they meet in a sharp point.
+    Miter,
+    /// Draws a round corner with the specified resolution between the two lines.
+    ///
+    /// The resolution determines the amount of triangles drawn per joint,
+    /// e.g. `GizmoLineJoint::Round(4)` will draw 4 triangles at each line joint.
+    Round(u32),
+    /// Draws a bevel, a straight line in this case, to connect the ends of both lines.
+    Bevel,
+}
 
 /// A trait used to create gizmo configs groups.
 ///
@@ -27,10 +44,12 @@ pub struct DefaultGizmoConfigGroup;
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
 /// Use `app.init_gizmo_group::<T>()` to register a custom config group.
-#[derive(Resource, Default)]
+#[derive(Reflect, Resource, Default)]
+#[reflect(Resource, Default)]
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
-    store: HashMap<TypeId, (GizmoConfig, Box<dyn Reflect>)>,
+    #[reflect(ignore)]
+    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {
@@ -133,6 +152,9 @@ pub struct GizmoConfig {
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
     pub render_layers: RenderLayers,
+
+    /// Describe how lines should join
+    pub line_joints: GizmoLineJoint,
 }
 
 impl Default for GizmoConfig {
@@ -143,6 +165,8 @@ impl Default for GizmoConfig {
             line_perspective: false,
             depth_bias: 0.,
             render_layers: Default::default(),
+
+            line_joints: GizmoLineJoint::None,
         }
     }
 }

@@ -1,15 +1,21 @@
 #define_import_path bevy_pbr::pbr_deferred_functions
 
 #import bevy_pbr::{
-    pbr_types::{PbrInput, standard_material_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
     pbr_deferred_types as deferred_types,
     pbr_functions,
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
-    prepass_io::{VertexOutput, FragmentOutput},
+    prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else
+#import bevy_pbr::prepass_io::VertexOutput
+#endif
 
 #ifdef MOTION_VECTOR_PREPASS
     #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
@@ -58,8 +64,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 
 // Creates a PbrInput from the deferred gbuffer.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
-    var pbr: PbrInput;
-    pbr.material = standard_material_new();
+    var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
     let deferred_flags = deferred_types::mesh_material_flags_from_deferred_flags(flags);
@@ -117,7 +122,11 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 #endif
     // motion vectors if required
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

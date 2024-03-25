@@ -7,7 +7,7 @@ pub use window::*;
 
 use crate::{
     camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -23,7 +23,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -90,7 +90,7 @@ impl Plugin for ViewPlugin {
 #[derive(
     Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
 )]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -129,7 +129,7 @@ impl ExtractedView {
 
 /// Configures basic color grading parameters to adjust the image appearance. Grading is applied just before/after tonemapping for a given [`Camera`](crate::camera::Camera) entity.
 #[derive(Component, Reflect, Debug, Copy, Clone, ShaderType)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct ColorGrading {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -434,7 +434,7 @@ pub fn prepare_view_uniforms(
                 world_position: extracted_view.transform.translation(),
                 exposure: extracted_camera
                     .map(|c| c.exposure)
-                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                    .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
                 frustum,
                 color_grading: extracted_view.color_grading,
@@ -493,11 +493,12 @@ pub fn prepare_view_targets(
                 };
 
                 let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => color,
-                    _ => clear_color_global.0,
+                    ClearColorConfig::Custom(color) => Some(color),
+                    ClearColorConfig::None => None,
+                    _ => Some(clear_color_global.0),
                 };
 
-                let (a, b, sampled) = textures
+                let (a, b, sampled, main_texture) = textures
                     .entry((camera.target.clone(), view.hdr))
                     .or_insert_with(|| {
                         let descriptor = TextureDescriptor {
@@ -546,13 +547,16 @@ pub fn prepare_view_targets(
                         } else {
                             None
                         };
-                        (a, b, sampled)
+                        let main_texture = Arc::new(AtomicUsize::new(0));
+                        (a, b, sampled, main_texture)
                     });
 
+                let converted_clear_color = clear_color.map(|color| color.into());
+
                 let main_textures = MainTargetTextures {
-                    a: ColorAttachment::new(a.clone(), sampled.clone(), clear_color),
-                    b: ColorAttachment::new(b.clone(), sampled.clone(), clear_color),
-                    main_texture: Arc::new(AtomicUsize::new(0)),
+                    a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
+                    b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+                    main_texture: main_texture.clone(),
                 };
 
                 commands.entity(entity).insert(ViewTarget {

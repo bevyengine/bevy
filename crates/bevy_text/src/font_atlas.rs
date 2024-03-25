@@ -1,8 +1,8 @@
 use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
+use bevy_math::UVec2;
 use bevy_render::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -51,19 +51,19 @@ impl FontAtlas {
     pub fn new(
         textures: &mut Assets<Image>,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
-        size: Vec2,
+        size: UVec2,
     ) -> FontAtlas {
         let texture = textures.add(Image::new_fill(
             Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
+                width: size.x,
+                height: size.y,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
             // Need to keep this image CPU persistent in order to add additional glyphs later on
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         ));
         let texture_atlas = TextureAtlasLayout::new_empty(size);
         Self {

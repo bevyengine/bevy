@@ -1,3 +1,7 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{

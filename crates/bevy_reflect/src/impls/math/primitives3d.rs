@@ -1,16 +1,9 @@
 use crate as bevy_reflect;
 use crate::{ReflectDeserialize, ReflectSerialize};
-use bevy_math::{primitives::*, Vec3};
-use bevy_reflect_derive::{impl_reflect_struct, impl_reflect_value};
+use bevy_math::{primitives::*, Dir3, Vec3};
+use bevy_reflect_derive::impl_reflect;
 
-impl_reflect_value!(::bevy_math::primitives::Direction3d(
-    Debug,
-    PartialEq,
-    Serialize,
-    Deserialize
-));
-
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Sphere {
@@ -18,32 +11,32 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Plane3d {
-        normal: Direction3d,
+        normal: Dir3,
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Line3d {
-        direction: Direction3d,
+        direction: Dir3,
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Segment3d {
-        direction: Direction3d,
+        direction: Dir3,
         half_length: f32,
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq)]
     #[type_path = "bevy_math::primitives"]
     struct Polyline3d<const N: usize> {
@@ -51,7 +44,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Cuboid {
@@ -59,7 +52,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Cylinder {
@@ -68,16 +61,16 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
-    struct Capsule {
+    struct Capsule3d {
         radius: f32,
         half_length: f32,
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Cone {
@@ -86,7 +79,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct ConicalFrustum {
@@ -96,7 +89,7 @@ impl_reflect_struct!(
     }
 );
 
-impl_reflect_struct!(
+impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Torus {

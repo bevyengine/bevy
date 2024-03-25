@@ -1,3 +1,10 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Audio support for the game engine Bevy
 //!
 //! ```no_run
@@ -19,9 +26,6 @@
 //!     });
 //! }
 //! ```
-
-#![forbid(unsafe_code)]
-#![warn(missing_docs)]
 
 mod audio;
 mod audio_output;
