@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{event::ManualEventReader, prelude::*};
-pub use bevy_render_macros::ExtractResource;
+pub use bevy_render_macros::ExtractEvent;
 
 use crate::{Extract, ExtractSchedule, RenderApp};
 
