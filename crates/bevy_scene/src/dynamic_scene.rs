@@ -171,7 +171,7 @@ impl DynamicScene {
     }
 
     // TODO: move to AssetSaver when it is implemented
-    /// Serialize this dynamic scene into the offical Bevy scene format (`.scn` / `.scn.ron`).
+    /// Serialize this dynamic scene into the official Bevy scene format (`.scn` / `.scn.ron`).
     ///
     /// The Bevy scene format is based on [Rust Object Notation (RON)]. It describes the scene
     /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
