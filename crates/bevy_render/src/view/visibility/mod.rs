@@ -168,7 +168,7 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,

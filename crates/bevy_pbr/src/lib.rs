@@ -327,7 +327,7 @@ impl Plugin for PbrPlugin {
         }
 
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            Handle::<StandardMaterial>::default(),
+            &Handle::<StandardMaterial>::default(),
             StandardMaterial {
                 base_color: Color::srgb(1.0, 0.0, 0.5),
                 unlit: true,

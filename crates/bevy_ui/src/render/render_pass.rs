@@ -217,8 +217,17 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             return RenderCommandResult::Failure;
         };
 
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        let ui_meta = ui_meta.into_inner();
+        // Store the vertices
+        pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
+        // Define how to "connect" the vertices
+        pass.set_index_buffer(
+            ui_meta.indices.buffer().unwrap().slice(..),
+            0,
+            bevy_render::render_resource::IndexFormat::Uint32,
+        );
+        // Draw the vertices
+        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }
