@@ -8,6 +8,7 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
 use bevy_input::{
     gestures::*,
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
@@ -306,6 +307,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
                 self.winit_events.send(WindowFocused { window, focused });
+                if !focused {
+                    self.winit_events.send(KeyboardFocusLost);
+                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.winit_events.send(WindowOccluded { window, occluded });
@@ -699,6 +703,9 @@ impl<T: Event> WinitAppRunnerState<T> {
                     world.send_event(e);
                 }
                 WinitEvent::KeyboardInput(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::KeyboardFocusLost(e) => {
                     world.send_event(e);
                 }
             }

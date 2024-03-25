@@ -42,7 +42,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use gestures::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
+use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
@@ -69,6 +69,7 @@ impl Plugin for InputPlugin {
         app
             // keyboard
             .add_event::<KeyboardInput>()
+            .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse

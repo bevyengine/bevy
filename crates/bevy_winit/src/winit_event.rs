@@ -6,6 +6,7 @@ use bevy_input::keyboard::KeyboardInput;
 use bevy_input::touch::TouchInput;
 use bevy_input::{
     gestures::*,
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
 };
 use bevy_reflect::Reflect;
@@ -63,6 +64,7 @@ pub enum WinitEvent {
     TouchInput(TouchInput),
 
     KeyboardInput(KeyboardInput),
+    KeyboardFocusLost(KeyboardFocusLost),
 }
 
 impl From<AppLifecycle> for WinitEvent {
@@ -198,5 +200,10 @@ impl From<TouchInput> for WinitEvent {
 impl From<KeyboardInput> for WinitEvent {
     fn from(e: KeyboardInput) -> Self {
         Self::KeyboardInput(e)
+    }
+}
+impl From<KeyboardFocusLost> for WinitEvent {
+    fn from(e: KeyboardFocusLost) -> Self {
+        Self::KeyboardFocusLost(e)
     }
 }
