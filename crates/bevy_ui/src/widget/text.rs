@@ -5,7 +5,7 @@ use bevy_ecs::{
     prelude::{Component, DetectChanges},
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_math::Vec2;
@@ -16,7 +16,6 @@ use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextScalingInfo, TextSettings, YAxisOrientation,
 };
-use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
 /// Text system flags
