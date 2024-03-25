@@ -163,9 +163,9 @@ impl Annulus {
         2.0 * self.outer_radius
     }
 
-    /// Get the width of the annulus
+    /// Get the thickness of the annulus
     #[inline(always)]
-    pub fn width(&self) -> f32 {
+    pub fn thickness(&self) -> f32 {
         self.outer_radius - self.inner_radius
     }
 
@@ -836,7 +836,7 @@ mod tests {
             outer_radius: 3.5,
         };
         assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
-        assert_eq!(annulus.width(), 1.0, "incorrect width");
+        assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
         assert_eq!(annulus.area(), 18.849556, "incorrect area");
         assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
     }
