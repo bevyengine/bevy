@@ -51,7 +51,7 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// let scene_serializer = SceneSerializer::new(&scene, &registry);
 ///
 /// // Serialize through any serde-compatible Serializer
-/// let ron_string = ron::ser::to_string(&scene_serializer);
+/// let ron_string = bevy_scene::ron::ser::to_string(&scene_serializer);
 /// ```
 pub struct SceneSerializer<'a> {
     /// The scene to serialize.
@@ -168,7 +168,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
         for reflect in self.entries {
             state.serialize_entry(
-                reflect.reflect_type_path(),
+                reflect.get_represented_type_info().unwrap().type_path(),
                 &TypedReflectSerializer::new(&**reflect, self.registry),
             )?;
         }
