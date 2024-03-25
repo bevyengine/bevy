@@ -36,7 +36,12 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos2d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(
+                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                    ),
             )
             .add_systems(
                 Render,

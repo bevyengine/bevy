@@ -38,7 +38,9 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos3d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
