@@ -797,8 +797,7 @@ impl Bounded3d for Triangle3d {
         if self.is_degenerate() {
             let (p1, p2) = self.largest_side();
             let mid_point = (p1 + p2) / 2.0;
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation + mid_point, rotation);
+            return BoundingSphere::new(mid_point + translation, mid_point.distance(p1));
         }
 
         let [a, b, c] = self.vertices;
@@ -1066,9 +1065,9 @@ mod tests {
             "incorrect largest side"
         );
 
-        // let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY); // DIVISION BY ZERO
-        // assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
-        // assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
+        let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
+        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
 
         let br = zero_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(br.center(), Vec3::ZERO, "incorrect bounding box center");
