@@ -754,7 +754,7 @@ impl AssetServer {
             .infos
             .read()
             .get(id.into())
-            .map(|i| (i.load_state, i.dep_load_state, i.rec_dep_load_state))
+            .map(|i| (i.load_state.clone(), i.dep_load_state, i.rec_dep_load_state))
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
@@ -762,7 +762,11 @@ impl AssetServer {
     /// Note that this is "just" the root asset load state. To check if an asset _and_ its recursive
     /// dependencies have loaded, see [`AssetServer::is_loaded_with_dependencies`].
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
-        self.data.infos.read().get(id.into()).map(|i| i.load_state)
+        self.data
+            .infos
+            .read()
+            .get(id.into())
+            .map(|i| i.load_state.clone())
     }
 
     /// Retrieves the [`RecursiveDependencyLoadState`] of a given asset `id`.
@@ -1073,7 +1077,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     sender(world, id);
                 }
                 InternalAssetEvent::Failed { id, path, error } => {
-                    infos.process_asset_fail(id);
+                    infos.process_asset_fail(id, error.clone());
 
                     // Send untyped failure event
                     untyped_failures.push(UntypedAssetLoadFailedEvent {
@@ -1190,7 +1194,7 @@ pub(crate) enum InternalAssetEvent {
 }
 
 /// The load state of an asset.
-#[derive(Component, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Component, Clone, Debug)]
 pub enum LoadState {
     /// The asset has not started loading yet
     NotLoaded,
@@ -1199,8 +1203,17 @@ pub enum LoadState {
     /// The asset has been loaded and has been added to the [`World`]
     Loaded,
     /// The asset failed to load.
-    Failed,
+    Failed(Box<AssetLoadError>),
 }
+
+impl PartialEq for LoadState {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
+}
+
+impl Eq for LoadState {}
 
 /// The load state of an asset's dependencies.
 #[derive(Component, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
