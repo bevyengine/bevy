@@ -543,20 +543,19 @@ mod tests {
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
     use bevy_ecs::prelude::{Commands, Component, In, Query, With};
+    use bevy_ecs::query::Without;
     use bevy_ecs::schedule::apply_deferred;
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::despawn_with_children_recursive;
-    use bevy_hierarchy::BuildWorldChildren;
-    use bevy_hierarchy::Children;
-    use bevy_math::Vec2;
-    use bevy_math::{vec2, UVec2};
+    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
+    use bevy_transform::prelude::{GlobalTransform, Transform};
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
@@ -855,6 +854,89 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    /// regression test for >=0.13.1 root node layouts
+    /// ensure root nodes act like they are absolutely positioned
+    /// without explicitly declaring it.
+    #[test]
+    fn ui_root_node_should_act_like_position_absolute() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let mut size = 150.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // test should pass without explicitly requiring position_type to be set to Absolute
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        ui_schedule.run(&mut world);
+
+        let overlap_check = world
+            .query_filtered::<(Entity, &Node, &mut GlobalTransform, &Transform), Without<Parent>>()
+            .iter_mut(&mut world)
+            .fold(
+                Option::<(Rect, bool)>::None,
+                |option_rect, (entity, node, mut global_transform, transform)| {
+                    // fix global transform - for some reason the global transform isn't populated yet.
+                    // might be related to how these specific tests are working directly with World instead of App
+                    *global_transform = GlobalTransform::from(transform.compute_affine());
+                    let global_transform = &*global_transform;
+                    let current_rect = node.logical_rect(global_transform);
+                    assert!(
+                        current_rect.height().abs() + current_rect.width().abs() > 0.,
+                        "root ui node {entity:?} doesn't have a logical size"
+                    );
+                    assert_ne!(
+                        global_transform.affine(),
+                        GlobalTransform::default().affine(),
+                        "root ui node {entity:?} global transform is not populated"
+                    );
+                    let Some((rect, is_overlapping)) = option_rect else {
+                        return Some((current_rect, false));
+                    };
+                    if rect.contains(current_rect.center()) {
+                        Some((current_rect, true))
+                    } else {
+                        Some((current_rect, is_overlapping))
+                    }
+                },
+            );
+
+        let Some((_rect, is_overlapping)) = overlap_check else {
+            unreachable!("test not setup properly");
+        };
+        assert!(is_overlapping, "root ui nodes are expected to behave like they have absolute position and be independent from each other");
     }
 
     #[test]
