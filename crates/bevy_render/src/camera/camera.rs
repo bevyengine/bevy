@@ -73,6 +73,7 @@ pub struct RenderTargetInfo {
     /// When rendering to a window, typically it is a value greater or equal than 1.0,
     /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
     pub scale_factor: f32,
+    pub scale_factor_changed: bool,
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -322,6 +323,14 @@ impl Camera {
     #[inline]
     pub fn target_scaling_factor(&self) -> Option<f32> {
         self.computed.target_info.as_ref().map(|t| t.scale_factor)
+    }
+
+    #[inline]
+    pub fn target_scaling_factor_changed(&self) -> Option<bool> {
+        self.computed
+            .target_info
+            .as_ref()
+            .map(|t| t.scale_factor_changed)
     }
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
@@ -630,18 +639,21 @@ impl NormalizedRenderTarget {
                 .map(|(_, window)| RenderTargetInfo {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
+                    scale_factor_changed: false,
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 Some(RenderTargetInfo {
                     physical_size: image.size(),
                     scale_factor: 1.0,
+                    scale_factor_changed: false,
                 })
             }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| RenderTargetInfo {
                     physical_size: tex.size,
                     scale_factor: 1.0,
+                    scale_factor_changed: false,
                 })
             }
         }
@@ -726,16 +738,21 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
             {
-                let new_computed_target_info = normalized_target.get_render_target_info(
+                let mut new_computed_target_info = normalized_target.get_render_target_info(
                     &windows,
                     &images,
                     &manual_texture_views,
                 );
+
                 // Check for the scale factor changing, and resize the viewport if needed.
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
                 if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                    if let Some(mut info) = new_computed_target_info.as_mut() {
+                        info.scale_factor_changed = true;
+                    }
+
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
@@ -760,6 +777,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                     camera_projection.update(size.x, size.y);
                     camera.computed.projection_matrix = camera_projection.get_projection_matrix();
                 }
+            } else {
+                if let Some(info) = camera.computed.target_info.as_mut() {
+                    info.scale_factor_changed = false;
+                }
             }
         }
 
@@ -773,6 +794,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect_value(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
+
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
         Self(

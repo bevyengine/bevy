@@ -1,6 +1,7 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
+use crate::{ContentSize, DefaultUiCamera, FixedMeasure, Measure, Node, TargetCamera, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
+    entity::Entity,
     prelude::{Component, DetectChanges},
     query::With,
     reflect::ReflectComponent,
@@ -9,11 +10,11 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
+use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, TextScalingInfo, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -117,32 +118,49 @@ fn create_text_measure(
 /// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 /// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    default_ui_camera: DefaultUiCamera,
+    camera_query: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
-    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    mut text_query: Query<
+        (
+            Ref<Text>,
+            &mut ContentSize,
+            &mut TextFlags,
+            &mut TextScalingInfo,
+            Option<&TargetCamera>,
+        ),
+        With<Node>,
+    >,
 ) {
-    let window_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
-
-    let scale_factor = ui_scale.0 * window_scale_factor;
-
     #[allow(clippy::float_cmp)]
-    if *last_scale_factor == scale_factor {
-        // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in &mut text_query {
-            if text.is_changed() || text_flags.needs_new_measure_func || content_size.is_added() {
-                create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
-            }
-        }
-    } else {
-        // scale factor changed, create new measure funcs for all text
-        *last_scale_factor = scale_factor;
+    for (text, content_size, text_flags, mut text_scaling_info, target_camera) in &mut text_query {
+        let Some(camera_entity) = target_camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+        else {
+            continue;
+        };
 
-        for (text, content_size, text_flags) in &mut text_query {
+        let camera = camera_query.get(camera_entity).ok();
+
+        let scale_factor_changed = camera
+            .and_then(|(_, c)| c.target_scaling_factor_changed())
+            .unwrap_or(false);
+        let scale_factor = camera
+            .and_then(|(_, c)| c.target_scaling_factor())
+            .unwrap_or(1.0)
+            * ui_scale.0;
+
+        text_scaling_info.scale_factor = scale_factor;
+        text_scaling_info.scale_factor_changed = scale_factor_changed;
+
+        // Only create new measure for modified text.
+        if scale_factor_changed
+            || text.is_changed()
+            || text_flags.needs_new_measure_func
+            || content_size.is_added()
+        {
             create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
@@ -218,49 +236,25 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut last_scale_factor: Local<f32>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
-    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
+    mut text_query: Query<(
+        Ref<Node>,
+        &Text,
+        &mut TextLayoutInfo,
+        &mut TextFlags,
+        &TextScalingInfo,
+    )>,
 ) {
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let window_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
+    for (node, text, text_layout_info, text_flags, text_scaling_info) in &mut text_query {
+        let scale_factor_changed = text_scaling_info.scale_factor_changed;
+        let scale_factor = text_scaling_info.scale_factor;
+        let inverse_scale_factor = scale_factor.recip();
 
-    let scale_factor = ui_scale.0 * window_scale_factor;
-    let inverse_scale_factor = scale_factor.recip();
-    if *last_scale_factor == scale_factor {
-        // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in &mut text_query {
-            if node.is_changed() || text_flags.needs_recompute {
-                queue_text(
-                    &fonts,
-                    &mut text_pipeline,
-                    &mut font_atlas_sets,
-                    &mut texture_atlases,
-                    &mut textures,
-                    &text_settings,
-                    scale_factor,
-                    inverse_scale_factor,
-                    text,
-                    node,
-                    text_flags,
-                    text_layout_info,
-                );
-            }
-        }
-    } else {
-        // Scale factor changed, recompute text for all text nodes
-        *last_scale_factor = scale_factor;
-
-        for (node, text, text_layout_info, text_flags) in &mut text_query {
+        if scale_factor_changed || node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 &fonts,
                 &mut text_pipeline,

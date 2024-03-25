@@ -182,14 +182,18 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextFlags;
     use bevy_text::TextLayoutInfo;
+    use bevy_text::TextScalingInfo;
 
     app.register_type::<TextLayoutInfo>()
-        .register_type::<TextFlags>();
+        .register_type::<TextFlags>()
+        .register_type::<TextScalingInfo>();
 
     app.add_systems(
         PostUpdate,
         (
             widget::measure_text_system
+                // For spawning target camera on child nodes by update_target_camera to take effect.
+                .after(apply_deferred)
                 .before(UiSystem::Layout)
                 // Potential conflict: `Assets<Image>`
                 // In practice, they run independently since `bevy_render::camera_update_system`

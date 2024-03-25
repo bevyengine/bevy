@@ -15,7 +15,9 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{
+    BreakLineOn, JustifyText, Text, TextLayoutInfo, TextScalingInfo, TextSection, TextStyle,
+};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node.
@@ -212,6 +214,7 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+    pub text_scaling_info: TextScalingInfo,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -233,6 +236,7 @@ impl Default for TextBundle {
             z_index: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
+            text_scaling_info: TextScalingInfo::default(),
         }
     }
 }

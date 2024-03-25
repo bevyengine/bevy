@@ -31,6 +31,23 @@ pub struct TextLayoutInfo {
     pub logical_size: Vec2,
 }
 
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct TextScalingInfo {
+    pub scale_factor: f32,
+    pub scale_factor_changed: bool,
+}
+
+impl Default for TextScalingInfo {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.0,
+            scale_factor_changed: false,
+        }
+    }
+}
+
 impl TextPipeline {
     pub fn get_or_insert_font_id(&mut self, handle: &Handle<Font>, font: &Font) -> FontId {
         let brush = &mut self.brush;
