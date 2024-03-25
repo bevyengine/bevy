@@ -4,7 +4,7 @@ pub mod debug;
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap},
+    entity::{Entity, EntityHash, EntityHashMap},
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
@@ -16,7 +16,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::{default, hashbrown, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};
@@ -49,17 +49,20 @@ struct RootNodePair {
     user_root_node: taffy::node::Node,
 }
 
+type EntityTupleHashMap<V> = hashbrown::HashMap<(Entity, Entity), V, EntityHash>;
+
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: EntityHashMap<taffy::node::Node>,
-    camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
-    camera_roots: EntityHashMap<Vec<RootNodePair>>,
+    /// `HashMap<(Camera Entity, RootNode Entity), RootNodePair>`
+    camera_and_root_node_pair: EntityTupleHashMap<RootNodePair>,
     taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::node::Node>>();
+    _assert_send_sync::<EntityTupleHashMap<RootNodePair>>();
     _assert_send_sync::<Taffy>();
     _assert_send_sync::<UiSurface>();
 }
@@ -68,7 +71,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("camera_roots", &self.camera_roots)
+            .field("camera_and_root_node_pair", &self.camera_and_root_node_pair)
             .finish()
     }
 }
@@ -79,8 +82,7 @@ impl Default for UiSurface {
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
-            camera_entity_to_taffy: Default::default(),
-            camera_roots: Default::default(),
+            camera_and_root_node_pair: Default::default(),
             taffy,
         }
     }
@@ -168,68 +170,91 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
-        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();
-        let existing_roots = self.camera_roots.entry(camera_id).or_default();
-        let mut new_roots = Vec::new();
         for entity in children {
-            let node = *self.entity_to_taffy.get(&entity).unwrap();
-            let root_node = existing_roots
-                .iter()
-                .find(|n| n.user_root_node == node)
-                .cloned()
-                .unwrap_or_else(|| {
-                    if let Some(previous_parent) = self.taffy.parent(node) {
-                        // remove the root node from the previous implicit node's children
-                        self.taffy.remove_child(previous_parent, node).unwrap();
-                    }
-
-                    let viewport_node = *camera_root_node_map
-                        .entry(entity)
-                        .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
-                    self.taffy.add_child(viewport_node, node).unwrap();
-
+            let root_node_pair = self
+                .camera_and_root_node_pair
+                .entry((camera_id, entity))
+                .or_insert_with(|| {
+                    let implicit_viewport_node =
+                        self.taffy.new_leaf(viewport_style.clone()).unwrap();
+                    let user_root_node = *self.entity_to_taffy.get(&entity).expect(
+                        "root node was not inserted yet or was removed from entity_to_taffy map",
+                    );
                     RootNodePair {
-                        implicit_viewport_node: viewport_node,
-                        user_root_node: node,
+                        implicit_viewport_node,
+                        user_root_node,
                     }
                 });
-            new_roots.push(root_node);
-        }
 
-        self.camera_roots.insert(camera_id, new_roots);
-    }
+            if let Some(previous_parent) = self.taffy.parent(root_node_pair.user_root_node) {
+                // remove the root node from the previous implicit node's children
+                self.taffy
+                    .remove_child(previous_parent, root_node_pair.user_root_node)
+                    .unwrap();
+            }
 
-    /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout(&mut self, camera: Entity, render_target_resolution: UVec2) {
-        let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
-            return;
-        };
-
-        let available_space = taffy::geometry::Size {
-            width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
-            height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
-        };
-        for root_nodes in camera_root_nodes {
             self.taffy
-                .compute_layout(root_nodes.implicit_viewport_node, available_space)
+                .add_child(
+                    root_node_pair.implicit_viewport_node,
+                    root_node_pair.user_root_node,
+                )
                 .unwrap();
         }
     }
 
-    /// Removes each camera entity from the internal map and then removes their associated node from taffy
-    pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        for entity in entities {
-            if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
-                for (_, node) in camera_root_node_map.iter() {
-                    self.taffy.remove(*node).unwrap();
-                }
+    /// Compute the layout for each window entity's corresponding root node in the layout.
+    pub fn compute_camera_layout(&mut self, camera: Entity, render_target_resolution: UVec2) {
+        for (&(camera_entity, _), root_node_pair) in self.camera_and_root_node_pair.iter() {
+            if camera_entity != camera {
+                continue;
             }
+
+            let available_space = taffy::geometry::Size {
+                width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
+                height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
+            };
+
+            self.taffy
+                .compute_layout(root_node_pair.implicit_viewport_node, available_space)
+                .unwrap();
         }
     }
 
-    /// Removes each entity from the internal map and then removes their associated node from taffy
+    /// Removes specified camera entities by disassociating them from their associated `RootNodePair`
+    /// in the internal map, and subsequently removes the `RootNodePair.implicit_viewport_node`
+    /// from the `taffy` layout engine for each.
+    pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            self.camera_and_root_node_pair
+                .retain(|&(camera_entity, _), root_node_pair| {
+                    if camera_entity != entity {
+                        true
+                    } else {
+                        self.taffy
+                            .remove(root_node_pair.implicit_viewport_node)
+                            .unwrap();
+                        false
+                    }
+                });
+        }
+    }
+
+    /// Removes the specified entities from the internal map while
+    /// removing their `RootNodePair.implicit_viewport_node` from taffy,
+    /// and then subsequently removes their entry from `entity_to_taffy` and associated node from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
+            self.camera_and_root_node_pair
+                .retain(|&(_, root_node_entity), root_node_pair| {
+                    if root_node_entity != entity {
+                        true
+                    } else {
+                        self.taffy
+                            .remove(root_node_pair.implicit_viewport_node)
+                            .unwrap();
+                        false
+                    }
+                });
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node).unwrap();
             }
@@ -699,7 +724,7 @@ mod tests {
 
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_and_root_node_pair.is_empty());
 
         // respawn camera
         let camera_entity = world.spawn(Camera2dBundle::default()).id();
@@ -708,26 +733,26 @@ mod tests {
             .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
             .id();
 
-        // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
+        // `ui_layout_system` should create a  keypair (`camera_entity`, `root_node_entity`) in `UiSurface::camera_and_root_node_pair`
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
+            .camera_and_root_node_pair
+            .contains_key(&(camera_entity, ui_entity)));
+        assert_eq!(ui_surface.camera_and_root_node_pair.len(), 1);
 
         world.despawn(ui_entity);
         world.despawn(camera_entity);
 
-        // `ui_layout_system` should remove `camera_entity` from `UiSurface::camera_entity_to_taffy`
+        // `ui_layout_system` should remove (`camera_entity`, _) from `UiSurface::camera_and_root_node_pair`
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(!ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+            .camera_and_root_node_pair
+            .contains_key(&(camera_entity, ui_entity)));
+        assert!(ui_surface.camera_and_root_node_pair.is_empty());
     }
 
     #[test]

@@ -12,20 +12,18 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, roots) in &ui_surface.camera_roots {
+    for (&(camera_entity, _), root_node_pair) in ui_surface.camera_and_root_node_pair.iter() {
         let mut out = String::new();
-        for root in roots {
-            print_node(
-                ui_surface,
-                &taffy_to_entity,
-                entity,
-                root.implicit_viewport_node,
-                false,
-                String::new(),
-                &mut out,
-            );
-        }
-        bevy_utils::tracing::info!("Layout tree for camera entity: {entity:?}\n{out}");
+        print_node(
+            ui_surface,
+            &taffy_to_entity,
+            camera_entity,
+            root_node_pair.implicit_viewport_node,
+            false,
+            String::new(),
+            &mut out,
+        );
+        bevy_utils::tracing::info!("Layout tree for camera entity: {camera_entity:?}\n{out}");
     }
 }
 
