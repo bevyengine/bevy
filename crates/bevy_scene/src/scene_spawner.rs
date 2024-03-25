@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::Resource,
     world::{Command, Mut, World},
 };
-use bevy_hierarchy::{Parent, PushChild};
+use bevy_hierarchy::{BuildWorldChildren, DespawnRecursiveExt, Parent, PushChild};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
@@ -189,7 +189,10 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                let _ = world.despawn(entity);
+                world.get_entity_mut(entity).map(|mut entity| {
+                    entity.remove_parent();
+                    entity.despawn_recursive();
+                });
             }
         }
     }
