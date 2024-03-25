@@ -353,8 +353,8 @@ pub fn prepare_meshlet_per_frame_resources(
 
         let depth_size = Extent3d {
             // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
-            width: 1 << (31 - view.viewport.z.leading_zeros()),
-            height: 1 << (31 - view.viewport.w.leading_zeros()),
+            width: previous_power_of_2(view.viewport.z),
+            height: previous_power_of_2(view.viewport.w),
             depth_or_array_layers: 1,
         };
         let depth_mip_count = depth_size.width.max(depth_size.height).ilog2() + 1;
@@ -964,4 +964,14 @@ pub struct MeshletViewBindGroups {
     pub visibility_buffer_raster: BindGroup,
     pub copy_material_depth: Option<BindGroup>,
     pub material_draw: Option<BindGroup>,
+}
+
+fn previous_power_of_2(x: u32) -> u32 {
+    // If x is a power of 2, halve it
+    if x.count_ones() == 1 {
+        x / 2
+    } else {
+        // Else calculate the largest power of 2 that is less than x
+        1 << (31 - x.leading_zeros())
+    }
 }
