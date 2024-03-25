@@ -53,7 +53,7 @@ pub mod prelude {
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineJoint,
+            GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
         light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
