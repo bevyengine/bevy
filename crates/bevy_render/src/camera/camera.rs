@@ -777,10 +777,8 @@ pub fn camera_system<T: CameraProjection + Component>(
                     camera_projection.update(size.x, size.y);
                     camera.computed.projection_matrix = camera_projection.get_projection_matrix();
                 }
-            } else {
-                if let Some(info) = camera.computed.target_info.as_mut() {
-                    info.scale_factor_changed = false;
-                }
+            } else if let Some(info) = camera.computed.target_info.as_mut() {
+                info.scale_factor_changed = false;
             }
         }
 
