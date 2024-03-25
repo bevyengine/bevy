@@ -793,7 +793,7 @@ impl Bounded3d for Triangle3d {
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+    fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
         if self.is_degenerate() {
             let (p1, p2) = self.largest_side();
             let mid_point = (p1 + p2) / 2.0;
