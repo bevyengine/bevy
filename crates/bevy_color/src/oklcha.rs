@@ -1,17 +1,21 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, Laba, Lcha,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
     LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// Color in Oklch color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Oklcha {
     /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
@@ -63,11 +67,6 @@ impl Oklcha {
     /// Return a copy of this color with the 'chroma' channel set to the given value.
     pub const fn with_chroma(self, chroma: f32) -> Self {
         Self { chroma, ..self }
-    }
-
-    /// Return a copy of this color with the 'hue' channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
     }
 
     /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
@@ -133,6 +132,23 @@ impl Alpha for Oklcha {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Oklcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
