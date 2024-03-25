@@ -5,6 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyboardInput;
 use bevy_input::touch::TouchInput;
 use bevy_input::{
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
@@ -61,6 +62,7 @@ pub enum WinitEvent {
     TouchInput(TouchInput),
 
     KeyboardInput(KeyboardInput),
+    KeyboardFocusLost(KeyboardFocusLost),
 }
 
 impl From<ApplicationLifetime> for WinitEvent {
@@ -188,6 +190,11 @@ impl From<KeyboardInput> for WinitEvent {
         Self::KeyboardInput(e)
     }
 }
+impl From<KeyboardFocusLost> for WinitEvent {
+    fn from(e: KeyboardFocusLost) -> Self {
+        Self::KeyboardFocusLost(e)
+    }
+}
 
 /// Forwards buffered [`WinitEvent`] events to the app.
 pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &mut App) {
@@ -269,6 +276,9 @@ pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &
                 app.world_mut().send_event(e);
             }
             WinitEvent::KeyboardInput(e) => {
+                app.world_mut().send_event(e);
+            }
+            WinitEvent::KeyboardFocusLost(e) => {
                 app.world_mut().send_event(e);
             }
         }

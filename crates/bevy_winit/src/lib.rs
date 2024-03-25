@@ -34,6 +34,7 @@ use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_input::{
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
@@ -583,6 +584,9 @@ fn handle_winit_event(
                 WindowEvent::Focused(focused) => {
                     win.focused = focused;
                     winit_events.send(WindowFocused { window, focused });
+                    if !focused {
+                        winit_events.send(KeyboardFocusLost);
+                    }
                 }
                 WindowEvent::Occluded(occluded) => {
                     winit_events.send(WindowOccluded { window, occluded });
