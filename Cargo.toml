@@ -321,6 +321,12 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["bevy_internal/meshlet"]
+
+# Enables processing meshes into meshlet meshes for bevy_pbr
+meshlet_processor = ["bevy_internal/meshlet_processor"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
 
@@ -947,6 +953,18 @@ doc-scrape-examples = true
 [package.metadata.example.irradiance_volumes]
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "meshlet"
+path = "examples/3d/meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet"]
+
+[package.metadata.example.meshlet]
+name = "Meshlet"
+description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 

@@ -24,6 +24,8 @@ pub mod upscaling;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
+///
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
         pub use crate::taa::{
