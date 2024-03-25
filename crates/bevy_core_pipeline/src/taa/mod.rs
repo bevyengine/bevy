@@ -70,6 +70,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     Node3d::EndMainPass,
                     Node3d::Taa,
+                    Node3d::MotionBlur,
                     Node3d::Bloom,
                     Node3d::Tonemapping,
                 ),
