@@ -37,4 +37,5 @@ crossbeam-channel = "0.5.0"
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
