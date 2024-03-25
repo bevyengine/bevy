@@ -130,10 +130,10 @@ impl Ellipse {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[doc(alias = "Ring")]
 pub struct Annulus {
-    /// The inner radius of the annulus
-    pub inner_radius: f32,
-    /// The outer radius of the annulus
-    pub outer_radius: f32,
+    /// The inner circle of the annulus
+    pub inner_circle: Circle,
+    /// The outer circle of the annulus
+    pub outer_circle: Circle,
 }
 impl Primitive2d for Annulus {}
 
@@ -141,38 +141,38 @@ impl Default for Annulus {
     /// Returns the default [`Annulus`] with radii of `0.5` and `1.0`.
     fn default() -> Self {
         Self {
-            inner_radius: 0.5,
-            outer_radius: 1.0,
+            inner_circle: Circle::new(0.5),
+            outer_circle: Circle::new(1.0),
         }
     }
 }
 
 impl Annulus {
-    /// Create a new [`Annulus`] from an inner and outer radius
+    /// Create a new [`Annulus`] from the radii of the inner and outer circle
     #[inline(always)]
     pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
         Self {
-            inner_radius,
-            outer_radius,
+            inner_circle: Circle::new(inner_radius),
+            outer_circle: Circle::new(outer_radius),
         }
     }
 
     /// Get the diameter of the annulus
     #[inline(always)]
     pub fn diameter(&self) -> f32 {
-        2.0 * self.outer_radius
+        self.outer_circle.diameter()
     }
 
     /// Get the thickness of the annulus
     #[inline(always)]
     pub fn thickness(&self) -> f32 {
-        self.outer_radius - self.inner_radius
+        self.outer_circle.radius - self.inner_circle.radius
     }
 
     /// Get the area of the annulus
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        PI * (self.outer_radius.powi(2) - self.inner_radius.powi(2))
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
     }
 
     /// Get the perimeter or circumference of the annulus,
@@ -180,7 +180,7 @@ impl Annulus {
     #[inline(always)]
     #[doc(alias = "circumference")]
     pub fn perimeter(&self) -> f32 {
-        2.0 * PI * (self.outer_radius + self.inner_radius)
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 
     /// Finds the point on the annulus that is closest to the given `point`:
@@ -192,21 +192,21 @@ impl Annulus {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
-        if self.inner_radius.powi(2) <= distance_squared {
-            if distance_squared <= self.outer_radius.powi(2) {
+        if self.inner_circle.radius.powi(2) <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.powi(2) {
                 // The point is inside the annulus.
                 point
             } else {
                 // The point is outside the annulus and closer to the outer perimeter.
                 // Find the closest point on the perimeter of the annulus.
                 let dir_to_point = point / distance_squared.sqrt();
-                self.outer_radius * dir_to_point
+                self.outer_circle.radius * dir_to_point
             }
         } else {
             // The point is outside the annulus and closer to the inner perimeter.
             // Find the closest point on the perimeter of the annulus.
             let dir_to_point = point / distance_squared.sqrt();
-            self.inner_radius * dir_to_point
+            self.inner_circle.radius * dir_to_point
         }
     }
 }
@@ -806,10 +806,7 @@ mod tests {
 
     #[test]
     fn annulus_closest_point() {
-        let annulus = Annulus {
-            inner_radius: 1.5,
-            outer_radius: 2.0,
-        };
+        let annulus = Annulus::new(1.5, 2.0);
         assert_eq!(annulus.closest_point(Vec2::X * 10.0), Vec2::X * 2.0);
         assert_eq!(
             annulus.closest_point(Vec2::NEG_ONE),
@@ -831,10 +828,7 @@ mod tests {
 
     #[test]
     fn annulus_math() {
-        let annulus = Annulus {
-            inner_radius: 2.5,
-            outer_radius: 3.5,
-        };
+        let annulus = Annulus::new(2.5, 3.5);
         assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
         assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
         assert_eq!(annulus.area(), 18.849556, "incorrect area");
