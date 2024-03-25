@@ -125,7 +125,7 @@ impl Ellipse {
     }
 }
 
-/// An annulus primitive
+/// A primitive shape formed by the region between two circles, also known as a ring.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[doc(alias = "Ring")]
@@ -175,18 +175,21 @@ impl Annulus {
         PI * (self.outer_radius.powi(2) - self.inner_radius.powi(2))
     }
 
-    /// Get the perimeter or circumference of the annulus
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the outer and inner edges.
     #[inline(always)]
     #[doc(alias = "circumference")]
     pub fn perimeter(&self) -> f32 {
         2.0 * PI * (self.outer_radius + self.inner_radius)
     }
 
-    /// Finds the point on the annulus that is closest to the given `point`.
+    /// Finds the point on the annulus that is closest to the given `point`:
     ///
-    /// If the point is outside the annulus, the returned point will be on
-    /// the perimeter of the annulus. Otherwise, it will be inside the annulus
-    /// and returned as is.
+    /// - If the point is outside the annulus and closer to the outer perimeter
+    /// (outside the annulus completely), the returned point will be on the outer edge of the perimeter.
+    /// - If the point is outside the annulus and closer to the inner perimeter
+    /// (inside the inner circle), the returned point will be on the inner edge of the perimeter.
+    /// - Otherwise, it will be inside the annulus and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
