@@ -11,7 +11,7 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 /// Therefore the resource is transferred from the "main world" into the "render world"
 /// in the [`ExtractSchedule`] step.
 ///
-/// See also [`crate::extract_event::ExtractEvent`] for extracting events.
+/// See also [`ExtractEvent`](crate::extract_event::ExtractEvent) for extracting events.
 pub trait ExtractResource: Resource {
     type Source: Resource;
 
@@ -24,7 +24,7 @@ pub trait ExtractResource: Resource {
 /// Therefore it sets up the[`ExtractSchedule`] step
 /// for the specified [`Resource`].
 ///
-/// See also [`crate::extract_event::ExtractEventPlugin`] for extracting events.
+/// See also [`ExtractEventPlugin`](crate::extract_event::ExtractEventPlugin) for extracting events.
 pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<R>);
 
 impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
