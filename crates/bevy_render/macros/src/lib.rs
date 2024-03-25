@@ -3,6 +3,7 @@
 
 mod as_bind_group;
 mod extract_component;
+mod extract_event;
 mod extract_resource;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
@@ -20,6 +21,11 @@ pub(crate) fn bevy_render_path() -> syn::Path {
 #[proc_macro_derive(ExtractResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)
+}
+
+#[proc_macro_derive(ExtractEvent)]
+pub fn derive_extract_event(input: TokenStream) -> TokenStream {
+    extract_event::derive_extract_event(input)
 }
 
 /// Implements `ExtractComponent` trait for a component.
