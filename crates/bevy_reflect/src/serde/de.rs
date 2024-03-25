@@ -242,37 +242,94 @@ impl<'de> Deserialize<'de> for Ident {
 
 /// A general purpose deserializer for reflected types.
 ///
-/// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
-/// For non-value types, this `Box` will contain the dynamic equivalent. For example, a
-/// deserialized struct will return a [`DynamicStruct`] and a `Vec` will return a
-/// [`DynamicList`]. For value types, this `Box` will contain the actual value.
-/// For example, an `f32` will contain the actual `f32` type.
+/// This is the deserializer counterpart to [`ReflectSerializer`].
 ///
-/// This means that converting to any concrete instance will require the use of
-/// [`FromReflect`], or downcasting for value types.
+/// See [`TypedReflectDeserializer`] for a deserializer that expects a known type.
 ///
-/// Because the type isn't known ahead of time, the serialized data must take the form of
-/// a map containing the following entries (in order):
-/// 1. `type`: The _full_ [type path]
-/// 2. `value`: The serialized value of the reflected type
+/// # Input
 ///
-/// If the type is already known and the [`TypeInfo`] for it can be retrieved,
-/// [`TypedReflectDeserializer`] may be used instead to avoid requiring these entries.
+/// This deserializer expects a map with a single entry,
+/// where the key is the _full_ [type path] of the reflected type
+/// and the value is the serialized data.
 ///
-/// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`FromReflect`]: crate::FromReflect
+/// # Output
+///
+/// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
+///
+/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// this `Box` will contain the expected type.
+/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
+///
+/// Otherwise, this `Box` will contain the dynamic equivalent.
+/// For example, a deserialized struct might return a [`Box<DynamicStruct>`]
+/// and a deserialized `Vec` might return a [`Box<DynamicList>`].
+///
+/// This means that if the actual type is needed, these dynamic representations will need to
+/// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
+///
+/// # Example
+///
+/// ```
+/// # use serde::de::DeserializeSeed;
+/// # use bevy_reflect::prelude::*;
+/// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::ReflectDeserializer};
+/// #[derive(Reflect, PartialEq, Debug)]
+/// #[type_path = "my_crate"]
+/// struct MyStruct {
+///   value: i32
+/// }
+///
+/// let mut registry = TypeRegistry::default();
+/// registry.register::<MyStruct>();
+///
+/// let input = r#"{
+///   "my_crate::MyStruct": (
+///     value: 123
+///   )
+/// }"#;
+///
+/// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
+/// let reflect_deserializer = ReflectDeserializer::new(&registry);
+///
+/// let output: Box<dyn Reflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+///
+/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // we know that its deserialized representation will be a `DynamicStruct`.
+/// assert!(output.is::<DynamicStruct>());
+/// assert!(output.represents::<MyStruct>());
+///
+/// // We can convert back to `MyStruct` using `FromReflect`.
+/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(&*output).unwrap();
+/// assert_eq!(value, MyStruct { value: 123 });
+///
+/// // We can also do this dynamically with `ReflectFromReflect`.
+/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
+/// assert!(value.is::<MyStruct>());
+/// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
+/// ```
+///
+/// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [type path]: crate::TypePath::type_path
-pub struct UntypedReflectDeserializer<'a> {
+/// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectDeserialize`]: crate::ReflectDeserialize
+/// [`Box<DynamicStruct>`]: crate::DynamicStruct
+/// [`Box<DynamicList>`]: crate::DynamicList
+/// [`FromReflect`]: crate::FromReflect
+/// [`ReflectFromReflect`]: crate::ReflectFromReflect
+pub struct ReflectDeserializer<'a> {
     registry: &'a TypeRegistry,
 }
 
-impl<'a> UntypedReflectDeserializer<'a> {
+impl<'a> ReflectDeserializer<'a> {
     pub fn new(registry: &'a TypeRegistry) -> Self {
         Self { registry }
     }
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
     type Value = Box<dyn Reflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -365,21 +422,82 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     }
 }
 
-/// A deserializer for reflected types whose [`TypeInfo`] is known.
+/// A deserializer for reflected types whose [`TypeRegistration`] is known.
 ///
-/// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
-/// For non-value types, this `Box` will contain the dynamic equivalent. For example, a
-/// deserialized struct will return a [`DynamicStruct`] and a `Vec` will return a
-/// [`DynamicList`]. For value types, this `Box` will contain the actual value.
-/// For example, an `f32` will contain the actual `f32` type.
+/// This is the deserializer counterpart to [`TypedReflectSerializer`].
 ///
-/// This means that converting to any concrete instance will require the use of
-/// [`FromReflect`], or downcasting for value types.
+/// See [`ReflectDeserializer`] for a deserializer that expects an unknown type.
 ///
-/// If the type is not known ahead of time, use [`UntypedReflectDeserializer`] instead.
+/// # Input
 ///
+/// Since the type is already known, the input is just the serialized data.
+///
+/// # Output
+///
+/// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
+///
+/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// this `Box` will contain the expected type.
+/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
+///
+/// Otherwise, this `Box` will contain the dynamic equivalent.
+/// For example, a deserialized struct might return a [`Box<DynamicStruct>`]
+/// and a deserialized `Vec` might return a [`Box<DynamicList>`].
+///
+/// This means that if the actual type is needed, these dynamic representations will need to
+/// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
+///
+/// # Example
+///
+/// ```
+/// # use std::any::TypeId;
+/// # use serde::de::DeserializeSeed;
+/// # use bevy_reflect::prelude::*;
+/// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::TypedReflectDeserializer};
+/// #[derive(Reflect, PartialEq, Debug)]
+/// struct MyStruct {
+///   value: i32
+/// }
+///
+/// let mut registry = TypeRegistry::default();
+/// registry.register::<MyStruct>();
+///
+/// let input = r#"(
+///   value: 123
+/// )"#;
+///
+/// let registration = registry.get(TypeId::of::<MyStruct>()).unwrap();
+///
+/// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
+/// let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
+///
+/// let output: Box<dyn Reflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+///
+/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // we know that its deserialized representation will be a `DynamicStruct`.
+/// assert!(output.is::<DynamicStruct>());
+/// assert!(output.represents::<MyStruct>());
+///
+/// // We can convert back to `MyStruct` using `FromReflect`.
+/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(&*output).unwrap();
+/// assert_eq!(value, MyStruct { value: 123 });
+///
+/// // We can also do this dynamically with `ReflectFromReflect`.
+/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
+/// assert!(value.is::<MyStruct>());
+/// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
+/// ```
+///
+/// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
 /// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectDeserialize`]: crate::ReflectDeserialize
+/// [`Box<DynamicStruct>`]: crate::DynamicStruct
+/// [`Box<DynamicList>`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
+/// [`ReflectFromReflect`]: crate::ReflectFromReflect
 pub struct TypedReflectDeserializer<'a> {
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
@@ -1062,7 +1180,7 @@ mod tests {
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
-    use crate::serde::{ReflectSerializer, TypedReflectDeserializer, UntypedReflectDeserializer};
+    use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
     use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -1252,7 +1370,7 @@ mod tests {
             ),
         }"#;
 
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -1269,7 +1387,7 @@ mod tests {
         }"#;
 
         let registry = get_registry();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -1336,7 +1454,7 @@ mod tests {
             ),
         }"#;
 
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -1358,7 +1476,7 @@ mod tests {
             ),
         }"#;
 
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -1388,7 +1506,7 @@ mod tests {
         let input = r#"{
     "bevy_reflect::serde::de::tests::MyEnum": Unit,
 }"#;
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
@@ -1399,7 +1517,7 @@ mod tests {
         let input = r#"{
     "bevy_reflect::serde::de::tests::MyEnum": NewType(123),
 }"#;
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
@@ -1410,7 +1528,7 @@ mod tests {
         let input = r#"{
     "bevy_reflect::serde::de::tests::MyEnum": Tuple(1.23, 3.21),
 }"#;
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
@@ -1423,7 +1541,7 @@ mod tests {
         value: "I <3 Enums",
     ),
 }"#;
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
@@ -1443,7 +1561,7 @@ mod tests {
         let serialized1 = ron::ser::to_string(&serializer1).unwrap();
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized1).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let serializer2 = ReflectSerializer::new(&*input2, &registry);
@@ -1473,7 +1591,7 @@ mod tests {
             0,
         ];
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let deserializer = ReflectDeserializer::new(&registry);
 
         let dynamic_output = bincode::DefaultOptions::new()
             .with_fixint_encoding()
@@ -1505,7 +1623,7 @@ mod tests {
 
         let mut reader = std::io::BufReader::new(input.as_slice());
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let deserializer = ReflectDeserializer::new(&registry);
         let dynamic_output = deserializer
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
