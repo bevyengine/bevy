@@ -57,7 +57,7 @@
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
 
-use super::from_reflect_or_world;
+use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
     component::Component,
@@ -253,12 +253,12 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {
-                    from_reflect_or_world::<C>(reflected_component, world, registry)
+                    from_reflect_with_fallback::<C>(reflected_component, world, registry)
                 });
                 entity.insert(component);
             },
@@ -271,7 +271,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                     component.apply(reflected_component);
                 } else {
                     let component = entity.world_scope(|world| {
-                        from_reflect_or_world::<C>(reflected_component, world, registry)
+                        from_reflect_with_fallback::<C>(reflected_component, world, registry)
                     });
                     entity.insert(component);
                 }
@@ -283,7 +283,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
                 let destination_component =
-                    from_reflect_or_world::<C>(source_component, destination_world, registry);
+                    from_reflect_with_fallback::<C>(source_component, destination_world, registry);
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
