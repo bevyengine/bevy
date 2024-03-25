@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{event::ManualEventReader, prelude::*};
 pub use bevy_render_macros::ExtractResource;
+
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how an event gets extracted for rendering.
 ///

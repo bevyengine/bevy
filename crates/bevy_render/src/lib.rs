@@ -13,6 +13,7 @@ pub mod camera;
 pub mod deterministic;
 pub mod diagnostic;
 pub mod extract_component;
+pub mod extract_event;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
