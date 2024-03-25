@@ -189,10 +189,10 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                world.get_entity_mut(entity).map(|mut entity| {
-                    entity.remove_parent();
-                    entity.despawn_recursive();
-                });
+                if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.remove_parent();
+                    entity_mut.despawn_recursive();
+                };
             }
         }
     }
