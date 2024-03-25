@@ -27,7 +27,7 @@ use super::{
 /// both D::IS_DENSE and F::IS_DENSE are true or not.
 ///
 /// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
-/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This 
+/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
 /// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
 /// a safety invariant be verified when disambiguating them.
 ///
