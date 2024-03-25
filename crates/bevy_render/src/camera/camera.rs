@@ -749,7 +749,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
                 if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
-                    if let Some(mut info) = new_computed_target_info.as_mut() {
+                    if let Some(info) = new_computed_target_info.as_mut() {
                         info.scale_factor_changed = true;
                     }
 
