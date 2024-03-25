@@ -39,6 +39,7 @@ impl PartialOrd for FloatOrd {
 }
 
 impl Ord for FloatOrd {
+    #[allow(clippy::comparison_chain)]
     fn cmp(&self, other: &Self) -> Ordering {
         if self > other {
             Ordering::Greater
