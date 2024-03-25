@@ -13,13 +13,13 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .map(|(entity, node)| (*node, *entity))
         .collect();
     let mut camera_tree_output_map = HashMap::<Entity, Vec<String>>::new();
-    for (&(camera_entity, _), root_node_pair) in ui_surface.camera_and_root_node_pair.iter() {
+    for (&(camera_entity, _), &implicit_viewport_node) in ui_surface.camera_root_to_viewport_taffy.iter() {
         let mut out = String::new();
         print_node(
             ui_surface,
             &taffy_to_entity,
             camera_entity,
-            root_node_pair.implicit_viewport_node,
+            implicit_viewport_node,
             false,
             String::new(),
             &mut out,
