@@ -3,7 +3,7 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Primitive3d};
 use crate::{
     bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Quat, Vec3,
+    Dir3, InvalidDirectionError, Mat3, Quat, Vec3,
 };
 
 /// A sphere primitive
@@ -877,7 +877,7 @@ impl Tetrahedron {
         let ab = b - a;
         let ac = c - a;
         let ad = d - a;
-        ab.dot(ac.cross(ad)).abs() / 6.0
+        Mat3::from_cols(ab, ac, ad).determinant().abs() / 6.0
     }
 }
 
