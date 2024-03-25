@@ -52,7 +52,7 @@ struct RootNodePair {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: EntityHashMap<taffy::node::Node>,
-    camera_entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
@@ -168,10 +168,7 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
-        let camera_node = *self
-            .camera_entity_to_taffy
-            .entry(camera_id)
-            .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
+        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
@@ -186,10 +183,13 @@ without UI components as a child of an entity with UI components, results may be
                         self.taffy.remove_child(previous_parent, node).unwrap();
                     }
 
-                    self.taffy.add_child(camera_node, node).unwrap();
+                    let viewport_node = *camera_root_node_map
+                        .entry(entity)
+                        .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
+                    self.taffy.add_child(viewport_node, node).unwrap();
 
                     RootNodePair {
-                        implicit_viewport_node: camera_node,
+                        implicit_viewport_node: viewport_node,
                         user_root_node: node,
                     }
                 });
@@ -219,8 +219,10 @@ without UI components as a child of an entity with UI components, results may be
     /// Removes each camera entity from the internal map and then removes their associated node from taffy
     pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            if let Some(node) = self.camera_entity_to_taffy.remove(&entity) {
-                self.taffy.remove(node).unwrap();
+            if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
+                for (_, node) in camera_root_node_map.iter() {
+                    self.taffy.remove(*node).unwrap();
+                }
             }
         }
     }
