@@ -1113,26 +1113,26 @@ mod tests {
             "incorrect bounding box half extents"
         );
 
-        let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
         assert!(
-            common_degenerate_triangle.is_degenerate(),
+            collinear_degenerate_triangle.is_degenerate(),
             "incorrect degenerate check"
         );
         assert_eq!(
-            common_degenerate_triangle.normal(),
+            collinear_degenerate_triangle.normal(),
             Err(InvalidDirectionError::Zero),
             "incorrect normal"
         );
         assert_eq!(
-            common_degenerate_triangle.largest_side(),
+            collinear_degenerate_triangle.largest_side(),
             (Vec3::NEG_X, Vec3::X),
             "incorrect largest side"
         );
 
-        let bs = common_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        let bs = collinear_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
         assert_eq!(bs.sphere.radius, 1.0, "incorrect bounding sphere radius");
-        let br = common_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        let br = collinear_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(br.center(), Vec3::ZERO, "incorrect bounding box center");
         assert_eq!(
             br.half_size(),
