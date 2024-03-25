@@ -10,7 +10,7 @@ use bevy_render::{
 };
 use nonmax::NonMaxU32;
 
-use crate::prepass::Opaque3dPrepassBinKey;
+use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
@@ -23,7 +23,7 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 /// Used to render all 3D meshes with materials that have no transparency.
 #[derive(PartialEq, Eq, Hash)]
 pub struct Opaque3dDeferred {
-    pub key: Opaque3dPrepassBinKey,
+    pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
@@ -62,7 +62,7 @@ impl PhaseItem for Opaque3dDeferred {
 }
 
 impl BinnedPhaseItem for Opaque3dDeferred {
-    type BinKey = Opaque3dPrepassBinKey;
+    type BinKey = OpaqueNoLightmap3dBinKey;
 
     fn new(
         key: Self::BinKey,
@@ -92,7 +92,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
 ///
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dDeferred {
-    pub key: Opaque3dPrepassBinKey,
+    pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
@@ -131,7 +131,7 @@ impl PhaseItem for AlphaMask3dDeferred {
 }
 
 impl BinnedPhaseItem for AlphaMask3dDeferred {
-    type BinKey = Opaque3dPrepassBinKey;
+    type BinKey = OpaqueNoLightmap3dBinKey;
 
     fn new(
         key: Self::BinKey,

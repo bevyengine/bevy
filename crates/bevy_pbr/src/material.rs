@@ -6,7 +6,7 @@ use bevy_core_pipeline::{
         Transmissive3d, Transparent3d,
     },
     prepass::{
-        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, Opaque3dPrepassBinKey,
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
     },
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -702,7 +702,7 @@ pub fn queue_material_meshes<M: Material>(
                             dynamic_offset: None,
                         });
                     } else if forward {
-                        let bin_key = Opaque3dPrepassBinKey {
+                        let bin_key = OpaqueNoLightmap3dBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,

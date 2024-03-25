@@ -843,7 +843,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 AlphaMode::Opaque => {
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
-                            Opaque3dPrepassBinKey {
+                            OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id,
@@ -854,7 +854,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         opaque_phase.add(
-                            Opaque3dPrepassBinKey {
+                            OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id,
@@ -867,7 +867,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if deferred {
-                        let bin_key = Opaque3dPrepassBinKey {
+                        let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id,
@@ -879,7 +879,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             mesh_instance.should_batch(),
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
-                        let bin_key = Opaque3dPrepassBinKey {
+                        let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
                             asset_id: mesh_instance.mesh_asset_id,

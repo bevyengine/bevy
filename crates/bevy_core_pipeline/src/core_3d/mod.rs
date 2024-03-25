@@ -79,7 +79,7 @@ use crate::{
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, Opaque3dPrepassBinKey, ViewPrepassTextures,
+        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
         MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
@@ -177,7 +177,8 @@ impl Plugin for Core3dPlugin {
 pub struct Opaque3d {
     /// The key, which determines which can be batched.
     pub key: Opaque3dBinKey,
-    /// An entity from which the mesh and other attributes will be fetched.
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
     pub representative_entity: Entity,
     /// The ranges of instances.
     pub batch_range: Range<u32>,
@@ -264,7 +265,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 }
 
 pub struct AlphaMask3d {
-    pub key: Opaque3dPrepassBinKey,
+    pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
@@ -303,8 +304,9 @@ impl PhaseItem for AlphaMask3d {
 }
 
 impl BinnedPhaseItem for AlphaMask3d {
-    type BinKey = Opaque3dPrepassBinKey;
+    type BinKey = OpaqueNoLightmap3dBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,
