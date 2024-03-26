@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::RenderGroups,
+        view::RenderLayers,
     },
 };
 
@@ -70,8 +70,8 @@ fn setup(
         ..default()
     });
 
-    // This specifies the group used for the first pass, which will be attached to the first pass camera and cube.
-    let first_pass_group = RenderGroups::from_layer(1);
+    // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
+    let first_pass_layer = RenderLayers::from_layer(1);
 
     // The cube that will be rendered to the texture.
     commands.spawn((
@@ -82,19 +82,19 @@ fn setup(
             ..default()
         },
         FirstPassCube,
-        first_pass_group.clone(),
+        first_pass_layer.clone(),
     ));
 
     // Light
-    // NOTE: we add the light to all groups so it affects both the rendered-to-texture cube, and the cube on which we display the texture
-    // Setting the group to RenderGroups::from(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
-    // Setting the group to RenderGroups::from(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
+    // NOTE: we add the light to all layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
+    // Setting the layer to RenderLayers::from(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
+    // Setting the layer to RenderLayers::from(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
     commands.spawn((
         PointLightBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             ..default()
         },
-        RenderGroups::from_layers(&[0, 1]),
+        RenderLayers::from_layers(&[0, 1]),
     ));
 
     commands.spawn((
@@ -110,7 +110,7 @@ fn setup(
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        first_pass_group,
+        first_pass_layer,
     ));
 
     let cube_size = 4.0;

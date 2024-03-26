@@ -6,7 +6,7 @@ layout(location = 2) in vec2 Vertex_Uv;
 
 layout(location = 0) out vec2 v_Uv;
 
-layout(set = 0, binding = 0) uniform CameraViewProj {
+layout(set = 0, binding = 0) uniform CameraLayerProj {
     mat4 ViewProj;
     mat4 View;
     mat4 InverseView;

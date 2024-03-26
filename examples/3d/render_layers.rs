@@ -1,11 +1,11 @@
-//! Load a scene from a glTF file and render it with different render groups.
+//! Load a scene from a glTF file and render it with different render layers.
 
 use bevy::{
     color::palettes,
     pbr::DirectionalLightShadowMap,
     prelude::*,
     render::camera::Viewport,
-    render::view::{CameraView, PropagateRenderGroups, RenderGroups},
+    render::view::{CameraLayer, PropagateRenderLayers, RenderLayers},
     window::PrimaryWindow,
 };
 
@@ -59,7 +59,7 @@ fn setup(
                 specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 1500.0,
             },
-            CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6]),
+            CameraLayer::new(0),
             Camera1,
         ))
         .id();
@@ -92,7 +92,7 @@ fn setup(
                 specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 1500.0,
             },
-            CameraView::from_layers(&[0, 1, 2, 3, 4, 5, 6]),
+            CameraLayer::new(0),
             Camera2,
         ))
         .id();
@@ -104,7 +104,7 @@ fn setup(
             material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
             ..default()
         },
-        RenderGroups::from_layer(0),
+        RenderLayers::from_layer(0),
     ));
 
     // Text (camera 1)
@@ -147,7 +147,7 @@ fn setup(
         TargetCamera(camera2),
     ));
 
-    // Spawn three copies of the scene, each with a different render group.
+    // Spawn three copies of the scene, each with a different render layer.
     for i in 0..3 {
         commands.spawn((
             SceneBundle {
@@ -155,12 +155,12 @@ fn setup(
                 scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
                 ..default()
             },
-            RenderGroups::from_layer(i + 1),
-            PropagateRenderGroups::Auto,
+            RenderLayers::from_layer(i + 1),
+            PropagateRenderLayers::Auto,
         ));
     }
 
-    // Spawn three directional lights, each with a different render group.
+    // Spawn three directional lights, each with a different render layer.
     let colors = [
         palettes::basic::RED,
         palettes::basic::GREEN,
@@ -178,13 +178,13 @@ fn setup(
                 },
                 ..default()
             },
-            RenderGroups::from_layer(i + 4),
+            RenderLayers::from_layer(i + 4),
         ));
     }
 }
 
 fn toggle_layers_camera1(
-    mut query_camera: Query<&mut CameraView, With<Camera1>>,
+    mut query_camera: Query<&mut CameraLayer, With<Camera1>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(mut camera_view) = query_camera.get_single_mut() else {
@@ -212,7 +212,7 @@ fn toggle_layers_camera1(
 }
 
 fn toggle_layers_camera2(
-    mut query_camera: Query<&mut CameraView, With<Camera2>>,
+    mut query_camera: Query<&mut CameraLayer, With<Camera2>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(mut camera_view) = query_camera.get_single_mut() else {
@@ -239,10 +239,10 @@ fn toggle_layers_camera2(
     }
 }
 
-fn toggle_camera_layer(camera_view: &mut CameraView, layer: usize) {
-    if camera_view.contains_layer(layer) {
-        camera_view.remove(layer);
+fn toggle_camera_layer(camera_view: &mut CameraLayer, layer: usize) {
+    if camera_view.equals(layer) {
+        camera_view.clear();
     } else {
-        camera_view.add(layer);
+        camera_view.set(layer);
     }
 }
