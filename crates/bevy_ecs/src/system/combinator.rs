@@ -316,3 +316,65 @@ where
         b(value)
     }
 }
+
+/// A [`System`] created by piping the unwrapped output of the first system into the input of the second.
+/// If the outpuf of the first system is [`None`], the seconds system is nnot executed.
+///
+/// This can be repeated indefinitely. If not [`None`], the unwrapped output is consumed by the receiving system.
+///
+/// Given two systems `A` and `B`, A may be connected with `B` as `A.pipe_map(B)` if the output type of `A` is
+/// an [`Option`] of the input type of `B`. `B` must also return an [`Option`].
+///
+/// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
+/// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
+/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
+///
+/// # Examples
+///
+/// ```
+/// use std::num::ParseIntError;
+///
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut world = World::default();
+///     world.insert_resource(Message("42".to_string()));
+///
+///     // pipe the `parse_message_system`'s output into the `check_system`s input
+///     let mut pipe_mapped_system = parse_message_system.pipe_map(check_system);
+///     pipe_mapped_system.initialize(&mut world);
+///     assert_eq!(pipe_mapped_system.run((), &mut world), Some(true));
+/// }
+///
+/// #[derive(Resource)]
+/// struct Message(String);
+///
+/// fn parse_message_system(message: Res<Message>) -> Option<usize> {
+///     message.0.parse::<usize>().ok()
+/// }
+///
+/// fn check_system(In(parsed): In<usize>) -> Option<bool> {
+///     Some(parsed < 100)
+/// }
+/// ```
+pub type PipeMapSystem<SystemA, SystemB> = CombinatorSystem<PipeMap, SystemA, SystemB>;
+
+#[doc(hidden)]
+pub struct PipeMap;
+
+impl<A, B, T> Combine<A, B> for PipeMap
+where
+    A: System<Out = Option<B::In>>,
+    B: System<Out = Option<T>>,
+{
+    type In = A::In;
+    type Out = B::Out;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(A::In) -> Option<B::In>,
+        b: impl FnOnce(B::In) -> B::Out,
+    ) -> Self::Out {
+        a(input).and_then(b)
+    }
+}
