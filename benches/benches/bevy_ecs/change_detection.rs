@@ -270,7 +270,8 @@ fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
         entity.insert(Data::<B>(1.0));
     }
 }
-fn add_archetypes_entites<T: Component + Default>(
+
+fn add_archetypes_entities<T: Component + Default>(
     world: &mut World,
     archetype_count: u16,
     entity_count: u32,
@@ -313,7 +314,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
             bencher.iter_batched_ref(
                 || {
                     let mut world = World::new();
-                    add_archetypes_entites::<T>(&mut world, archetype_count, entity_count);
+                    add_archetypes_entities::<T>(&mut world, archetype_count, entity_count);
                     world.clear_trackers();
                     let mut query = world.query::<(
                         Option<&mut Data<0>>,
@@ -333,6 +334,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                         Option<&mut Data<14>>,
                     )>();
                     for components in query.iter_mut(&mut world) {
+                        // change Data<X> while keeping T unchanged
                         modify!(components;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14);
                     }
                     let query = generic_filter_query::<Changed<T>>(&mut world);
