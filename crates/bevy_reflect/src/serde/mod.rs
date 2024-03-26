@@ -229,11 +229,14 @@ mod tests {
 
         #[derive(Reflect, Debug)]
         #[reflect(Enemy)]
-        struct Zombie(u8);
+        struct Zombie {
+            health: u8,
+            walk_speed: f32,
+        }
 
         impl Enemy for Zombie {
             fn hp(&self) -> u8 {
-                self.0
+                self.health
             }
         }
 
@@ -245,6 +248,8 @@ mod tests {
 
         #[derive(Reflect, Debug)]
         #[reflect(SerializeWithRegistry, DeserializeWithRegistry)]
+        // Note that we have to use `Arc` instead of `Box` here due to the
+        // former being the only one between the two to implement `Reflect`.
         struct EnemyList(Vec<Arc<dyn Enemy>>);
 
         impl SerializeWithRegistry for EnemyList {
@@ -340,13 +345,19 @@ mod tests {
 
             let level = Level {
                 name: String::from("Level 1"),
-                enemies: EnemyList(vec![Arc::new(Skeleton(10)), Arc::new(Zombie(20))]),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(10)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 0.5,
+                    }),
+                ]),
             };
 
             let serializer = ReflectSerializer::new(&level, &registry);
             let serialized = ron::ser::to_string(&serializer).unwrap();
 
-            let expected = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(20)}])}"#;
+            let expected = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(health:20,walk_speed:0.5)}])}"#;
 
             assert_eq!(expected, serialized);
         }
@@ -355,7 +366,7 @@ mod tests {
         fn should_deserialize_with_deserialize_with_registry() {
             let registry = create_registry();
 
-            let input = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(20)}])}"#;
+            let input = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(health:20,walk_speed:0.5)}])}"#;
 
             let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
             let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
@@ -365,7 +376,13 @@ mod tests {
 
             let expected = Level {
                 name: String::from("Level 1"),
-                enemies: EnemyList(vec![Arc::new(Skeleton(10)), Arc::new(Zombie(20))]),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(10)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 0.5,
+                    }),
+                ]),
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
@@ -373,7 +390,13 @@ mod tests {
 
             let unexpected = Level {
                 name: String::from("Level 1"),
-                enemies: EnemyList(vec![Arc::new(Skeleton(20)), Arc::new(Zombie(10))]),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(20)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 5.0,
+                    }),
+                ]),
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>

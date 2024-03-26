@@ -427,15 +427,13 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
 
         // Handle both Value case and types that have a custom `ReflectDeserialize`
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
-            let value = deserialize_reflect.deserialize(deserializer)?;
-            return Ok(value);
+            return deserialize_reflect.deserialize(deserializer);
         }
 
         if let Some(deserialize_with_registry) =
             self.registration.data::<ReflectDeserializeWithRegistry>()
         {
-            let value = deserialize_with_registry.deserialize(deserializer, self.registry)?;
-            return Ok(value);
+            return deserialize_with_registry.deserialize(deserializer, self.registry);
         }
 
         match self.registration.type_info() {
