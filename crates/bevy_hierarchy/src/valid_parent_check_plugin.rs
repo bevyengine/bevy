@@ -68,7 +68,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
                 "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
                 This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/#b0004",
                 ty_name = get_short_name(std::any::type_name::<T>()),
-                name = name.map_or(format!("Entity {}", entity), |s| format!("The {s} entity")),
+                name = name.map_or_else(|| format!("Entity {}", entity), |s| format!("The {s} entity")),
             );
         }
     }
