@@ -1769,6 +1769,7 @@ impl PhaseItem for Shadow {
 impl BinnedPhaseItem for Shadow {
     type BinKey = ShadowBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,

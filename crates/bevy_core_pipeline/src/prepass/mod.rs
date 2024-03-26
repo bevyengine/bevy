@@ -176,6 +176,7 @@ impl PhaseItem for Opaque3dPrepass {
 impl BinnedPhaseItem for Opaque3dPrepass {
     type BinKey = OpaqueNoLightmap3dBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,
@@ -245,6 +246,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 impl BinnedPhaseItem for AlphaMask3dPrepass {
     type BinKey = OpaqueNoLightmap3dBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,

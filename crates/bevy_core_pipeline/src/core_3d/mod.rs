@@ -242,6 +242,7 @@ impl PhaseItem for Opaque3d {
 impl BinnedPhaseItem for Opaque3d {
     type BinKey = Opaque3dBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,

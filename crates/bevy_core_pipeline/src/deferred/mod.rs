@@ -64,6 +64,7 @@ impl PhaseItem for Opaque3dDeferred {
 impl BinnedPhaseItem for Opaque3dDeferred {
     type BinKey = OpaqueNoLightmap3dBinKey;
 
+    #[inline]
     fn new(
         key: Self::BinKey,
         representative_entity: Entity,

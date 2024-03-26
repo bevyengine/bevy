@@ -104,7 +104,7 @@ pub struct BinnedRenderPhaseBatch {
     pub representative_entity: Entity,
 
     /// The last instance index in this batch.
-    pub last_instance_index: u32,
+    pub instance_end_index: u32,
 
     /// The dynamic offset of the batch.
     ///
@@ -160,7 +160,7 @@ where
         }
     }
 
-    /// Executes the GPU commands needed to render all entities in this phase.
+    /// Encodes the GPU commands needed to render all entities in this phase.
     pub fn render<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,
@@ -171,16 +171,16 @@ where
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        // Draw batchables. Track instance index. We assume that all instance
-        // indices are consecutive.
-        let mut first_instance_index = self.first_instance_index;
+        // Encode draws for batchables. Track instance index. We assume that all
+        // instance indices are consecutive.
+        let mut instance_start_index = self.first_instance_index;
         debug_assert_eq!(self.batchable_keys.len(), self.batches.len());
 
         for (key, batch) in self.batchable_keys.iter().zip(self.batches.iter()) {
             let binned_phase_item = BPI::new(
                 key.clone(),
                 batch.representative_entity,
-                first_instance_index..batch.last_instance_index,
+                instance_start_index..batch.instance_end_index,
                 batch.dynamic_offset,
             );
 
@@ -193,11 +193,11 @@ where
             draw_function.draw(world, render_pass, view, &binned_phase_item);
 
             // Advance instance index.
-            first_instance_index = batch.last_instance_index;
+            instance_start_index = batch.instance_end_index;
         }
 
-        // Draw unbatchables, which immediately follow the batchables in the
-        // storage buffers.
+        // Encode draws for unbatchables, which immediately follow the
+        // batchables in the instance data buffers.
 
         for key in &self.unbatchable_keys {
             let unbatchable_entities = &self.unbatchable_values[key];
@@ -211,7 +211,7 @@ where
                 let binned_phase_item = BPI::new(
                     key.clone(),
                     entity,
-                    first_instance_index..(first_instance_index + 1),
+                    instance_start_index..(instance_start_index + 1),
                     dynamic_offset,
                 );
 
@@ -224,7 +224,7 @@ where
                 draw_function.draw(world, render_pass, view, &binned_phase_item);
 
                 // Advance instance index.
-                first_instance_index += 1;
+                instance_start_index += 1;
             }
         }
     }
@@ -259,7 +259,7 @@ impl BinnedRenderPhaseBatch {
     pub(crate) fn placeholder(instance_index: u32) -> Self {
         Self {
             representative_entity: Entity::PLACEHOLDER,
-            last_instance_index: instance_index,
+            instance_end_index: instance_index,
             dynamic_offset: None,
         }
     }
@@ -415,6 +415,12 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// An example of a binned phase item is `Opaque3d`, for which the rendering
 /// order isn't critical.
 pub trait BinnedPhaseItem: PhaseItem {
+    /// The key used for binning [`PhaseItem`]s into bins. Order the members of
+    /// [`BinKey`] by the order of binding for best performance. For example,
+    /// pipeline id, draw function id, mesh asset id, lowest variable bind group
+    /// id such as the material bind group id, and its dynamic offsets if any,
+    /// next bind group and offsets, etc. This reduces the need for rebinding
+    /// between bins and improves performance.
     type BinKey: Clone + Send + Sync + Eq + Ord + Hash;
 
     /// Creates a new binned phase item from the key and per-entity data.

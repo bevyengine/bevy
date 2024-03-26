@@ -137,8 +137,8 @@ where
     BPI: BinnedPhaseItem,
 {
     for mut phase in &mut views {
-        phase.batchable_keys.sort();
-        phase.unbatchable_keys.sort();
+        phase.batchable_keys.sort_unstable();
+        phase.unbatchable_keys.sort_unstable();
     }
 }
 
@@ -165,7 +165,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
             for &entity in &phase.batchable_values[key] {
                 let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
                     let instance_index = match phase.batches.last() {
-                        Some(batch) => batch.last_instance_index,
+                        Some(batch) => batch.instance_end_index,
                         None => 0,
                     };
                     phase
@@ -196,17 +196,17 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
                     None => {
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: entity,
-                            last_instance_index: instance.index + 1,
+                            instance_end_index: instance.index + 1,
                             dynamic_offset: instance.dynamic_offset,
                         });
                     }
-                    Some(ref mut batch) => batch.last_instance_index += 1,
+                    Some(ref mut batch) => batch.instance_end_index += 1,
                 }
             }
 
             phase.batches.push(batch.unwrap_or_else(|| {
                 let instance_index = match phase.batches.last() {
-                    Some(batch) => batch.last_instance_index,
+                    Some(batch) => batch.instance_end_index,
                     None => 0,
                 };
                 BinnedRenderPhaseBatch::placeholder(instance_index)
