@@ -182,7 +182,7 @@ pub fn calculate_bounds_2d(
 #[cfg(test)]
 mod test {
 
-    use bevy_math::Vec2;
+    use bevy_math::{Rect, Vec2, Vec3A};
     use bevy_utils::default;
 
     use super::*;
@@ -288,5 +288,53 @@ mod test {
 
         // Check that the AABBs are not equal
         assert_ne!(first_aabb, second_aabb);
+    }
+
+    #[test]
+    fn calculate_bounds_2d_correct_aabb_for_sprite_with_custom_rect() {
+        // Setup app
+        let mut app = App::new();
+
+        // Add resources and get handle to image
+        let mut image_assets = Assets::<Image>::default();
+        let image_handle = image_assets.add(Image::default());
+        app.insert_resource(image_assets);
+        let mesh_assets = Assets::<Mesh>::default();
+        app.insert_resource(mesh_assets);
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        app.insert_resource(texture_atlas_assets);
+
+        // Add system
+        app.add_systems(Update, calculate_bounds_2d);
+
+        // Add entities
+        let entity = app
+            .world
+            .spawn((
+                Sprite {
+                    rect: Some(Rect::new(0., 0., 0.5, 1.)),
+                    anchor: Anchor::TopRight,
+                    ..default()
+                },
+                image_handle,
+            ))
+            .id();
+
+        // Create AABB
+        app.update();
+
+        // Get the AABB
+        let aabb = *app
+            .world
+            .get_entity(entity)
+            .expect("Could not find entity")
+            .get::<Aabb>()
+            .expect("Could not find AABB");
+
+        // Verify that the AABB is at the expected position
+        assert_eq!(aabb.center, Vec3A::new(-0.25, -0.5, 0.));
+
+        // Verify that the AABB has the expected size
+        assert_eq!(aabb.half_extents, Vec3A::new(0.25, 0.5, 0.));
     }
 }
