@@ -332,9 +332,8 @@ impl Schedule {
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, skipped);
+        self.executor.run(&mut self.executable, world, None);
 
-        // after the executable schedule is initialized, create a bitset of systems to skip
         #[cfg(feature = "bevy_debug_stepping")]
         {
             let skip_systems = match world.get_resource_mut::<Stepping>() {
@@ -347,6 +346,8 @@ impl Schedule {
         }
     }
 
+    /// Runs systems in this schedule on the `world`, using its current execution strategy.
+    /// Only include systems that are in the provided `system_set`.
     pub(crate) fn run_system_set(&mut self, world: &mut World, system_set: impl SystemSet) {
         #[cfg(feature = "trace")]
         let _span = info_span!("schedule", name = ?self.label).entered();
@@ -364,13 +365,8 @@ impl Schedule {
             .get(&system_set.intern())
             .copied()
             .map(|system_set_node_id| {
-                // for each system in the graph, skip it if it's not in the system_set
-                // TODO: is there a guarantee that systems_len() is the same as graph.systems.len()?
-                //  cannot use graph.systems directly because systems got moved to systemschedule
+                // traverse the hierarchy graph to find all the systems that are included in the system set
                 let mut included_system_ids = FixedBitSet::with_capacity(self.systems_len());
-                // TODO: need all systems that are reachable from the system set
-                //  - either run BFS here
-                //  - or re-use the transitive closure?
                 let mut bfs = Bfs::new(self.graph().hierarchy.graph(), system_set_node_id);
                 while let Some(system_node_id) = bfs.next(self.graph().hierarchy.graph()) {
                     if system_node_id.is_system() {
