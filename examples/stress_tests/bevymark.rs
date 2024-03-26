@@ -222,7 +222,8 @@ fn setup(
         quad: meshes
             .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
-        // Make it deterministic for testing purposes.
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
         material_rng: ChaCha8Rng::seed_from_u64(42),
         velocity_rng: ChaCha8Rng::seed_from_u64(42),
@@ -306,7 +307,8 @@ fn mouse_handler(
     mut wave: Local<usize>,
 ) {
     if rng.is_none() {
-        // Make it deterministic for testing purposes.
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
@@ -540,7 +542,8 @@ fn counter_system(
 }
 
 fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
-    // Make it deterministic for testing purposes.
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     while textures.len() < args.material_texture_count {
         let pixel = [color_rng.gen(), color_rng.gen(), color_rng.gen(), 255];
@@ -576,7 +579,8 @@ fn init_materials(
         texture: textures.first().cloned(),
     }));
 
-    // Make it deterministic for testing purposes.
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(

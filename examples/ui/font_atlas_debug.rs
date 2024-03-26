@@ -105,6 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 },
             ));
         });
-    // Make it deterministic for testing purposes.
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     commands.insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467713)));
 }

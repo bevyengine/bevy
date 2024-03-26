@@ -12,7 +12,8 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
 
-    // Make it deterministic for testing purposes.
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..128 {
         commands.spawn((
