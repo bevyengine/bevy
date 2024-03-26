@@ -1,0 +1,196 @@
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:22:14
+   |
+22 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&TheirBar`, found `&TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected reference `&structs::external_crate::TheirBar`
+              found reference `&structs::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:59:8
+   |
+59 |     fn as_wrapper(remote: &Self::Remote) -> &Self;
+   |        ^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:22:14
+   |
+22 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&mut TheirBar`, found `&mut TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut structs::external_crate::TheirBar`
+              found mutable reference `&mut structs::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:61:8
+   |
+61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:25:28
+   |
+22 |     #[derive(Reflect)]
+   |              ------- in this derive macro expansion
+...
+25 |         #[reflect(remote = "MyBar")]
+   |                            ^^^^^^^
+   |                            |
+   |                            expected `TheirBar`, found `TheirFoo`
+   |                            expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:45:14
+   |
+45 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&TheirBar`, found `&TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected reference `&tuple_structs::external_crate::TheirBar`
+              found reference `&tuple_structs::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:59:8
+   |
+59 |     fn as_wrapper(remote: &Self::Remote) -> &Self;
+   |        ^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:45:14
+   |
+45 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&mut TheirBar`, found `&mut TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut tuple_structs::external_crate::TheirBar`
+              found mutable reference `&mut tuple_structs::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:61:8
+   |
+61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:48:28
+   |
+45 |     #[derive(Reflect)]
+   |              ------- in this derive macro expansion
+...
+48 |         #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+   |                            ^^^^^^^
+   |                            |
+   |                            expected `TheirBar`, found `TheirFoo`
+   |                            expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `i32`, found `u32`
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/type_mismatch.fail.rs:70:5
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `i32`, found `u32`
+   |
+   = note: `?` operator cannot convert from `u32` to `i32`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you can convert a `u32` to an `i32` and panic if the converted value doesn't fit
+   |
+70 |     #[reflect_remote(external_crate::TheirBar)].try_into().unwrap()
+   |                                                ++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:73:15
+   |
+70 |       #[reflect_remote(external_crate::TheirBar)]
+   |       -------------------------------------------
+   |       |
+   |  _____in this procedural macro expansion
+   | |
+71 | |     enum MyBar {
+72 | |         // Reason: Should use `i32`
+73 | |         Value(u32),
+   | |               ^^-
+   | |_______________|_|
+   |                 | expected due to the type of this binding
+   |                 expected `i32`, found `u32`
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:76:14
+   |
+76 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&TheirBar`, found `&TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected reference `&enums::external_crate::TheirBar`
+              found reference `&enums::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:59:8
+   |
+59 |     fn as_wrapper(remote: &Self::Remote) -> &Self;
+   |        ^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:76:14
+   |
+76 |     #[derive(Reflect)]
+   |              ^^^^^^^
+   |              |
+   |              expected `&mut TheirBar`, found `&mut TheirFoo`
+   |              arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut enums::external_crate::TheirBar`
+              found mutable reference `&mut enums::external_crate::TheirFoo`
+note: associated function defined here
+  --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/remote.rs:61:8
+   |
+61 |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:76:14
+   |
+76 |     #[derive(Reflect)]
+   |              ^^^^^^^ expected `TheirFoo`, found `TheirBar`
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/type_mismatch.fail.rs:80:32
+   |
+76 |     #[derive(Reflect)]
+   |              ------- in this derive macro expansion
+...
+80 |             #[reflect(remote = "MyBar")] external_crate::TheirFoo,
+   |                                ^^^^^^^
+   |                                |
+   |                                expected `TheirBar`, found `TheirFoo`
+   |                                expected due to this
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)

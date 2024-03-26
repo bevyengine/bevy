@@ -46,6 +46,16 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         variant_constructors,
     } = get_variant_constructors(reflect_enum, &ref_value, false);
 
+    let match_branches = if reflect_enum.is_remote_wrapper() {
+        quote! {
+            #(#variant_names => #fqoption::Some(Self(#variant_constructors)),)*
+        }
+    } else {
+        quote! {
+            #(#variant_names => #fqoption::Some(#variant_constructors),)*
+        }
+    };
+
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
     // Add FromReflect bound for each active field
@@ -58,7 +68,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
-                        #(#variant_names => #fqoption::Some(#variant_constructors),)*
+                        #match_branches
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 } else {
@@ -99,28 +109,48 @@ fn impl_struct_internal(
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
     let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
+
+    // The constructed "Self" ident
+    let __this = Ident::new("__this", Span::call_site());
+
+    // The reflected type: either `Self` or a remote type
+    let (reflect_ty, constructor, retval) = if let Some(remote_ty) = reflect_struct.remote_ty() {
+        let constructor = match remote_ty.as_expr_path() {
+            Ok(path) => path,
+            Err(err) => return err.into_compile_error(),
+        };
+        let remote_ty = remote_ty.type_path();
+
+        (
+            quote!(#remote_ty),
+            quote!(#constructor),
+            quote!(Self(#__this)),
+        )
+    } else {
+        (quote!(Self), quote!(Self), quote!(#__this))
+    };
+
     let constructor = if is_defaultable {
-        quote!(
-            let mut __this: Self = #FQDefault::default();
+        quote! {
+            let mut #__this = <#reflect_ty as #FQDefault>::default();
             #(
                 if let #fqoption::Some(__field) = #active_values() {
                     // Iff field exists -> use its value
-                    __this.#active_members = __field;
+                    #__this.#active_members = __field;
                 }
             )*
-            #FQOption::Some(__this)
-        )
+            #FQOption::Some(#retval)
+        }
     } else {
         let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
-        quote!(
-            #FQOption::Some(
-                Self {
-                    #(#active_members: #active_values()?,)*
-                    #(#ignored_members: #ignored_values,)*
-                }
-            )
-        )
+        quote! {
+            let #__this = #constructor {
+                #(#active_members: #active_values()?,)*
+                #(#ignored_members: #ignored_values,)*
+            };
+            #FQOption::Some(#retval)
+        }
     };
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
@@ -191,34 +221,76 @@ fn get_active_fields(
                     field.reflection_index.expect("field should be active"),
                     is_tuple,
                 );
-                let ty = field.data.ty.clone();
+                let ty = field.reflected_type().clone();
+                let real_ty = &field.data.ty;
 
                 let get_field = quote! {
                     #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
                 };
 
+                let into_remote = |value: proc_macro2::TokenStream| {
+                    if field.attrs.is_remote_generic().unwrap_or_default() {
+                        quote! {
+                            #FQOption::Some(
+                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                                unsafe {
+                                    ::core::mem::transmute_copy::<#ty, #real_ty>(
+                                        &::core::mem::ManuallyDrop::new(#value?)
+                                    )
+                                }
+                            )
+                        }
+                    } else if field.attrs().remote.is_some() {
+                        quote! {
+                            #FQOption::Some(
+                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                                unsafe {
+                                    ::core::mem::transmute::<#ty, #real_ty>(#value?)
+                                }
+                            )
+                        }
+                    } else {
+                        value
+                    }
+                };
+
                 let value = match &field.attrs.default {
-                    DefaultBehavior::Func(path) => quote! {
-                        (||
-                            if let #FQOption::Some(field) = #get_field {
-                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
-                            } else {
-                                #FQOption::Some(#path())
-                            }
-                        )
-                    },
-                    DefaultBehavior::Default => quote! {
-                        (||
-                            if let #FQOption::Some(field) = #get_field {
-                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
-                            } else {
-                                #FQOption::Some(#FQDefault::default())
-                            }
-                        )
-                    },
-                    DefaultBehavior::Required => quote! {
-                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?))
-                    },
+                    DefaultBehavior::Func(path) => {
+                        let value = into_remote(quote! {
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                        });
+                        quote! {
+                            (||
+                                if let #FQOption::Some(field) = #get_field {
+                                    #value
+                                } else {
+                                    #FQOption::Some(#path())
+                                }
+                            )
+                        }
+                    }
+                    DefaultBehavior::Default => {
+                        let value = into_remote(quote! {
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                        });
+                        quote! {
+                            (||
+                                if let #FQOption::Some(field) = #get_field {
+                                    #value
+                                } else {
+                                    #FQOption::Some(#FQDefault::default())
+                                }
+                            )
+                        }
+                    }
+                    DefaultBehavior::Required => {
+                        let value = into_remote(quote! {
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
+                        });
+                        quote! {
+                            (|| #value)
+                        }
+                    }
                 };
 
                 (member, value)

@@ -1,9 +1,12 @@
+mod any;
+mod assertions;
 mod enums;
 mod structs;
 mod tuple_structs;
 mod typed;
 mod values;
 
+pub(crate) use assertions::impl_assertions;
 pub(crate) use enums::impl_enum;
 pub(crate) use structs::impl_struct;
 pub(crate) use tuple_structs::impl_tuple_struct;

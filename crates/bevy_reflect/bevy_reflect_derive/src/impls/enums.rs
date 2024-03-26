@@ -1,14 +1,34 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::impls::{impl_type_path, impl_typed};
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
+use crate::impls::{any::impl_reflect_any_methods, impl_type_path, impl_typed};
+use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::Fields;
+use syn::{Fields, Path};
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
+    let is_remote = reflect_enum.is_remote_wrapper();
+
+    // For `match self` expressions where self is a reference
+    let match_this = if is_remote {
+        quote!(&self.0)
+    } else {
+        quote!(self)
+    };
+    // For `match self` expressions where self is a mutable reference
+    let match_this_mut = if is_remote {
+        quote!(&mut self.0)
+    } else {
+        quote!(self)
+    };
+    // For `*self` assignments
+    let deref_this = if is_remote {
+        quote!(self.0)
+    } else {
+        quote!(*self)
+    };
 
     let ref_name = Ident::new("__name_param", Span::call_site());
     let ref_index = Ident::new("__index_param", Span::call_site());
@@ -19,7 +39,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let EnumImpls {
         variant_info,
         enum_field,
+        enum_field_mut,
         enum_field_at,
+        enum_field_at_mut,
         enum_index_of,
         enum_name_at,
         enum_field_len,
@@ -83,6 +105,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     );
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
+    let any_impls = impl_reflect_any_methods(reflect_enum.is_remote_wrapper());
 
     let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
 
@@ -100,42 +123,42 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                 match self {
+                 match #match_this {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                match self {
+                match #match_this {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                 match self {
-                    #(#enum_field,)*
+                 match #match_this_mut {
+                    #(#enum_field_mut,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                match self {
-                    #(#enum_field_at,)*
+                match #match_this_mut {
+                    #(#enum_field_at_mut,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn index_of(&self, #ref_name: &str) -> #FQOption<usize> {
-                 match self {
+                 match #match_this {
                     #(#enum_index_of,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn name_at(&self, #ref_index: usize) -> #FQOption<&str> {
-                 match self {
+                 match #match_this {
                     #(#enum_name_at,)*
                     _ => #FQOption::None,
                 }
@@ -147,7 +170,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn field_len(&self) -> usize {
-                 match self {
+                 match #match_this {
                     #(#enum_field_len,)*
                     _ => 0,
                 }
@@ -155,7 +178,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_name(&self) -> &str {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_name,)*
                     _ => unreachable!(),
                 }
@@ -163,7 +186,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_index(&self) -> usize {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_index,)*
                     _ => unreachable!(),
                 }
@@ -171,7 +194,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_type(&self) -> #bevy_reflect_path::VariantType {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_type,)*
                     _ => unreachable!(),
                 }
@@ -188,20 +211,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
-            #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
+            #any_impls
 
             #[inline]
             fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
@@ -252,7 +262,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                         // New variant -> perform a switch
                         match #bevy_reflect_path::Enum::variant_name(#ref_value) {
                             #(#variant_names => {
-                                *self = #variant_constructors
+                                #deref_this = #variant_constructors
                             })*
                             name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                         }
@@ -290,7 +300,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 struct EnumImpls {
     variant_info: Vec<proc_macro2::TokenStream>,
     enum_field: Vec<proc_macro2::TokenStream>,
+    enum_field_mut: Vec<proc_macro2::TokenStream>,
     enum_field_at: Vec<proc_macro2::TokenStream>,
+    enum_field_at_mut: Vec<proc_macro2::TokenStream>,
     enum_index_of: Vec<proc_macro2::TokenStream>,
     enum_name_at: Vec<proc_macro2::TokenStream>,
     enum_field_len: Vec<proc_macro2::TokenStream>,
@@ -304,7 +316,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
 
     let mut variant_info = Vec::new();
     let mut enum_field = Vec::new();
+    let mut enum_field_mut = Vec::new();
     let mut enum_field_at = Vec::new();
+    let mut enum_field_at_mut = Vec::new();
     let mut enum_index_of = Vec::new();
     let mut enum_name_at = Vec::new();
     let mut enum_field_len = Vec::new();
@@ -357,6 +371,29 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             constructor_argument
         }
 
+        /// Process the field value to account for remote types.
+        ///
+        /// If the field is a remote type, then the value will be transmuted accordingly.
+        fn process_field_value(
+            ident: &Ident,
+            field: &StructField,
+            is_mutable: bool,
+            bevy_reflect_path: &Path,
+        ) -> proc_macro2::TokenStream {
+            let method = if is_mutable {
+                quote!(as_wrapper_mut)
+            } else {
+                quote!(as_wrapper)
+            };
+
+            field
+                .attrs
+                .remote
+                .as_ref()
+                .map(|ty| quote!(<#ty as #bevy_reflect_path::ReflectRemote>::#method(#ident)))
+                .unwrap_or_else(|| quote!(#ident))
+        }
+
         let mut push_variant =
             |_variant: &EnumVariant, arguments: proc_macro2::TokenStream, field_len: usize| {
                 #[cfg(feature = "documentation")]
@@ -388,8 +425,15 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             EnumVariantFields::Unnamed(fields) => {
                 let args = get_field_args(fields, |reflect_idx, declaration_index, field| {
                     let declare_field = syn::Index::from(declaration_index);
+
+                    let __value = Ident::new("__value", Span::call_site());
+                    let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
+                    let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
                     enum_field_at.push(quote! {
-                        #unit { #declare_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflect_idx => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_at_mut.push(quote! {
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflect_idx => #FQOption::Some(#value_mut)
                     });
 
                     #[cfg(feature = "documentation")]
@@ -400,7 +444,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     #[cfg(not(feature = "documentation"))]
                     let with_docs: Option<proc_macro2::TokenStream> = None;
 
-                    let field_ty = &field.data.ty;
+                    let field_ty = &field.reflected_type();
                     quote! {
                         #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx)
                         #with_docs
@@ -414,11 +458,21 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 let args = get_field_args(fields, |reflect_idx, _, field| {
                     let field_ident = field.data.ident.as_ref().unwrap();
                     let field_name = field_ident.to_string();
+
+                    let __value = Ident::new("__value", Span::call_site());
+                    let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
+                    let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
                     enum_field.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_name == #field_name => #FQOption::Some(#field_ident)
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_mut.push(quote! {
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_mut)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_ident)
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflect_idx => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_at_mut.push(quote! {
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflect_idx => #FQOption::Some(#value_mut)
                     });
                     enum_index_of.push(quote! {
                         #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflect_idx)
@@ -435,7 +489,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     #[cfg(not(feature = "documentation"))]
                     let with_docs: Option<proc_macro2::TokenStream> = None;
 
-                    let field_ty = &field.data.ty;
+                    let field_ty = &field.reflected_type();
                     quote! {
                         #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name)
                         #with_docs
@@ -451,7 +505,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     EnumImpls {
         variant_info,
         enum_field,
+        enum_field_mut,
         enum_field_at,
+        enum_field_at_mut,
         enum_index_of,
         enum_name_at,
         enum_field_len,
