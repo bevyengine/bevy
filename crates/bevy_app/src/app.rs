@@ -141,9 +141,13 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
-    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`] before the sub app updates. This is
     /// useful for moving data between the sub app and the main app.
     extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+
+    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`] after the sub app updates. This is
+    /// useful for moving data between the sub app and the main app.
+    finish: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
@@ -157,7 +161,19 @@ impl SubApp {
         Self {
             app,
             extract: Box::new(extract),
+            finish: Box::new(|_, _| ()),
         }
+    }
+
+    /// Adds a function to be called after [`update`](App::update).
+    ///
+    /// The provided function `finish` is normally called by the [`update`](App::update) method.
+    /// Finish is called after the [`Schedule`] of the sub app has run. The [`World`]
+    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
+    /// reference to the `SubApp` itself.
+    pub fn with_finish(mut self, insert: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
+        self.finish = Box::new(insert);
+        self
     }
 
     /// Runs the [`SubApp`]'s default schedule.
@@ -169,6 +185,11 @@ impl SubApp {
     /// Extracts data from main world to this sub-app.
     pub fn extract(&mut self, main_world: &mut World) {
         (self.extract)(main_world, &mut self.app);
+    }
+
+    /// Finishes the sub-app's update by invoking the [`Self::with_finish`] callback.
+    pub fn finish(&mut self, main_world: &mut World) {
+        (self.finish)(main_world, &mut self.app);
     }
 }
 
@@ -263,6 +284,7 @@ impl App {
             let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);
             sub_app.run();
+            sub_app.finish(&mut self.world);
         }
 
         self.world.clear_trackers();

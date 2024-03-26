@@ -1637,6 +1637,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "sub_app_communication"
+path = "examples/ecs/sub_app_communication.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_app_communication]
+name = "SubApp Communication"
+description = "Demonstrates using events to send data in and out of a SubApp"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
