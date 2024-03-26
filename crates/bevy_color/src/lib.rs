@@ -1,4 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! Representations of colors in various color spaces.
 //!
@@ -142,7 +146,6 @@ where
     Self: core::fmt::Debug,
     Self: Clone + Copy,
     Self: PartialEq,
-    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
     Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
