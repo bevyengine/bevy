@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::RenderLayers,
+        view::{CameraLayer, RenderLayer, RenderLayers},
     },
 };
 
@@ -71,7 +71,7 @@ fn setup(
     });
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
-    let first_pass_layer = RenderLayers::from_layer(1);
+    let first_pass_layer = RenderLayer(1);
 
     // The cube that will be rendered to the texture.
     commands.spawn((
@@ -82,19 +82,17 @@ fn setup(
             ..default()
         },
         FirstPassCube,
-        first_pass_layer.clone(),
+        RenderLayers::from_layer(first_pass_layer),
     ));
 
-    // Light
-    // NOTE: we add the light to all layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
-    // Setting the layer to RenderLayers::from(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
-    // Setting the layer to RenderLayers::from(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
+    // Light for the first pass
+    // NOTE: Lights only work properly when in one render layer.
     commands.spawn((
         PointLightBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             ..default()
         },
-        RenderLayers::from_layers(&[0, 1]),
+        RenderLayers::from_layer(first_pass_layer)
     ));
 
     commands.spawn((
@@ -110,7 +108,8 @@ fn setup(
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        first_pass_layer,
+        // view the first pass layer
+        CameraLayer::new(first_pass_layer),
     ));
 
     let cube_size = 4.0;
@@ -134,6 +133,16 @@ fn setup(
             ..default()
         },
         MainPassCube,
+    ));
+
+    // Light for the main pass cube
+    // NOTE: Lights only work properly when in one render layer, so we need separate lights for the first and
+    // main passes.
+    commands.spawn((
+        PointLightBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+            ..default()
+        },
     ));
 
     // The main pass camera.

@@ -1994,8 +1994,8 @@ category = "Scene"
 wasm = false
 
 [[example]]
-name = "render_groups"
-path = "examples/3d/render_groups.rs"
+name = "render_layers"
+path = "examples/3d/render_layers.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.render_layers]
