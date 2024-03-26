@@ -18,6 +18,7 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
 use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
+pub use winit;
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
@@ -439,7 +440,7 @@ fn handle_winit_event(
             // the engine.
             if let Some(adapter) = access_kit_adapters.get(&window) {
                 if let Some(winit_window) = winit_windows.get_window(window) {
-                    adapter.process_event(winit_window, &event);
+                    adapter.process_event(&winit_window, &event);
                 }
             }
 

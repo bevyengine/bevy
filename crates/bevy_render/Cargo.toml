@@ -54,6 +54,7 @@ bevy_render_macros = { path = "macros", version = "0.14.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 

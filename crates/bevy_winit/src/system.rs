@@ -200,7 +200,7 @@ pub(crate) fn changed_windows(
         }
 
         if window.cursor.grab_mode != cache.window.cursor.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor.grab_mode);
+            crate::winit_windows::attempt_grab(&winit_window, window.cursor.grab_mode);
         }
 
         if window.cursor.visible != cache.window.cursor.visible {
