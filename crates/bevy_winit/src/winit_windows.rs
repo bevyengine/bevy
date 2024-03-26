@@ -254,14 +254,15 @@ impl WinitWindows {
         self.windows
             .entry(winit_window.id())
             .insert(Arc::new(winit_window))
-            .get().clone()
+            .get()
+            .clone()
     }
 
     /// Get the winit window that is associated with our entity.
     pub fn get_window(&self, entity: Entity) -> Option<Arc<winit::window::Window>> {
-        self.entity_to_winit.get(&entity).and_then(|winit_id| {
-            self.windows.get(winit_id).cloned()
-        })
+        self.entity_to_winit
+            .get(&entity)
+            .and_then(|winit_id| self.windows.get(winit_id).cloned())
     }
 
     /// Get the entity associated with the winit window id.
