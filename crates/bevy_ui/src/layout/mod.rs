@@ -52,7 +52,7 @@ struct RootNodePair {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: EntityHashMap<taffy::node::Node>,
-    camera_entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
 }
@@ -168,10 +168,7 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
-        let camera_node = *self
-            .camera_entity_to_taffy
-            .entry(camera_id)
-            .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
+        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
@@ -186,10 +183,13 @@ without UI components as a child of an entity with UI components, results may be
                         self.taffy.remove_child(previous_parent, node).unwrap();
                     }
 
-                    self.taffy.add_child(camera_node, node).unwrap();
+                    let viewport_node = *camera_root_node_map
+                        .entry(entity)
+                        .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
+                    self.taffy.add_child(viewport_node, node).unwrap();
 
                     RootNodePair {
-                        implicit_viewport_node: camera_node,
+                        implicit_viewport_node: viewport_node,
                         user_root_node: node,
                     }
                 });
@@ -219,8 +219,10 @@ without UI components as a child of an entity with UI components, results may be
     /// Removes each camera entity from the internal map and then removes their associated node from taffy
     pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            if let Some(node) = self.camera_entity_to_taffy.remove(&entity) {
-                self.taffy.remove(node).unwrap();
+            if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
+                for (_, node) in camera_root_node_map.iter() {
+                    self.taffy.remove(*node).unwrap();
+                }
             }
         }
     }
@@ -543,20 +545,19 @@ mod tests {
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
     use bevy_ecs::prelude::{Commands, Component, In, Query, With};
+    use bevy_ecs::query::Without;
     use bevy_ecs::schedule::apply_deferred;
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::despawn_with_children_recursive;
-    use bevy_hierarchy::BuildWorldChildren;
-    use bevy_hierarchy::Children;
-    use bevy_math::Vec2;
-    use bevy_math::{vec2, UVec2};
+    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
+    use bevy_transform::prelude::{GlobalTransform, Transform};
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
@@ -855,6 +856,89 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    /// regression test for >=0.13.1 root node layouts
+    /// ensure root nodes act like they are absolutely positioned
+    /// without explicitly declaring it.
+    #[test]
+    fn ui_root_node_should_act_like_position_absolute() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let mut size = 150.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // test should pass without explicitly requiring position_type to be set to Absolute
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        size -= 50.;
+
+        world.spawn(NodeBundle {
+            style: Style {
+                // position_type: PositionType::Absolute,
+                width: Val::Px(size),
+                height: Val::Px(size),
+                ..default()
+            },
+            ..default()
+        });
+
+        ui_schedule.run(&mut world);
+
+        let overlap_check = world
+            .query_filtered::<(Entity, &Node, &mut GlobalTransform, &Transform), Without<Parent>>()
+            .iter_mut(&mut world)
+            .fold(
+                Option::<(Rect, bool)>::None,
+                |option_rect, (entity, node, mut global_transform, transform)| {
+                    // fix global transform - for some reason the global transform isn't populated yet.
+                    // might be related to how these specific tests are working directly with World instead of App
+                    *global_transform = GlobalTransform::from(transform.compute_affine());
+                    let global_transform = &*global_transform;
+                    let current_rect = node.logical_rect(global_transform);
+                    assert!(
+                        current_rect.height().abs() + current_rect.width().abs() > 0.,
+                        "root ui node {entity:?} doesn't have a logical size"
+                    );
+                    assert_ne!(
+                        global_transform.affine(),
+                        GlobalTransform::default().affine(),
+                        "root ui node {entity:?} global transform is not populated"
+                    );
+                    let Some((rect, is_overlapping)) = option_rect else {
+                        return Some((current_rect, false));
+                    };
+                    if rect.contains(current_rect.center()) {
+                        Some((current_rect, true))
+                    } else {
+                        Some((current_rect, is_overlapping))
+                    }
+                },
+            );
+
+        let Some((_rect, is_overlapping)) = overlap_check else {
+            unreachable!("test not setup properly");
+        };
+        assert!(is_overlapping, "root ui nodes are expected to behave like they have absolute position and be independent from each other");
     }
 
     #[test]

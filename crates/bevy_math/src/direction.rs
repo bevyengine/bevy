@@ -151,6 +151,12 @@ impl TryFrom<Vec2> for Dir2 {
     }
 }
 
+impl From<Dir2> for Vec2 {
+    fn from(value: Dir2) -> Self {
+        value.as_vec2()
+    }
+}
+
 impl std::ops::Deref for Dir2 {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {

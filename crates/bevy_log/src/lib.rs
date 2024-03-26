@@ -1,3 +1,9 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
 //!
@@ -9,7 +15,6 @@
 //!
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "trace")]
 use std::panic;
@@ -205,7 +210,6 @@ impl Plugin for LogPlugin {
 
         #[cfg(target_arch = "wasm32")]
         {
-            console_error_panic_hook::set_once();
             finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
