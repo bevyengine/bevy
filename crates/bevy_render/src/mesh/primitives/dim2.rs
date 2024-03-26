@@ -236,11 +236,16 @@ impl AnnulusMeshBuilder {
         let inner_radius = self.annulus.inner_circle.radius;
         let outer_radius = self.annulus.outer_circle.radius;
 
-        let mut indices = Vec::with_capacity((self.resolution + 1) * 2);
-        let mut positions = Vec::with_capacity((self.resolution + 1) * 6);
-        let mut uvs = Vec::with_capacity((self.resolution + 1) * 2);
-        let normals = vec![[0.0, 0.0, 1.0]; (self.resolution + 1) * 2];
+        let num_vertices = (self.resolution + 1) * 2;
+        let mut indices = Vec::with_capacity(num_vertices * 3);
+        let mut positions = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
 
+        // We have one more set of vertices than might be naïvely expected;
+        // the vertices at `start_angle` are duplicated for the purposes of UV
+        // mapping. Here, each iteration places a pair of vertices at a fixed
+        // angle from the center of the annulus.
         let start_angle = std::f32::consts::FRAC_PI_2;
         let step = std::f32::consts::TAU / self.resolution as f32;
         for i in 0..=self.resolution {
@@ -251,31 +256,27 @@ impl AnnulusMeshBuilder {
             positions.push(inner_pos);
             positions.push(outer_pos);
 
-            // First UV direction is radial, second is not angular;
+            // The first UV direction is radial and the second is angular;
             // i.e., a single UV rectangle is stretched around the annulus, with
-            // its top and bottom meeting as the circle closes.
+            // its top and bottom meeting as the circle closes. Lines of constant
+            // U map to circles, and lines of constant V map to radial line segments.
             let inner_uv = [0., i as f32 / self.resolution as f32];
             let outer_uv = [1., i as f32 / self.resolution as f32];
             uvs.push(inner_uv);
             uvs.push(outer_uv);
         }
 
+        // Adjacent pairs of vertices form two triangles with each other; here,
+        // we are just making sure that they both have the right orientation,
+        // which is the CCW order of
+        // `inner_vertex` -> `outer_vertex` -> `next_outer` -> `next_inner`
         for i in 0..(self.resolution as u32) {
             let inner_vertex = 2 * i;
             let outer_vertex = 2 * i + 1;
             let next_inner = inner_vertex + 2;
             let next_outer = outer_vertex + 2;
-            indices.extend_from_slice(
-                &[
-                    inner_vertex,
-                    outer_vertex,
-                    next_outer,
-                    next_outer,
-                    next_inner,
-                    inner_vertex,
-                ]
-                .map(|v| v as u32),
-            );
+            indices.extend_from_slice(&[inner_vertex, outer_vertex, next_outer]);
+            indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
         }
 
         Mesh::new(
