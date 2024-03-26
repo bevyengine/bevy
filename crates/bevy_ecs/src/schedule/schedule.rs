@@ -385,7 +385,8 @@ impl Schedule {
             });
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, skipped.as_ref());
+        self.executor
+            .run(&mut self.executable, world, skipped.as_ref());
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
