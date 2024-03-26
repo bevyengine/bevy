@@ -130,7 +130,9 @@ pub struct Diagnostic {
 impl Diagnostic {
     /// Add a new value as a [`DiagnosticMeasurement`].
     pub fn add_measurement(&mut self, measurement: DiagnosticMeasurement) {
-        if let Some(previous) = self.measurement() {
+        if measurement.value.is_nan() {
+            // Skip calculating the moving average.
+        } else if let Some(previous) = self.measurement() {
             let delta = (measurement.time - previous.time).as_secs_f64();
             let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
             self.ema += alpha * (measurement.value - self.ema);
@@ -139,16 +141,24 @@ impl Diagnostic {
         }
 
         if self.max_history_length > 1 {
-            if self.history.len() == self.max_history_length {
+            if self.history.len() >= self.max_history_length {
                 if let Some(removed_diagnostic) = self.history.pop_front() {
-                    self.sum -= removed_diagnostic.value;
+                    if !removed_diagnostic.value.is_nan() {
+                        self.sum -= removed_diagnostic.value;
+                    }
                 }
             }
 
-            self.sum += measurement.value;
+            if measurement.value.is_finite() {
+                self.sum += measurement.value;
+            }
         } else {
             self.history.clear();
-            self.sum = measurement.value;
+            if measurement.value.is_nan() {
+                self.sum = 0.0;
+            } else {
+                self.sum = measurement.value;
+            }
         }
 
         self.history.push_back(measurement);
@@ -172,8 +182,13 @@ impl Diagnostic {
     #[must_use]
     pub fn with_max_history_length(mut self, max_history_length: usize) -> Self {
         self.max_history_length = max_history_length;
-        self.history.reserve(self.max_history_length);
-        self.history.shrink_to(self.max_history_length);
+
+        // reserve/reserve_exact reserve space for n *additional* elements.
+        let expected_capacity = self
+            .max_history_length
+            .saturating_sub(self.history.capacity());
+        self.history.reserve_exact(expected_capacity);
+        self.history.shrink_to(expected_capacity);
         self
     }
 

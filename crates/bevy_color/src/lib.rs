@@ -1,3 +1,9 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Representations of colors in various color spaces.
 //!
 //! This crate provides a number of color representations, including:
@@ -140,7 +146,6 @@ where
     Self: core::fmt::Debug,
     Self: Clone + Copy,
     Self: PartialEq,
-    Self: serde::Serialize + for<'a> serde::Deserialize<'a>,
     Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
@@ -170,6 +175,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
+        impl std::ops::AddAssign<Self> for $ty {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
         impl std::ops::Sub<Self> for $ty {
             type Output = Self;
 
@@ -177,6 +188,12 @@ macro_rules! impl_componentwise_point {
                 Self::Output {
                     $($element: self.$element - rhs.$element,)+
                 }
+            }
+        }
+
+        impl std::ops::SubAssign<Self> for $ty {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
             }
         }
 
@@ -200,6 +217,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
+        impl std::ops::MulAssign<f32> for $ty {
+            fn mul_assign(&mut self, rhs: f32) {
+                *self = *self * rhs;
+            }
+        }
+
         impl std::ops::Div<f32> for $ty {
             type Output = Self;
 
@@ -207,6 +230,12 @@ macro_rules! impl_componentwise_point {
                 Self::Output {
                     $($element: self.$element / rhs,)+
                 }
+            }
+        }
+
+        impl std::ops::DivAssign<f32> for $ty {
+            fn div_assign(&mut self, rhs: f32) {
+                *self = *self / rhs;
             }
         }
 

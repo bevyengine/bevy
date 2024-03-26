@@ -1,8 +1,24 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
+#[cfg(feature = "meshlet")]
+mod meshlet;
 pub mod wireframe;
+
+/// Experimental features that are not yet finished. Please report any issues you encounter!
+///
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
+#[cfg(feature = "meshlet")]
+pub mod experimental {
+    pub mod meshlet {
+        pub use crate::meshlet::*;
+    }
+}
 
 mod bundle;
 pub mod deferred;
@@ -107,6 +123,8 @@ pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
 pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2325134235233421);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -232,6 +250,13 @@ impl Plugin for PbrPlugin {
             "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
+        // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            "meshlet/dummy_visibility_buffer_resolve.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
@@ -336,7 +361,7 @@ impl Plugin for PbrPlugin {
         }
 
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            Handle::<StandardMaterial>::default(),
+            &Handle::<StandardMaterial>::default(),
             StandardMaterial {
                 base_color: Color::srgb(1.0, 0.0, 0.5),
                 unlit: true,

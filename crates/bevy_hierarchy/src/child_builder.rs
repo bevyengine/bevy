@@ -851,6 +851,7 @@ mod tests {
         );
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct C(u32);
 

@@ -274,7 +274,7 @@ impl Plugin for ColoredMesh2dPlugin {
         // Load our custom shader
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.insert(
-            COLORED_MESH2D_SHADER_HANDLE,
+            &COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
 
