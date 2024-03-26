@@ -92,7 +92,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
             ..default()
         },
-        RenderLayers::from_layer(first_pass_layer)
+        RenderLayers::from_layer(first_pass_layer),
     ));
 
     commands.spawn((
@@ -138,12 +138,10 @@ fn setup(
     // Light for the main pass cube
     // NOTE: Lights only work properly when in one render layer, so we need separate lights for the first and
     // main passes.
-    commands.spawn((
-        PointLightBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            ..default()
-        },
-    ));
+    commands.spawn((PointLightBundle {
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        ..default()
+    },));
 
     // The main pass camera.
     commands.spawn(Camera3dBundle {
