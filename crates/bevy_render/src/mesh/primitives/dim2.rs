@@ -5,7 +5,9 @@ use crate::{
 
 use super::Meshable;
 use bevy_math::{
-    primitives::{Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, WindingOrder},
+    primitives::{
+        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, WindingOrder,
+    },
     Vec2,
 };
 use wgpu::PrimitiveTopology;
@@ -190,6 +192,123 @@ impl From<Ellipse> for Mesh {
 impl From<EllipseMeshBuilder> for Mesh {
     fn from(ellipse: EllipseMeshBuilder) -> Self {
         ellipse.build()
+    }
+}
+
+/// A builder for creating a [`Mesh`] with an [`Annulus`] shape.
+pub struct AnnulusMeshBuilder {
+    /// The [`Annulus`] shape.
+    pub annulus: Annulus,
+
+    /// The number of vertices used in constructing each concentric circle of the annulus mesh.
+    /// The default is `32`.
+    pub resolution: usize,
+}
+
+impl Default for AnnulusMeshBuilder {
+    fn default() -> Self {
+        Self {
+            annulus: Annulus::default(),
+            resolution: 32,
+        }
+    }
+}
+
+impl AnnulusMeshBuilder {
+    /// Create an [`AnnulusMeshBuilder`] with the given inner radius, outer radius, and angular vertex count.
+    #[inline]
+    pub fn new(inner_radius: f32, outer_radius: f32, resolution: usize) -> Self {
+        Self {
+            annulus: Annulus::new(inner_radius, outer_radius),
+            resolution,
+        }
+    }
+
+    /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh.
+    #[inline]
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        let inner_radius = self.annulus.inner_circle.radius;
+        let outer_radius = self.annulus.outer_circle.radius;
+
+        let mut indices = Vec::with_capacity((self.resolution + 1) * 2);
+        let mut positions = Vec::with_capacity((self.resolution + 1) * 6);
+        let mut uvs = Vec::with_capacity((self.resolution + 1) * 2);
+        let normals = vec![[0.0, 0.0, 1.0]; (self.resolution + 1) * 2];
+
+        let start_angle = std::f32::consts::FRAC_PI_2;
+        let step = std::f32::consts::TAU / self.resolution as f32;
+        for i in 0..=self.resolution {
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
+            let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
+            positions.push(inner_pos);
+            positions.push(outer_pos);
+
+            // First UV direction is radial, second is not angular;
+            // i.e., a single UV rectangle is stretched around the annulus, with
+            // its top and bottom meeting as the circle closes.
+            let inner_uv = [0., i as f32 / self.resolution as f32];
+            let outer_uv = [1., i as f32 / self.resolution as f32];
+            uvs.push(inner_uv);
+            uvs.push(outer_uv);
+        }
+
+        for i in 0..(self.resolution as u32) {
+            let inner_vertex = 2 * i;
+            let outer_vertex = 2 * i + 1;
+            let next_inner = inner_vertex + 2;
+            let next_outer = outer_vertex + 2;
+            indices.extend_from_slice(
+                &[
+                    inner_vertex,
+                    outer_vertex,
+                    next_outer,
+                    next_outer,
+                    next_inner,
+                    inner_vertex,
+                ]
+                .map(|v| v as u32),
+            );
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Meshable for Annulus {
+    type Output = AnnulusMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        AnnulusMeshBuilder {
+            annulus: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Annulus> for Mesh {
+    fn from(annulus: Annulus) -> Self {
+        annulus.mesh().build()
+    }
+}
+
+impl From<AnnulusMeshBuilder> for Mesh {
+    fn from(builder: AnnulusMeshBuilder) -> Self {
+        builder.build()
     }
 }
 
