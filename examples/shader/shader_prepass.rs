@@ -3,8 +3,11 @@
 //! The textures are not generated for any material using alpha blending.
 
 use bevy::{
-    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{NotShadowCaster, PbrPlugin},
+    core_pipeline::{
+        fxaa::Fxaa,
+        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    },
+    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
@@ -32,6 +35,7 @@ fn main() {
         .add_systems(Update, (rotate, toggle_prepass_view))
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         .insert_resource(Msaa::Off)
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .run();
 }
 
@@ -57,6 +61,15 @@ fn setup(
         NormalPrepass,
         // This will generate a texture containing screen space pixel motion vectors
         MotionVectorPrepass,
+        // This will generate a texture containing the output of the deferred prepass
+        DeferredPrepass,
+        Fxaa::default(),
+        // fancy lighting
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 1.0,
+        },
     ));
 
     // plane
@@ -198,8 +211,8 @@ struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
     show_motion_vectors: u32,
-    padding_1: u32,
-    padding_2: u32,
+    show_deferred_data: u32,
+    prepass_view: u32,
 }
 
 // This shader simply loads the prepass texture and outputs it directly
@@ -229,14 +242,14 @@ fn toggle_prepass_view(
     mut text: Query<&mut Text>,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
-        *prepass_view = (*prepass_view + 1) % 4;
-
-        let label = match *prepass_view {
+        *prepass_view += 1;
+        let prepass_view = *prepass_view;
+        let label = match prepass_view {
             0 => "transparent",
             1 => "depth",
             2 => "normals",
             3 => "motion vectors",
-            _ => unreachable!(),
+            _ => "deferred",
         };
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
@@ -246,8 +259,10 @@ fn toggle_prepass_view(
 
         let handle = material_handle.single();
         let mat = materials.get_mut(handle).unwrap();
-        mat.settings.show_depth = (*prepass_view == 1) as u32;
-        mat.settings.show_normals = (*prepass_view == 2) as u32;
-        mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
+        mat.settings.show_depth = (prepass_view == 1) as u32;
+        mat.settings.show_normals = (prepass_view == 2) as u32;
+        mat.settings.show_motion_vectors = (prepass_view == 3) as u32;
+        mat.settings.show_deferred_data = (prepass_view >= 4) as u32;
+        mat.settings.prepass_view = prepass_view;
     }
 }

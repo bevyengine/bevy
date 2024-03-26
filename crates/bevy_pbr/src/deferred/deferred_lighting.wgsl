@@ -2,7 +2,7 @@
     prepass_utils,
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
     pbr_functions,
-    pbr_deferred_functions::pbr_input_from_deferred_gbuffer,
+    pbr_deferred_functions::prepass_pbr_input,
     pbr_deferred_types::unpack_unorm3x4_plus_unorm_20_,
     lighting,
     mesh_view_bindings::deferred_prepass_texture,
@@ -44,19 +44,8 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    var frag_coord = vec4(in.position.xy, 0.0, 0.0);
-
-    let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-
-#ifdef WEBGL2
-    frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
-#else
-#ifdef DEPTH_PREPASS
-    frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
-#endif
-#endif
-
-    var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
+    let pbr_input = prepass_pbr_input(in.position);
+    
     var output_color = vec4(0.0);
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
