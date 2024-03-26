@@ -172,10 +172,11 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `Option<T>` is the return type of the first system.
-    /// The seconnd system must also return an [`Option`]
+    /// The seconnd system must return a type that implements [`Default`].
     fn pipe_map<B, Final, MarkerB, T>(self, system: B) -> PipeMapSystem<Self::System, B::System>
     where
-        B: IntoSystem<T, Final, MarkerB>
+        B: IntoSystem<T, Final, MarkerB>,
+        Final: Default
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);

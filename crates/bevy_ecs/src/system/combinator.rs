@@ -318,12 +318,12 @@ where
 }
 
 /// A [`System`] created by piping the unwrapped output of the first system into the input of the second.
-/// If the output of the first system is [`None`], the seconds system is not executed.
+/// If the output of the first system is [`None`], the second system is not executed.
 ///
 /// This can be repeated indefinitely. If not [`None`], the unwrapped output is consumed by the receiving system.
 ///
 /// Given two systems `A` and `B`, A may be connected with `B` as `A.pipe_map(B)` if the output type of `A` is
-/// an [`Option`] of the input type of `B`. `B` must also return an [`Option`].
+/// an [`Option`] of the input type of `B`. `B` must also return a type that implements [`Default`].
 ///
 /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
 /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
@@ -338,12 +338,15 @@ where
 ///
 /// fn main() {
 ///     let mut world = World::default();
-///     world.insert_resource(Message("42".to_string()));
-///
-///     // pipe the `parse_message_system`'s output into the `check_system`s input
-///     let mut pipe_mapped_system = parse_message_system.pipe_map(check_system);
+///     // pipe_map the `parse_message_system`'s output into the `check_system`s input
+///     let mut pipe_mapped_system = parse_message_system.pipe_map(triple);
 ///     pipe_mapped_system.initialize(&mut world);
-///     assert_eq!(pipe_mapped_system.run((), &mut world), Some(true));
+///
+///     world.insert_resource(Message("not a usize".to_string()));
+///     assert_eq!(pipe_mapped_system.run((), &mut world), 0);
+///
+///     world.insert_resource(Message("14".to_string()));
+///     assert_eq!(pipe_mapped_system.run((), &mut world), 42);
 /// }
 ///
 /// #[derive(Resource)]
@@ -353,8 +356,8 @@ where
 ///     message.0.parse::<usize>().ok()
 /// }
 ///
-/// fn check_system(In(parsed): In<usize>) -> Option<bool> {
-///     Some(parsed < 100)
+/// fn triple(In(parsed): In<usize>) -> usize {
+///     parsed * 3
 /// }
 /// ```
 pub type PipeMapSystem<SystemA, SystemB> = CombinatorSystem<PipeMap, SystemA, SystemB>;
@@ -362,10 +365,11 @@ pub type PipeMapSystem<SystemA, SystemB> = CombinatorSystem<PipeMap, SystemA, Sy
 #[doc(hidden)]
 pub struct PipeMap;
 
-impl<A, B, T> Combine<A, B> for PipeMap
+impl<A, B> Combine<A, B> for PipeMap
 where
     A: System<Out = Option<B::In>>,
-    B: System<Out = Option<T>>,
+    B: System,
+    B::Out: Default
 {
     type In = A::In;
     type Out = B::Out;
@@ -375,6 +379,6 @@ where
         a: impl FnOnce(A::In) -> Option<B::In>,
         b: impl FnOnce(B::In) -> B::Out,
     ) -> Self::Out {
-        a(input).and_then(b)
+        a(input).map(b).unwrap_or_default()
     }
 }
