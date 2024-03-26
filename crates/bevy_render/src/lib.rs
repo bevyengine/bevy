@@ -51,6 +51,9 @@ pub mod prelude {
         ExtractSchedule,
     };
 }
+pub mod util {
+    pub use image;
+}
 
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
