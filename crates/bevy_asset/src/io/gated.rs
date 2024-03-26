@@ -1,5 +1,5 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
 use std::{path::Path, sync::Arc};
@@ -55,10 +55,7 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write();
             let gates = gates
@@ -66,31 +63,23 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
                 .or_insert_with(crossbeam_channel::unbounded);
             gates.1.clone()
         };
-        Box::pin(async move {
-            receiver.recv().unwrap();
-            let result = self.reader.read(path).await?;
-            Ok(result)
-        })
+        receiver.recv().unwrap();
+        let result = self.reader.read(path).await?;
+        Ok(result)
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        self.reader.read_meta(path)
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.reader.read_meta(path).await
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        self.reader.read_directory(path)
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.reader.read_directory(path).await
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        self.reader.is_directory(path)
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        self.reader.is_directory(path).await
     }
 }

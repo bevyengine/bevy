@@ -18,17 +18,20 @@ use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 pub fn gilrs_event_startup_system(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
+    mut events: EventWriter<GamepadEvent>,
 ) {
     for (id, gamepad) in gilrs.0.get().gamepads() {
         let info = GamepadInfo {
             name: gamepad.name().into(),
         };
 
-        connection_events.send(GamepadConnectionEvent {
-            gamepad: convert_gamepad_id(id),
-            connection: GamepadConnection::Connected(info),
-        });
+        events.send(
+            GamepadConnectionEvent {
+                gamepad: convert_gamepad_id(id),
+                connection: GamepadConnection::Connected(info),
+            }
+            .into(),
+        );
     }
 }
 

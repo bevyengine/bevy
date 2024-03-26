@@ -1,20 +1,24 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix,
-    Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva,
+    Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_reflect::prelude::*;
 
 /// Color in Oklab color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Oklaba {
-    /// The 'l' channel. [0.0, 1.0]
-    pub l: f32,
+    /// The 'lightness' channel. [0.0, 1.0]
+    pub lightness: f32,
     /// The 'a' channel. [-1.0, 1.0]
     pub a: f32,
     /// The 'b' channel. [-1.0, 1.0]
@@ -25,38 +29,45 @@ pub struct Oklaba {
 
 impl StandardColor for Oklaba {}
 
+impl_componentwise_point!(Oklaba, [lightness, a, b, alpha]);
+
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
     ///
     /// # Arguments
     ///
-    /// * `l` - Lightness channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `a` - Green-red channel. [-1.0, 1.0]
     /// * `b` - Blue-yellow channel. [-1.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
-    pub const fn new(l: f32, a: f32, b: f32, alpha: f32) -> Self {
-        Self { l, a, b, alpha }
+    pub const fn new(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self {
+            lightness,
+            a,
+            b,
+            alpha,
+        }
     }
 
     /// Construct a new [`Oklaba`] color from (l, a, b) components, with the default alpha (1.0).
     ///
     /// # Arguments
     ///
-    /// * `l` - Lightness channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `a` - Green-red channel. [-1.0, 1.0]
     /// * `b` - Blue-yellow channel. [-1.0, 1.0]
-    pub const fn lch(l: f32, a: f32, b: f32) -> Self {
+    pub const fn lab(lightness: f32, a: f32, b: f32) -> Self {
         Self {
-            l,
+            lightness,
             a,
             b,
             alpha: 1.0,
         }
     }
 
-    /// Return a copy of this color with the 'l' channel set to the given value.
-    pub const fn with_l(self, l: f32) -> Self {
-        Self { l, ..self }
+    /// Return a copy of this color with the 'lightness' channel set to the given value.
+    pub const fn with_lightness(self, lightness: f32) -> Self {
+        Self { lightness, ..self }
     }
 
     /// Return a copy of this color with the 'a' channel set to the given value.
@@ -81,7 +92,7 @@ impl Mix for Oklaba {
     fn mix(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
-            l: self.l * n_factor + other.l * factor,
+            lightness: self.lightness * n_factor + other.lightness * factor,
             a: self.a * n_factor + other.a * factor,
             b: self.b * n_factor + other.b * factor,
             alpha: self.alpha * n_factor + other.alpha * factor,
@@ -108,27 +119,57 @@ impl Alpha for Oklaba {
 
 impl Luminance for Oklaba {
     #[inline]
-    fn with_luminance(&self, l: f32) -> Self {
-        Self { l, ..*self }
+    fn with_luminance(&self, lightness: f32) -> Self {
+        Self { lightness, ..*self }
     }
 
     fn luminance(&self) -> f32 {
-        self.l
+        self.lightness
     }
 
     fn darker(&self, amount: f32) -> Self {
-        Self::new((self.l - amount).max(0.), self.a, self.b, self.alpha)
+        Self::new(
+            (self.lightness - amount).max(0.),
+            self.a,
+            self.b,
+            self.alpha,
+        )
     }
 
     fn lighter(&self, amount: f32) -> Self {
-        Self::new((self.l + amount).min(1.), self.a, self.b, self.alpha)
+        Self::new(
+            (self.lightness + amount).min(1.),
+            self.a,
+            self.b,
+            self.alpha,
+        )
     }
 }
 
 impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.l - other.l).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
+        (self.lightness - other.lightness).powi(2)
+            + (self.a - other.a).powi(2)
+            + (self.b - other.b).powi(2)
+    }
+}
+
+impl ClampColor for Oklaba {
+    fn clamped(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.),
+            a: self.a.clamp(-1., 1.),
+            b: self.b.clamp(-1., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.lightness)
+            && (-1. ..=1.).contains(&self.a)
+            && (-1. ..=1.).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -158,12 +199,17 @@ impl From<LinearRgba> for Oklaba {
 #[allow(clippy::excessive_precision)]
 impl From<Oklaba> for LinearRgba {
     fn from(value: Oklaba) -> Self {
-        let Oklaba { l, a, b, alpha } = value;
+        let Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        } = value;
 
         // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
-        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
-        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
-        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
+        let l_ = lightness + 0.3963377774 * a + 0.2158037573 * b;
+        let m_ = lightness - 0.1055613458 * a - 0.0638541728 * b;
+        let s_ = lightness - 0.0894841775 * a - 1.2914855480 * b;
 
         let l = l_ * l_ * l_;
         let m = m_ * m_ * m_;
@@ -266,7 +312,7 @@ mod tests {
         let oklaba = Oklaba::new(0.5, 0.5, 0.5, 1.0);
         let srgba: Srgba = oklaba.into();
         let oklaba2: Oklaba = srgba.into();
-        assert_approx_eq!(oklaba.l, oklaba2.l, 0.001);
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
@@ -299,9 +345,26 @@ mod tests {
         let oklaba = Oklaba::new(0.5, 0.5, 0.5, 1.0);
         let linear: LinearRgba = oklaba.into();
         let oklaba2: Oklaba = linear.into();
-        assert_approx_eq!(oklaba.l, oklaba2.l, 0.001);
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Oklaba::lab(-1., 2., -2.);
+        let color_2 = Oklaba::lab(1., 0.42, -0.4);
+        let mut color_3 = Oklaba::lab(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Oklaba::lab(0., 1., -1.));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Oklaba::lab(0., 1., 1.));
     }
 }

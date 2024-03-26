@@ -307,12 +307,16 @@ mod tests {
 
     use super::*;
 
+    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct A(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct B(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct C(usize);
 
@@ -341,21 +345,19 @@ mod tests {
 
         type Error = String;
 
-        fn load<'a>(
+        async fn load<'a>(
             &'a self,
-            _: &'a mut crate::io::Reader,
+            _: &'a mut crate::io::Reader<'_>,
             _: &'a Self::Settings,
-            _: &'a mut crate::LoadContext,
-        ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+            _: &'a mut crate::LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
             self.sender.send(()).unwrap();
 
-            Box::pin(async move {
-                Err(format!(
-                    "Loaded {}:{}",
-                    std::any::type_name::<Self::Asset>(),
-                    N
-                ))
-            })
+            Err(format!(
+                "Loaded {}:{}",
+                std::any::type_name::<Self::Asset>(),
+                N
+            ))
         }
 
         fn extensions(&self) -> &[&str] {

@@ -15,7 +15,7 @@ use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
@@ -112,7 +112,7 @@ impl ImageFormat {
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value]
+#[reflect_value(Default)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors

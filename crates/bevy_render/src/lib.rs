@@ -1,6 +1,10 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
@@ -11,6 +15,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod deterministic;
+pub mod diagnostic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -57,6 +62,7 @@ use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::deterministic::DeterministicRenderingConfig;
+use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -87,7 +93,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
@@ -300,7 +306,7 @@ impl Plugin for RenderPlugin {
                             queue,
                             adapter_info,
                             render_adapter,
-                            RenderInstance(Arc::new(instance)),
+                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution
