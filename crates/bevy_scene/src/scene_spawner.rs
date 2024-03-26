@@ -482,7 +482,7 @@ mod tests {
 
         let scene_id = world.resource_mut::<Assets<DynamicScene>>().add(scene);
         let instance_id = scene_spawner
-            .spawn_dynamic_sync(&mut world, scene_id)
+            .spawn_dynamic_sync(&mut world, &scene_id)
             .unwrap();
 
         // verify we spawned exactly one new entity with our expected component

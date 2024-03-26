@@ -254,7 +254,7 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -266,7 +266,7 @@ macro_rules! load_internal_asset {
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -284,7 +284,7 @@ macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.insert(
-            $handle,
+            $handle.id(),
             ($loader)(
                 include_bytes!($path_str).as_ref(),
                 std::path::Path::new(file!())

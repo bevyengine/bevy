@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
 //! The main export of this crate is the derive macro for [`Reflect`]. This allows

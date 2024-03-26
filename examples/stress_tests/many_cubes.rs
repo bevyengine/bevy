@@ -23,7 +23,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(FromArgs, Resource)]
 /// `many_cubes` stress test
@@ -123,7 +124,7 @@ fn setup(
     let material_textures = init_textures(args, images);
     let materials = init_materials(args, &material_textures, material_assets);
 
-    let mut material_rng = StdRng::seed_from_u64(42);
+    let mut material_rng = ChaCha8Rng::seed_from_u64(42);
     match args.layout {
         Layout::Sphere => {
             // NOTE: This pattern is good for testing performance of culling as it provides roughly
@@ -202,7 +203,7 @@ fn setup(
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
-    let mut color_rng = StdRng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
         .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
         .collect();
@@ -246,8 +247,8 @@ fn init_materials(
         ..default()
     }));
 
-    let mut color_rng = StdRng::seed_from_u64(42);
-    let mut texture_rng = StdRng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {

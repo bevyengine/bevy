@@ -1,17 +1,16 @@
 use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned, TypeRegistry};
 use crate::{
-    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
-    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectKind, ReflectMut,
-    ReflectRef, ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
+    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap,
+    FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
+    Reflect, ReflectDeserialize, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
+    TypePath, TypeRegistration, Typed, ValueInfo,
 };
 
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
-use bevy_reflect_derive::impl_reflect_value;
+use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
 use std::{
     any::Any,
@@ -996,251 +995,13 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistr
     }
 }
 
-impl<T: FromReflect + TypePath + GetTypeRegistration> GetTypeRegistration for Option<T> {
-    fn get_type_registration() -> TypeRegistration {
-        TypeRegistration::of::<Option<T>>()
-    }
-
-    fn register_type_dependencies(registry: &mut TypeRegistry) {
-        registry.register::<T>();
+impl_reflect! {
+    #[type_path = "core::option"]
+    enum Option<T> {
+        None,
+        Some(T),
     }
 }
-
-impl<T: FromReflect + TypePath + GetTypeRegistration> Enum for Option<T> {
-    fn field(&self, _name: &str) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
-        match self {
-            Some(value) if index == 0 => Some(value),
-            _ => None,
-        }
-    }
-
-    fn field_mut(&mut self, _name: &str) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        match self {
-            Some(value) if index == 0 => Some(value),
-            _ => None,
-        }
-    }
-
-    fn index_of(&self, _name: &str) -> Option<usize> {
-        None
-    }
-
-    fn name_at(&self, _index: usize) -> Option<&str> {
-        None
-    }
-
-    fn iter_fields(&self) -> VariantFieldIter {
-        VariantFieldIter::new(self)
-    }
-
-    #[inline]
-    fn field_len(&self) -> usize {
-        match self {
-            Some(..) => 1,
-            None => 0,
-        }
-    }
-
-    #[inline]
-    fn variant_name(&self) -> &str {
-        match self {
-            Some(..) => "Some",
-            None => "None",
-        }
-    }
-
-    fn variant_index(&self) -> usize {
-        match self {
-            None => 0,
-            Some(..) => 1,
-        }
-    }
-
-    #[inline]
-    fn variant_type(&self) -> VariantType {
-        match self {
-            Some(..) => VariantType::Tuple,
-            None => VariantType::Unit,
-        }
-    }
-
-    fn clone_dynamic(&self) -> DynamicEnum {
-        DynamicEnum::from_ref::<Self>(self)
-    }
-}
-
-impl<T: FromReflect + TypePath + GetTypeRegistration> Reflect for Option<T> {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Enum(value) = value.reflect_ref() {
-            if self.variant_name() == value.variant_name() {
-                // Same variant -> just update fields
-                for (index, field) in value.iter_fields().enumerate() {
-                    if let Some(v) = self.field_at_mut(index) {
-                        v.apply(field.value());
-                    }
-                }
-            } else {
-                // New variant -> perform a switch
-                match value.variant_name() {
-                    "Some" => {
-                        let field = T::take_from_reflect(
-                            value
-                                .field_at(0)
-                                .unwrap_or_else(|| {
-                                    panic!(
-                                        "Field in `Some` variant of {} should exist",
-                                        Self::type_path()
-                                    )
-                                })
-                                .clone_value(),
-                        )
-                        .unwrap_or_else(|_| {
-                            panic!(
-                                "Field in `Some` variant of {} should be of type {}",
-                                Self::type_path(),
-                                T::type_path()
-                            )
-                        });
-                        *self = Some(field);
-                    }
-                    "None" => {
-                        *self = None;
-                    }
-                    _ => panic!("Enum is not a {}.", Self::type_path()),
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Enum
-    }
-
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Enum(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Enum(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Enum(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(Enum::clone_dynamic(self))
-    }
-
-    fn reflect_hash(&self) -> Option<u64> {
-        crate::enum_hash(self)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::enum_partial_eq(self, value)
-    }
-}
-
-impl<T: FromReflect + TypePath + GetTypeRegistration> FromReflect for Option<T> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
-            match dyn_enum.variant_name() {
-                "Some" => {
-                    let field = T::take_from_reflect(
-                        dyn_enum
-                            .field_at(0)
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Field in `Some` variant of {} should exist",
-                                    Option::<T>::type_path()
-                                )
-                            })
-                            .clone_value(),
-                    )
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Field in `Some` variant of {} should be of type {}",
-                            Option::<T>::type_path(),
-                            T::type_path()
-                        )
-                    });
-                    Some(Some(field))
-                }
-                "None" => Some(None),
-                name => panic!(
-                    "variant with name `{}` does not exist on enum `{}`",
-                    name,
-                    Self::type_path()
-                ),
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl<T: FromReflect + TypePath + GetTypeRegistration> Typed for Option<T> {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| {
-            let none_variant = VariantInfo::Unit(UnitVariantInfo::new("None"));
-            let some_variant =
-                VariantInfo::Tuple(TupleVariantInfo::new("Some", &[UnnamedField::new::<T>(0)]));
-            TypeInfo::Enum(EnumInfo::new::<Self>(&[none_variant, some_variant]))
-        })
-    }
-}
-
-impl_type_path!(::core::option::Option<T>);
 
 impl<T: TypePath + ?Sized> TypePath for &'static T {
     fn type_path() -> &'static str {

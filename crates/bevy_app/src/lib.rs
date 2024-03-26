@@ -1,5 +1,10 @@
-//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
 mod app;
 mod main_schedule;

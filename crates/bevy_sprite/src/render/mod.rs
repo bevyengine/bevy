@@ -122,10 +122,9 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const COLORED                           = 1 << 0;
-        const HDR                               = 1 << 1;
-        const TONEMAP_IN_SHADER                 = 1 << 2;
-        const DEBAND_DITHER                     = 1 << 3;
+        const HDR                               = 1 << 0;
+        const TONEMAP_IN_SHADER                 = 1 << 1;
+        const DEBAND_DITHER                     = 1 << 2;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -156,15 +155,6 @@ impl SpritePipelineKey {
     #[inline]
     pub const fn msaa_samples(&self) -> u32 {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
-    }
-
-    #[inline]
-    pub const fn from_colored(colored: bool) -> Self {
-        if colored {
-            SpritePipelineKey::COLORED
-        } else {
-            SpritePipelineKey::NONE
-        }
     }
 
     #[inline]
@@ -495,16 +485,7 @@ pub fn queue_sprites(
             }
         }
 
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &sprite_pipeline,
-            view_key | SpritePipelineKey::from_colored(false),
-        );
-        let colored_pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &sprite_pipeline,
-            view_key | SpritePipelineKey::from_colored(true),
-        );
+        let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
         view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
@@ -524,27 +505,15 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            if extracted_sprite.color != LinearRgba::WHITE {
-                transparent_phase.add(Transparent2d {
-                    draw_function: draw_sprite_function,
-                    pipeline: colored_pipeline,
-                    entity: *entity,
-                    sort_key,
-                    // batch_range and dynamic_offset will be calculated in prepare_sprites
-                    batch_range: 0..0,
-                    dynamic_offset: None,
-                });
-            } else {
-                transparent_phase.add(Transparent2d {
-                    draw_function: draw_sprite_function,
-                    pipeline,
-                    entity: *entity,
-                    sort_key,
-                    // batch_range and dynamic_offset will be calculated in prepare_sprites
-                    batch_range: 0..0,
-                    dynamic_offset: None,
-                });
-            }
+            transparent_phase.add(Transparent2d {
+                draw_function: draw_sprite_function,
+                pipeline,
+                entity: *entity,
+                sort_key,
+                // batch_range and dynamic_offset will be calculated in prepare_sprites
+                batch_range: 0..0,
+                dynamic_offset: None,
+            });
         }
     }
 }

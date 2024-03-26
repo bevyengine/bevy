@@ -200,7 +200,7 @@ fn outline_roots(
         );
     }
     let window_scale = window.get_single().map_or(1., Window::scale_factor);
-    let scale_factor = window_scale * outline.ui_scale.0;
+    let scale_factor = outline.ui_scale.0;
 
     // We let the line be defined by the window scale alone
     let line_width = outline

@@ -52,4 +52,5 @@ android_shared_stdcxx = ["cpal/oboe-shared-stdcxx"]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

@@ -1031,22 +1031,25 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Remove the components of `bundle` from `entity`.
     ///
-    /// SAFETY: The components in `bundle_info` must exist.
+    /// SAFETY:
+    /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
+        // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
         let bundle_info = world.bundles.get_unchecked(bundle);
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
-        // and components in `bundle_info` must exist due to this functions safety invariants.
+        // and components in `bundle_info` must exist due to this function's safety invariants.
         let new_archetype_id = remove_bundle_from_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             location.archetype_id,
             bundle_info,
+            // components from the bundle that are not present on the entity are ignored
             true,
         )
         .expect("intersections should always return a result");
@@ -1117,8 +1120,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.init_info::<T>(components, storages);
 
-        // SAFETY: Components exist in `bundle_info` because `Bundles::init_info`
-        // initializes a: EntityLocation `BundleInfo` containing all components of the bundle type `T`.
+        // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info) };
 
         self
@@ -1144,8 +1146,7 @@ impl<'w> EntityWorldMut<'w> {
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
-        // SAFETY: Components exist in `remove_bundle` because `Bundles::init_dynamic_info`
-        // initializes a `BundleInfo` containing all components in the to_remove Bundle.
+        // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe { self.remove_bundle(remove_bundle) };
         self
     }

@@ -20,7 +20,7 @@ pub struct SceneInstance(InstanceId);
 
 /// A component bundle for a [`Scene`] root.
 ///
-/// The scene from `scene` will be spawn as a child of the entity with this component.
+/// The scene from `scene` will be spawned as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle)]
 pub struct SceneBundle {

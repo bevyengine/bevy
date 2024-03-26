@@ -369,6 +369,14 @@ impl Mesh {
         self
     }
 
+    /// Returns the size of a vertex in bytes.
+    pub fn get_vertex_size(&self) -> u64 {
+        self.attributes
+            .values()
+            .map(|data| data.attribute.format.get_size())
+            .sum()
+    }
+
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
@@ -536,12 +544,13 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
-    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    ///
+    /// FIXME: The should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
     pub fn compute_flat_normals(&mut self) {
-        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
-
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_flat_normals` can only work on `TriangleList`s"
@@ -553,18 +562,56 @@ impl Mesh {
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-        let normals: Vec<_> = positions
-            .chunks_exact(3)
-            .map(|p| face_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| [normal; 3])
-            .collect();
+        match self.indices() {
+            Some(indices) => {
+                let mut count: usize = 0;
+                let mut corners = [0_usize; 3];
+                let mut normals = vec![[0.0f32; 3]; positions.len()];
+                let mut adjacency_counts = vec![0_usize; positions.len()];
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                for i in indices.iter() {
+                    corners[count % 3] = i;
+                    count += 1;
+                    if count % 3 == 0 {
+                        let normal = face_normal(
+                            positions[corners[0]],
+                            positions[corners[1]],
+                            positions[corners[2]],
+                        );
+                        for corner in corners {
+                            normals[corner] =
+                                (Vec3::from(normal) + Vec3::from(normals[corner])).into();
+                            adjacency_counts[corner] += 1;
+                        }
+                    }
+                }
+
+                // average (smooth) normals for shared vertices...
+                // TODO: support different methods of weighting the average
+                for i in 0..normals.len() {
+                    let count = adjacency_counts[i];
+                    if count > 0 {
+                        normals[i] = (Vec3::from(normals[i]) / (count as f32)).normalize().into();
+                    }
+                }
+
+                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            }
+            None => {
+                let normals: Vec<_> = positions
+                    .chunks_exact(3)
+                    .map(|p| face_normal(p[0], p[1], p[2]))
+                    .flat_map(|normal| [normal; 3])
+                    .collect();
+
+                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            }
+        }
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::with_computed_flat_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or

@@ -54,7 +54,7 @@ fn create_array_texture(
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
     if loading_texture.is_loaded
-        || asset_server.load_state(loading_texture.handle.clone()) != LoadState::Loaded
+        || asset_server.load_state(loading_texture.handle.id()) != LoadState::Loaded
     {
         return;
     }

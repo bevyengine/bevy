@@ -49,6 +49,9 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
+        env:
+          # needs to be in sync with [package.metadata.docs.rs]
+          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
         run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       #  This adds the following:

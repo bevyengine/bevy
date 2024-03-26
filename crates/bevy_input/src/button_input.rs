@@ -143,12 +143,14 @@ where
         self.just_released.extend(self.pressed.drain());
     }
 
-    /// Returns `true` if the `input` has just been pressed.
+    /// Returns `true` if the `input` has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
-    /// Returns `true` if any item in `inputs` has just been pressed.
+    /// Returns `true` if any item in `inputs` has been pressed during the current frame.
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
@@ -160,7 +162,9 @@ where
         self.just_pressed.remove(&input)
     }
 
-    /// Returns `true` if the `input` has just been released.
+    /// Returns `true` if the `input` has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
@@ -207,11 +211,15 @@ where
     }
 
     /// An iterator visiting every just pressed input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
     /// An iterator visiting every just released input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }

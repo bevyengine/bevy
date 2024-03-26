@@ -45,4 +45,5 @@ rand = ["dep:rand"]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

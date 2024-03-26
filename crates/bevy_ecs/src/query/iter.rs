@@ -42,7 +42,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
-    /// from an table.
+    /// from a table.
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
@@ -656,7 +656,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
-    // length of the table table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
+    // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
     current_row: usize,
@@ -743,7 +743,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
     /// How many values will this cursor return at most?
     ///
-    /// Note that if `D::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
+    /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
@@ -788,7 +788,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 }
 
                 // SAFETY: set_table was called prior.
-                // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+                // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
                 let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
                 let row = TableRow::from_usize(self.current_row);
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
@@ -799,7 +799,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY:
                 // - set_table was called prior.
                 // - `current_row` must be a table row in range of the current table,
-                //   because if it was not, then the if above would have been executed.
+                //   because if it was not, then the above would have been executed.
                 // - fetch is only called once for each `entity`.
                 let item = unsafe { D::fetch(&mut self.fetch, *entity, row) };
 

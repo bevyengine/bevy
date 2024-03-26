@@ -977,6 +977,8 @@ impl Bundles {
     }
 
     /// Initializes a new [`BundleInfo`] for a statically known type.
+    ///
+    /// Also initializes all the components in the bundle.
     pub(crate) fn init_info<T: Bundle>(
         &mut self,
         components: &mut Components,
@@ -999,6 +1001,8 @@ impl Bundles {
         id
     }
 
+    /// # Safety
+    /// A `BundleInfo` with the given `BundleId` must have been initialized for this instance of `Bundles`.
     pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
         self.bundle_infos.get_unchecked(id.0)
     }

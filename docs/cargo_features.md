@@ -64,6 +64,8 @@ The default feature set enables most of the expected features of a game engine, 
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
+|meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
+|meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|

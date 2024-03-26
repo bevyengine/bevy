@@ -1,5 +1,5 @@
 use crate::{
-    config::{GizmoLineJoint, GizmoMeshConfig},
+    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
     DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
@@ -83,6 +83,7 @@ impl FromWorld for LineGizmoPipeline {
 struct LineGizmoPipelineKey {
     mesh_key: Mesh2dPipelineKey,
     strip: bool,
+    line_style: GizmoLineStyle,
 }
 
 impl SpecializedRenderPipeline for LineGizmoPipeline {
@@ -105,6 +106,11 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             self.uniform_layout.clone(),
         ];
 
+        let fragment_entry_point = match key.line_style {
+            GizmoLineStyle::Solid => "fragment_solid",
+            GizmoLineStyle::Dotted => "fragment_dotted",
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: LINE_SHADER_HANDLE,
@@ -115,7 +121,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE,
                 shader_defs,
-                entry_point: "fragment".into(),
+                entry_point: fragment_entry_point.into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -271,6 +277,7 @@ fn queue_line_gizmos_2d(
                 LineGizmoPipelineKey {
                     mesh_key,
                     strip: line_gizmo.strip,
+                    line_style: config.line_style,
                 },
             );
 
