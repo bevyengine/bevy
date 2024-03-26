@@ -1408,6 +1408,7 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(alphabet_entity_system);
 /// ```
+#[derive(Debug)]
 pub struct Has<T>(PhantomData<T>);
 
 /// SAFETY:
