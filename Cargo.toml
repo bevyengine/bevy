@@ -816,6 +816,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "render_layers"
+path = "examples/3d/render_layers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_layers]
+name = "Render Layers"
+description = "Load a scene from a glTF file and render it with different render layers."
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
 doc-scrape-examples = true
@@ -1992,17 +2003,6 @@ name = "Scene"
 description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
-
-[[example]]
-name = "render_layers"
-path = "examples/3d/render_layers.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.render_layers]
-name = "Render Layers"
-description = "Load a scene from a glTF file and render it with different render layers."
-category = "3D Rendering"
-wasm = true
 
 # Shaders
 [[package.metadata.example_category]]
