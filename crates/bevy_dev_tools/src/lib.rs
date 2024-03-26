@@ -1,4 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
 //! focused on improving developer experience.
