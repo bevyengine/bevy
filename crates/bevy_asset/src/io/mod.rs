@@ -49,6 +49,19 @@ pub enum AssetReaderError {
     HttpError(u16),
 }
 
+impl PartialEq for AssetReaderError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
+            (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
+            (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for AssetReaderError {}
+
 impl From<std::io::Error> for AssetReaderError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(Arc::new(value))
