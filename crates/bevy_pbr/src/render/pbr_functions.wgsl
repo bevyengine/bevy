@@ -277,10 +277,10 @@ fn apply_pbr_lighting(
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        // check the directional light render layers intersect the view render layers
-        // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
+        // check if this light should be skipped, which occurs if this light does not intersect with the view
+        // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+        if (*light).skip != 0u {
             continue;
         }
 

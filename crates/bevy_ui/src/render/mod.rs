@@ -648,7 +648,7 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+pub struct DefaultCameraLayer(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
@@ -703,7 +703,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 })
                 .id();
             commands.get_or_spawn(entity).insert((
-                DefaultCameraView(default_camera_view),
+                DefaultCameraLayer(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
             ));
         }

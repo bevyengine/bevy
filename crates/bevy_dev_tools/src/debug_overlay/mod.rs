@@ -12,7 +12,7 @@ use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_render::{
     camera::RenderTarget,
     prelude::*,
-    view::{RenderLayers, VisibilitySystems},
+    view::{RenderLayer, RenderLayers, VisibilitySystems},
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_ui::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
@@ -27,8 +27,8 @@ mod inset;
 
 /// The [`Camera::order`] index used by the layout debug camera.
 pub const LAYOUT_DEBUG_CAMERA_ORDER: isize = 255;
-/// The [`RenderLayers`] used by the debug gizmos and the debug camera.
-pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::none().with(16);
+/// The [`RenderLayer`] used by the debug gizmos and the debug camera.
+pub const LAYOUT_DEBUG_LAYER: RenderLayer = RenderLayer(16);
 
 #[derive(Clone, Copy)]
 struct LayoutRect {
@@ -101,7 +101,7 @@ fn update_debug_camera(
                     },
                     ..default()
                 },
-                LAYOUT_DEBUG_LAYERS,
+                RenderLayers::from_layer(LAYOUT_DEBUG_LAYER),
                 DebugOverlayCamera,
                 Name::new("Layout Debug Camera"),
             ))
@@ -109,7 +109,7 @@ fn update_debug_camera(
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
-            config.render_layers = LAYOUT_DEBUG_LAYERS;
+            config.render_layers = RenderLayers::from_layer(LAYOUT_DEBUG_LAYER);
         }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {
