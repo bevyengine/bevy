@@ -3,7 +3,7 @@
 // Taken from RTR vol 4 pg. 278
 const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
 
-struct Params {
+struct AutoExposure {
     min_log_lum: f32,
     inv_log_lum_range: f32,
     log_lum_range: f32,
@@ -13,8 +13,15 @@ struct Params {
     speed_down: f32,
 }
 
+struct CompensationCurve {
+    min_log_lum: f32,
+    inv_log_lum_range: f32,
+    min_compensation: f32,
+    compensation_range: f32,
+}
+
 @group(0) @binding(0)
-var<uniform> params: Params;
+var<uniform> auto_exposure: AutoExposure;
 @group(0) @binding(1)
 var tex_color: texture_2d<f32>;
 @group(0) @binding(2)
@@ -22,10 +29,12 @@ var tex_mask: texture_2d<f32>;
 @group(0) @binding(3)
 var tex_compensation: texture_1d<f32>;
 @group(0) @binding(4)
-var<storage, read_write> histogram: array<atomic<u32>, 256>;
+var<uniform> compensation_curve: CompensationCurve;
 @group(0) @binding(5)
-var<storage, read_write> exposure: f32;
+var<storage, read_write> histogram: array<atomic<u32>, 256>;
 @group(0) @binding(6)
+var<storage, read_write> exposure: f32;
+@group(0) @binding(7)
 var<storage, read_write> view: View;
 
 var<workgroup> histogram_shared: array<atomic<u32>, 256>;
@@ -59,7 +68,7 @@ fn computeHistogram(
 
     if global_invocation_id.x < dim.x && global_invocation_id.y < dim.y {
         let col = textureLoad(tex_color, vec2<i32>(global_invocation_id.xy), 0).rgb;
-        let index = colorToBin(col, params.min_log_lum, params.inv_log_lum_range);
+        let index = colorToBin(col, auto_exposure.min_log_lum, auto_exposure.inv_log_lum_range);
         let mask = textureLoad(tex_mask, vec2<i32>(uv * vec2<f32>(textureDimensions(tex_mask))), 0).r;
 
         atomicAdd(&histogram_shared[index], u32(mask * 8.0));
@@ -78,8 +87,8 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
         histogram[i] = 0u;
     }
 
-    let first_index = histogram_sum * params.low_percent / 100u;
-    let last_index = histogram_sum * params.high_percent / 100u;
+    let first_index = histogram_sum * auto_exposure.low_percent / 100u;
+    let last_index = histogram_sum * auto_exposure.high_percent / 100u;
 
     var count = 0u;
     var sum = 0.0;
@@ -95,11 +104,22 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
     var target_exposure = 0.0;
 
     if count > 0u {
-        let avg_bin = sum / f32(count);
-        let avg_lum = avg_bin / 255.0 * params.log_lum_range + params.min_log_lum;
-        target_exposure += -8.0 + textureLoad(tex_compensation, i32(avg_bin), 0).r * 16.0 - avg_lum;
+        let avg_lum = sum / (f32(count) * 255.0)
+            * auto_exposure.log_lum_range
+            + auto_exposure.min_log_lum;
+
+        let u = (avg_lum - compensation_curve.min_log_lum) * compensation_curve.inv_log_lum_range;
+
+        target_exposure += textureLoad(tex_compensation, i32(clamp(u, 0.0, 1.0) * 255.0), 0).r
+            * compensation_curve.compensation_range
+            + compensation_curve.min_compensation - avg_lum;
     }
 
-    exposure = exposure + clamp(target_exposure - exposure, -params.speed_up, params.speed_down);
+    exposure = exposure + clamp(
+        target_exposure - exposure,
+        -auto_exposure.speed_up,
+        auto_exposure.speed_down
+    );
+
     view.color_grading.exposure = exposure;
 }

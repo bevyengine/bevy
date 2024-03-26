@@ -1,3 +1,8 @@
+use super::compensation_curve::AutoExposureCompensationCurve;
+use crate::auto_exposure::{
+    pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
+    AutoExposureResources,
+};
 use bevy_ecs::{
     query::QueryState,
     system::lifetimeless::Read,
@@ -10,11 +15,6 @@ use bevy_render::{
     renderer::RenderContext,
     texture::{FallbackImage, Image},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-};
-
-use crate::auto_exposure::{
-    pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
-    AutoExposureResources,
 };
 
 #[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
@@ -80,14 +80,21 @@ impl Node for AutoExposureNode {
             .map(|i| &i.texture_view)
             .unwrap_or(&fallback.d2.texture_view);
 
-        let mut settings = encase::UniformBuffer::new(Vec::new());
-        settings.write(&auto_exposure.params).unwrap();
-        let settings =
+        let Some(compensation_curve) = world
+            .resource::<RenderAssets<AutoExposureCompensationCurve>>()
+            .get(&auto_exposure.compensation_curve)
+        else {
+            return Ok(());
+        };
+
+        let mut uniform = encase::UniformBuffer::new(Vec::new());
+        uniform.write(&auto_exposure.uniform).unwrap();
+        let uniform =
             render_context
                 .render_device()
                 .create_buffer_with_data(&BufferInitDescriptor {
                     label: None,
-                    contents: settings.as_ref(),
+                    contents: uniform.as_ref(),
                     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 });
 
@@ -97,7 +104,7 @@ impl Node for AutoExposureNode {
             &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: settings.as_entire_binding(),
+                    resource: uniform.as_entire_binding(),
                 },
                 BindGroupEntry {
                     binding: 1,
@@ -109,18 +116,22 @@ impl Node for AutoExposureNode {
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::TextureView(&auto_exposure.compensation_curve),
+                    resource: BindingResource::TextureView(&compensation_curve.texture_view),
                 },
                 BindGroupEntry {
                     binding: 4,
-                    resource: resources.histogram.as_entire_binding(),
+                    resource: compensation_curve.extents.as_entire_binding(),
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: auto_exposure.state.as_entire_binding(),
+                    resource: resources.histogram.as_entire_binding(),
                 },
                 BindGroupEntry {
                     binding: 6,
+                    resource: auto_exposure.state.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 7,
                     resource: BindingResource::Buffer(BufferBinding {
                         buffer: view_uniforms_buffer,
                         size: Some(ViewUniform::min_size()),
