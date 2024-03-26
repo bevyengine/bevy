@@ -658,38 +658,42 @@ impl AssetServer {
     }
 
     pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
-        fn load_folder<'a>(
+        async fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
             reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
-        ) -> bevy_utils::BoxedFuture<'a, Result<(), AssetLoadError>> {
-            Box::pin(async move {
-                let is_dir = reader.is_directory(path).await?;
-                if is_dir {
-                    let mut path_stream = reader.read_directory(path.as_ref()).await?;
-                    while let Some(child_path) = path_stream.next().await {
-                        if reader.is_directory(&child_path).await? {
-                            load_folder(source.clone(), &child_path, reader, server, handles)
-                                .await?;
-                        } else {
-                            let path = child_path.to_str().expect("Path should be a valid string.");
-                            let asset_path = AssetPath::parse(path).with_source(source.clone());
-                            match server.load_untyped_async(asset_path).await {
-                                Ok(handle) => handles.push(handle),
-                                // skip assets that cannot be loaded
-                                Err(
-                                    AssetLoadError::MissingAssetLoaderForTypeName(_)
-                                    | AssetLoadError::MissingAssetLoaderForExtension(_),
-                                ) => {}
-                                Err(err) => return Err(err),
-                            }
+        ) -> Result<(), AssetLoadError> {
+            let is_dir = reader.is_directory(path).await?;
+            if is_dir {
+                let mut path_stream = reader.read_directory(path.as_ref()).await?;
+                while let Some(child_path) = path_stream.next().await {
+                    if reader.is_directory(&child_path).await? {
+                        Box::pin(load_folder(
+                            source.clone(),
+                            &child_path,
+                            reader,
+                            server,
+                            handles,
+                        ))
+                        .await?;
+                    } else {
+                        let path = child_path.to_str().expect("Path should be a valid string.");
+                        let asset_path = AssetPath::parse(path).with_source(source.clone());
+                        match server.load_untyped_async(asset_path).await {
+                            Ok(handle) => handles.push(handle),
+                            // skip assets that cannot be loaded
+                            Err(
+                                AssetLoadError::MissingAssetLoaderForTypeName(_)
+                                | AssetLoadError::MissingAssetLoaderForExtension(_),
+                            ) => {}
+                            Err(err) => return Err(err),
                         }
                     }
                 }
-                Ok(())
-            })
+            }
+            Ok(())
         }
 
         let path = path.into_owned();

@@ -1,6 +1,11 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
 //! focused on improving developer experience.
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_app::prelude::*;
 
@@ -9,7 +14,7 @@ pub mod ci_testing;
 pub mod fps_overlay;
 
 #[cfg(feature = "bevy_ui_debug")]
-pub mod debug_overlay;
+pub mod ui_debug_overlay;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
