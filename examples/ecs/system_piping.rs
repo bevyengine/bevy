@@ -77,5 +77,5 @@ fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {
 
 // This system takes a usize input and prints the parsed value .
 fn simple_handler_system(In(value): In<usize>) {
-    println!("[simple] parsed message: {value}")
+    println!("[simple] parsed message: {value}");
 }
