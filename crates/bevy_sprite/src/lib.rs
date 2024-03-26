@@ -158,14 +158,18 @@ pub fn calculate_bounds_2d(
         }
     }
     for (entity, sprite, texture_handle, atlas) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite.custom_size.or_else(|| match atlas {
-            // We default to the texture size for regular sprites
-            None => images.get(texture_handle).map(|image| image.size_f32()),
-            // We default to the drawn rect for atlas sprites
-            Some(atlas) => atlas
-                .texture_rect(&atlases)
-                .map(|rect| rect.size().as_vec2()),
-        }) {
+        if let Some(size) = sprite
+            .custom_size
+            .or_else(|| sprite.rect.map(|rect| rect.size()))
+            .or_else(|| match atlas {
+                // We default to the texture size for regular sprites
+                None => images.get(texture_handle).map(|image| image.size_f32()),
+                // We default to the drawn rect for atlas sprites
+                Some(atlas) => atlas
+                    .texture_rect(&atlases)
+                    .map(|rect| rect.size().as_vec2()),
+            })
+        {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
