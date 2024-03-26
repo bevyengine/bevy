@@ -1,16 +1,13 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
-    query::DebugCheckedUnwrap,
+    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 use std::alloc::Layout;
-use std::{
-    cell::UnsafeCell,
-    ops::{Index, IndexMut},
-};
+use std::cell::UnsafeCell;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -229,8 +226,8 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());
-        self.added_ticks.swap_remove(row.as_usize());
-        self.changed_ticks.swap_remove(row.as_usize());
+        self.added_ticks.swap_remove_unchecked(row.as_usize());
+        self.changed_ticks.swap_remove_unchecked(row.as_usize());
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
@@ -251,8 +248,14 @@ impl Column {
         row: TableRow,
     ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
-        let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
-        let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
+        let added = self
+            .added_ticks
+            .swap_remove_unchecked(row.as_usize())
+            .into_inner();
+        let changed = self
+            .changed_ticks
+            .swap_remove_unchecked(row.as_usize())
+            .into_inner();
         (data, ComponentTicks { added, changed })
     }
 
@@ -278,9 +281,10 @@ impl Column {
         let ptr = self.data.get_unchecked_mut(dst_row.as_usize());
         other.data.swap_remove_unchecked(src_row.as_usize(), ptr);
         *self.added_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.added_ticks.swap_remove(src_row.as_usize());
-        *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) =
-            other.changed_ticks.swap_remove(src_row.as_usize());
+            other.added_ticks.swap_remove_unchecked(src_row.as_usize());
+        *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) = other
+            .changed_ticks
+            .swap_remove_unchecked(src_row.as_usize());
     }
 
     /// Pushes a new value onto the end of the [`Column`].
@@ -579,7 +583,7 @@ impl Table {
             column.swap_remove_unchecked(row);
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
-        self.entities.swap_remove(row.as_usize());
+        self.entities.swap_remove_unchecked(row.as_usize());
         if is_last {
             None
         } else {
@@ -602,7 +606,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
@@ -634,7 +638,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
@@ -665,7 +669,7 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove_unchecked(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
@@ -835,20 +839,47 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
+    /// Fetches a mutable reference to a  [`Table`] by its [`TableId`].
+    ///
+    /// # Safety
+    /// `id` must be valid.
+    #[inline]
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
+        self.tables.get_mut(id.as_usize()).debug_checked_unwrap()
+    }
+
+    /// Fetches the a reference to the [`Table`] for empty entities.
+    #[inline]
+    pub fn empty(&self) -> &Table {
+        // SAFETY: The empty table is always valid.
+        unsafe { self.tables.get_unchecked(TableId::empty().as_usize()) }
+    }
+
+    /// Fetches a mutable reference to the [`Table`] for empty entities.
+    #[inline]
+    pub(crate) fn empty_mut(&mut self) -> &mut Table {
+        // SAFETY: The empty table is always valid.
+        unsafe { self.tables.get_unchecked_mut(TableId::empty().as_usize()) }
+    }
+
     /// Fetches mutable references to two different [`Table`]s.
     ///
-    /// # Panics
-    ///
-    /// Panics if `a` and `b` are equal.
+    /// # Safety
+    /// `a` and `b` must both be in bounds and not equal to each other.
     #[inline]
-    pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
-        if a.as_usize() > b.as_usize() {
-            let (b_slice, a_slice) = self.tables.split_at_mut(a.as_usize());
-            (&mut a_slice[0], &mut b_slice[b.as_usize()])
-        } else {
-            let (a_slice, b_slice) = self.tables.split_at_mut(b.as_usize());
-            (&mut a_slice[a.as_usize()], &mut b_slice[0])
-        }
+    pub(crate) unsafe fn get_2_unchecked_mut(
+        &mut self,
+        a: TableId,
+        b: TableId,
+    ) -> (&mut Table, &mut Table) {
+        debug_assert!(
+            a != b && a.as_usize() < self.tables.len() && b.as_usize() < self.tables.len()
+        );
+        let ptr = self.tables.as_mut_ptr();
+        (
+            ptr.add(a.as_usize()).as_mut().debug_checked_unwrap(),
+            ptr.add(b.as_usize()).as_mut().debug_checked_unwrap(),
+        )
     }
 
     /// Attempts to fetch a table based on the provided components,
@@ -894,22 +925,6 @@ impl Tables {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
-    }
-}
-
-impl Index<TableId> for Tables {
-    type Output = Table;
-
-    #[inline]
-    fn index(&self, index: TableId) -> &Self::Output {
-        &self.tables[index.as_usize()]
-    }
-}
-
-impl IndexMut<TableId> for Tables {
-    #[inline]
-    fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
-        &mut self.tables[index.as_usize()]
     }
 }
 

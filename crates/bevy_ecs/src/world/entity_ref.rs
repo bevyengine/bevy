@@ -531,25 +531,37 @@ pub struct EntityWorldMut<'w> {
 
 impl<'w> EntityWorldMut<'w> {
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
-        UnsafeEntityCell::new(
-            self.world.as_unsafe_world_cell_readonly(),
-            self.entity,
-            self.location,
-        )
+        // SAFETY: EntityWorldMut's location must always be valid and matched with
+        // the actual location of the entity's components
+        unsafe {
+            UnsafeEntityCell::new(
+                self.world.as_unsafe_world_cell_readonly(),
+                self.entity,
+                self.location,
+            )
+        }
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
-        UnsafeEntityCell::new(
-            self.world.as_unsafe_world_cell(),
-            self.entity,
-            self.location,
-        )
+        // SAFETY: EntityWorldMut's location must always be valid and matched with
+        // the actual location of the entity's components
+        unsafe {
+            UnsafeEntityCell::new(
+                self.world.as_unsafe_world_cell(),
+                self.entity,
+                self.location,
+            )
+        }
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
-        UnsafeEntityCell::new(
-            self.world.as_unsafe_world_cell(),
-            self.entity,
-            self.location,
-        )
+        // SAFETY: EntityWorldMut's location must always be valid and matched with
+        // the actual location of the entity's components
+        unsafe {
+            UnsafeEntityCell::new(
+                self.world.as_unsafe_world_cell(),
+                self.entity,
+                self.location,
+            )
+        }
     }
 
     /// # Safety
@@ -590,7 +602,13 @@ impl<'w> EntityWorldMut<'w> {
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        &self.world.archetypes[self.location.archetype_id]
+        // SAFETY: The location for entity ID must be valid at all times for the underlying entity.
+        unsafe {
+            self.world
+                .archetypes
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap()
+        }
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -881,15 +899,22 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let entity = self.entity;
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
+        let (old_archetype, bundle_info, mut deferred_world) = {
+            let archetype: *const Archetype = unsafe {
+                world
+                    .archetypes
+                    .get(old_location.archetype_id)
+                    .debug_checked_unwrap()
+            };
             let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[old_location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
+            // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+            unsafe {
+                (
+                    &*archetype,
+                    &*bundle_info,
+                    world.as_unsafe_world_cell().into_deferred(),
+                )
+            }
         };
 
         if old_archetype.has_on_remove() {
@@ -911,7 +936,9 @@ impl<'w> EntityWorldMut<'w> {
         // matches
         let result = unsafe {
             T::from_components(storages, &mut |storages| {
-                let component_id = bundle_components.next().unwrap();
+                // SAFETY: The number of components in the bundle should be identical to the number of
+                // components yielded by T::from_components
+                let component_id = bundle_components.next().debug_checked_unwrap();
                 // SAFETY:
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
@@ -964,11 +991,13 @@ impl<'w> EntityWorldMut<'w> {
         storages: &mut Storages,
         new_archetype_id: ArchetypeId,
     ) {
-        let old_archetype = &mut archetypes[old_archetype_id];
-        let remove_result = old_archetype.swap_remove(old_location.archetype_row);
+        // SAFETY: Caller guarentees that old_archetype ID is valid.
+        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_archetype_id) };
+        let remove_result = old_archetype.swap_remove_unchecked(old_location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = entities.get(swapped_entity).unwrap();
+            // SAFETY: The swapped entity must be alive and have a valid location.
+            let swapped_location = unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
 
             entities.set(
                 swapped_entity.index(),
@@ -982,14 +1011,19 @@ impl<'w> EntityWorldMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
-        let new_archetype = &mut archetypes[new_archetype_id];
+        // SAFETY: Caller guarentees that old_archetype ID is valid.
+        let new_archetype = unsafe { archetypes.get_unchecked_mut(new_archetype_id) };
 
         let new_location = if old_table_id == new_archetype.table_id() {
             new_archetype.allocate(entity, old_table_row)
         } else {
-            let (old_table, new_table) = storages
-                .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
+            // SAFETY: Both table  IDs are valid. Both are associated with archetypes that are directly mapped to
+            // valid tables. The if check ensures that they're not the same.
+            let (old_table, new_table) = unsafe {
+                storages
+                    .tables
+                    .get_2_unchecked_mut(old_table_id, new_archetype.table_id())
+            };
 
             let move_result = if DROP {
                 // SAFETY: old_table_row exists
@@ -1004,7 +1038,9 @@ impl<'w> EntityWorldMut<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = entities.get(swapped_entity).unwrap();
+                // SAFETY: The swapped entity must be alive and have a valid location.
+                let swapped_location =
+                    unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
 
                 entities.set(
                     swapped_entity.index(),
@@ -1015,8 +1051,11 @@ impl<'w> EntityWorldMut<'w> {
                         table_row: old_location.table_row,
                     },
                 );
-                archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.archetype_row, old_table_row);
+                unsafe {
+                    archetypes
+                        .get_unchecked_mut(swapped_location.archetype_id)
+                        .set_entity_table_row(swapped_location.archetype_row, old_table_row);
+                }
             }
 
             new_location
@@ -1058,15 +1097,24 @@ impl<'w> EntityWorldMut<'w> {
             return location;
         }
 
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
+        let (old_archetype, bundle_info, mut deferred_world) = {
+            // SAFETY: The caller guarentees that old_location is valid, so the archetype at it's
+            // archetype ID must exist.
+            let archetype: *const Archetype = unsafe {
+                world
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap()
+            };
             let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
+            // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
+            unsafe {
+                (
+                    &*archetype,
+                    &*bundle_info,
+                    world.as_unsafe_world_cell().into_deferred(),
+                )
+            }
         };
 
         if old_archetype.has_on_remove() {
@@ -1076,7 +1124,6 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        let old_archetype = &world.archetypes[location.archetype_id];
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 world.removed_components.send(component_id, entity);
@@ -1084,12 +1131,16 @@ impl<'w> EntityWorldMut<'w> {
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
                 if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-                    world
-                        .storages
-                        .sparse_sets
-                        .get_mut(component_id)
-                        .unwrap()
-                        .remove(entity);
+                    // SAFETY: The component ID is guarenteed to be a sparse set component and
+                    // entity has a corresponding component.
+                    unsafe {
+                        world
+                            .storages
+                            .sparse_sets
+                            .get_mut(component_id)
+                            .debug_checked_unwrap()
+                            .remove(entity);
+                    }
                 }
             }
         }
@@ -1138,7 +1189,8 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;
-        let old_archetype = &mut archetypes[old_location.archetype_id];
+        // SAFETY: The location of the EntityRef must stay valid at all times.
+        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
 
         let to_remove = &old_archetype
             .components()
@@ -1157,11 +1209,13 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn(self) {
         let world = self.world;
         world.flush_entities();
-        let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
-            let archetype: *const Archetype = archetype;
+            let archetype: *const Archetype = world
+                .archetypes
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap();
             let world = world.as_unsafe_world_cell();
             (&*archetype, world.into_deferred())
         };
@@ -1185,10 +1239,16 @@ impl<'w> EntityWorldMut<'w> {
         let moved_entity;
 
         {
-            let archetype = &mut world.archetypes[self.location.archetype_id];
-            let remove_result = archetype.swap_remove(location.archetype_row);
+            // SAFETY: The entity's location is directly fetched from Enttities, so it's guaranteed
+            // to be valid.
+            let archetype = unsafe { world.archetypes.get_unchecked_mut(location.archetype_id) };
+            // SAFETY: The entity's location is directly fetched from Enttities, so it's archetype
+            // row is guaranteed to be valid.
+            let remove_result = unsafe { archetype.swap_remove_unchecked(location.archetype_row) };
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                // SAFETY: The swapped entity must be alive and have a valid location.
+                let swapped_location =
+                    unsafe { world.entities.get(swapped_entity).debug_checked_unwrap() };
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
@@ -1206,17 +1266,30 @@ impl<'w> EntityWorldMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
-                let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
-                sparse_set.remove(self.entity);
+                // SAFETY: The component ID is guarenteed to be a sparse set component and
+                // entity has a corresponding component.
+                unsafe {
+                    world
+                        .storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        .debug_checked_unwrap()
+                        .remove(self.entity);
+                }
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
+                world
+                    .storages
+                    .tables
+                    .get_unchecked_mut(archetype.table_id())
+                    .swap_remove_unchecked(table_row)
             };
         };
 
         if let Some(moved_entity) = moved_entity {
-            let moved_location = world.entities.get(moved_entity).unwrap();
+            // SAFETY: The moved entity must be alive and have a valid location.
+            let moved_location = unsafe { world.entities.get(moved_entity).debug_checked_unwrap() };
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
@@ -1230,8 +1303,14 @@ impl<'w> EntityWorldMut<'w> {
                     },
                 );
             }
-            world.archetypes[moved_location.archetype_id]
-                .set_entity_table_row(moved_location.archetype_row, table_row);
+            // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
+            //         the current location of the entity.
+            unsafe {
+                world
+                    .archetypes
+                    .get_unchecked_mut(moved_location.archetype_id)
+                    .set_entity_table_row(moved_location.archetype_row, table_row);
+            }
         }
         world.flush_commands();
     }
@@ -1531,8 +1610,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get(&self) -> &T {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.get::<T>().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get::<T>().debug_checked_unwrap() }
     }
 
     /// Gets a mutable reference to the component in the entry.
@@ -1564,8 +1643,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.get_mut::<T>().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get_mut::<T>().debug_checked_unwrap() }
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
@@ -1593,8 +1672,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.get_mut().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get_mut().debug_checked_unwrap() }
     }
 
     /// Replaces the component of the entry.
@@ -1640,8 +1719,8 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn take(self) -> T {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.take().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.take().debug_checked_unwrap() }
     }
 }
 
@@ -1673,8 +1752,8 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     #[inline]
     pub fn insert(self, component: T) -> Mut<'a, T> {
         self.entity_world.insert(component);
-        // This shouldn't panic because we just added this component
-        self.entity_world.get_mut::<T>().unwrap()
+        // SAFETY: We just added this component, it should exist.
+        unsafe { self.entity_world.get_mut::<T>().debug_checked_unwrap() }
     }
 
     /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
@@ -2240,7 +2319,7 @@ unsafe fn remove_bundle_from_archetype(
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
     let remove_bundle_result = {
-        let edges = archetypes[archetype_id].edges();
+        let edges = archetypes.get(archetype_id).debug_checked_unwrap().edges();
         if intersection {
             edges.get_remove_bundle(bundle_info.id())
         } else {
@@ -2255,7 +2334,7 @@ unsafe fn remove_bundle_from_archetype(
         let mut next_sparse_set_components;
         let next_table_id;
         {
-            let current_archetype = &mut archetypes[archetype_id];
+            let current_archetype = archetypes.get_unchecked_mut(archetype_id);
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
             for component_id in bundle_info.components().iter().cloned() {
@@ -2309,7 +2388,7 @@ unsafe fn remove_bundle_from_archetype(
         );
         Some(new_archetype_id)
     };
-    let current_archetype = &mut archetypes[archetype_id];
+    let current_archetype = archetypes.get_unchecked_mut(archetype_id);
     // cache the result in an edge
     if intersection {
         current_archetype
@@ -2363,8 +2442,9 @@ pub(crate) unsafe fn take_component<'a>(
     removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &mut storages.tables[location.table_id];
-            let components = table.get_column_mut(component_id).unwrap();
+            let table = storages.tables.get_unchecked_mut(location.table_id);
+            // SAFETY: The component must exist within the table if the entity's located within it.
+            let components = unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
             // SAFETY:
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
@@ -2375,12 +2455,15 @@ pub(crate) unsafe fn take_component<'a>(
                     .promote()
             }
         }
-        StorageType::SparseSet => storages
-            .sparse_sets
-            .get_mut(component_id)
-            .unwrap()
-            .remove_and_forget(entity)
-            .unwrap(),
+        // SAFETY: The component must exist within the sparse set if the entity's located within it.
+        StorageType::SparseSet => unsafe {
+            storages
+                .sparse_sets
+                .get_mut(component_id)
+                .debug_checked_unwrap()
+                .remove_and_forget(entity)
+                .debug_checked_unwrap()
+        },
     }
 }
 
