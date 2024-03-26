@@ -36,7 +36,11 @@ pub struct WindowRenderPlugin;
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
-        #[cfg(all(feature = "bevy_winit", feature = "multi-threaded", not(target_arch = "wasm32")))]
+        #[cfg(all(
+            feature = "bevy_winit",
+            feature = "multi-threaded",
+            not(target_arch = "wasm32")
+        ))]
         {
             // TODO: This is added despite not checking if PipelinedRenderingPlugin is added or not,
             // but we can't check right now (since it's added after this plugin)
