@@ -105,7 +105,11 @@ impl DiagnosticsRecorder {
         callback: impl FnOnce(RenderDiagnostics) + Send + Sync + 'static,
     ) {
         let internal = &mut self.0;
-        internal.current_frame.get_mut().expect("lock poisoned").finish(callback);
+        internal
+            .current_frame
+            .get_mut()
+            .expect("lock poisoned")
+            .finish(callback);
 
         // reuse one of the finished frames, if we can
         let new_frame = match internal.finished_frames.pop() {
@@ -115,7 +119,8 @@ impl DiagnosticsRecorder {
 
         let old_frame = std::mem::replace(
             internal.current_frame.get_mut().expect("lock poisoned"),
-            new_frame);
+            new_frame,
+        );
         internal.submitted_frames.push(old_frame);
     }
 }
