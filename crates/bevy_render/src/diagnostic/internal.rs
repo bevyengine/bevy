@@ -17,7 +17,7 @@ use wgpu::{
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, Queue, RenderPass,
 };
 
-use crate::renderer::RenderDevice;
+use crate::renderer::{RenderDevice, WgpuWrapper};
 
 use super::RecordDiagnostics;
 
@@ -28,16 +28,18 @@ const MAX_PIPELINE_STATISTICS: u32 = 128;
 const TIMESTAMP_SIZE: u64 = 8;
 const PIPELINE_STATISTICS_SIZE: u64 = 40;
 
-/// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
-/// spans and indices to the corresponding entries in the [`QuerySet`].
-#[derive(Resource)]
-pub struct DiagnosticsRecorder {
+struct DiagnosticsRecorderInternal {
     timestamp_period_ns: f32,
     features: Features,
     current_frame: Mutex<FrameData>,
     submitted_frames: Vec<FrameData>,
     finished_frames: Vec<FrameData>,
 }
+
+/// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
+/// spans and indices to the corresponding entries in the [`QuerySet`].
+#[derive(Resource)]
+pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
 
 impl DiagnosticsRecorder {
     /// Creates the new `DiagnosticsRecorder`.
@@ -50,30 +52,32 @@ impl DiagnosticsRecorder {
             0.0
         };
 
-        DiagnosticsRecorder {
+        DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns,
             features,
             current_frame: Mutex::new(FrameData::new(device, features)),
             submitted_frames: Vec::new(),
             finished_frames: Vec::new(),
-        }
+        }))
     }
 
     fn current_frame_mut(&mut self) -> &mut FrameData {
-        self.current_frame.get_mut().expect("lock poisoned")
+        self.0.current_frame.get_mut().expect("lock poisoned")
     }
 
     fn current_frame_lock(&self) -> impl DerefMut<Target = FrameData> + '_ {
-        self.current_frame.lock().expect("lock poisoned")
+        self.0.current_frame.lock().expect("lock poisoned")
     }
 
     /// Begins recording diagnostics for a new frame.
     pub fn begin_frame(&mut self) {
+        let internal = &mut self.0;
         let mut idx = 0;
-        while idx < self.submitted_frames.len() {
-            if self.submitted_frames[idx].run_mapped_callback(self.timestamp_period_ns) {
-                self.finished_frames
-                    .push(self.submitted_frames.swap_remove(idx));
+        while idx < internal.submitted_frames.len() {
+            let timestamp = internal.timestamp_period_ns;
+            if internal.submitted_frames[idx].run_mapped_callback(timestamp) {
+                let removed = internal.submitted_frames.swap_remove(idx);
+                internal.finished_frames.push(removed);
             } else {
                 idx += 1;
             }
@@ -100,16 +104,19 @@ impl DiagnosticsRecorder {
         device: &RenderDevice,
         callback: impl FnOnce(RenderDiagnostics) + Send + Sync + 'static,
     ) {
-        self.current_frame_mut().finish(callback);
+        let internal = &mut self.0;
+        internal.current_frame.get_mut().expect("lock poisoned").finish(callback);
 
         // reuse one of the finished frames, if we can
-        let new_frame = match self.finished_frames.pop() {
+        let new_frame = match internal.finished_frames.pop() {
             Some(frame) => frame,
-            None => FrameData::new(device, self.features),
+            None => FrameData::new(device, internal.features),
         };
 
-        let old_frame = std::mem::replace(self.current_frame_mut(), new_frame);
-        self.submitted_frames.push(old_frame);
+        let old_frame = std::mem::replace(
+            internal.current_frame.get_mut().expect("lock poisoned"),
+            new_frame);
+        internal.submitted_frames.push(old_frame);
     }
 }
 
