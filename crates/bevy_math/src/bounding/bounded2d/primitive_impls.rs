@@ -32,19 +32,19 @@ impl Bounded2d for Circle {
 // Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs and derived shapes.
 // The return type has room for 7 points so that the CircularSector code can add an additional point.
 #[inline]
-fn arc_bounding_points(arc: Arc2d, rotation: f32) -> SmallVec<[Vec2; 7]> {
+fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rotation2d>) -> SmallVec<[Vec2; 7]> {
     // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema of the arc's circle.
     // We need to compute which axis-aligned extrema are actually contained within the rotated arc.
     let mut bounds = SmallVec::<[Vec2; 7]>::new();
-    let rotation_vec = Vec2::from_angle(rotation);
-    bounds.push(arc.left_endpoint().rotate(rotation_vec));
-    bounds.push(arc.right_endpoint().rotate(rotation_vec));
+    let rotation = rotation.into();
+    bounds.push(rotation * arc.left_endpoint());
+    bounds.push(rotation * arc.right_endpoint());
 
     // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
     // Compute the normalized angles of the endpoints with the rotation taken into account, and then
     // check if we are looking for an angle that is between or outside them.
-    let left_angle = (FRAC_PI_2 + arc.half_angle + rotation).rem_euclid(TAU);
-    let right_angle = (FRAC_PI_2 - arc.half_angle + rotation).rem_euclid(TAU);
+    let left_angle = (FRAC_PI_2 + arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
+    let right_angle = (FRAC_PI_2 - arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
     let inverted = left_angle < right_angle;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
         let angle = extremum.to_angle().rem_euclid(TAU);
@@ -62,7 +62,7 @@ fn arc_bounding_points(arc: Arc2d, rotation: f32) -> SmallVec<[Vec2; 7]> {
 }
 
 impl Bounded2d for Arc2d {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         // If our arc covers more than a circle, just return the bounding box of the circle.
         if self.half_angle >= PI {
             return Circle::new(self.radius).aabb_2d(translation, rotation);
@@ -71,7 +71,11 @@ impl Bounded2d for Arc2d {
         Aabb2d::from_point_cloud(translation, 0.0, &arc_bounding_points(*self, rotation))
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         // There are two possibilities for the bounding circle.
         if self.is_major() {
             // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
@@ -80,14 +84,14 @@ impl Bounded2d for Arc2d {
         } else {
             // Otherwise, the widest distance between two points is the chord,
             // so a circle of that diameter around the midpoint will contain the entire arc.
-            let center = self.chord_midpoint().rotate(Vec2::from_angle(rotation));
+            let center = rotation.into() * self.chord_midpoint();
             BoundingCircle::new(center + translation, self.half_chord_length())
         }
     }
 }
 
 impl Bounded2d for CircularSector {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         // If our sector covers more than a circle, just return the bounding box of the circle.
         if self.half_angle() >= PI {
             return Circle::new(self.radius()).aabb_2d(translation, rotation);
@@ -100,7 +104,11 @@ impl Bounded2d for CircularSector {
         Aabb2d::from_point_cloud(translation, 0.0, &bounds)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         if self.arc.is_major() {
             // If the arc is major, that is, greater than a semicircle,
             // then bounding circle is just the circle defining the sector.
@@ -122,11 +130,15 @@ impl Bounded2d for CircularSector {
 }
 
 impl Bounded2d for CircularSegment {
-    fn aabb_2d(&self, translation: Vec2, rotation: f32) -> Aabb2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         self.arc.aabb_2d(translation, rotation)
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: f32) -> BoundingCircle {
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
         self.arc.bounding_circle(translation, rotation)
     }
 }

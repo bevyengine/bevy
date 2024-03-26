@@ -55,7 +55,7 @@ fn setup(
     for i in 0..NUM_SLICES {
         let fraction = (i + 1) as f32 / NUM_SLICES as f32;
 
-        let sector = CircularSector::from_fraction(40.0, fraction);
+        let sector = CircularSector::from_turns(40.0, fraction);
         // We want to rotate the circular sector so that the sectors appear clockwise from north.
         // We must rotate it both in the Transform and in the mesh's UV mappings.
         let sector_angle = -sector.half_angle();
@@ -77,7 +77,7 @@ fn setup(
             DrawBounds(sector),
         ));
 
-        let segment = CircularSegment::from_fraction(40.0, fraction);
+        let segment = CircularSegment::from_turns(40.0, fraction);
         // For the circular segment, we will draw Bevy charging forward, which requires rotating the
         // shape and texture by 90 degrees.
         //

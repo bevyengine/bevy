@@ -116,20 +116,20 @@ impl Arc2d {
         }
     }
 
-    /// Create a new [`Arc2d`] from a `radius` and an angle in `degrees`.
+    /// Create a new [`Arc2d`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
+    pub fn from_degrees(radius: f32, angle: f32) -> Self {
         Self {
             radius,
-            half_angle: degrees.to_radians() / 2.0,
+            half_angle: angle.to_radians() / 2.0,
         }
     }
 
-    /// Create a new [`Arc2d`] from a `radius` and a `fraction` of a circle
+    /// Create a new [`Arc2d`] from a `radius` and a number of `turns` of a circle.
     ///
-    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle
+    /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
+    pub fn from_turns(radius: f32, fraction: f32) -> Self {
         Self {
             radius,
             half_angle: fraction * PI,
@@ -232,7 +232,7 @@ impl Arc2d {
 
 /// A primitive representing a circular sector: a pie slice of a circle.
 ///
-/// The segment is drawn starting from [`Vec2::Y`], extending equally on either side.
+/// The segment is positioned so that it always includes [`Vec2::Y`] and is vertically symmetrical.
 /// To orient the sector differently, apply a rotation.
 /// The sector is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 ///
@@ -273,18 +273,18 @@ impl CircularSector {
         Self::from(Arc2d::from_radians(radius, angle))
     }
 
-    /// Create a new [`CircularSector`] from a `radius` and an angle in `degrees`.
+    /// Create a new [`CircularSector`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
-        Self::from(Arc2d::from_degrees(radius, degrees))
+    pub fn from_degrees(radius: f32, angle: f32) -> Self {
+        Self::from(Arc2d::from_degrees(radius, angle))
     }
 
-    /// Create a new [`CircularSector`] from a `radius` and a `fraction` of a circle.
+    /// Create a new [`CircularSector`] from a `radius` and a number of `turns` of a circle.
     ///
-    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
-        Self::from(Arc2d::from_fraction(radius, fraction))
+    pub fn from_turns(radius: f32, fraction: f32) -> Self {
+        Self::from(Arc2d::from_turns(radius, fraction))
     }
 
     /// Get half the angle of the sector
@@ -403,18 +403,18 @@ impl CircularSegment {
         Self::from(Arc2d::from_radians(radius, angle))
     }
 
-    /// Create a new [`CircularSegment`] from a `radius` and an angle in `degrees`
+    /// Create a new [`CircularSegment`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, degrees: f32) -> Self {
-        Self::from(Arc2d::from_degrees(radius, degrees))
+    pub fn from_degrees(radius: f32, angle: f32) -> Self {
+        Self::from(Arc2d::from_degrees(radius, angle))
     }
 
-    /// Create a new [`CircularSegment`] from a `radius` and a `fraction` of a circle.
+    /// Create a new [`CircularSegment`] from a `radius` and a number of `turns` of a circle.
     ///
-    /// A `fraction` of 1.0 would be a whole circle; 0.5 would be a semicircle.
+    /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_fraction(radius: f32, fraction: f32) -> Self {
-        Self::from(Arc2d::from_fraction(radius, fraction))
+    pub fn from_turns(radius: f32, fraction: f32) -> Self {
+        Self::from(Arc2d::from_turns(radius, fraction))
     }
 
     /// Get the half-angle of the segment
@@ -638,9 +638,9 @@ mod arc_tests {
             segment_area: FRAC_PI_4 - 0.5,
         };
 
-        tests.check_arc(Arc2d::from_fraction(1.0, 0.25));
-        tests.check_sector(CircularSector::from_fraction(1.0, 0.25));
-        tests.check_segment(CircularSegment::from_fraction(1.0, 0.25));
+        tests.check_arc(Arc2d::from_turns(1.0, 0.25));
+        tests.check_sector(CircularSector::from_turns(1.0, 0.25));
+        tests.check_segment(CircularSegment::from_turns(1.0, 0.25));
     }
 
     #[test]
