@@ -216,6 +216,8 @@ pub struct Schedule {
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
 struct DefaultSchedule;
 
+// type BuildSkipBitSet = Box<dyn FnOnce(Schedule) -> FixedBitSet>;
+
 impl Default for Schedule {
     /// Creates a schedule with a default label. Only use in situations where
     /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
@@ -314,8 +316,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`]. By default this
-    /// setting is true, but may be disabled if needed.
+    /// [`apply_deferred`]. By default this setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
         self
@@ -331,8 +332,9 @@ impl Schedule {
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, None);
+        self.executor.run(&mut self.executable, world, skipped);
 
+        // after the executable schedule is initialized, create a bitset of systems to skip
         #[cfg(feature = "bevy_debug_stepping")]
         {
             let skip_systems = match world.get_resource_mut::<Stepping>() {
@@ -344,6 +346,120 @@ impl Schedule {
                 .run(&mut self.executable, world, skip_systems.as_ref());
         }
     }
+
+    pub(crate) fn run_system_set(&mut self, world: &mut World, system_set: impl SystemSet) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("schedule", name = ?self.label).entered();
+
+        world.check_change_ticks();
+        self.initialize(world)
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
+
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        self.executor.run(&mut self.executable, world, skipped);
+
+        let skipped = self
+            .graph
+            .system_set_ids
+            .get(&system_set.intern())
+            .copied()
+            .map(|system_set_node_id| {
+                // for each system in the graph, skip it if it's not in the system_set
+                // TODO: is there a guarantee that systems_len() is the same as graph.systems.len()?
+                //  cannot use graph.systems directly because systems got moved to systemschedule
+                let mut included_system_ids = FixedBitSet::with_capacity(self.systems_len());
+                // TODO: need all systems that are reachable from the system set
+                //  - either run BFS here
+                //  - or re-use the transitive closure?
+                let mut bfs = Bfs::new(self.graph().hierarchy.graph(), system_set_node_id);
+                while let Some(system_node_id) = bfs.next(self.graph().hierarchy.graph()) {
+                    if system_node_id.is_system() {
+                        included_system_ids.insert(system_node_id.index());
+                    }
+                }
+                // convert from system ids to system indices
+                let mut skipped_system_indices = FixedBitSet::with_capacity(self.systems_len());
+                self.executable
+                    .system_ids
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, system_id)| {
+                        if !included_system_ids.contains(system_id.index()) {
+                            skipped_system_indices.insert(index);
+                        }
+                    });
+                skipped_system_indices
+            });
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            let skip_systems = match world.get_resource_mut::<Stepping>() {
+                None => None,
+                Some(mut stepping) => stepping.skipped_systems(self),
+            };
+            let to_skip = match (skip_systems, skipped) {
+                (Some(skip_systems), Some(skipped)) => Some(&skip_systems | &skipped),
+                (Some(skip_systems), None) => Some(skip_systems),
+                (None, Some(skipped)) => Some(skipped),
+                (None, None) => None,
+            };
+            self.executor
+                .run(&mut self.executable, world, to_skip.as_ref());
+        }
+    }
+
+    // pub(crate) fn run_system_set(&mut self, world: &mut World, system_set: impl SystemSet) {
+    //     self.run_with_skipped(world, self.graph.system_set_ids.get(&system_set.intern()).copied().map(|system_set_node_id| {
+    //         Box::new(move |sched: &Schedule| -> FixedBitSet {
+    //             // for each system in the graph, skip it if it's not in the system_set
+    //             let mut skipped_system_ids = FixedBitSet::with_capacity(self.graph.systems.len());
+    //             sched.graph().systems().for_each(|(system_node_id, _, _)| {
+    //                 if !sched.graph().hierarchy().graph().contains_edge(system_set_node_id, system_node_id) {
+    //                     skipped_system_ids.insert(system_node_id.index());
+    //                 }
+    //             });
+    //             // convert from system ids to system indices
+    //             let mut skipped_system_indices = FixedBitSet::with_capacity(self.systems_len());
+    //             self.executable.system_ids.iter().enumerate().for_each(|(index, system_id)| {
+    //                 if skipped_system_ids.contains(system_id.index()) {
+    //                     skipped_system_indices.insert(index);
+    //                 }
+    //             });
+    //             skipped_system_indices
+    //         })
+    //     }));
+    // }
+
+    // /// Runs all systems in this schedule for which the `filter` function returns true
+    // pub(crate) fn run_with_skipped(&mut self, world: &mut World, to_skip: Option<BuildSkipBitSet>) {
+    //     #[cfg(feature = "trace")]
+    //         let _span = info_span!("schedule", name = ?self.label).entered();
+    //
+    //     world.check_change_ticks();
+    //     self.initialize(world)
+    //         .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
+    //
+    //     #[cfg(not(feature = "bevy_debug_stepping"))]
+    //     self.executor.run(&mut self.executable, world, skipped);
+    //
+    //     // after the executable schedule is initialized, create a bitset of systems to skip
+    //     let skipped = to_skip.map(|f| f(self));
+    //     #[cfg(feature = "bevy_debug_stepping")]
+    //     {
+    //         let skip_systems = match world.get_resource_mut::<Stepping>() {
+    //             None => None,
+    //             Some(mut stepping) => stepping.skipped_systems(self),
+    //         };
+    //         let to_skip = match (skip_systems, skipped) {
+    //             (Some(skip_systems), Some(skipped)) => Some(&skip_systems | &skipped),
+    //             (Some(skip_systems), None) => Some(skip_systems),
+    //             (None, Some(skipped)) => Some(skipped),
+    //             (None, None) => None,
+    //         };
+    //         self.executor
+    //             .run(&mut self.executable, world, to_skip.as_ref());
+    //     }
+    // }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
@@ -2418,6 +2534,65 @@ mod tests {
                     )
                         .chain_ignore_deferred(),
                 );
+            });
+        }
+    }
+
+    mod run_system_set {
+        use super::*;
+        use crate::change_detection::ResMut;
+        use crate::schedule::schedule::DefaultSchedule;
+
+        #[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+        struct TestSystemSet1;
+
+        #[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+        struct TestSystemSet2;
+
+        #[derive(Resource)]
+        struct Counter(usize);
+
+        fn increment_counter<const N: usize>(mut counter: ResMut<Counter>) {
+            counter.0 += N;
+        }
+
+        fn run_schedule(expected_counter: usize, add_systems: impl FnOnce(&mut Schedule)) {
+            let mut schedule = Schedule::default();
+            let mut world = World::default();
+            world.insert_resource(Counter(0));
+            add_systems(&mut schedule);
+            world.add_schedule(schedule);
+            world.run_system_state(DefaultSchedule, TestSystemSet1);
+            assert_eq!(world.resource::<Counter>().0, expected_counter);
+        }
+
+        #[test]
+        fn test_run_system_set() {
+            run_schedule(1, |schedule| {
+                schedule.add_systems((
+                    increment_counter::<1>.in_set(TestSystemSet1),
+                    increment_counter::<2>.in_set(TestSystemSet2),
+                    increment_counter::<3>,
+                ));
+            });
+            run_schedule(3, |schedule| {
+                schedule.add_systems((
+                    (increment_counter::<1>, increment_counter::<2>).in_set(TestSystemSet1),
+                    increment_counter::<3>.in_set(TestSystemSet2),
+                    increment_counter::<4>,
+                ));
+            });
+        }
+
+        #[test]
+        fn test_nested_system_set() {
+            run_schedule(3, |schedule| {
+                schedule.configure_sets(TestSystemSet2.in_set(TestSystemSet1));
+                schedule.add_systems((
+                    increment_counter::<1>.in_set(TestSystemSet1),
+                    increment_counter::<2>.in_set(TestSystemSet2),
+                    increment_counter::<3>,
+                ));
             });
         }
     }

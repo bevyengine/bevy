@@ -41,9 +41,11 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+use crate::schedule::SystemSet;
 pub use identifier::WorldId;
 
 /// A [`World`] mutation.
@@ -2363,6 +2365,27 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    /// Runs the [`Schedule`] associated with the `schedule_label` a single time, ignoring
+    /// any systems that doesn't belong to the `system_set` [`SystemSet`].
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn run_system_state(
+        &mut self,
+        schedule_label: impl ScheduleLabel,
+        system_set: impl SystemSet,
+    ) {
+        self.schedule_scope(schedule_label, |world, sched| {
+            sched.run_system_set(world, system_set);
+        })
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
