@@ -356,9 +356,6 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, skipped);
-
         let skipped = self
             .graph
             .system_set_ids
@@ -386,6 +383,9 @@ impl Schedule {
                     });
                 skipped_system_indices
             });
+
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        self.executor.run(&mut self.executable, world, skipped.as_ref());
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
