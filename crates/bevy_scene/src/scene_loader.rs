@@ -12,7 +12,7 @@ use thiserror::Error;
 
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
-/// The loader handles assets serialized with [`DynamicScene::serialize()`].
+/// The loader handles assets serialized with [`DynamicScene::serialize`].
 #[derive(Debug)]
 pub struct SceneLoader {
     type_registry: TypeRegistryArc,
