@@ -3,7 +3,6 @@ use crate::{
     Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -11,8 +10,13 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Hsla {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -105,16 +109,8 @@ impl Mix for Hsla {
     #[inline]
     fn mix(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
-        // TODO: Refactor this into EuclideanModulo::lerp_modulo
-        let shortest_angle = ((((other.hue - self.hue) % 360.) + 540.) % 360.) - 180.;
-        let mut hue = self.hue + shortest_angle * factor;
-        if hue < 0. {
-            hue += 360.;
-        } else if hue >= 360. {
-            hue -= 360.;
-        }
         Self {
-            hue,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             saturation: self.saturation * n_factor + other.saturation * factor,
             lightness: self.lightness * n_factor + other.lightness * factor,
             alpha: self.alpha * n_factor + other.alpha * factor,
