@@ -1,5 +1,5 @@
 //! Everything should be kept private since it's unlikely anyone needs to use this directly.
-//! Instead, abstractions should be used like [`ExtractedWindows`].
+//! Instead, abstractions should be used like [ExtractedWindow](crate::view::window::ExtractedWindow).
 
 use crate::{Extract, ExtractSchedule, RenderApp};
 use bevy_app::{App, Plugin};
@@ -8,7 +8,7 @@ use bevy_ecs::system::{NonSend, NonSendMut, Resource};
 use bevy_winit::winit;
 use std::sync::Arc;
 
-/// This [`Plugin`] extracts [`WinitWindows`] into render world.
+/// This [`Plugin`] extracts [WinitWindows](bevy_winit::WinitWindows) into render world.
 /// This is needed to avoid crashes *when using pipelined rendering* since the winit window can be
 /// modified or removed from app world.
 pub struct WinitWindowRenderPlugin;
