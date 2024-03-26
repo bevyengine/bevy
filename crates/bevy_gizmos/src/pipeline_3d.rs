@@ -24,7 +24,7 @@ use bevy_render::{
     render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedRenderGroups, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedRenderLayers, ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
@@ -282,7 +282,7 @@ fn queue_line_gizmos_3d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,
-        Option<&ExtractedRenderGroups>,
+        Option<&ExtractedRenderLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -296,7 +296,7 @@ fn queue_line_gizmos_3d(
     for (
         view,
         mut transparent_phase,
-        render_groups,
+        render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
@@ -320,7 +320,7 @@ fn queue_line_gizmos_3d(
         }
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_groups.intersects_extracted(render_groups) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 
@@ -363,7 +363,7 @@ fn queue_line_joint_gizmos_3d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,
-        Option<&ExtractedRenderGroups>,
+        Option<&ExtractedRenderLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -380,7 +380,7 @@ fn queue_line_joint_gizmos_3d(
     for (
         view,
         mut transparent_phase,
-        render_groups,
+        render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
@@ -404,7 +404,7 @@ fn queue_line_joint_gizmos_3d(
         }
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_groups.intersects_extracted(render_groups) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 

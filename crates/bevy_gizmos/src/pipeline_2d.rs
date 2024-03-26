@@ -20,7 +20,7 @@ use bevy_render::{
     render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedRenderGroups, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedRenderLayers, ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
@@ -257,17 +257,17 @@ fn queue_line_gizmos_2d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent2d>,
-        Option<&ExtractedRenderGroups>,
+        Option<&ExtractedRenderLayers>,
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_groups) in &mut views {
+    for (view, mut transparent_phase, render_layers) in &mut views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_groups.intersects_extracted(render_groups) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 
@@ -309,7 +309,7 @@ fn queue_line_joint_gizmos_2d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent2d>,
-        Option<&ExtractedRenderGroups>,
+        Option<&ExtractedRenderLayers>,
     )>,
 ) {
     let draw_function = draw_functions
@@ -317,12 +317,12 @@ fn queue_line_joint_gizmos_2d(
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view, mut transparent_phase, render_groups) in &mut views {
+    for (view, mut transparent_phase, render_layers) in &mut views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_groups.intersects_extracted(render_groups) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 

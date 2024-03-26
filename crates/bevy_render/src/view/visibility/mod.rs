@@ -1,9 +1,9 @@
-mod propagate_render_groups;
-mod render_groups;
+mod propagate_render_layers;
+mod render_layers;
 
 use bevy_derive::Deref;
-pub use propagate_render_groups::*;
-pub use render_groups::*;
+pub use propagate_render_layers::*;
+pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
@@ -201,7 +201,7 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
-    /// Label for the system propagating [`InheritedVisibility`] and applying [`PropagateRenderGroups`]
+    /// Label for the system propagating [`InheritedVisibility`] and applying [`PropagateRenderLayers`]
     /// in a [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
@@ -215,10 +215,10 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_plugins(PropagateRenderGroupsPlugin)
+        app.add_plugins(PropagateRenderLayersPlugin)
             .configure_sets(
                 PostUpdate,
-                PropagateRenderGroupsSet.in_set(VisibilityPropagate),
+                PropagateRenderLayersSet.in_set(VisibilityPropagate),
             )
             .add_systems(
                 PostUpdate,
@@ -381,31 +381,29 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 pub fn check_visibility(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
-        Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&CameraView>,
+        Option<&CameraLayer>,
         &Camera,
     )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        Option<&RenderGroups>,
-        Option<&InheritedRenderGroups>,
+        Option<&RenderLayers>,
+        Option<&InheritedRenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
     deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (camera_entity, mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query
-    {
+    for (mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
         if !camera.is_active {
             continue;
         }
 
-        let default_camera_view = CameraView::default();
+        let default_camera_view = CameraLayer::default();
         let camera_view = maybe_camera_view.unwrap_or(&default_camera_view);
 
         visible_entities.entities.clear();
@@ -414,7 +412,7 @@ pub fn check_visibility(
                 entity,
                 inherited_visibility,
                 mut view_visibility,
-                maybe_groups,
+                maybe_layers,
                 maybe_inherited,
                 maybe_model_aabb,
                 transform,
@@ -428,10 +426,8 @@ pub fn check_visibility(
             }
 
             // Check if this camera can see the entity.
-            if !camera_view.entity_is_visible(
-                camera_entity,
-                &derive_render_groups(maybe_inherited, maybe_groups),
-            ) {
+            if !camera_view.entity_is_visible(&derive_render_layers(maybe_inherited, maybe_layers))
+            {
                 return;
             }
 

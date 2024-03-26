@@ -7,7 +7,7 @@ use crate::{
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
     view::{
-        extract_camera_view, CameraView, ColorGrading, ExtractedView, ExtractedWindows,
+        extract_camera_layer, CameraLayer, ColorGrading, ExtractedView, ExtractedWindows,
         VisibleEntities,
     },
     Extract,
@@ -814,7 +814,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
-            Option<&CameraView>,
+            Option<&CameraLayer>,
             Option<&Projection>,
         )>,
     >,
@@ -831,7 +831,7 @@ pub fn extract_cameras(
         color_grading,
         exposure,
         temporal_jitter,
-        camera_view,
+        camera_layer,
         projection,
     ) in query.iter()
     {
@@ -891,7 +891,7 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
                 *frustum,
-                extract_camera_view(entity, camera_view),
+                extract_camera_layer(camera_layer),
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {

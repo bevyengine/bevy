@@ -1998,9 +1998,9 @@ name = "render_groups"
 path = "examples/3d/render_groups.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.render_groups]
-name = "Render Groups"
-description = "Spawning multiple copies of a scene from a GLTF file, each with a different render group"
+[package.metadata.example.render_layers]
+name = "Render Layers"
+description = "Load a scene from a glTF file and render it with different render layers."
 category = "3D Rendering"
 wasm = true
 

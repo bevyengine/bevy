@@ -15,8 +15,8 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        extract_render_groups, ExtractedRenderGroups, ExtractedView, InheritedRenderGroups,
-        RenderGroups, ViewVisibility, VisibleEntities,
+        extract_render_layers, ExtractedRenderLayers, ExtractedView, InheritedRenderLayers,
+        RenderLayers, ViewVisibility, VisibleEntities,
     },
     Extract,
 };
@@ -54,7 +54,7 @@ pub struct ExtractedDirectionalLight {
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
-    pub render_groups: ExtractedRenderGroups,
+    pub render_layers: ExtractedRenderLayers,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -348,8 +348,8 @@ pub fn extract_lights(
                 &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
-                Option<&RenderGroups>,
-                Option<&InheritedRenderGroups>,
+                Option<&RenderLayers>,
+                Option<&InheritedRenderLayers>,
             ),
             Without<SpotLight>,
         >,
@@ -493,7 +493,7 @@ pub fn extract_lights(
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
-                render_groups: extract_render_groups(maybe_inherited, maybe_groups),
+                render_layers: extract_render_layers(maybe_inherited, maybe_groups),
             },
             render_visible_entities,
         ));
@@ -693,7 +693,7 @@ pub fn prepare_lights(
             Entity,
             &ExtractedView,
             &ExtractedClusterConfig,
-            &ExtractedRenderGroups,
+            &ExtractedRenderLayers,
         ),
         With<SortedRenderPhase<Transparent3d>>,
     >,
@@ -941,7 +941,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, extracted_render_groups) in &views {
+    for (entity, extracted_view, clusters, extracted_render_layers) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -1146,7 +1146,7 @@ pub fn prepare_lights(
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
             // Check if the light intersects with the view.
-            if !extracted_render_groups.intersects(&light.render_groups) {
+            if !extracted_render_layers.intersects(&light.render_layers) {
                 gpu_light.skip = 1u32;
                 continue;
             }
