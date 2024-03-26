@@ -33,7 +33,9 @@ mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ContainerAttributes;
-use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
+use derive_data::{
+    ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypeKind, ReflectTypePath,
+};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -50,13 +52,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// [`impl_reflect`]: macro@impl_reflect
 /// [`derive_reflect`]: derive_reflect()
 fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStream {
-    let derive_data = match ReflectDerive::from_input(
-        &ast,
-        ReflectProvenance {
-            source,
-            trait_: ReflectTraitToImpl::Reflect,
-        },
-    ) {
+    let derive_data = match ReflectDerive::from_input(&ast, source, ReflectTraitToImpl::Reflect) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -157,13 +153,6 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
 ///   `my_hash_func` is the path to a function matching the signature: `(&self) -> u64`.
-/// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
-///   However, it will also affect how certain other operations are performed in order
-///   to improve performance and/or robustness.
-///   An example of where this is used is in the [`FromReflect`] derive macro,
-///   where adding this attribute will cause the `FromReflect` implementation to create
-///   a base value using its [`Default`] implementation avoiding issues with ignored fields
-///   (for structs and tuple structs only).
 ///
 /// ## `#[reflect_value]`
 ///
@@ -335,10 +324,8 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 
     let derive_data = match ReflectDerive::from_input(
         &ast,
-        ReflectProvenance {
-            source: ReflectImplSource::DeriveLocalType,
-            trait_: ReflectTraitToImpl::FromReflect,
-        },
+        ReflectImplSource::DeriveLocalType,
+        ReflectTraitToImpl::FromReflect,
     ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
@@ -380,10 +367,8 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let derive_data = match ReflectDerive::from_input(
         &ast,
-        ReflectProvenance {
-            source: ReflectImplSource::DeriveLocalType,
-            trait_: ReflectTraitToImpl::TypePath,
-        },
+        ReflectImplSource::DeriveLocalType,
+        ReflectTraitToImpl::TypePath,
     ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
@@ -498,7 +483,15 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
+    let meta = ReflectMeta::new(
+        type_path,
+        def.traits.unwrap_or_default(),
+        ReflectProvenance {
+            source: ReflectImplSource::ImplRemoteType,
+            trait_: ReflectTraitToImpl::Reflect,
+            type_kind: ReflectTypeKind::Value,
+        },
+    );
 
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
@@ -591,8 +584,15 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    let from_reflect_impl =
-        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
+    let from_reflect_impl = from_reflect::impl_value(&ReflectMeta::new(
+        type_path,
+        def.traits.unwrap_or_default(),
+        ReflectProvenance {
+            source: ReflectImplSource::ImplRemoteType,
+            trait_: ReflectTraitToImpl::FromReflect,
+            type_kind: ReflectTypeKind::Value,
+        },
+    ));
 
     TokenStream::from(quote! {
         const _: () = {
@@ -659,7 +659,15 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, ContainerAttributes::default());
+    let meta = ReflectMeta::new(
+        type_path,
+        ContainerAttributes::default(),
+        ReflectProvenance {
+            source: ReflectImplSource::ImplRemoteType,
+            trait_: ReflectTraitToImpl::TypePath,
+            type_kind: ReflectTypeKind::Value,
+        },
+    );
 
     let type_path_impl = impls::impl_type_path(&meta);
 

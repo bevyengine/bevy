@@ -1,5 +1,7 @@
 use crate::container_attributes::ContainerAttributes;
-use crate::derive_data::ReflectTraitToImpl;
+use crate::derive_data::{
+    ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypeKind,
+};
 use crate::type_path::CustomPathDef;
 use syn::parse::ParseStream;
 use syn::token::Paren;
@@ -55,7 +57,14 @@ impl ReflectValueDef {
         if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(ContainerAttributes::parse_terminated(&content, trait_)?);
+            traits = Some(ContainerAttributes::parse_terminated(
+                &content,
+                ReflectProvenance {
+                    source: ReflectImplSource::ImplRemoteType,
+                    type_kind: ReflectTypeKind::Value,
+                    trait_,
+                },
+            )?);
         }
         Ok(ReflectValueDef {
             attrs,

@@ -887,33 +887,32 @@ mod tests {
     }
 
     #[test]
-    fn from_reflect_should_use_default_container_attribute() {
-        #[derive(Reflect, Eq, PartialEq, Debug)]
+    fn from_reflect_should_require_all_fields() {
+        #[derive(Reflect, Eq, PartialEq, Debug, Default)]
         #[reflect(Default)]
-        struct MyStruct {
+        struct Foo {
             foo: String,
-            #[reflect(ignore)]
-            bar: usize,
         }
 
-        impl Default for MyStruct {
-            fn default() -> Self {
-                Self {
-                    foo: String::from("Hello"),
-                    bar: 123,
-                }
+        #[derive(Eq, PartialEq, Debug, Default)]
+        struct Bar {
+            foo: String,
+        }
+
+        impl_reflect! {
+            #[type_path = "my_crate::foo::Bar"]
+            #[reflect(Default)]
+            struct Bar {
+                foo: String,
             }
         }
 
-        let expected = MyStruct {
-            foo: String::from("Hello"),
-            bar: 123,
-        };
+        let empty_struct = DynamicStruct::default();
+        let foo = <Foo as FromReflect>::from_reflect(&empty_struct);
+        let bar = <Bar as FromReflect>::from_reflect(&empty_struct);
 
-        let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
-
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(foo, None);
+        assert_eq!(bar, None);
     }
 
     #[test]
@@ -2333,6 +2332,58 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Struct: Reflect);
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
+    }
+
+    #[test]
+    fn impl_reflect_can_hide_fields() {
+        use std::ops::{Deref, DerefMut};
+
+        #[derive(Default)]
+        struct Foo {
+            x: (),
+            _y: (),
+        }
+
+        struct DerefFoo(Foo);
+
+        impl DerefFoo {
+            pub fn empty() -> Self {
+                Self(Foo::default())
+            }
+        }
+
+        impl Deref for DerefFoo {
+            type Target = Foo;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl DerefMut for DerefFoo {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            #[reflect(container_default = Foo::default)]
+            struct Foo {
+                x: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            #[reflect(container_default = DerefFoo::empty)]
+            struct DerefFoo {
+                x: (),
+            }
+        );
+
+        assert_impl_all!(Foo: Reflect);
+        assert_impl_all!(DerefFoo: Reflect);
     }
 
     #[cfg(feature = "glam")]

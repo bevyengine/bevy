@@ -47,6 +47,8 @@ pub(crate) struct ReflectMeta<'a> {
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// See [`ReflectProvenance`].
+    provenance: ReflectProvenance,
     /// The documentation for this type, if any
     #[cfg(feature = "documentation")]
     docs: crate::documentation::Documentation,
@@ -157,11 +159,24 @@ pub(crate) enum ReflectTraitToImpl {
     TypePath,
 }
 
+/// What sort of type we generate an impl for.
+///
+/// Note that we currrently don't distinguish between unit structs
+/// and structs [with named fields](ReflectTypeKind::Struct).
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ReflectTypeKind {
+    Struct,
+    TupleStruct,
+    Enum,
+    Value,
+}
+
 /// The provenance of a macro invocation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct ReflectProvenance {
     pub source: ReflectImplSource,
     pub trait_: ReflectTraitToImpl,
+    pub type_kind: ReflectTypeKind,
 }
 
 impl fmt::Display for ReflectProvenance {
@@ -181,8 +196,30 @@ impl fmt::Display for ReflectProvenance {
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(
         input: &'a DeriveInput,
-        provenance: ReflectProvenance,
+        source: ReflectImplSource,
+        trait_: ReflectTraitToImpl,
     ) -> Result<Self, syn::Error> {
+        let provenance = {
+            let type_kind = match &input.data {
+                Data::Struct(data) => match &data.fields {
+                    Fields::Named(_) | Fields::Unit => ReflectTypeKind::Struct,
+                    Fields::Unnamed(_) => ReflectTypeKind::TupleStruct,
+                },
+                Data::Enum(_) => ReflectTypeKind::Enum,
+                Data::Union(_) => {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        "reflection not supported for unions",
+                    ))
+                }
+            };
+            ReflectProvenance {
+                source,
+                trait_,
+                type_kind,
+            }
+        };
+
         let mut traits = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
@@ -205,8 +242,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ContainerAttributes::parse_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -218,8 +254,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits = ContainerAttributes::parse_meta_list(meta_list, provenance)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -296,7 +331,17 @@ impl<'a> ReflectDerive<'a> {
             generics: &input.generics,
         };
 
-        let meta = ReflectMeta::new(type_path, traits);
+        let meta = ReflectMeta::new(type_path, traits, provenance);
+
+        if meta.provenance().source == ReflectImplSource::ImplRemoteType
+            && meta.attrs().type_path_attrs().should_auto_derive()
+            && !meta.type_path().has_custom_path()
+        {
+            return Err(syn::Error::new(
+                meta.type_path().span(),
+                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
+            ));
+        }
 
         if provenance.source == ReflectImplSource::ImplRemoteType
             && meta.type_path_attrs().should_auto_derive()
@@ -339,10 +384,7 @@ impl<'a> ReflectDerive<'a> {
                 let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
-            Data::Union(..) => Err(syn::Error::new(
-                input.span(),
-                "reflection not supported for unions",
-            )),
+            Data::Union(..) => unreachable!(),
         };
     }
 
@@ -423,11 +465,16 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_path: ReflectTypePath<'a>, attrs: ContainerAttributes) -> Self {
+    pub fn new(
+        type_path: ReflectTypePath<'a>,
+        attrs: ContainerAttributes,
+        provenance: ReflectProvenance,
+    ) -> Self {
         Self {
             attrs,
             type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
+            provenance,
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }
@@ -463,6 +510,11 @@ impl<'a> ReflectMeta<'a> {
     /// The cached `bevy_reflect` path.
     pub fn bevy_reflect_path(&self) -> &Path {
         &self.bevy_reflect_path
+    }
+
+    /// See [`ReflectProvenance`].
+    pub fn provenance(&self) -> ReflectProvenance {
+        self.provenance
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.

@@ -5,7 +5,9 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
-use crate::derive_data::ReflectTraitToImpl;
+use crate::derive_data::{
+    ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypeKind,
+};
 use crate::utility;
 use crate::utility::terminated_parser;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
@@ -14,7 +16,10 @@ use quote::quote_spanned;
 use syn::ext::IdentExt;
 use syn::parse::ParseStream;
 use syn::spanned::Spanned;
-use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
+use syn::{
+    parenthesized, token, Expr, ExprPath, LitBool, MetaList, MetaNameValue, Path, Token,
+    WhereClause,
+};
 
 mod kw {
     syn::custom_keyword!(from_reflect);
@@ -23,6 +28,7 @@ mod kw {
     syn::custom_keyword!(PartialEq);
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(container_default);
 }
 
 // The "special" trait idents that are used internally for reflection.
@@ -31,15 +37,14 @@ const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 
-// The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
-// but useful to know exist nonetheless
-pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
-
 // Attributes for `FromReflect` implementation
 const FROM_REFLECT_ATTR: &str = "from_reflect";
 
 // Attributes for `TypePath` implementation
 const TYPE_PATH_ATTR: &str = "type_path";
+
+/// Used to specify a default container value for `FromReflect` impls for non-local types.
+const CONTAINER_DEFAULT_ATTR: &str = "container_default";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -82,6 +87,10 @@ impl TraitImpl {
 #[derive(Clone, Default)]
 pub(crate) struct FromReflectAttrs {
     auto_derive: Option<LitBool>,
+    /// Exclusively for creating default values in [`impl_reflect`]'s `FromReflect` impl.
+    ///
+    /// [`impl_reflect`]: macro@crate::impl_reflect
+    pub container_default: Option<ExprPath>,
 }
 
 impl FromReflectAttrs {
@@ -106,6 +115,27 @@ impl FromReflectAttrs {
             } else {
                 self.auto_derive = Some(new);
             }
+        }
+
+        if let Some(container_default) = other.container_default {
+            self.insert_container_default(container_default)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_container_default(
+        &mut self,
+        container_default: ExprPath,
+    ) -> Result<(), syn::Error> {
+        match &mut self.container_default {
+            Some(old) => {
+                return Err(syn::Error::new(
+                    old.span(),
+                    format!("`{CONTAINER_DEFAULT_ATTR}` already set"),
+                ))
+            }
+            old @ None => *old = Some(container_default),
         }
 
         Ok(())
@@ -231,11 +261,14 @@ impl ContainerAttributes {
     ///
     /// # Example
     /// - `Hash, Debug(custom_debug), MyTrait`
-    pub fn parse_terminated(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+    pub fn parse_terminated(
+        input: ParseStream,
+        provenance: ReflectProvenance,
+    ) -> syn::Result<Self> {
         let mut this = Self::default();
 
         terminated_parser(Token![,], |stream| {
-            this.parse_container_attribute(stream, trait_)
+            this.parse_container_attribute(stream, provenance)
         })(input)?;
 
         Ok(this)
@@ -246,23 +279,23 @@ impl ContainerAttributes {
     /// # Example
     /// - `#[reflect(Hash, Debug(custom_debug), MyTrait)]`
     /// - `#[reflect(no_field_bounds)]`
-    pub fn parse_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
-        meta.parse_args_with(|stream: ParseStream| Self::parse_terminated(stream, trait_))
+    pub fn parse_meta_list(meta: &MetaList, provenance: ReflectProvenance) -> syn::Result<Self> {
+        meta.parse_args_with(|stream: ParseStream| Self::parse_terminated(stream, provenance))
     }
 
     /// Parse a single container attribute.
     fn parse_container_attribute(
         &mut self,
         input: ParseStream,
-        trait_: ReflectTraitToImpl,
+        provenance: ReflectProvenance,
     ) -> syn::Result<()> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Token![where]) {
             self.parse_custom_where(input)
         } else if lookahead.peek(kw::from_reflect) {
-            self.parse_from_reflect(input, trait_)
+            self.parse_from_reflect(input, provenance.trait_)
         } else if lookahead.peek(kw::type_path) {
-            self.parse_type_path(input, trait_)
+            self.parse_type_path(input, provenance.trait_)
         } else if lookahead.peek(kw::no_field_bounds) {
             self.parse_no_field_bounds(input)
         } else if lookahead.peek(kw::Debug) {
@@ -271,6 +304,8 @@ impl ContainerAttributes {
             self.parse_partial_eq(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::container_default) {
+            self.parse_container_default(input, provenance)
         } else if lookahead.peek(Ident::peek_any) {
             self.parse_ident(input)
         } else {
@@ -430,10 +465,44 @@ impl ContainerAttributes {
         Ok(())
     }
 
-    /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
-    /// is registered for this type.
-    pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
+    /// Parse `container_default` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(container_default = Default::default)]`
+    /// - `#[reflect(container_default = my_default_func)]`
+    fn parse_container_default(
+        &mut self,
+        input: ParseStream,
+        provenance: ReflectProvenance,
+    ) -> syn::Result<()> {
+        if provenance.source == ReflectImplSource::DeriveLocalType {
+            return Err(syn::Error::new(
+                input.span(),
+                format!("`#[reflect({CONTAINER_DEFAULT_ATTR} = ...)]` is only applicable when using `impl_reflect`."),
+            ));
+        } else if !matches!(
+            provenance.type_kind,
+            ReflectTypeKind::Struct | ReflectTypeKind::TupleStruct
+        ) {
+            return Err(syn::Error::new(
+                input.span(),
+                format!(
+                    "`#[reflect({CONTAINER_DEFAULT_ATTR} = ...)]` is only applicable on structs."
+                ),
+            ));
+        }
+
+        let pair = input.parse::<MetaNameValue>()?;
+
+        if let Expr::Path(path) = pair.value {
+            self.from_reflect_attrs.insert_container_default(path)?;
+            Ok(())
+        } else {
+            Err(syn::Error::new(
+                pair.value.span(),
+                "expected a path to a function",
+            ))
+        }
     }
 
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
