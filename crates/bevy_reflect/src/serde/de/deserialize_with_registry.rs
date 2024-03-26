@@ -1,5 +1,5 @@
 use crate::{FromType, PartialReflect, TypeRegistry};
-use serde::{Deserialize, Deserializer};
+use serde::Deserializer;
 
 /// Trait used to provide finer control when deserializing a reflected type with one of
 /// the reflection deserializers.
@@ -33,9 +33,7 @@ use serde::{Deserialize, Deserializer};
 /// This can be done [via the registry] or by adding `#[reflect(DeserializeWithRegistry)]` to
 /// the type definition.
 ///
-/// Note that this trait has a blanket implementation for all types that implement
-/// [`Reflect`] and [`Deserialize`] which just calls the normal [`Deserialize`] implementation.
-///
+/// [`Deserialize`]: ::serde::Deserialize
 /// [`SerializeWithRegistry`]: crate::serde::SerializeWithRegistry
 /// [type data]: ReflectDeserializeWithRegistry
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
@@ -45,15 +43,6 @@ pub trait DeserializeWithRegistry<'de>: PartialReflect + Sized {
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;
-}
-
-impl<'de, T: PartialReflect + Deserialize<'de>> DeserializeWithRegistry<'de> for T {
-    fn deserialize<D>(deserializer: D, _registry: &TypeRegistry) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        <T as Deserialize>::deserialize(deserializer)
-    }
 }
 
 /// Type data used to deserialize a [`PartialReflect`] type with a custom [`DeserializeWithRegistry`] implementation.

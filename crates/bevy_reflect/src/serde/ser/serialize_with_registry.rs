@@ -33,9 +33,6 @@ use serde::{Serialize, Serializer};
 /// This can be done [via the registry] or by adding `#[reflect(SerializeWithRegistry)]` to
 /// the type definition.
 ///
-/// Note that this trait has a blanket implementation for all types that implement
-/// [`Reflect`] and [`Serialize`] which just calls the normal [`Serialize`] implementation.
-///
 /// [`DeserializeWithRegistry`]: crate::serde::DeserializeWithRegistry
 /// [type data]: ReflectSerializeWithRegistry
 /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
@@ -45,15 +42,6 @@ pub trait SerializeWithRegistry {
     fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
         S: Serializer;
-}
-
-impl<T: Reflect + Serialize> SerializeWithRegistry for T {
-    fn serialize<S>(&self, serializer: S, _registry: &TypeRegistry) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        <T as Serialize>::serialize(self, serializer)
-    }
 }
 
 /// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`] implementation.
