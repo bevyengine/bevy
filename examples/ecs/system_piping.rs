@@ -26,11 +26,11 @@ fn main() {
                 parse_error_message_system.map(error),
                 parse_message_system.map(drop),
                 // `Result::ok` converts the `Result` to an `Option`.
-                // `pipe_map` unwraps the option passed to simple_handler_system, and would skip
+                // `pipe_map_some` unwraps the option passed to simple_handler_system, and would skip
                 // running simple_handler_system if the passed option was None.
                 parse_message_system
                     .map(Result::ok)
-                    .pipe_map(simple_handler_system),
+                    .pipe_map_some(simple_handler_system),
             ),
         )
         .run();

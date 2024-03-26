@@ -338,15 +338,15 @@ where
 ///
 /// fn main() {
 ///     let mut world = World::default();
-///     // pipe_map the `parse_message_system`'s output into the `check_system`s input
-///     let mut pipe_mapped_system = parse_message_system.pipe_map(triple);
-///     pipe_mapped_system.initialize(&mut world);
+///     // pipe_map_some the `parse_message_system`'s output into the `check_system`s input
+///     let mut pipe_map_some_system = parse_message_system.pipe_map_some(triple);
+///     pipe_map_some_system.initialize(&mut world);
 ///
 ///     world.insert_resource(Message("not a usize".to_string()));
-///     assert_eq!(pipe_mapped_system.run((), &mut world), 0);
+///     assert_eq!(pipe_map_some_system.run((), &mut world), 0);
 ///
 ///     world.insert_resource(Message("14".to_string()));
-///     assert_eq!(pipe_mapped_system.run((), &mut world), 42);
+///     assert_eq!(pipe_map_some_system.run((), &mut world), 42);
 /// }
 ///
 /// #[derive(Resource)]
@@ -360,12 +360,12 @@ where
 ///     parsed * 3
 /// }
 /// ```
-pub type PipeMapSystem<SystemA, SystemB> = CombinatorSystem<PipeMap, SystemA, SystemB>;
+pub type PipeMapSomeSystem<SystemA, SystemB> = CombinatorSystem<PipeMapSome, SystemA, SystemB>;
 
 #[doc(hidden)]
-pub struct PipeMap;
+pub struct PipeMapSome;
 
-impl<A, B> Combine<A, B> for PipeMap
+impl<A, B> Combine<A, B> for PipeMapSome
 where
     A: System<Out = Option<B::In>>,
     B: System,
