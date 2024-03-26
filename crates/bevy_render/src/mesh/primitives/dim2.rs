@@ -237,7 +237,7 @@ impl AnnulusMeshBuilder {
         let outer_radius = self.annulus.outer_circle.radius;
 
         let num_vertices = (self.resolution + 1) * 2;
-        let mut indices = Vec::with_capacity(num_vertices * 3);
+        let mut indices = Vec::with_capacity(self.resolution * 6);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
         let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
