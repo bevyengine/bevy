@@ -40,6 +40,7 @@ pub mod gizmos;
 pub mod grid;
 pub mod light;
 pub mod primitives;
+pub mod rounded_box;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
