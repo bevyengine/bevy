@@ -4,6 +4,7 @@ use bevy_a11y::{
     AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
+use std::sync::Arc;
 
 use bevy_ecs::entity::EntityHashMap;
 use bevy_utils::{tracing::warn, HashMap};
@@ -24,7 +25,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    pub windows: HashMap<winit::window::WindowId, Arc<winit::window::Window>>,
     /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: EntityHashMap<winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
@@ -45,7 +46,7 @@ impl WinitWindows {
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
         accessibility_requested: &AccessibilityRequested,
-    ) -> &winit::window::Window {
+    ) -> Arc<winit::window::Window> {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         // Due to a UIA limitation, winit windows need to be invisible for the
@@ -252,15 +253,15 @@ impl WinitWindows {
 
         self.windows
             .entry(winit_window.id())
-            .insert(winit_window)
-            .into_mut()
+            .insert(Arc::new(winit_window))
+            .get().clone()
     }
 
     /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
-        self.entity_to_winit
-            .get(&entity)
-            .and_then(|winit_id| self.windows.get(winit_id))
+    pub fn get_window(&self, entity: Entity) -> Option<Arc<winit::window::Window>> {
+        self.entity_to_winit.get(&entity).and_then(|winit_id| {
+            self.windows.get(winit_id).cloned()
+        })
     }
 
     /// Get the entity associated with the winit window id.
@@ -273,7 +274,7 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<Arc<winit::window::Window>> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
         // Don't remove from `winit_to_window_id` so we know the window used to exist.
         self.windows.remove(&winit_id)

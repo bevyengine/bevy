@@ -164,6 +164,8 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
+bevy_winit = ["dep:bevy_winit", "bevy_render?/bevy_winit"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }

@@ -22,6 +22,8 @@ use wgpu::{
 };
 
 pub mod screenshot;
+#[cfg(feature = "bevy_winit")]
+mod winit;
 
 use screenshot::{
     ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
@@ -34,6 +36,16 @@ pub struct WindowRenderPlugin;
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
+        #[cfg(all(feature = "bevy_winit", feature = "multi-threaded"))]
+        {
+            // TODO: This is added despite not checking if PipelinedRenderingPlugin is added or not,
+            // but we can't check right now (since it's added after this plugin)
+            if app.is_plugin_added::<bevy_winit::WinitPlugin>() {
+                app.add_plugins(winit::WinitWindowRenderPlugin);
+            } else {
+                bevy_utils::tracing::warn!("Winit feature was enabled but couldn't detect WinitPlugin. Are you sure you loaded this after WinitPlugin?")
+            }
+        }
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
