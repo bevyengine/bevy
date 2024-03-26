@@ -173,11 +173,11 @@ impl DynamicScene {
     // TODO: move to AssetSaver when it is implemented
     /// Serialize this dynamic scene into the official Bevy scene format (`.scn` / `.scn.ron`).
     ///
-    /// The Bevy scene format is based on [Rust Object Notation (RON)]. It describes the scene
+    /// The Bevy scene format is based on [Rusty Object Notation (RON)]. It describes the scene
     /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
     ///
     /// [`SceneLoader`]: crate::SceneLoader
-    /// [Rust Object Notation (RON)]: https://crates.io/crates/ron
+    /// [Rusty Object Notation (RON)]: https://crates.io/crates/ron
     #[cfg(feature = "serialize")]
     pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
