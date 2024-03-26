@@ -176,7 +176,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     fn pipe_map<B, Final, MarkerB, T>(self, system: B) -> PipeMapSystem<Self::System, B::System>
     where
         B: IntoSystem<T, Final, MarkerB>,
-        Final: Default
+        Final: Default,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);

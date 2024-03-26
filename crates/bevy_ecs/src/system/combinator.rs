@@ -369,7 +369,7 @@ impl<A, B> Combine<A, B> for PipeMap
 where
     A: System<Out = Option<B::In>>,
     B: System,
-    B::Out: Default
+    B::Out: Default,
 {
     type In = A::In;
     type Out = B::Out;
