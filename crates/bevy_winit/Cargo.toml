@@ -14,7 +14,6 @@ wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
 serialize = ["serde"]
-multi-threaded = []
 
 [dependencies]
 # bevy
