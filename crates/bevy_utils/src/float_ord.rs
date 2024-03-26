@@ -87,34 +87,84 @@ impl Neg for FloatOrd {
 
 #[cfg(test)]
 mod tests {
+    use std::hash::DefaultHasher;
+
     use super::*;
+
+    const NAN: FloatOrd = FloatOrd(f32::NAN);
+    const ZERO: FloatOrd = FloatOrd(0.0);
+    const ONE: FloatOrd = FloatOrd(1.0);
 
     #[test]
     fn float_ord_eq() {
-        let nan = FloatOrd(f32::NAN);
-        let num = FloatOrd(0.0);
+        assert_eq!(NAN, NAN);
 
-        assert_eq!(nan, nan);
+        assert_ne!(NAN, ZERO);
+        assert_ne!(ZERO, NAN);
 
-        assert_ne!(nan, num);
-        assert_ne!(num, nan);
-
-        assert_eq!(num, num);
+        assert_eq!(ZERO, ZERO);
     }
 
     #[test]
     fn float_ord_cmp() {
-        let nan = FloatOrd(f32::NAN);
-        let zero = FloatOrd(0.0);
-        let one = FloatOrd(1.0);
+        assert_eq!(NAN.cmp(&NAN), Ordering::Equal);
 
-        assert_eq!(nan.cmp(&nan), Ordering::Equal);
+        assert_eq!(NAN.cmp(&ZERO), Ordering::Less);
+        assert_eq!(ZERO.cmp(&NAN), Ordering::Greater);
 
-        assert_eq!(nan.cmp(&zero), Ordering::Less);
-        assert_eq!(zero.cmp(&nan), Ordering::Greater);
+        assert_eq!(ZERO.cmp(&ZERO), Ordering::Equal);
+        assert_eq!(ONE.cmp(&ZERO), Ordering::Greater);
+        assert_eq!(ZERO.cmp(&ONE), Ordering::Less);
+    }
 
-        assert_eq!(zero.cmp(&zero), Ordering::Equal);
-        assert_eq!(one.cmp(&zero), Ordering::Greater);
-        assert_eq!(zero.cmp(&one), Ordering::Less);
+    #[test]
+    #[allow(clippy::nonminimal_bool)]
+    fn float_ord_cmp_operators() {
+        assert!(!(NAN < NAN));
+        assert!(NAN < ZERO);
+        assert!(!(ZERO < NAN));
+        assert!(!(ZERO < ZERO));
+        assert!(ZERO < ONE);
+        assert!(!(ONE < ZERO));
+
+        assert!(!(NAN > NAN));
+        assert!(!(NAN > ZERO));
+        assert!(ZERO > NAN);
+        assert!(!(ZERO > ZERO));
+        assert!(!(ZERO > ONE));
+        assert!(ONE > ZERO);
+
+        assert!(NAN <= NAN);
+        assert!(NAN <= ZERO);
+        assert!(!(ZERO <= NAN));
+        assert!(ZERO <= ZERO);
+        assert!(ZERO <= ONE);
+        assert!(!(ONE <= ZERO));
+
+        assert!(NAN >= NAN);
+        assert!(!(NAN >= ZERO));
+        assert!(ZERO >= NAN);
+        assert!(ZERO >= ZERO);
+        assert!(!(ZERO >= ONE));
+        assert!(ONE >= ZERO);
+    }
+
+    #[test]
+    fn float_ord_hash() {
+        let hash = |num| {
+            let mut h = DefaultHasher::new();
+            FloatOrd(num).hash(&mut h);
+            h.finish()
+        };
+
+        assert_ne!((-0.0f32).to_bits(), 0.0f32.to_bits());
+        assert_eq!(hash(-0.0), hash(0.0));
+
+        let nan_1 = f32::from_bits(0b0111_1111_1000_0000_0000_0000_0000_0001);
+        assert!(nan_1.is_nan());
+        let nan_2 = f32::from_bits(0b0111_1111_1000_0000_0000_0000_0000_0010);
+        assert!(nan_2.is_nan());
+        assert_ne!(nan_1.to_bits(), nan_2.to_bits());
+        assert_eq!(hash(nan_1), hash(nan_2));
     }
 }
