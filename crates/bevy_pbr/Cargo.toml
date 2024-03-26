@@ -15,6 +15,10 @@ pbr_transmission_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = []
+# Enables processing meshes into meshlet meshes
+meshlet_processor = ["dep:meshopt", "dep:thiserror"]
 
 [dependencies]
 # bevy
@@ -34,12 +38,17 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
+meshopt = { version = "0.2", optional = true }
+thiserror = { version = "1", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.5"
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
 smallvec = "1.6"
+serde = { version = "1", features = ["derive", "rc"] }
+bincode = "1"
+range-alloc = "0.1"
 nonmax = "0.5"
 
 [lints]
