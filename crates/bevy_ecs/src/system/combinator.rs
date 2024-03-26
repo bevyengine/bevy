@@ -318,7 +318,7 @@ where
 }
 
 /// A [`System`] created by piping the unwrapped output of the first system into the input of the second.
-/// If the outpuf of the first system is [`None`], the seconds system is nnot executed.
+/// If the output of the first system is [`None`], the seconds system is not executed.
 ///
 /// This can be repeated indefinitely. If not [`None`], the unwrapped output is consumed by the receiving system.
 ///
