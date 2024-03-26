@@ -117,13 +117,35 @@ pub fn keyboard_input_system(
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     key_input.bypass_change_detection().clear();
-    for event in keyboard_input_events.read() {
-        let KeyboardInput {
-            key_code, state, ..
-        } = event;
-        match state {
-            ButtonState::Pressed => key_input.press(*key_code),
-            ButtonState::Released => key_input.release(*key_code),
+
+    // When a window loses focus, we receive a synthetic key release event for all held keys;
+    // when a window gains focus, we receive a synthetic key down event for all held keys.
+    // See also https://github.com/rust-windowing/winit/issues/3543
+    // As a result, when a new window is spawned, we would detect a key up/key down pair for
+    // all held keys even though the user didn't do anything.
+    // Clean these events:
+    let mut events: Vec<_> = keyboard_input_events.read().collect();
+    let mut up_index = 0;
+    'outer: while up_index < events.len() {
+        if events[up_index].state == ButtonState::Released {
+            for down_index in up_index..events.len() {
+                if (events[down_index].state == ButtonState::Pressed)
+                    & (events[up_index].key_code == events[down_index].key_code)
+                    & (events[up_index].window != events[down_index].window)
+                {
+                    events.remove(down_index);
+                    events.remove(up_index);
+                    continue 'outer;
+                }
+            }
+        }
+        up_index += 1;
+    }
+
+    for event in events {
+        match event.state {
+            ButtonState::Pressed => key_input.press(event.key_code),
+            ButtonState::Released => key_input.release(event.key_code),
         }
     }
 }
