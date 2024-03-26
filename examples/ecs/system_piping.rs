@@ -25,6 +25,12 @@ fn main() {
                 warning_pipe_system.map(warn),
                 parse_error_message_system.map(error),
                 parse_message_system.map(drop),
+                // `Result::ok` converts the `Result` to an `Option`.
+                // `pipe_map` unwraps the option passed to simple_handler_system, and would skip
+                // running simple_handler_system if the passed option was None.
+                parse_message_system
+                    .map(Result::ok)
+                    .pipe_map(simple_handler_system),
             ),
         )
         .run();
@@ -67,4 +73,9 @@ fn data_pipe_system(message: Res<Message>) -> String {
 // not see the warning message printed.
 fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {
     message.0.clone()
+}
+
+// This system takes a usize input and prints the parsed value .
+fn simple_handler_system(In(value): In<usize>) {
+    println!("[simple] parsed message: {value}")
 }
