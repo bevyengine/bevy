@@ -47,7 +47,7 @@ impl Plugin for WindowRenderPlugin {
             if app.is_plugin_added::<bevy_winit::WinitPlugin>() {
                 app.add_plugins(winit::WinitWindowRenderPlugin);
             } else {
-                bevy_utils::tracing::warn!("Winit feature was enabled but couldn't detect WinitPlugin. Are you sure you loaded this after WinitPlugin?")
+                bevy_utils::tracing::warn!("Winit feature was enabled but couldn't detect WinitPlugin. Are you sure you loaded this after WinitPlugin?");
             }
         }
 

@@ -50,7 +50,7 @@ fn extract_winit_windows(
             ExtractedWinitWindow {
                 window_id,
                 window: window.clone(),
-                entity: entity.clone(),
+                entity: *entity,
             },
         );
     }
