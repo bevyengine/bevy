@@ -72,7 +72,7 @@ use std::fmt;
 /// ```
 ///
 /// [utility]: crate::utility
-/// [(de)serialization]: crate::serde::UntypedReflectDeserializer
+/// [(de)serialization]: crate::serde::ReflectDeserializer
 /// [`Reflect`]: crate::Reflect
 /// [`type_path`]: TypePath::type_path
 /// [`short_type_path`]: TypePath::short_type_path
