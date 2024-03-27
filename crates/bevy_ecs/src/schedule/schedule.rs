@@ -216,8 +216,6 @@ pub struct Schedule {
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
 struct DefaultSchedule;
 
-// type BuildSkipBitSet = Box<dyn FnOnce(Schedule) -> FixedBitSet>;
-
 impl Default for Schedule {
     /// Creates a schedule with a default label. Only use in situations where
     /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
@@ -404,59 +402,6 @@ impl Schedule {
                 .run(&mut self.executable, world, to_skip.as_ref());
         }
     }
-
-    // pub(crate) fn run_system_set(&mut self, world: &mut World, system_set: impl SystemSet) {
-    //     self.run_with_skipped(world, self.graph.system_set_ids.get(&system_set.intern()).copied().map(|system_set_node_id| {
-    //         Box::new(move |sched: &Schedule| -> FixedBitSet {
-    //             // for each system in the graph, skip it if it's not in the system_set
-    //             let mut skipped_system_ids = FixedBitSet::with_capacity(self.graph.systems.len());
-    //             sched.graph().systems().for_each(|(system_node_id, _, _)| {
-    //                 if !sched.graph().hierarchy().graph().contains_edge(system_set_node_id, system_node_id) {
-    //                     skipped_system_ids.insert(system_node_id.index());
-    //                 }
-    //             });
-    //             // convert from system ids to system indices
-    //             let mut skipped_system_indices = FixedBitSet::with_capacity(self.systems_len());
-    //             self.executable.system_ids.iter().enumerate().for_each(|(index, system_id)| {
-    //                 if skipped_system_ids.contains(system_id.index()) {
-    //                     skipped_system_indices.insert(index);
-    //                 }
-    //             });
-    //             skipped_system_indices
-    //         })
-    //     }));
-    // }
-
-    // /// Runs all systems in this schedule for which the `filter` function returns true
-    // pub(crate) fn run_with_skipped(&mut self, world: &mut World, to_skip: Option<BuildSkipBitSet>) {
-    //     #[cfg(feature = "trace")]
-    //         let _span = info_span!("schedule", name = ?self.label).entered();
-    //
-    //     world.check_change_ticks();
-    //     self.initialize(world)
-    //         .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
-    //
-    //     #[cfg(not(feature = "bevy_debug_stepping"))]
-    //     self.executor.run(&mut self.executable, world, skipped);
-    //
-    //     // after the executable schedule is initialized, create a bitset of systems to skip
-    //     let skipped = to_skip.map(|f| f(self));
-    //     #[cfg(feature = "bevy_debug_stepping")]
-    //     {
-    //         let skip_systems = match world.get_resource_mut::<Stepping>() {
-    //             None => None,
-    //             Some(mut stepping) => stepping.skipped_systems(self),
-    //         };
-    //         let to_skip = match (skip_systems, skipped) {
-    //             (Some(skip_systems), Some(skipped)) => Some(&skip_systems | &skipped),
-    //             (Some(skip_systems), None) => Some(skip_systems),
-    //             (None, Some(skipped)) => Some(skipped),
-    //             (None, None) => None,
-    //         };
-    //         self.executor
-    //             .run(&mut self.executable, world, to_skip.as_ref());
-    //     }
-    // }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.

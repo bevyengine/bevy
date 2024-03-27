@@ -2373,8 +2373,6 @@ impl World {
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    ///
     /// # Panics
     ///
     /// If the requested schedule does not exist.
@@ -2385,7 +2383,7 @@ impl World {
     ) {
         self.schedule_scope(schedule_label, |world, sched| {
             sched.run_system_set(world, system_set);
-        })
+        });
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
