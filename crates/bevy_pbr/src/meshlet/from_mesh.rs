@@ -293,6 +293,7 @@ fn simplfy_meshlet_groups(
     );
 
     // Convert error to object-space
+    // TODO: Use high level bindings https://github.com/gwihlidal/meshopt-rs/commit/5d243a89067b459b3b33a197ac94037d96963191
     error *= unsafe {
         meshopt_simplifyScale(
             vertices.pos_ptr(),
