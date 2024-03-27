@@ -151,8 +151,8 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
             shader: self.histogram_shader.clone(),
             shader_defs: vec![],
             entry_point: match pass {
-                Pass::Histogram => "computeHistogram".into(),
-                Pass::Average => "computeAverage".into(),
+                Pass::Histogram => "compute_histogram".into(),
+                Pass::Average => "compute_average".into(),
             },
             push_constant_ranges: vec![],
         }
