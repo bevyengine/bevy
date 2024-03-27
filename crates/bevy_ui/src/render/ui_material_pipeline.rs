@@ -22,7 +22,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{tracing::warn, FloatOrd, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
@@ -708,6 +708,12 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((id, material));
             }
+            Err(other) => {
+                warn!(
+                    "UiMaterial<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
+            }
         }
     }
 
@@ -728,6 +734,12 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.assets.push((handle, material));
+            }
+            Err(other) => {
+                warn!(
+                    "UiMaterial<{}> Bind group construction failed: {other}",
+                    std::any::type_name::<M>()
+                );
             }
         }
     }
