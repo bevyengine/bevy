@@ -3,7 +3,10 @@ use bevy_utils::tracing::{
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
 };
-use std::fmt::{Debug, Write};
+use std::{
+    ffi::CString,
+    fmt::{Debug, Write},
+};
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
 #[derive(Default)]
@@ -85,13 +88,15 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
             Level::WARN => android_log_sys::LogPriority::WARN,
             Level::ERROR => android_log_sys::LogPriority::ERROR,
         };
-        let message = format!("{}\0", recorder);
-        let tag = format!("{}\0", meta.name());
+        let message = CString::new(recorder).expect("message contained null character.");
+        let tag = CString::new(meta.name()).expect("tag contained null character.");
+        // SAFETY: Called only on Android platforms. priority is guarented to be in range of c_int.
+        // The provided tag and message are null terminated properly.
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
-                tag.as_ptr() as *const android_log_sys::c_char,
-                message.as_ptr() as *const android_log_sys::c_char,
+                tag.as_c_str().as_ptr(),
+                message.as_c_str().as_ptr(),
             );
         }
     }
