@@ -25,10 +25,10 @@ use bevy::{
     },
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
-        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
-        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        SetMesh2dViewBindGroup,
     },
-    utils::FloatOrd,
+    utils::{EntityHashMap, FloatOrd},
 };
 use std::f32::consts::PI;
 
@@ -269,6 +269,9 @@ pub struct ColoredMesh2dPlugin;
 pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(13828845428412094821);
 
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct RenderColoredMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
@@ -283,6 +286,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
+            .init_resource::<RenderColoredMesh2dInstances>()
             .add_systems(
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
@@ -307,7 +311,7 @@ pub fn extract_colored_mesh2d(
     query: Extract<
         Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
     >,
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, transform, handle) in &query {
@@ -344,7 +348,7 @@ pub fn queue_colored_mesh2d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: Res<RenderMesh2dInstances>,
+    render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
         &mut RenderPhase<Transparent2d>,
