@@ -99,7 +99,7 @@ impl FromWorld for AutoExposureResources {
                 .resource::<RenderDevice>()
                 .create_buffer(&BufferDescriptor {
                     label: Some("histogram buffer"),
-                    size: 256 * 4,
+                    size: pipeline::HISTOGRAM_BIN_COUNT * 4,
                     usage: BufferUsages::STORAGE,
                     mapped_at_creation: false,
                 }),

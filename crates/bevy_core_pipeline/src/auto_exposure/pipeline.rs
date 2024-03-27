@@ -41,6 +41,8 @@ pub enum Pass {
 
 pub const METERING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12987620402995522466);
 
+pub const HISTOGRAM_BIN_COUNT: u64 = 64;
+
 impl FromWorld for AutoExposurePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
@@ -108,7 +110,7 @@ impl FromWorld for AutoExposurePipeline {
                             ty: BindingType::Buffer {
                                 ty: BufferBindingType::Storage { read_only: false },
                                 has_dynamic_offset: false,
-                                min_binding_size: NonZeroU64::new(256 * 4),
+                                min_binding_size: NonZeroU64::new(HISTOGRAM_BIN_COUNT * 4),
                             },
                             count: None,
                         },

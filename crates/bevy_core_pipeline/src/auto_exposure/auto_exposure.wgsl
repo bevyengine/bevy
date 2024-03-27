@@ -31,13 +31,13 @@ var tex_compensation: texture_1d<f32>;
 @group(0) @binding(4)
 var<uniform> compensation_curve: CompensationCurve;
 @group(0) @binding(5)
-var<storage, read_write> histogram: array<atomic<u32>, 256>;
+var<storage, read_write> histogram: array<atomic<u32>, 64>;
 @group(0) @binding(6)
 var<storage, read_write> exposure: f32;
 @group(0) @binding(7)
 var<storage, read_write> view: View;
 
-var<workgroup> histogram_shared: array<atomic<u32>, 256>;
+var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 
 // For a given color and luminance range, return the histogram bin index
 fn colorToBin(hdrColor: vec3<f32>, minLogLum: f32, inverseLogLumRange: f32) -> u32 {
@@ -51,8 +51,8 @@ fn colorToBin(hdrColor: vec3<f32>, minLogLum: f32, inverseLogLumRange: f32) -> u
     // where 0.0 represents the minimum luminance, and 1.0 represents the max.
     let logLum = saturate((log2(lum) - minLogLum) * inverseLogLumRange);
 
-    // Map [0, 1] to [1, 255]. The zeroth bin is handled by the epsilon check above.
-    return u32(logLum * 254.0 + 1.0);
+    // Map [0, 1] to [1, 62]. The zeroth bin is handled by the epsilon check above.
+    return u32(logLum * 62.0 + 1.0);
 }
 
 @compute @workgroup_size(16, 16, 1)
@@ -81,7 +81,7 @@ fn computeHistogram(
 @compute @workgroup_size(1, 1, 1)
 fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
     var histogram_sum = 0u;
-    for (var i=0u; i<256u; i+=1u) {
+    for (var i=0u; i<64u; i+=1u) {
         histogram_sum += histogram[i];
         histogram_shared[i] = histogram_sum;
         histogram[i] = 0u;
@@ -92,7 +92,7 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
 
     var count = 0u;
     var sum = 0.0;
-    for (var i=1u; i<256u; i+=1u) {
+    for (var i=1u; i<64u; i+=1u) {
         let bin_count =
             clamp(histogram_shared[i], first_index, last_index) -
             clamp(histogram_shared[i - 1u], first_index, last_index);
@@ -104,7 +104,7 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
     var target_exposure = 0.0;
 
     if count > 0u {
-        let avg_lum = sum / (f32(count) * 255.0)
+        let avg_lum = sum / (f32(count) * 63.0)
             * auto_exposure.log_lum_range
             + auto_exposure.min_log_lum;
 
