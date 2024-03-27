@@ -1,6 +1,7 @@
 //! Shows handling of gamepad input, connections, and disconnections.
 
-use bevy::{input::gamepad::GamepadButton, prelude::*};
+use bevy::prelude::*;
+use bevy_internal::input::gamepad::{GamepadAnalogButtonsComponent, GamepadAxisComponent, GamepadDigitalButtonsComponent};
 
 fn main() {
     App::new()
@@ -10,32 +11,24 @@ fn main() {
 }
 
 fn gamepad_system(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<ButtonInput<GamepadButton>>,
-    button_axes: Res<Axis<GamepadButton>>,
-    axes: Res<Axis<GamepadAxis>>,
+    gamepads: Query<(&Gamepad, &GamepadDigitalButtonsComponent, &GamepadAnalogButtonsComponent, &GamepadAxisComponent)>,
 ) {
-    for gamepad in gamepads.iter() {
-        if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
+    for (gamepad, digital, analog, axis) in gamepads.iter() {
+        if digital.just_pressed(GamepadButtonType::South) {
             info!("{:?} just pressed South", gamepad);
-        } else if button_inputs.just_released(GamepadButton::new(gamepad, GamepadButtonType::South))
+        } else if digital.just_released(GamepadButtonType::South)
         {
             info!("{:?} just released South", gamepad);
         }
 
-        let right_trigger = button_axes
-            .get(GamepadButton::new(
-                gamepad,
-                GamepadButtonType::RightTrigger2,
-            ))
-            .unwrap();
+        let right_trigger = analog
+            .get(GamepadButtonType::RightTrigger2).unwrap();
         if right_trigger.abs() > 0.01 {
             info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
         }
 
-        let left_stick_x = axes
-            .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickX))
-            .unwrap();
+        let left_stick_x = axis
+            .get(GamepadAxisType::LeftStickX).unwrap();
         if left_stick_x.abs() > 0.01 {
             info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
         }

@@ -27,9 +27,7 @@ pub use button_input::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        gamepad::{
-            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads,
-        },
+        gamepad::{Gamepad, GamepadAxisType, GamepadButtonType},
         keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},
@@ -47,11 +45,10 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, GamepadAxis, GamepadAxisChangedEvent, GamepadButton,
-    GamepadButtonChangedEvent, GamepadButtonInput, GamepadConnectionEvent, GamepadEvent,
-    GamepadRumbleRequest, GamepadSettings, Gamepads,
+    gamepad_event_system, GamepadRumbleRequest, GamepadSettings, event::raw::*, event::filtered::*
 };
 
+use crate::gamepad::EntityGamepadMap;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -85,11 +82,7 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadAxisChangedEvent>()
             .add_event::<GamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
-            .init_resource::<GamepadSettings>()
-            .init_resource::<Gamepads>()
-            .init_resource::<ButtonInput<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
+            .init_resource::<EntityGamepadMap>()
             .add_systems(
                 PreUpdate,
                 (

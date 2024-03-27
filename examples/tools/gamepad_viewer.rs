@@ -3,9 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::{
-        GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
-    },
+    input::gamepad::event::raw::{GamepadConnectionEvent, GamepadAxisChangedEvent, GamepadButtonChangedEvent},
+    input::gamepad::{GamepadDigitalButtonsComponent, GamepadInfo, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -259,8 +258,10 @@ fn setup_sticks(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    gamepad_settings: Res<GamepadSettings>,
 ) {
+    // NOTE: This stops making sense because in entities because there isn't a "global" default,
+    // instead each gamepad has its own default setting
+    let gamepad_settings = GamepadSettings::default();
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
     let dead_lower =
@@ -447,17 +448,16 @@ fn setup_connected(mut commands: Commands) {
 }
 
 fn update_buttons(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<ButtonInput<GamepadButton>>,
+    gamepads: Query<&GamepadDigitalButtonsComponent>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {
-    for gamepad in gamepads.iter() {
+    for buttons in gamepads.iter() {
         for (mut handle, react_to) in query.iter_mut() {
-            if button_inputs.just_pressed(GamepadButton::new(gamepad, **react_to)) {
+            if buttons.just_pressed(**react_to) {
                 *handle = materials.active.clone();
             }
-            if button_inputs.just_released(GamepadButton::new(gamepad, **react_to)) {
+            if buttons.just_released(**react_to) {
                 *handle = materials.normal.clone();
             }
         }
@@ -465,6 +465,7 @@ fn update_buttons(
 }
 
 fn update_button_values(
+    // FIXME: This is wrong because we send raw values now.
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
@@ -478,6 +479,7 @@ fn update_button_values(
 }
 
 fn update_axes(
+    // FIXME: This is wrong because we send raw values now.
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
@@ -505,18 +507,19 @@ fn update_axes(
 }
 
 fn update_connected(
-    gamepads: Res<Gamepads>,
+    mut connected: EventReader<GamepadConnectionEvent>,
+    gamepads: Query<(&Gamepad, &GamepadInfo)>,
     mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
 ) {
-    if !gamepads.is_changed() {
+    if connected.is_empty() {
         return;
     }
-
+    connected.clear();
     let mut text = query.single_mut();
 
     let formatted = gamepads
         .iter()
-        .map(|g| format!("- {}", gamepads.name(g).unwrap()))
+        .map(|(gamepad, info)| format!("{} - {}", gamepad.id, info.name))
         .collect::<Vec<_>>()
         .join("\n");
 
