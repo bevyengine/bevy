@@ -90,7 +90,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         };
         let message = CString::new(recorder).expect("message contained null character.");
         let tag = CString::new(meta.name()).expect("tag contained null character.");
-        // SAFETY: Called only on Android platforms. priority is guarented to be in range of c_int.
+        // SAFETY: Called only on Android platforms. priority is guaranteed to be in range of c_int.
         // The provided tag and message are null terminated properly.
         unsafe {
             android_log_sys::__android_log_write(
