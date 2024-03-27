@@ -320,7 +320,6 @@ impl<'a> LoadContext<'a> {
     ///         (i.to_string(), labeled.finish(Image::default(), None))
     ///     }));
     /// }
-
     /// for handle in handles {
     ///     let (label, loaded_asset) = handle.join().unwrap();
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
@@ -333,6 +332,21 @@ impl<'a> LoadContext<'a> {
             self.should_load_dependencies,
             self.populate_hashes,
         )
+    }
+
+    /// Returns a weak handle to the asset that is loading.
+    pub fn get_internal_handle<A: Asset>(&self) -> Handle<A> {
+        let (handle, _) = self
+            .asset_server
+            .data
+            .infos
+            .write()
+            .get_or_create_path_handle::<A>(
+                self.asset_path.clone(),
+                crate::server::info::HandleLoadingMode::NotLoading,
+                None,
+            );
+        handle.clone_weak()
     }
 
     /// Creates a new [`LoadContext`] for the given `label`. The `load` function is responsible for loading an [`Asset`] of

@@ -1,4 +1,5 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtensions, GltfExtras, GltfNode};
+#[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
@@ -196,6 +197,7 @@ async fn load_gltf<'a, 'b, 'c>(
         ))))?
         .to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
+    let weak_gltf_handle: Handle<Gltf> = load_context.get_internal_handle();
 
     let mut linear_textures = HashSet::default();
 
@@ -225,6 +227,9 @@ async fn load_gltf<'a, 'b, 'c>(
         }
         paths
     };
+
+    #[cfg(not(feature = "bevy_animation"))]
+    let animation_roots = Default::default();
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
@@ -583,15 +588,23 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut scenes = vec![];
     let mut named_scenes = HashMap::default();
     let mut active_camera_found = false;
+
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
         let mut node_index_to_entity_map = HashMap::new();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
+
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
+                if let Some(extensions) = gltf.extensions() {
+                    parent.spawn(GltfExtensions {
+                        value: serde_json::Value::from(extensions.clone()).to_string(),
+                    });
+                }
+                parent.spawn(weak_gltf_handle.clone_weak());
                 for node in scene.nodes() {
                     let result = load_node(
                         &node,
@@ -1049,6 +1062,12 @@ fn load_node(
     if let Some(extras) = gltf_node.extras() {
         node.insert(GltfExtras {
             value: extras.get().to_string(),
+        });
+    }
+
+    if let Some(extensions) = gltf_node.extensions() {
+        node.insert(GltfExtensions {
+            value: serde_json::Value::from(extensions.clone()).to_string(),
         });
     }
 

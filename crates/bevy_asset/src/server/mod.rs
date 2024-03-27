@@ -1,4 +1,4 @@
-mod info;
+pub(crate) mod info;
 mod loaders;
 
 use crate::{
