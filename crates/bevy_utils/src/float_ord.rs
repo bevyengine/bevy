@@ -13,28 +13,48 @@ use std::{
 ///
 /// Wrapping a float with `FloatOrd` breaks conformance with the standard
 /// by sorting `NaN` as less than all other numbers and equal to any other `NaN`.
-#[derive(Debug, Copy, Clone, PartialOrd)]
+#[derive(Debug, Copy, Clone)]
 pub struct FloatOrd(pub f32);
 
-#[allow(clippy::derive_ord_xor_partial_ord)]
+impl PartialOrd for FloatOrd {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+
+    fn lt(&self, other: &Self) -> bool {
+        !other.le(self)
+    }
+    // If `self` is NaN, it is equal to another NaN and less than all other floats, so return true.
+    // If `self` isn't NaN and `other` is, the float comparison returns false, which match the `FloatOrd` ordering.
+    // Otherwise, a standard float comparison happens.
+    fn le(&self, other: &Self) -> bool {
+        self.0.is_nan() || self.0 <= other.0
+    }
+    fn gt(&self, other: &Self) -> bool {
+        !self.le(other)
+    }
+    fn ge(&self, other: &Self) -> bool {
+        other.le(self)
+    }
+}
+
 impl Ord for FloatOrd {
+    #[allow(clippy::comparison_chain)]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or_else(|| {
-            if self.0.is_nan() && !other.0.is_nan() {
-                Ordering::Less
-            } else if !self.0.is_nan() && other.0.is_nan() {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        })
+        if self > other {
+            Ordering::Greater
+        } else if self < other {
+            Ordering::Less
+        } else {
+            Ordering::Equal
+        }
     }
 }
 
 impl PartialEq for FloatOrd {
     fn eq(&self, other: &Self) -> bool {
-        if self.0.is_nan() && other.0.is_nan() {
-            true
+        if self.0.is_nan() {
+            other.0.is_nan()
         } else {
             self.0 == other.0
         }
@@ -62,5 +82,89 @@ impl Neg for FloatOrd {
 
     fn neg(self) -> Self::Output {
         FloatOrd(-self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::hash::DefaultHasher;
+
+    use super::*;
+
+    const NAN: FloatOrd = FloatOrd(f32::NAN);
+    const ZERO: FloatOrd = FloatOrd(0.0);
+    const ONE: FloatOrd = FloatOrd(1.0);
+
+    #[test]
+    fn float_ord_eq() {
+        assert_eq!(NAN, NAN);
+
+        assert_ne!(NAN, ZERO);
+        assert_ne!(ZERO, NAN);
+
+        assert_eq!(ZERO, ZERO);
+    }
+
+    #[test]
+    fn float_ord_cmp() {
+        assert_eq!(NAN.cmp(&NAN), Ordering::Equal);
+
+        assert_eq!(NAN.cmp(&ZERO), Ordering::Less);
+        assert_eq!(ZERO.cmp(&NAN), Ordering::Greater);
+
+        assert_eq!(ZERO.cmp(&ZERO), Ordering::Equal);
+        assert_eq!(ONE.cmp(&ZERO), Ordering::Greater);
+        assert_eq!(ZERO.cmp(&ONE), Ordering::Less);
+    }
+
+    #[test]
+    #[allow(clippy::nonminimal_bool)]
+    fn float_ord_cmp_operators() {
+        assert!(!(NAN < NAN));
+        assert!(NAN < ZERO);
+        assert!(!(ZERO < NAN));
+        assert!(!(ZERO < ZERO));
+        assert!(ZERO < ONE);
+        assert!(!(ONE < ZERO));
+
+        assert!(!(NAN > NAN));
+        assert!(!(NAN > ZERO));
+        assert!(ZERO > NAN);
+        assert!(!(ZERO > ZERO));
+        assert!(!(ZERO > ONE));
+        assert!(ONE > ZERO);
+
+        assert!(NAN <= NAN);
+        assert!(NAN <= ZERO);
+        assert!(!(ZERO <= NAN));
+        assert!(ZERO <= ZERO);
+        assert!(ZERO <= ONE);
+        assert!(!(ONE <= ZERO));
+
+        assert!(NAN >= NAN);
+        assert!(!(NAN >= ZERO));
+        assert!(ZERO >= NAN);
+        assert!(ZERO >= ZERO);
+        assert!(!(ZERO >= ONE));
+        assert!(ONE >= ZERO);
+    }
+
+    #[test]
+    fn float_ord_hash() {
+        let hash = |num| {
+            let mut h = DefaultHasher::new();
+            FloatOrd(num).hash(&mut h);
+            h.finish()
+        };
+
+        assert_ne!((-0.0f32).to_bits(), 0.0f32.to_bits());
+        assert_eq!(hash(-0.0), hash(0.0));
+
+        let nan_1 = f32::from_bits(0b0111_1111_1000_0000_0000_0000_0000_0001);
+        assert!(nan_1.is_nan());
+        let nan_2 = f32::from_bits(0b0111_1111_1000_0000_0000_0000_0000_0010);
+        assert!(nan_2.is_nan());
+        assert_ne!(nan_1.to_bits(), nan_2.to_bits());
+        assert_eq!(hash(nan_1), hash(nan_2));
     }
 }
