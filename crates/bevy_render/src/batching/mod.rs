@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use nonmax::NonMaxU32;
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
     render_phase::{
@@ -159,78 +160,46 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
 
         // Prepare batchables.
 
-        let mut is_first_instance = true;
         for key in &phase.batchable_keys {
-            let mut batch: Option<BinnedRenderPhaseBatch> = None;
+            let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
             for &entity in &phase.batchable_values[key] {
                 let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
-                    let instance_index = match phase.batches.last() {
-                        Some(batch) => batch.instance_end_index,
-                        None => 0,
-                    };
-                    phase
-                        .batches
-                        .push(BinnedRenderPhaseBatch::placeholder(instance_index));
                     continue;
                 };
 
                 let instance = gpu_array_buffer.push(buffer_data);
-                if is_first_instance {
-                    phase.first_instance_index = instance.index;
-                    is_first_instance = false;
-                }
 
                 // If the dynamic offset has changed, flush the batch.
                 //
                 // This is the only time we ever have more than one batch per
                 // bin. Note that dynamic offsets are only used on platforms
                 // with no storage buffers.
-                if batch
-                    .as_ref()
-                    .is_some_and(|batch| batch.dynamic_offset != instance.dynamic_offset)
-                {
-                    phase.batches.push(batch.take().unwrap());
+                if !batch_set.last().is_some_and(|batch| {
+                    batch.instance_range.end == instance.index
+                        && batch.dynamic_offset == instance.dynamic_offset
+                }) {
+                    batch_set.push(BinnedRenderPhaseBatch {
+                        representative_entity: entity,
+                        instance_range: instance.index..instance.index,
+                        dynamic_offset: instance.dynamic_offset,
+                    });
                 }
 
-                match batch {
-                    None => {
-                        batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: entity,
-                            instance_end_index: instance.index + 1,
-                            dynamic_offset: instance.dynamic_offset,
-                        });
-                    }
-                    Some(ref mut batch) => batch.instance_end_index += 1,
+                if let Some(batch) = batch_set.last_mut() {
+                    batch.instance_range.end = instance.index + 1;
                 }
             }
 
-            phase.batches.push(batch.unwrap_or_else(|| {
-                let instance_index = match phase.batches.last() {
-                    Some(batch) => batch.instance_end_index,
-                    None => 0,
-                };
-                BinnedRenderPhaseBatch::placeholder(instance_index)
-            }));
+            phase.batch_sets.push(batch_set);
         }
 
         // Prepare unbatchables.
-
         for key in &phase.unbatchable_keys {
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
-            for (entity_index, &entity) in unbatchables.entities.iter().enumerate() {
-                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
-                    continue;
-                };
-
-                let instance = gpu_array_buffer.push(buffer_data);
-                if is_first_instance {
-                    phase.first_instance_index = instance.index;
-                    is_first_instance = false;
-                }
-
-                if let Some(dynamic_offset) = instance.dynamic_offset {
-                    unbatchables.dynamic_offsets.resize(entity_index, None);
-                    unbatchables.dynamic_offsets.push(Some(dynamic_offset));
+            for &entity in &unbatchables.entities {
+                if let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) {
+                    let instance = gpu_array_buffer.push(buffer_data);
+                    unbatchables.dynamic_offsets.add(instance);
                 }
             }
         }

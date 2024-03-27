@@ -1,3 +1,4 @@
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
@@ -1712,6 +1713,7 @@ pub fn queue_shadows<M: Material>(
                     ShadowBinKey {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
+                        asset_id: mesh_instance.mesh_asset_id,
                     },
                     entity,
                     mesh_instance.should_batch(),
@@ -1730,8 +1732,14 @@ pub struct Shadow {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
+    /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
+
+    /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
+    /// The mesh.
+    pub asset_id: AssetId<Mesh>,
 }
 
 impl PhaseItem for Shadow {

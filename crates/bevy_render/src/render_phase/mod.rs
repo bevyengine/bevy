@@ -29,18 +29,20 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
+use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
+use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
+use crate::render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::{hash::Hash, iter, ops::Range, slice::SliceIndex};
+use smallvec::SmallVec;
+use std::{hash::Hash, ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -69,8 +71,8 @@ where
 
     /// The batchable bins themselves.
     ///
-    /// Each bin corresponds to a single batch. For unbatchable entities, prefer
-    /// `unbatchable_values` instead.
+    /// Each bin corresponds to a single batch set. For unbatchable entities,
+    /// prefer `unbatchable_values` instead.
     pub(crate) batchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
 
     /// A list of `BinKey`s for unbatchable items.
@@ -84,27 +86,30 @@ where
     /// Each entity here is rendered in a separate drawcall.
     pub(crate) unbatchable_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
-    /// The index of the first instance for the first batch in the storage
-    /// buffer.
-    pub(crate) first_instance_index: u32,
-
-    /// Information on each batch.
+    /// Information on each batch set.
+    ///
+    /// A *batch set* is a set of entities that will be batched together unless
+    /// we're on a platform that doesn't support storage buffers (e.g. WebGL 2)
+    /// and differing dynamic uniform indices force us to break batches. On
+    /// platforms that support storage buffers, a batch set always consists of
+    /// at most one batch.
     ///
     /// The unbatchable entities immediately follow the batches in the storage
     /// buffers.
-    pub(crate) batches: Vec<BinnedRenderPhaseBatch>,
+    pub(crate) batch_sets: Vec<SmallVec<[BinnedRenderPhaseBatch; 1]>>,
 }
 
 /// Information about a single batch of entities rendered using binned phase
 /// items.
+#[derive(Debug)]
 pub struct BinnedRenderPhaseBatch {
     /// An entity that's *representative* of this batch.
     ///
     /// Bevy uses this to fetch the mesh. It can be any entity in the batch.
     pub representative_entity: Entity,
 
-    /// The last instance index in this batch.
-    pub instance_end_index: u32,
+    /// The range of instance indices in this batch.
+    pub instance_range: Range<u32>,
 
     /// The dynamic offset of the batch.
     ///
@@ -114,19 +119,52 @@ pub struct BinnedRenderPhaseBatch {
 }
 
 /// Information about the unbatchable entities in a bin.
-pub struct UnbatchableBinnedEntities {
+pub(crate) struct UnbatchableBinnedEntities {
     /// The entities.
-    pub entities: Vec<Entity>,
+    pub(crate) entities: Vec<Entity>,
 
-    /// Each entity's dynamic offset.
+    pub(crate) dynamic_offsets: UnbatchableBinnedEntityDynamicOffsets,
+}
+
+/// Stores instance indices and dynamic offsets for unbatchable entities in a
+/// binned render phase.
+///
+/// This is conceptually `Vec<UnbatchableBinnedEntityDynamicOffset>`, but it
+/// avoids the overhead of storing dynamic offsets on platforms that support
+/// them. In other words, this allows a fast path that avoids allocation on
+/// platforms that aren't WebGL 2.
+#[derive(Default)]
+
+pub(crate) enum UnbatchableBinnedEntityDynamicOffsets {
+    /// There are no unbatchable entities in this bin (yet).
+    #[default]
+    NoEntities,
+
+    /// The instances for all unbatchable entities in this bin are contiguous,
+    /// and there are no dynamic uniforms.
     ///
-    /// Note that dynamic offsets are only used on platforms that don't support
-    /// storage buffers.
+    /// This is the typical case on platforms other than WebGL 2. We special
+    /// case this to avoid allocation on those platforms.
+    NoDynamicOffsets {
+        /// The range of indices.
+        instance_range: Range<u32>,
+    },
+
+    /// Dynamic uniforms are present for unbatchable entities in this bin.
     ///
-    /// This value may have fewer entries than entities. If so, the remaining
-    /// entries are assumed to be `None`. We do this to speed up platforms that
-    /// don't need dynamic offsets.
-    pub dynamic_offsets: Vec<Option<NonMaxU32>>,
+    /// We fall back to this on WebGL 2.
+    DynamicOffsets(Vec<UnbatchableBinnedEntityDynamicOffset>),
+}
+
+/// The instance index and dynamic offset (if present) for an unbatchable entity.
+///
+/// This is only useful on platforms that don't support storage buffers.
+#[derive(Clone, Copy)]
+pub(crate) struct UnbatchableBinnedEntityDynamicOffset {
+    /// The instance index.
+    instance_index: u32,
+    /// The dynamic offset, if present.
+    dynamic_offset: Option<NonMaxU32>,
 }
 
 impl<BPI> BinnedRenderPhase<BPI>
@@ -153,7 +191,7 @@ where
                     self.unbatchable_keys.push(key);
                     entry.insert(UnbatchableBinnedEntities {
                         entities: vec![entity],
-                        dynamic_offsets: vec![],
+                        dynamic_offsets: default(),
                     });
                 }
             }
@@ -171,48 +209,15 @@ where
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        // Encode draws for batchables. Track instance index. We assume that all
-        // instance indices are consecutive.
-        let mut instance_start_index = self.first_instance_index;
-        debug_assert_eq!(self.batchable_keys.len(), self.batches.len());
-
-        for (key, batch) in self.batchable_keys.iter().zip(self.batches.iter()) {
-            let binned_phase_item = BPI::new(
-                key.clone(),
-                batch.representative_entity,
-                instance_start_index..batch.instance_end_index,
-                batch.dynamic_offset,
-            );
-
-            // Fetch the draw function.
-            let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
-            else {
-                continue;
-            };
-
-            draw_function.draw(world, render_pass, view, &binned_phase_item);
-
-            // Advance instance index.
-            instance_start_index = batch.instance_end_index;
-        }
-
-        // Encode draws for unbatchables, which immediately follow the
-        // batchables in the instance data buffers.
-
-        for key in &self.unbatchable_keys {
-            let unbatchable_entities = &self.unbatchable_values[key];
-            for (entity, dynamic_offset) in unbatchable_entities.entities.iter().copied().zip(
-                unbatchable_entities
-                    .dynamic_offsets
-                    .iter()
-                    .copied()
-                    .chain(iter::repeat(None)),
-            ) {
+        // Encode draws for batchables.
+        debug_assert_eq!(self.batchable_keys.len(), self.batch_sets.len());
+        for (key, batch_set) in self.batchable_keys.iter().zip(self.batch_sets.iter()) {
+            for batch in batch_set {
                 let binned_phase_item = BPI::new(
                     key.clone(),
-                    entity,
-                    instance_start_index..(instance_start_index + 1),
-                    dynamic_offset,
+                    batch.representative_entity,
+                    batch.instance_range.clone(),
+                    batch.dynamic_offset,
                 );
 
                 // Fetch the draw function.
@@ -222,9 +227,45 @@ where
                 };
 
                 draw_function.draw(world, render_pass, view, &binned_phase_item);
+            }
+        }
 
-                // Advance instance index.
-                instance_start_index += 1;
+        // Encode draws for unbatchables.
+
+        for key in &self.unbatchable_keys {
+            let unbatchable_entities = &self.unbatchable_values[key];
+            for (entity_index, &entity) in unbatchable_entities.entities.iter().enumerate() {
+                let unbatchable_dynamic_offset = match &unbatchable_entities.dynamic_offsets {
+                    UnbatchableBinnedEntityDynamicOffsets::NoEntities => {
+                        // Shouldn't happen…
+                        continue;
+                    }
+                    UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets { instance_range } => {
+                        UnbatchableBinnedEntityDynamicOffset {
+                            instance_index: instance_range.start + entity_index as u32,
+                            dynamic_offset: None,
+                        }
+                    }
+                    UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(ref dynamic_offsets) => {
+                        dynamic_offsets[entity_index]
+                    }
+                };
+
+                let binned_phase_item = BPI::new(
+                    key.clone(),
+                    entity,
+                    unbatchable_dynamic_offset.instance_index
+                        ..(unbatchable_dynamic_offset.instance_index + 1),
+                    unbatchable_dynamic_offset.dynamic_offset,
+                );
+
+                // Fetch the draw function.
+                let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
+                else {
+                    continue;
+                };
+
+                draw_function.draw(world, render_pass, view, &binned_phase_item);
             }
         }
     }
@@ -244,23 +285,80 @@ where
             batchable_values: HashMap::default(),
             unbatchable_keys: vec![],
             unbatchable_values: HashMap::default(),
-            first_instance_index: 0,
-            batches: vec![],
+            batch_sets: vec![],
         }
     }
 }
 
-impl BinnedRenderPhaseBatch {
-    /// Creates a placeholder [`BinnedRenderPhaseBatch`].
-    ///
-    /// These take up space in the `batches` array when no batch ended up being
-    /// created. They're needed so that the indices in the `batchable_keys`
-    /// array match up with those of the `batches` array.
-    pub(crate) fn placeholder(instance_index: u32) -> Self {
-        Self {
-            representative_entity: Entity::PLACEHOLDER,
-            instance_end_index: instance_index,
-            dynamic_offset: None,
+impl UnbatchableBinnedEntityDynamicOffsets {
+    /// Adds a new entity to the list of unbatchable binned entities.
+    pub fn add<T>(&mut self, gpu_array_buffer_index: GpuArrayBufferIndex<T>)
+    where
+        T: ShaderSize + WriteInto + Clone,
+    {
+        match (&mut *self, gpu_array_buffer_index.dynamic_offset) {
+            (UnbatchableBinnedEntityDynamicOffsets::NoEntities, None) => {
+                // This is the first entity we've seen, and we're not on WebGL
+                // 2. Initialize the fast path.
+                *self = UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets {
+                    instance_range: gpu_array_buffer_index.index
+                        ..(gpu_array_buffer_index.index + 1),
+                }
+            }
+
+            (UnbatchableBinnedEntityDynamicOffsets::NoEntities, Some(dynamic_offset)) => {
+                // This is the first entity we've seen, and we're on WebGL 2.
+                // Initialize an array.
+                *self = UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(vec![
+                    UnbatchableBinnedEntityDynamicOffset {
+                        instance_index: gpu_array_buffer_index.index,
+                        dynamic_offset: Some(dynamic_offset),
+                    },
+                ]);
+            }
+
+            (
+                UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets {
+                    ref mut instance_range,
+                },
+                None,
+            ) if instance_range.end == gpu_array_buffer_index.index => {
+                // This is the normal case on non-WebGL 2.
+                instance_range.end += 1;
+            }
+
+            (
+                UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(ref mut offsets),
+                dynamic_offset,
+            ) => {
+                // This is the normal case on WebGL 2.
+                offsets.push(UnbatchableBinnedEntityDynamicOffset {
+                    instance_index: gpu_array_buffer_index.index,
+                    dynamic_offset,
+                });
+            }
+
+            (
+                UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets { instance_range },
+                dynamic_offset,
+            ) => {
+                // We thought we were in non-WebGL 2 mode, but we got a dynamic
+                // offset or non-contiguous index anyway. This shouldn't happen,
+                // but let's go ahead and do the sensible thing anyhow: demote
+                // the compressed `NoDynamicOffsets` field to the full
+                // `DynamicOffsets` array.
+                let mut new_dynamic_offsets: Vec<_> = instance_range
+                    .map(|instance_index| UnbatchableBinnedEntityDynamicOffset {
+                        instance_index,
+                        dynamic_offset: None,
+                    })
+                    .collect();
+                new_dynamic_offsets.push(UnbatchableBinnedEntityDynamicOffset {
+                    instance_index: gpu_array_buffer_index.index,
+                    dynamic_offset,
+                });
+                *self = UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(new_dynamic_offsets);
+            }
         }
     }
 }
