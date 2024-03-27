@@ -4,7 +4,7 @@ use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
-    serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
+    serde::{ReflectDeserializer, TypeRegistrationDeserializer},
     Reflect, TypeRegistry, TypeRegistryArc,
 };
 use bevy_utils::HashSet;
@@ -460,9 +460,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) =
-            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
-        {
+        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
             dynamic_properties.push(entity);
         }
 
