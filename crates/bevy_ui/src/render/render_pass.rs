@@ -6,6 +6,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -14,7 +15,6 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::FloatOrd;
 use nonmax::NonMaxU32;
 
 pub struct UiPassNode {
