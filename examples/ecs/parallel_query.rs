@@ -2,7 +2,8 @@
 
 use bevy::ecs::batching::BatchingStrategy;
 use bevy::prelude::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Deref)]
 struct Velocity(Vec2);
@@ -10,7 +11,10 @@ struct Velocity(Vec2);
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..128 {
         commands.spawn((
             SpriteBundle {

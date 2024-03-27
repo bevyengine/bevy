@@ -162,17 +162,15 @@ impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = GltfLoaderSettings;
     type Error = GltfError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a GltfLoaderSettings,
-        load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            load_gltf(self, &bytes, load_context, settings).await
-        })
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Gltf, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        load_gltf(self, &bytes, load_context, settings).await
     }
 
     fn extensions(&self) -> &[&str] {
@@ -478,18 +476,10 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                let vertex_count_before = mesh.count_vertices();
-                mesh.duplicate_vertices();
+                bevy_utils::tracing::debug!(
+                    "Automatically calculating missing vertex normals for geometry."
+                );
                 mesh.compute_flat_normals();
-                let vertex_count_after = mesh.count_vertices();
-
-                if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
-                } else {
-                    bevy_utils::tracing::debug!(
-                        "Missing vertex normals in indexed geometry, computing them as flat."
-                    );
-                }
             }
 
             if let Some(vertex_attribute) = reader

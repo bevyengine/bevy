@@ -1,11 +1,15 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod measurement;
 pub mod node_bundles;
@@ -112,6 +116,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
+            .register_type::<BorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()

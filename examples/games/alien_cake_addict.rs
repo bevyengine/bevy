@@ -3,7 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
@@ -82,7 +83,7 @@ struct Game {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-struct Random(StdRng);
+struct Random(ChaCha8Rng);
 
 const BOARD_SIZE_I: usize = 14;
 const BOARD_SIZE_J: usize = 21;
@@ -109,10 +110,11 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
     let mut rng = if std::env::var("GITHUB_ACTIONS") == Ok("true".to_string()) {
-        // Make the game play out the same way every time, this is useful for testing purposes.
-        StdRng::seed_from_u64(19878367467713)
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        ChaCha8Rng::seed_from_u64(19878367467713)
     } else {
-        StdRng::from_entropy()
+        ChaCha8Rng::from_entropy()
     };
 
     // reset the game state

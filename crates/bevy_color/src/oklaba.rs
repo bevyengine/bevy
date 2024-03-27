@@ -1,19 +1,23 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hwba, Lcha, LinearRgba,
-    Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva,
+    Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// Color in Oklab color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Oklaba {
-    /// The 'l' channel. [0.0, 1.0]
+    /// The 'lightness' channel. [0.0, 1.0]
     pub lightness: f32,
     /// The 'a' channel. [-1.0, 1.0]
     pub a: f32,
@@ -24,6 +28,8 @@ pub struct Oklaba {
 }
 
 impl StandardColor for Oklaba {}
+
+impl_componentwise_point!(Oklaba, [lightness, a, b, alpha]);
 
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
@@ -59,7 +65,7 @@ impl Oklaba {
         }
     }
 
-    /// Return a copy of this color with the 'l' channel set to the given value.
+    /// Return a copy of this color with the 'lightness' channel set to the given value.
     pub const fn with_lightness(self, lightness: f32) -> Self {
         Self { lightness, ..self }
     }
