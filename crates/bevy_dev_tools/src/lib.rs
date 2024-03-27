@@ -14,7 +14,7 @@ pub mod ci_testing;
 pub mod fps_overlay;
 
 #[cfg(feature = "bevy_ui_debug")]
-pub mod debug_overlay;
+pub mod ui_debug_overlay;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
