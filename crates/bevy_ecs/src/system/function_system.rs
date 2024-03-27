@@ -56,6 +56,12 @@ impl SystemMeta {
         &self.name
     }
 
+    ///Returns the system's name as a [`Clone`]d [`Cow`](`std::borrow::Cow`)
+    #[inline]
+    pub fn raw_name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
@@ -80,6 +86,18 @@ impl SystemMeta {
     /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
+    }
+
+    /// Returns the component access for the system. Useful for custom [`System`] impls
+    #[inline]
+    pub fn component_access(&self) -> &Access<ComponentId> {
+        self.component_access_set.combined_access()
+    }
+
+    /// Returns the archetype component access for the system. Useful for custom [`System`] impls
+    #[inline]
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
     }
 }
 
@@ -175,9 +193,10 @@ impl SystemMeta {
 ///     }
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam + 'static> {
+pub struct SystemState<Param: SystemParam + 'static, Extra: SystemParam + 'static = ()> {
     meta: SystemMeta,
     param_state: Param::State,
+    extra_state: Extra::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
@@ -197,15 +216,10 @@ impl<Param: SystemParam> SystemState<Param> {
         Self {
             meta,
             param_state,
+            extra_state: (),
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
         }
-    }
-
-    /// Gets the metadata for this instance.
-    #[inline]
-    pub fn meta(&self) -> &SystemMeta {
-        &self.meta
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -228,69 +242,6 @@ impl<Param: SystemParam> SystemState<Param> {
         self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
-    }
-
-    /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
-    /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
-    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
-    /// are finished being used.
-    pub fn apply(&mut self, world: &mut World) {
-        Param::apply(&mut self.param_state, &self.meta, world);
-    }
-
-    /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
-    /// Otherwise, this returns false.
-    #[inline]
-    pub fn matches_world(&self, world_id: WorldId) -> bool {
-        self.world_id == world_id
-    }
-
-    /// Asserts that the [`SystemState`] matches the provided world.
-    #[inline]
-    #[track_caller]
-    fn validate_world(&self, world_id: WorldId) {
-        #[inline(never)]
-        #[track_caller]
-        #[cold]
-        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
-            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
-        }
-
-        if !self.matches_world(world_id) {
-            panic_mismatched(self.world_id, world_id);
-        }
-    }
-
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
-    #[inline]
-    pub fn update_archetypes(&mut self, world: &World) {
-        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
-    }
-
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
-    ///
-    /// # Note
-    ///
-    /// This method only accesses world metadata.
-    #[inline]
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        let archetypes = world.archetypes();
-        let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
-        for archetype in &archetypes[old_generation..] {
-            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
-        }
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -362,6 +313,227 @@ impl<Param: SystemParam> SystemState<Param> {
             unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
         param
+    }
+}
+
+impl<Param: SystemParam, Extra: SystemParam> SystemState<Param, Extra> {
+    /// Creates a new [`SystemState`] with some default state and some manually specified state.
+    ///
+    /// ## Note
+    /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
+    ///
+    /// `new_with_extra` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
+    /// manually before calling `get_manual{_mut}_with_extra`.
+    pub fn new_with_extra(world: &mut World, extra_state: Extra::State) -> Self {
+        let mut meta = SystemMeta::new::<Param>();
+        meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        let param_state = Param::init_state(world, &mut meta);
+        Self {
+            meta,
+            param_state,
+            extra_state,
+            world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    /// Gets the metadata for this instance.
+    #[inline]
+    pub fn meta(&self) -> &SystemMeta {
+        &self.meta
+    }
+
+    /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
+    /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
+    /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
+    /// and [`SystemState::get_with_extra`] and [`SystemState::get_mut_with_extra`] are finished being used.
+    pub fn apply(&mut self, world: &mut World) {
+        Param::apply(&mut self.param_state, &self.meta, world);
+        Extra::apply(&mut self.extra_state, &self.meta, world);
+    }
+
+    /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
+    /// Otherwise, this returns false.
+    #[inline]
+    pub fn matches_world(&self, world_id: WorldId) -> bool {
+        self.world_id == world_id
+    }
+
+    /// Asserts that the [`SystemState`] matches the provided world.
+    #[inline]
+    #[track_caller]
+    fn validate_world(&self, world_id: WorldId) {
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
+    }
+
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] or
+    /// [`SystemState::get_manual_with_extra`] or [`SystemState::get_manual_mut_with_extra`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] or [`SystemState::get_with_extra`] or [`SystemState::get_mut_with_extra`]
+    /// do not need to call this as it will be automatically called for them.
+    #[inline]
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] or
+    /// [`SystemState::get_manual_with_extra`] or [`SystemState::get_manual_mut_with_extra`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    #[inline]
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+        let archetypes = world.archetypes();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+
+        for archetype in &archetypes[old_generation..] {
+            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
+            Extra::new_archetype(&mut self.extra_state, archetype, &mut self.meta);
+        }
+    }
+
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    #[inline]
+    pub fn get_with_extra<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    )
+    where
+        Param: ReadOnlySystemParam,
+        Extra: ReadOnlySystemParam,
+    {
+        self.validate_world(world.id());
+        self.update_archetypes(world);
+        // SAFETY: Param and Extra are read-only and don't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_manual_with_extra(world.as_unsafe_world_cell_readonly()) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.
+    #[inline]
+    pub fn get_mut_with_extra<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    ) {
+        self.validate_world(world.id());
+        self.update_archetypes(world);
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_manual_with_extra(world.as_unsafe_world_cell()) }
+    }
+
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    /// This will not update the state's view of the world's archetypes automatically nor increment the
+    /// world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get_with_extra`] over this function.
+    #[inline]
+    pub fn get_manual_with_extra<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    )
+    where
+        Param: ReadOnlySystemParam,
+        Extra: ReadOnlySystemParam,
+    {
+        self.validate_world(world.id());
+        let change_tick = world.read_change_tick();
+        // SAFETY: Param and Extra are read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.fetch_with_extra(world.as_unsafe_world_cell_readonly(), change_tick) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
+    /// automatically nor increment the world's change tick.
+    ///
+    /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
+    /// function.
+    ///
+    /// Users should strongly prefer to use [`SystemState::get_mut_with_extra`] over this function.
+    #[inline]
+    pub fn get_manual_mut_with_extra<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    ) {
+        self.validate_world(world.id());
+        let change_tick = world.change_tick();
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.fetch_with_extra(world.as_unsafe_world_cell(), change_tick) }
+    }
+
+    /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
+    ///
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    pub unsafe fn get_unchecked_manual_with_extra<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    ) {
+        let change_tick = world.increment_change_tick();
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { self.fetch_with_extra(world, change_tick) }
+    }
+
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    unsafe fn fetch_with_extra<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> (
+        SystemParamItem<'w, 's, Param>,
+        SystemParamItem<'w, 's, Extra>,
+    ) {
+        // SAFETY: The invariants are upheld by the caller.
+        let items = unsafe {
+            let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+            let extra = Extra::get_param(&mut self.extra_state, &self.meta, world, change_tick);
+            (param, extra)
+        };
+        self.meta.last_run = change_tick;
+        items
     }
 }
 
@@ -453,17 +625,17 @@ where
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
-        self.system_meta.name.clone()
+        self.system_meta.raw_name()
     }
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
+        self.system_meta.component_access()
     }
 
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
+        self.system_meta.archetype_component_access()
     }
 
     #[inline]
