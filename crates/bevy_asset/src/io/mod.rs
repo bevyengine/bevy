@@ -50,6 +50,8 @@ pub enum AssetReaderError {
 }
 
 impl PartialEq for AssetReaderError {
+    /// Equality comparison for `AssetReaderError::Io` is not full (only through `ErrorKind` of inner error)
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,

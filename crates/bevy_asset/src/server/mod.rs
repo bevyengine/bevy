@@ -1194,16 +1194,15 @@ pub(crate) enum InternalAssetEvent {
 }
 
 /// The load state of an asset.
-#[derive(Error, Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub enum LoadState {
-    #[error("The asset has not started loading yet")]
+    /// The asset has not started loading yet
     NotLoaded,
-    #[error("The asset is in the process of loading.")]
+    /// The asset is in the process of loading.
     Loading,
-    #[error("The asset has been loaded and has been added to the [`World`]")]
+    /// The asset has been loaded and has been added to the [`World`]
     Loaded,
     /// The asset failed to load.
-    #[error(transparent)]
     Failed(Box<AssetLoadError>),
 }
 
@@ -1296,6 +1295,7 @@ pub struct AssetLoaderError {
 }
 
 impl PartialEq for AssetLoaderError {
+    /// Equality comparison for `AssetLoaderError::error` is not full (only through `TypeId`)
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path
