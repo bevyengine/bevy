@@ -332,46 +332,70 @@ where
                 continue;
             };
 
-            if !self
-                .query_state
-                .matched_archetypes
-                .contains(location.archetype_id.index())
-            {
-                continue;
+            if D::IS_DENSE && F::IS_DENSE {
+                if !self
+                    .query_state
+                    .matched_tables
+                    .contains(location.table_id.as_usize())
+                {
+                    continue;
+                }
+            } else {
+                if !self
+                    .query_state
+                    .matched_archetypes
+                    .contains(location.archetype_id.index())
+                {
+                    continue;
+                }
             }
 
-            let archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
             let table = self.tables.get(location.table_id).debug_checked_unwrap();
 
-            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                D::set_archetype(
-                    &mut self.fetch,
-                    &self.query_state.fetch_state,
-                    archetype,
-                    table,
-                );
-            }
-            // SAFETY: `table` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                F::set_archetype(
-                    &mut self.filter,
-                    &self.query_state.filter_state,
-                    archetype,
-                    table,
-                );
+            if D::IS_DENSE && F::IS_DENSE {
+                // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    D::set_table(&mut self.fetch, &self.query_state.fetch_state, table);
+                }
+                // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    F::set_table(&mut self.filter, &self.query_state.filter_state, table);
+                }
+            } else {
+                let archetype = self
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap();
+                // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    D::set_archetype(
+                        &mut self.fetch,
+                        &self.query_state.fetch_state,
+                        archetype,
+                        table,
+                    );
+                }
+                // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    F::set_archetype(
+                        &mut self.filter,
+                        &self.query_state.filter_state,
+                        archetype,
+                        table,
+                    );
+                }
             }
 
-            // SAFETY: set_archetype was called prior.
-            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            // SAFETY: set_archetype or set_table was correctly called prior based D and F
+            // `location.table_row` is an table row in range of the current table, because if it was not, the match above would have `continue`d
             if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
                 // SAFETY:
-                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // - set_archetype or set_table was correctly called prior based on D and F
+                // - `location.table_row` is an table index in range of the current table
                 // - fetch is only called once for each entity.
                 return Some(unsafe { D::fetch(&mut self.fetch, entity, location.table_row) });
             }
