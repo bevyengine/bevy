@@ -13,10 +13,10 @@ pub struct AutoExposureSettings {
     pub min: f32,
     /// The maximum exposure value for the camera.
     pub max: f32,
-    /// The percentage of darkest pixels to ignore when metering.
-    pub low_percent: u32,
-    /// The percentage of brightest pixels to ignore when metering.
-    pub high_percent: u32,
+    /// The percentage of darkest pixels to ignore when metering. (Between 0 and 1)
+    pub low_percent: f32,
+    /// The percentage of brightest pixels to ignore when metering. (Between 0 and 1)
+    pub high_percent: f32,
     /// The speed at which the exposure adapts from dark to bright scenes, in F-stops per second.
     pub speed_brighten: f32,
     /// The speed at which the exposure adapts from bright to dark scenes, in F-stops per second.
@@ -33,8 +33,8 @@ impl Default for AutoExposureSettings {
         Self {
             min: -8.0,
             max: 8.0,
-            low_percent: 60,
-            high_percent: 95,
+            low_percent: 0.60,
+            high_percent: 0.95,
             speed_brighten: 3.0,
             speed_darken: 1.0,
             metering_mask: default(),

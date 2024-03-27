@@ -27,8 +27,8 @@ pub struct AutoExposureUniform {
     pub min_log_lum: f32,
     pub inv_log_lum_range: f32,
     pub log_lum_range: f32,
-    pub low_percent: u32,
-    pub high_percent: u32,
+    pub low_percent: f32,
+    pub high_percent: f32,
     pub speed_up: f32,
     pub speed_down: f32,
 }

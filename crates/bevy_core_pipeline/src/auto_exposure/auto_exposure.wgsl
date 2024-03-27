@@ -7,8 +7,8 @@ struct AutoExposure {
     min_log_lum: f32,
     inv_log_lum_range: f32,
     log_lum_range: f32,
-    low_percent: u32,
-    high_percent: u32,
+    low_percent: f32,
+    high_percent: f32,
     speed_up: f32,
     speed_down: f32,
 }
@@ -109,11 +109,13 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     for (var i=0u; i<64u; i+=1u) {
         histogram_sum += histogram[i];
         histogram_shared[i] = histogram_sum;
+
+        // Clear the histogram bin for the next frame
         histogram[i] = 0u;
     }
 
-    let first_index = u32(f32(histogram_sum) * (f32(settings.low_percent) / 100.0));
-    let last_index = u32(f32(histogram_sum) * (f32(settings.high_percent) / 100.0));
+    let first_index = u32(f32(histogram_sum) * settings.low_percent);
+    let last_index = u32(f32(histogram_sum) * settings.high_percent);
 
     var count = 0u;
     var sum = 0.0;
