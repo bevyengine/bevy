@@ -117,7 +117,7 @@ pub trait PersistentGpuBufferable {
     /// `write_bytes_le`.
     ///
     /// All data written must be in a multiple of `wgpu::COPY_BUFFER_ALIGNMENT` bytes. Failure to do so will
-    /// result in a panic when using PersistentGpuBuffer.
+    /// result in a panic when using [`PersistentGpuBuffer`].
     fn size_in_bytes(&self) -> usize;
 
     /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer slice.
