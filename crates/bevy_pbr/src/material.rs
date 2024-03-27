@@ -23,12 +23,12 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayoutRef},
+    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract,
 };
@@ -268,7 +268,7 @@ where
                     (
                         prepare_materials::<M>
                             .in_set(RenderSet::PrepareAssets)
-                            .after(prepare_assets::<Image>),
+                            .after(prepare_assets::<GpuImage>),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_materials::<M>),
@@ -520,7 +520,7 @@ pub fn queue_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     render_materials: Res<RenderMaterials<M>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -985,7 +985,7 @@ pub fn prepare_materials<M: Material>(
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
     default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
@@ -1039,7 +1039,7 @@ pub fn prepare_materials<M: Material>(
 fn prepare_material<M: Material>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
+    images: &RenderAssets<GpuImage>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
     default_opaque_render_method: OpaqueRendererMethod,

@@ -95,7 +95,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
     render_resource::Shader,
-    texture::Image,
+    texture::{GpuImage, Image},
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -373,7 +373,7 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<Image>),
+                        .after(prepare_assets::<GpuImage>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),

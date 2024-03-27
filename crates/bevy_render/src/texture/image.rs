@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
+    render_asset::{AssetUsages, PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -826,39 +826,42 @@ pub struct GpuImage {
     pub mip_level_count: u32,
 }
 
-impl RenderAsset for Image {
-    type PreparedAsset = GpuImage;
+impl AssetUsages for Image {
+    fn asset_usage(&self) -> RenderAssetUsages {
+        self.asset_usage
+    }
+}
+
+impl RenderAsset for GpuImage {
+    type SourceAsset = Image;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
         SRes<DefaultImageSampler>,
     );
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
-    }
-
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        self,
+        image: Self::SourceAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &self.texture_descriptor,
+            &image.texture_descriptor,
             // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
             wgpu::util::TextureDataOrder::default(),
-            &self.data,
+            &image.data,
         );
 
-        let size = self.size();
+        let size = image.size();
         let texture_view = texture.create_view(
-            self.texture_view_descriptor
+            image
+                .texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
-        let sampler = match self.sampler {
+        let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
@@ -868,10 +871,10 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: self.texture_descriptor.format,
+            texture_format: image.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: self.texture_descriptor.mip_level_count,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }

@@ -7,11 +7,11 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssetUsages,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
+        texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
@@ -107,7 +107,7 @@ struct GameOfLifeImageBindGroup(BindGroup);
 fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<GameOfLifePipeline>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     game_of_life_image: Res<GameOfLifeImage>,
     render_device: Res<RenderDevice>,
 ) {

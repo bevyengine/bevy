@@ -2,7 +2,7 @@ use crate::TextureAtlasLayout;
 use bevy_asset::{Assets, Handle};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
-    render_asset::{RenderAsset, RenderAssetUsages},
+    render_asset::{AssetUsages, RenderAssetUsages},
     texture::{Image, TextureFormatPixelInfo},
 };
 use guillotiere::{size2, Allocation, AtlasAllocator};

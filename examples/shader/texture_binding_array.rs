@@ -5,8 +5,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
-        texture::FallbackImage, RenderApp,
+        render_asset::RenderAssets,
+        render_resource::*,
+        renderer::RenderDevice,
+        texture::{FallbackImage, GpuImage},
+        RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
@@ -92,7 +95,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -133,7 +136,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         _: &BindGroupLayout,
         _: &RenderDevice,
-        _: &RenderAssets<Image>,
+        _: &RenderAssets<GpuImage>,
         _: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because

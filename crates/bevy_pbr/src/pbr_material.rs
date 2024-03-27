@@ -2,6 +2,7 @@ use bevy_asset::Asset;
 use bevy_color::Alpha;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
@@ -650,7 +651,10 @@ pub struct StandardMaterialUniform {
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
+    fn as_bind_group_shader_type(
+        &self,
+        images: &RenderAssets<GpuImage>,
+    ) -> StandardMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;

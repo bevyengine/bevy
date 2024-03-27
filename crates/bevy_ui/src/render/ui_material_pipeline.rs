@@ -17,7 +17,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, FallbackImage, Image},
+    texture::{BevyDefault, FallbackImage, GpuImage},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -685,7 +685,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
     mut render_materials: ResMut<RenderUiMaterials<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<UiMaterialPipeline<M>>,
 ) {
@@ -736,7 +736,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 fn prepare_ui_material<M: UiMaterial>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
+    images: &RenderAssets<GpuImage>,
     fallback_image: &Res<FallbackImage>,
     pipeline: &UiMaterialPipeline<M>,
 ) -> Result<PreparedUiMaterial<M>, AsBindGroupError> {
