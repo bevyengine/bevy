@@ -163,7 +163,7 @@ where
 {
 }
 
-macro_rules! impl_componentwise_point {
+macro_rules! impl_componentwise_vector_space {
     ($ty: ident, [$($element: ident),+]) => {
         impl std::ops::Add<Self> for $ty {
             type Output = Self;
@@ -239,8 +239,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
-        impl bevy_math::VectorSpace for $ty {}
+        impl bevy_math::VectorSpace for $ty {
+            const ZERO: Self = Self {
+                $($element: 0.0,)+
+            };
+        }
     };
 }
 
-pub(crate) use impl_componentwise_point;
+pub(crate) use impl_componentwise_vector_space;
