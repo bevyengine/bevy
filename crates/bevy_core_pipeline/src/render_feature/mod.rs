@@ -1,19 +1,32 @@
 mod function_feature;
+use bevy_ecs::archetype::{self, ArchetypeComponentId, ArchetypeGeneration};
+use bevy_ecs::ptr::OwningPtr;
+use bevy_ecs::query::{self, Access, QueryState, With};
+use bevy_ecs::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
+use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_render::settings::{WgpuFeatures, WgpuLimits};
+use bevy_render::view::ExtractedView;
 pub use function_feature::*;
 
-use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, StorageType};
-use bevy_ecs::world::{EntityRef, World};
+use bevy_ecs::component::{Component, ComponentDescriptor, ComponentId, StorageType, Tick};
+use bevy_ecs::world::{
+    unsafe_world_cell, EntityRef, EntityWorldMut, FilteredEntityRef, World, WorldId,
+};
 use bevy_render::renderer::RenderContext;
 
+use std::any::TypeId;
+use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use bevy_app::App;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::system::{SystemParam, SystemParamItem};
+use bevy_ecs::system::{
+    EntityCommand, System, SystemMeta, SystemParam, SystemParamItem, SystemState,
+};
 use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, RenderSubGraph};
 use bevy_utils::{all_tuples, CowArc};
+use std::fmt::{Display, Formatter};
 
 pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
     type Sig: FeatureSignature<true>;
@@ -27,8 +40,8 @@ pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
 
     fn dependencies<'s, 'b: 's>(
         &'s self,
-        compatibility: Self::CompatibilityKey,
-        builder: &'b mut FeatureDependencyBuilder<G, Self>,
+        _compatibility: Self::CompatibilityKey,
+        mut _builder: FeatureDependencyBuilder<'b, G, Self>,
     ) -> RenderHandles<'b, true, FeatureInput<G, Self>> {
         FeatureInput::<G, Self>::default_render_handles::<'b>()
     }
@@ -57,57 +70,49 @@ pub enum Compatibility {
     None,
 }
 
-#[derive(Clone)]
 pub struct RenderHandle<'a, A: FeatureIO<false>> {
-    label: Option<CowArc<'static, str>>,
-    source: RawRenderHandle<A>,
-    data: PhantomData<&'a A>,
+    internal: RenderHandleInternal<A>,
+    data: PhantomData<fn() -> &'a A>,
+}
+
+impl<'a, A: FeatureIO<false>> Copy for RenderHandle<'a, A> {}
+impl<'a, A: FeatureIO<false>> Clone for RenderHandle<'a, A> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+enum RenderHandleInternal<A: FeatureIO<false>> {
+    Hole,
+    From {
+        source: InternedSystemSet,
+        component_id: RenderComponentId<A>,
+    },
+}
+
+impl<A: FeatureIO<false>> Copy for RenderHandleInternal<A> {}
+impl<A: FeatureIO<false>> Clone for RenderHandleInternal<A> {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 impl<'a, A: FeatureIO<false>> RenderHandle<'a, A> {
-    pub fn hole(label: Option<CowArc<'static, str>>) -> Self {
-        RenderHandle {
-            label,
-            source: RawRenderHandle::hole(),
-            data: PhantomData,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct RawRenderHandle<A: FeatureIO<false>> {
-    source: Option<ComponentId>,
-    data: PhantomData<fn() -> A>,
-}
-
-impl<A: FeatureIO<false>> RawRenderHandle<A> {
-    //SAFETY: the layout of id must match that of A
-    unsafe fn from_id(id: ComponentId) -> Self {
+    pub fn hole() -> Self {
         Self {
-            source: Some(id),
+            internal: RenderHandleInternal::Hole,
             data: PhantomData,
         }
     }
 
-    fn hole() -> Self {
+    fn new<Marker>(source: impl IntoSystemSet<Marker>, component_id: RenderComponentId<A>) -> Self {
         Self {
-            source: None,
+            internal: RenderHandleInternal::From {
+                source: source.into_system_set().intern(),
+                component_id,
+            },
             data: PhantomData,
         }
-    }
-
-    unsafe fn new(id: Option<ComponentId>) -> Self {
-        Self {
-            source: id,
-            data: PhantomData,
-        }
-    }
-
-    fn get<'w>(&self, entity: EntityRef<'w>) -> Option<&'w A> {
-        self.source
-            .and_then(|id| entity.get_by_id(id))
-            //SAFETY: by construction we can assume that the layout of the internal id is the same as A
-            .map(|ptr| unsafe { ptr.deref::<A>() })
     }
 }
 
@@ -126,74 +131,99 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
         todo!()
     }
 
-    pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
-        &'a mut self,
-        handles: RenderHandles<'a, false, A>,
-        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
-    ) -> RenderHandle<'a, B> {
-        todo!()
-    }
+    // pub fn map<'a, A: FeatureIO<false>, B: FeatureIO<false>>(
+    //     &'a mut self,
+    //     handles: RenderHandles<'a, false, A>,
+    //     f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
+    // ) -> RenderHandle<'a, B> {
+    //     todo!()
+    // }
+    //
+    // pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
+    //     &'a mut self,
+    //     handles: RenderHandles<'a, true, A>,
+    //     f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
+    // ) -> RenderHandle<'a, B> {
+    //     self.app
+    //         .world
+    //         .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
+    //     //register system to map from input to output;
+    //     todo!()
+    // }
+}
 
-    pub fn map_many<'a, A: FeatureIO<true>, B: FeatureIO<false>>(
-        &'a mut self,
-        handles: RenderHandles<'a, true, A>,
-        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
-    ) -> RenderHandle<'a, B> {
-        self.app
-            .world
-            .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
-        //register system to map from input to output;
-        todo!()
+pub type RenderHandles<'a, const MULT: bool, A> = <A as FeatureIO<MULT>>::Handles<'a>;
+type ComponentIds<const MULT: bool, A> = <A as FeatureIO<MULT>>::ComponentIds;
+
+pub struct RenderDependencyError {
+    holes: Vec<(u8, TypeId)>,
+}
+
+impl Display for RenderDependencyError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,);
     }
 }
 
-type RenderHandles<'a, const MULT: bool, A> = <A as FeatureIO<MULT>>::Handles<'a>;
-
 pub trait FeatureIO<const MULT: bool>: Sized + Send + Sync + 'static {
-    type RawHandles;
-    type Handles<'a>;
-    type Item<'w>;
+    type ComponentIds: Send + Sync + 'static;
+    type Handles<'a>: Send + Sync + 'a;
+    type Item<'w>: Send + Sync + 'w;
 
     //named as such to prevent collisions
     fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
-        handles: Self::RawHandles,
+        ids: Self::ComponentIds,
     ) -> Option<<Self as FeatureIO<MULT>>::Item<'_>>;
 
     fn default_render_handles<'a>() -> Self::Handles<'a>;
+
+    fn ids_from_handles(
+        handles: Self::Handles<'_>,
+    ) -> Result<Self::ComponentIds, RenderDependencyError>;
 }
 
 impl<A: Send + Sync + 'static> FeatureIO<false> for A {
-    type RawHandles = RawRenderHandle<A>;
+    type ComponentIds = RenderComponentId<A>;
     type Handles<'a> = RenderHandle<'a, A>;
     type Item<'w> = &'w A;
 
     fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
-        handles: Self::RawHandles,
+        ids: Self::ComponentIds,
     ) -> Option<<Self as FeatureIO<false>>::Item<'_>> {
-        handles.get(entity)
+        ids.get_from_ref(entity)
     }
 
     fn default_render_handles<'a>() -> Self::Handles<'a> {
-        RenderHandle::<A>::hole(None)
+        RenderHandle::<A>::hole()
+    }
+
+    fn ids_from_handles(
+        handles: Self::Handles<'_>,
+    ) -> Result<Self::ComponentIds, RenderDependencyError> {
+        match handles.internal {
+            RenderHandleInternal::From { component_id, .. } => Ok(component_id),
+            RenderHandleInternal::Hole => Err(RenderDependencyError {
+                holes: vec![(0, TypeId::of::<A>())],
+            }),
+        }
     }
 }
 
 macro_rules! impl_feature_io {
     ($(($T: ident, $r: ident, $h: ident)),*) => {
         impl <$($T: FeatureIO<false>),*> FeatureIO<true> for ($($T,)*) {
-            type RawHandles = ($(RawRenderHandle<$T>,)*);
+            type ComponentIds = ($(RenderComponentId<$T>,)*);
             type Handles<'a> = ($(RenderHandle<'a, $T>,)*);
             type Item<'w> = ($(&'w $T,)*);
 
             #[allow(unused_variables, unreachable_patterns)]
             fn feature_io_get_from_entity(
                 entity: EntityRef<'_>,
-                handles: Self::RawHandles,
+                ($($h,)*): Self::ComponentIds,
             ) -> Option<<Self as FeatureIO<true>>::Item<'_>> {
-                let ($($h,)*) = handles;
-                match ($($h.get(entity),)*) {
+                match ($($h.get_from_ref(entity),)*) {
                     ($(Some($r),)*) => Some(($($r,)*)),
                     _ => None,
                 }
@@ -201,7 +231,27 @@ macro_rules! impl_feature_io {
 
             #[allow(clippy::unused_unit)]
             fn default_render_handles<'a>() -> Self::Handles<'a> {
-                ($(RenderHandle::<$T>::hole(None),)*)
+                ($(RenderHandle::<$T>::hole(),)*)
+            }
+
+            #[allow(unused_variables, unreachable_patterns, unused_mut, unused_assignments)]
+            fn ids_from_handles(
+                handles: Self::Handles<'_>,
+            ) -> Result<Self::ComponentIds, RenderDependencyError> {
+                let ($($h,)*) = handles;
+                match ($($h.internal,)*) {
+                    ($(RenderHandleInternal::From{ component_id: $r, .. },)*) => Ok((($($r,)*))),
+                    _ => {
+                        let mut holes = Vec::new();
+                        let mut i: u8 = 0;
+                        $(if let RenderHandleInternal::Hole = $h.internal {
+                            holes.push((i, TypeId::of::<$T>()));
+                        }
+                        i += 1;
+                        )*
+                        Err(RenderDependencyError { holes })
+                    },
+                }
             }
         }
     };
@@ -267,6 +317,7 @@ impl<T: SubFeature> IntoSubFeature<()> for T {
 
 struct SubFeatureNode<G: RenderSubGraph, F: Feature<G>, S: SubFeature> {
     sub_feature: Mutex<S>, //todo: better storage?
+
     data: PhantomData<(G, F)>,
 }
 
@@ -285,6 +336,128 @@ pub struct FeatureDependencyBuilder<'w, G: RenderSubGraph, F: Feature<G>> {
     app: &'w mut App,
     data: PhantomData<fn(G, F)>,
 }
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RenderComponentId<T: FeatureIO<false>> {
+    id: ComponentId,
+    data: PhantomData<fn() -> T>,
+}
+
+impl<A: FeatureIO<false>> Copy for RenderComponentId<A> {}
+impl<A: FeatureIO<false>> Clone for RenderComponentId<A> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: FeatureIO<false>> RenderComponentId<T> {
+    pub fn new(world: &mut World, component: T) -> Self {
+        let id =
+            world.init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<T>>());
+        Self {
+            id,
+            data: PhantomData,
+        }
+    }
+
+    pub fn get_from_ref<'a>(&self, entity_ref: EntityRef<'a>) -> Option<&'a T> {
+        entity_ref
+            .get_by_id(self.id)
+            //SAFETY: by construction the internal id should match the layout of the component type
+            .map(|ptr| unsafe { ptr.deref::<T>() })
+    }
+
+    pub fn insert_to_entity(&self, entity_mut: &mut EntityWorldMut<'_>, component: T) {
+        //SAFETY: by construction the internal id should match the layout of the component type
+        OwningPtr::make(component, |ptr| unsafe {
+            entity_mut.insert_by_id(self.id, ptr)
+        });
+    }
+}
+
+struct InsertRenderComponent<T: FeatureIO<false>> {
+    pub component_id: RenderComponentId<T>,
+    pub component: T,
+}
+
+impl<T: FeatureIO<false>> EntityCommand for InsertRenderComponent<T> {
+    fn apply(self, id: Entity, world: &mut World) {
+        let mut entity_mut = world.entity_mut(id);
+        self.component_id
+            .insert_to_entity(&mut entity_mut, self.component);
+    }
+}
+
+// struct SubFeatureSystem<S: SubFeature> {
+//     input: RawRenderHandles<true, SubFeatureInput<S>>,
+//     output: RawRenderHandle<SubFeatureOutput<S>>,
+//     sub_feature: S,
+//     query_state: QueryState<FilteredEntityRef<'static>, With<ExtractedView>>,
+//     system_state: SystemState<S::Param>,
+// }
+//
+// impl<S: SubFeature> System for SubFeatureSystem<S> {
+//     type In = ();
+//
+//     type Out = ();
+//
+//     fn name(&self) -> Cow<'static, str> {
+//         let name_str = self.system_state.meta().name().to_owned(); //bad clone bc of the stuff
+//         name_str.into()
+//     }
+//
+//     fn component_access(&self) -> &Access<ComponentId> {
+//         todo!()
+//     }
+//
+//     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+//         todo!()
+//     }
+//
+//     fn is_send(&self) -> bool {
+//         todo!()
+//     }
+//
+//     fn is_exclusive(&self) -> bool {
+//         todo!()
+//     }
+//
+//     fn has_deferred(&self) -> bool {
+//         todo!()
+//     }
+//
+//     unsafe fn run_unsafe(
+//         &mut self,
+//         input: Self::In,
+//         world: unsafe_world_cell::UnsafeWorldCell,
+//     ) -> Self::Out {
+//         todo!()
+//     }
+//
+//     fn apply_deferred(&mut self, world: &mut World) {
+//         todo!()
+//     }
+//
+//     fn initialize(&mut self, _world: &mut World) {
+//         todo!()
+//     }
+//
+//     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+//         todo!()
+//     }
+//
+//     fn check_change_tick(&mut self, change_tick: Tick) {
+//         todo!()
+//     }
+//
+//     fn get_last_run(&self) -> Tick {
+//         todo!()
+//     }
+//
+//     fn set_last_run(&mut self, last_run: Tick) {
+//         todo!()
+//     }
+// }
 
 impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
     pub fn with_dep<'a: 'w, O: Feature<G>>(
