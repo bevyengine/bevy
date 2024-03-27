@@ -29,6 +29,9 @@ use wgpu::{
 
 use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 
+// #[cfg(feature = "rand")]
+pub mod sampling;
+
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
