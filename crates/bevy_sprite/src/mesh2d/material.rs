@@ -10,6 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayoutRef},
     prelude::Image,
@@ -30,7 +31,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
