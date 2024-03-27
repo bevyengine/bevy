@@ -73,6 +73,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         }
     }
 
+    #[allow(unsafe_code)]
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
         let mut recorder = StringRecorder::new();
         event.record(&mut recorder);
