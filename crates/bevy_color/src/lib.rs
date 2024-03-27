@@ -239,7 +239,7 @@ macro_rules! impl_componentwise_point {
             }
         }
 
-        impl bevy_math::cubic_splines::Point for $ty {}
+        impl bevy_math::VectorSpace for $ty {}
     };
 }
 
