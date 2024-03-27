@@ -57,11 +57,11 @@ impl Node for AutoExposureNode {
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_buffer = view_uniforms.buffer().unwrap();
 
-        let (view_uniform_offset, view_target, auto_exposure, view) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                Err(_) => return Ok(()),
-            };
+        let Ok((view_uniform_offset, view_target, auto_exposure, view)) =
+            self.query.get_manual(world, view_entity)
+        else {
+            return Ok(());
+        };
 
         let histogram_pipeline = pipeline_cache
             .get_compute_pipeline(auto_exposure.histogram_pipeline)

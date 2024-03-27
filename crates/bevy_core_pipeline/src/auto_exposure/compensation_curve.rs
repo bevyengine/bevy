@@ -59,10 +59,10 @@ impl From<CubicCurve<Vec2>> for AutoExposureCompensationCurve {
             let i = (((begin - min_log_lum) / domain) * 255.0).ceil() as usize;
             let j = (((end - min_log_lum) / domain) * 255.0).floor() as usize;
 
-            for i in i..=j {
-                data[i] = find_y_given_x(&segment, min_log_lum + i as f32 * step);
-                min_compensation = min_compensation.min(data[i]);
-                max_compensation = max_compensation.max(data[i]);
+            for (k, v) in data[i..=j].iter_mut().enumerate() {
+                *v = find_y_given_x(&segment, min_log_lum + (i + k) as f32 * step);
+                min_compensation = v.min(min_compensation);
+                max_compensation = v.max(max_compensation);
             }
         }
 

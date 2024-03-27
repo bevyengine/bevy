@@ -6,16 +6,16 @@
 //! | Key Binding        | Action                                 |
 //! |:-------------------|:---------------------------------------|
 //! | `Left` / `Right`   | Rotate Camera                          |
-//! | `E`                | Cycle Environment Maps                 |
 //! | `C`                | Toggle Compensation Curve              |
 //! | `M`                | Toggle Metering Mask                   |
+//! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
     core_pipeline::{
         auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
         Skybox,
     },
-    math::{cubic_splines::LinearSpline, vec2},
+    math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
     prelude::*,
 };
 
@@ -35,32 +35,23 @@ fn setup(
     mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
     asset_server: Res<AssetServer>,
 ) {
-    // let diffuse = asset_server.load("environment_maps/ennis_diffuse.ktx2");
-    // let specular = asset_server.load("environment_maps/ennis_specular.ktx2");
-
-    let diffuse = asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2");
-    let specular = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
-
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 0.0, 6.0),
-            ..Default::default()
+            transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
         },
         AutoExposureSettings::default(),
         Skybox {
-            image: specular.clone(),
-            brightness: 5000.0,
-        },
-        EnvironmentMapLight {
-            diffuse_map: diffuse,
-            specular_map: specular,
-            intensity: 5000.0,
+            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
         },
     ));
+
+    let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
     commands.insert_resource(ExampleResources {
         basic_compensation_curve: compensation_curves.add(
@@ -72,28 +63,63 @@ fn setup(
             ])
             .to_curve(),
         ),
-        basic_metering_mask: asset_server.load("textures/basic_metering_mask.png"),
+        basic_metering_mask: metering_mask.clone(),
     });
 
-    let ball = meshes.add(Sphere::default());
+    let plane = meshes.add(Mesh::from(
+        Plane3d { normal: -Dir3::Z }.mesh().size(4.0, 1.0),
+    ));
 
-    commands.spawn(PbrBundle {
-        mesh: ball.clone(),
-        material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.1, 0.1, 1.0),
+    // Build a dimly lit box around the camera, with a slot to see the bright skybox.
+    for level in -1..=1 {
+        for side in [-Vec3::X, Vec3::X, -Vec3::Z, Vec3::Z] {
+            if level == 0 && Vec3::Z == side {
+                continue;
+            }
+
+            let height = Vec3::Y * level as f32;
+
+            commands.spawn(PbrBundle {
+                mesh: plane.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::srgb(
+                        0.5 + side.x * 0.5,
+                        0.75 - level as f32 * 0.25,
+                        0.5 + side.z * 0.5,
+                    ),
+                    ..default()
+                }),
+                transform: Transform::from_translation(side * 2.0 + height)
+                    .looking_at(height, Vec3::Y),
+                ..default()
+            });
+        }
+    }
+
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.0,
+    });
+
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 5000.0,
             ..default()
-        }),
-        transform: Transform::from_xyz(1.0, 0.0, 0.0),
+        },
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
 
-    commands.spawn(PbrBundle {
-        mesh: ball.clone(),
-        material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.1, 0.1, 1.0),
+    commands.spawn(ImageBundle {
+        image: UiImage {
+            texture: metering_mask,
             ..default()
-        }),
-        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
+        },
+        style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
         ..default()
     });
 
@@ -105,7 +131,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "Left / Right — Rotate Camera\nL — Cycle Environment Maps\nC — Toggle Compensation Curve\nM — Toggle Metering Mask",
+            "Left / Right — Rotate Camera\nC — Toggle Compensation Curve\nM — Toggle Metering Mask\nV — Visualize Metering Mask",
             text_style.clone(),
         )
         .with_style(Style {
@@ -139,6 +165,7 @@ struct ExampleResources {
 fn example_control_system(
     mut camera: Query<(&mut Transform, &mut AutoExposureSettings), With<Camera3d>>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,
@@ -172,6 +199,12 @@ fn example_control_system(
                 resources.basic_metering_mask.clone()
             };
     }
+
+    mask_image.single_mut().display = if input.pressed(KeyCode::KeyV) {
+        Display::Flex
+    } else {
+        Display::None
+    };
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(

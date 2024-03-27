@@ -109,7 +109,7 @@ impl FromWorld for AutoExposureResources {
 
 fn queue_view_auto_exposure_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: ResMut<PipelineCache>,
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     pipeline: Res<AutoExposurePipeline>,
     buffers: Res<AutoExposureStateBuffers>,
@@ -118,9 +118,9 @@ fn queue_view_auto_exposure_pipelines(
 ) {
     for (entity, settings) in view_targets.iter() {
         let histogram_pipeline =
-            compute_pipelines.specialize(&mut pipeline_cache, &pipeline, Pass::Histogram);
+            compute_pipelines.specialize(&pipeline_cache, &pipeline, Pass::Histogram);
         let average_pipeline =
-            compute_pipelines.specialize(&mut pipeline_cache, &pipeline, Pass::Average);
+            compute_pipelines.specialize(&pipeline_cache, &pipeline, Pass::Average);
 
         let Some(buffer) = buffers.buffers.get(&entity) else {
             continue;
