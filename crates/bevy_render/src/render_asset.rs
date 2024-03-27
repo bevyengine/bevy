@@ -7,13 +7,7 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize,
-    TypeInfo, TypePath, TypeRegistration, Typed, ValueInfo,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render_macros::ExtractResource;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
@@ -84,7 +78,8 @@ bitflags::bitflags! {
     /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
     /// details.
     #[repr(transparent)]
-    #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
+    #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[reflect_value(Serialize, Deserialize, Hash, PartialEq, Debug)]
     pub struct RenderAssetUsages: u8 {
         const MAIN_WORLD = 1 << 0;
         const RENDER_WORLD = 1 << 1;
@@ -102,99 +97,6 @@ impl Default for RenderAssetUsages {
     /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
     fn default() -> Self {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
-}
-
-impl Reflect for RenderAssetUsages {
-    fn get_represented_type_info(&self) -> Option<&'static bevy_reflect::TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
-        self
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
-            *self = value;
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-    fn reflect_kind(&self) -> bevy_reflect::ReflectKind {
-        ReflectKind::Value
-    }
-    fn reflect_ref(&self) -> bevy_reflect::ReflectRef {
-        ReflectRef::Value(self)
-    }
-    fn reflect_mut(&mut self) -> bevy_reflect::ReflectMut {
-        ReflectMut::Value(self)
-    }
-    fn reflect_owned(self: Box<Self>) -> bevy_reflect::ReflectOwned {
-        ReflectOwned::Value(self)
-    }
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(*self)
-    }
-    fn reflect_hash(&self) -> Option<u64> {
-        use std::hash::Hash;
-        use std::hash::Hasher;
-        let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
-        Hash::hash(self, &mut hasher);
-        Some(hasher.finish())
-    }
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
-    }
-}
-
-impl GetTypeRegistration for RenderAssetUsages {
-    fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration
-    }
-}
-
-impl FromReflect for RenderAssetUsages {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        let raw_value = *reflect.as_any().downcast_ref::<u8>()?;
-        Self::from_bits(raw_value)
-    }
-}
-
-impl Typed for RenderAssetUsages {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 

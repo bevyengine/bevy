@@ -1,3 +1,9 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This crate provides panic handlers for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specifics (i.e. WASM or Android).
 //!
@@ -5,7 +11,6 @@
 //!
 //! For more fine-tuned control over panic behavior, disable the [`PanicHandlerPlugin`] or
 //! `DefaultPlugins` during app initialization.
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_app::{App, Plugin};
 

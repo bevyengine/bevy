@@ -28,7 +28,28 @@ fn setup(mut commands: Commands) {
         })
         .id();
 
+    // labels for the different border edges
+    let border_labels = [
+        "None",
+        "All",
+        "Left",
+        "Right",
+        "Top",
+        "Bottom",
+        "Left Right",
+        "Top Bottom",
+        "Top Left",
+        "Bottom Left",
+        "Top Right",
+        "Bottom Right",
+        "Top Bottom Right",
+        "Top Bottom Left",
+        "Top Left Right",
+        "Bottom Left Right",
+    ];
+
     // all the different combinations of border edges
+    // these correspond to the labels above
     let borders = [
         UiRect::default(),
         UiRect::all(Val::Px(10.)),
@@ -84,7 +105,7 @@ fn setup(mut commands: Commands) {
         },
     ];
 
-    for i in 0..64 {
+    for (label, border) in border_labels.into_iter().zip(borders) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -96,13 +117,13 @@ fn setup(mut commands: Commands) {
                 ..Default::default()
             })
             .id();
-        let bordered_node = commands
+        let border_node = commands
             .spawn((
                 NodeBundle {
                     style: Style {
                         width: Val::Px(50.),
                         height: Val::Px(50.),
-                        border: borders[i % borders.len()],
+                        border,
                         margin: UiRect::all(Val::Px(20.)),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -120,6 +141,26 @@ fn setup(mut commands: Commands) {
             ))
             .add_child(inner_spot)
             .id();
-        commands.entity(root).add_child(bordered_node);
+        let label_node = commands
+            .spawn(TextBundle::from_section(
+                label,
+                TextStyle {
+                    font_size: 9.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        let container = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .push_children(&[border_node, label_node])
+            .id();
+        commands.entity(root).add_child(container);
     }
 }
