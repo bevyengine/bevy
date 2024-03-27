@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use bevy_render::{
     render_resource::{
         BindingResource, Buffer, BufferAddress, BufferDescriptor, BufferUsages,

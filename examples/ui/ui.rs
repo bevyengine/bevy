@@ -62,6 +62,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 width: Val::Percent(100.),
                                 flex_direction: FlexDirection::Column,
+                                padding: UiRect::all(Val::Px(5.)),
+                                row_gap: Val::Px(5.),
                                 ..default()
                             },
                             background_color: Color::srgb(0.15, 0.15, 0.15).into(),
@@ -77,11 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         font_size: 30.0,
                                         ..default()
                                     },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
-                                    ..default()
-                                }),
+                                ),
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
