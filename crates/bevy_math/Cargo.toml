@@ -23,6 +23,7 @@ approx = "0.5"
 # Supply rngs for examples and tests
 rand = "0.8"
 rand_chacha = "0.3"
+bevy_math = { path = ".", version = "0.14.0-dev", features = ["approx"] }
 
 [features]
 default = ["rand"]
