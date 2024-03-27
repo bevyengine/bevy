@@ -41,3 +41,10 @@ pub struct Storages {
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
 }
+
+impl Storages {
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.tables.shrink_to_fit();
+        self.sparse_sets.shrink_to_fit();
+    }
+}
