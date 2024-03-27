@@ -1,3 +1,7 @@
+#![allow(unsafe_code)]
+#![allow(clippy::undocumented_unsafe_blocks)]
+// TODO: Remove these once unsafe code is removed from this module
+
 use super::asset::{
     Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh,
 };
@@ -294,7 +298,6 @@ fn simplfy_meshlet_groups(
 
     // Convert error to object-space
     // TODO: Use high level bindings https://github.com/gwihlidal/meshopt-rs/commit/5d243a89067b459b3b33a197ac94037d96963191
-    #[allow(clippy::undocumented_unsafe_blocks)]
     error *= unsafe {
         meshopt_simplifyScale(
             vertices.pos_ptr(),
