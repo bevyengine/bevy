@@ -85,7 +85,7 @@ impl MeshletMesh {
             for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
                 let (simplified_group_indices, mut group_error) =
-                    simplfy_meshlet_groups(group_meshlets, &meshlets, &vertices);
+                    simplify_meshlet_groups(group_meshlets, &meshlets, &vertices);
 
                 // Build a new bounding sphere for the simplified group as a whole for LOD calculations
                 let group_bounding_sphere = convert_meshlet_bounds(compute_cluster_bounds(
@@ -271,7 +271,7 @@ fn group_meshlets(
     groups
 }
 
-fn simplfy_meshlet_groups(
+fn simplify_meshlet_groups(
     group_meshlets: &Vec<usize>,
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
