@@ -32,112 +32,102 @@ impl VectorSpace for Vec3A {}
 impl VectorSpace for Vec2 {}
 impl VectorSpace for f32 {}
 
-/// A normed type, where extracting a nonnegative size for each element makes sense.
-pub trait Normed {
+/// A type that supports the operations of a normed vector space; i.e. a norm operation in addition
+/// to those of [`VectorSpace`]. The implementor must guarantee that the axioms of a normed vector
+/// space are satisfied.
+pub trait NormedVectorSpace: VectorSpace {
     /// The size of this element. The return value should always be nonnegative.
-    fn norm(&self) -> f32;
+    fn norm(self) -> f32;
 
     /// The squared norm of this element. Computing this is often faster than computing
     /// [`Normed::norm`].
     #[inline]
-    fn norm_squared(&self) -> f32 {
+    fn norm_squared(self) -> f32 {
         self.norm() * self.norm()
     }
-}
 
-impl Normed for Quat {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self.length_squared()
-    }
-}
-
-impl Normed for Vec4 {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self.length_squared()
-    }
-}
-
-impl Normed for Vec3 {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self.length_squared()
-    }
-}
-
-impl Normed for Vec3A {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self.length_squared()
-    }
-}
-
-impl Normed for Vec2 {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self.length_squared()
-    }
-}
-
-impl Normed for f32 {
-    #[inline]
-    fn norm(&self) -> f32 {
-        self.abs()
-    }
-
-    #[inline]
-    fn norm_squared(&self) -> f32 {
-        self * self
-    }
-}
-
-/// A type that supports the operations of a normed vector space; i.e. both those of [`Normed`]
-/// and those of [`VectorSpace`]. The implementor must guarantee that the axioms of a normed vector
-/// space are satisfied.
-pub trait NormedVectorSpace: VectorSpace + Normed {
     /// The distance between this element and another, as determined by the norm.
     #[inline]
-    fn distance(&self, rhs: Self) -> f32 {
-        (rhs - *self).norm()
+    fn distance(self, rhs: Self) -> f32 {
+        (rhs - self).norm()
     }
 
     /// The squared distance between this element and another, as determined by the norm. Note that
     /// this is often faster to compute in practice than [`NormedVectorSpace::distance`].
     #[inline]
-    fn distance_squared(&self, rhs: Self) -> f32 {
-        (rhs - *self).norm_squared()
+    fn distance_squared(self, rhs: Self) -> f32 {
+        (rhs - self).norm_squared()
     }
 }
 
-impl NormedVectorSpace for Quat {}
-impl NormedVectorSpace for Vec4 {}
-impl NormedVectorSpace for Vec3 {}
-impl NormedVectorSpace for Vec3A {}
-impl NormedVectorSpace for Vec2 {}
-impl NormedVectorSpace for f32 {}
+impl NormedVectorSpace for Quat {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.length()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self.length_squared()
+    }
+}
+
+impl NormedVectorSpace for Vec4 {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.length()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self.length_squared()
+    }
+}
+
+impl NormedVectorSpace for Vec3 {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.length()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self.length_squared()
+    }
+}
+
+impl NormedVectorSpace for Vec3A {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.length()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self.length_squared()
+    }
+}
+
+impl NormedVectorSpace for Vec2 {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.length()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self.length_squared()
+    }
+}
+
+impl NormedVectorSpace for f32 {
+    #[inline]
+    fn norm(self) -> f32 {
+        self.abs()
+    }
+
+    #[inline]
+    fn norm_squared(self) -> f32 {
+        self * self
+    }
+}
