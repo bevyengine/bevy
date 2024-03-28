@@ -1,9 +1,3 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
-
 //! This module provides panic handlers for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specifics (i.e. WASM or Android).
 //!
