@@ -77,7 +77,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
     }
 
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
-        fn sanitize(string: &str) -> CStirng {
+        fn sanitize(string: &str) -> CString {
             let mut bytes: Vec<u8> = string
                 .as_bytes()
                 .into_iter()
