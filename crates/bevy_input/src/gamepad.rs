@@ -303,7 +303,7 @@ pub struct MinimalGamepad {
     /// The [`GamepadButtons`] component
     pub buttons: GamepadButtons,
     /// The [`GamepadAxis`] component
-    pub axis: GamepadAxisComponent,
+    pub axis: GamepadAxes,
 }
 
 impl MinimalGamepad {
@@ -313,7 +313,7 @@ impl MinimalGamepad {
             gamepad,
             settings: GamepadSettings::default(),
             buttons: GamepadButtons::default(),
-            axis: GamepadAxisComponent::default(),
+            axis: GamepadAxes::default(),
         }
     }
 }
@@ -648,21 +648,21 @@ pub enum GamepadAxisType {
     Other(u8),
 }
 
-/// The [`GamepadAxisComponent`] [`component`](Component) is a collection of [`GamepadAxisType`] and their state during the current frame.
+/// The [`GamepadAxes`] [`component`](Component) is a collection of [`GamepadAxisType`] and their state during the current frame.
 ///
 /// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
 ///
 /// # Usage
 ///
-/// The only way to obtain a [`GamepadAxisComponent`] is by [`query`](Query).
+/// The only way to obtain a [`GamepadAxes`] is by [`query`](Query).
 ///
 /// # Examples
 ///
 /// ```
-/// # use bevy_input::gamepad::{Gamepad, GamepadAxisComponent, GamepadAxisType};
+/// # use bevy_input::gamepad::{Gamepad, GamepadAxes, GamepadAxisType};
 /// # use bevy_ecs::system::Query;
 /// #
-/// fn gamepad_button_input_system(gamepads: Query<(&Gamepad, &GamepadAxisComponent)>) {
+/// fn gamepad_button_input_system(gamepads: Query<(&Gamepad, &GamepadAxes)>) {
 ///     for (gamepad, axis) in gamepads.iter() {
 ///         if let Some(left_stick_x) = axis.get(GamepadAxisType::LeftStickX)  {
 ///             println!("{} left stick X: {}", gamepad.id(), left_stick_x)
@@ -671,11 +671,11 @@ pub enum GamepadAxisType {
 /// }
 /// ```
 #[derive(Component, Default)]
-pub struct GamepadAxisComponent {
+pub struct GamepadAxes {
     axis: Axis<GamepadAxisType>,
 }
 
-impl GamepadAxisComponent {
+impl GamepadAxes {
     /// Returns the position data of the provided [`GamepadAxisType`].
     ///
     /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
@@ -1412,10 +1412,10 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxisComponent`] and sends a [`GamepadAxisInput`] [`event`](Event).
+/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisInput`] [`event`](Event).
 pub fn gamepad_axis_event_system(
     // TODO: Change settings to Option<T>?
-    mut gamepads_axis: Query<(&mut GamepadAxisComponent, &GamepadSettings)>,
+    mut gamepads_axis: Query<(&mut GamepadAxes, &GamepadSettings)>,
     gamepads_map: Res<EntityGamepadMap>,
     mut raw_events: EventReader<RawGamepadAxisChangedEvent>,
     mut filtered_events: EventWriter<GamepadAxisInput>,

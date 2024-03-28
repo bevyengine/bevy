@@ -1,7 +1,7 @@
 //! Shows handling of gamepad input, connections, and disconnections.
 
 use bevy::prelude::*;
-use bevy_internal::input::gamepad::{Gamepad, GamepadAxisComponent, GamepadButtons};
+use bevy_internal::input::gamepad::{Gamepad, GamepadAxes, GamepadButtons};
 
 fn main() {
     App::new()
@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-fn gamepad_system(gamepads: Query<(&Gamepad, &GamepadButtons, &GamepadAxisComponent)>) {
+fn gamepad_system(gamepads: Query<(&Gamepad, &GamepadButtons, &GamepadAxes)>) {
     for (gamepad, buttons, axis) in gamepads.iter() {
         if buttons.just_pressed(GamepadButtonType::South) {
             info!("{:?} just pressed South", gamepad.id());
