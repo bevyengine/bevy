@@ -148,8 +148,6 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     rng: &mut R,
 ) -> P {
     let [a, b, c] = vertices;
-    let ab = b - a;
-    let ac = c - a;
 
     // Generate random points on a parallelipiped and reflect so that
     // we can use the points that lie outside the triangle
@@ -159,9 +157,9 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     if u + v > 1. {
         let u1 = 1. - v;
         let v1 = 1. - u;
-        a + (ab * u1 + ac * v1)
+        a.lerp(b, u1) + a.lerp(c, v1)
     } else {
-        a + (ab * u + ac * v)
+        a.lerp(b, u) + a.lerp(c, v)
     }
 }
 
