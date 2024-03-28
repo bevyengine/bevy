@@ -281,7 +281,7 @@ impl WinitWindows {
     /// This should mostly just be called when the window is closing.
     pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
-        // Don't remove from `winit_to_window_id` so we know the window used to exist.
+        self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)
     }
 }
