@@ -386,7 +386,7 @@ impl std::ops::Mul<Vec2> for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Rotation2d {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
@@ -397,7 +397,7 @@ impl approx::AbsDiffEq for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::RelativeEq for Rotation2d {
     fn default_max_relative() -> f32 {
         f32::EPSILON
@@ -408,7 +408,7 @@ impl approx::RelativeEq for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::UlpsEq for Rotation2d {
     fn default_max_ulps() -> u32 {
         4

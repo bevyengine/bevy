@@ -20,7 +20,7 @@
 //! ```
 
 mod dim2;
-pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
+pub use dim2::*;
 
 mod dim3;
 pub use dim3::*;
