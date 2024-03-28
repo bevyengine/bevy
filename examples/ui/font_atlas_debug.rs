@@ -2,7 +2,8 @@
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -32,7 +33,7 @@ impl Default for State {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-struct SeededRng(StdRng);
+struct SeededRng(ChaCha8Rng);
 
 fn atlas_render_system(
     mut commands: Commands,
@@ -104,5 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 },
             ));
         });
-    commands.insert_resource(SeededRng(StdRng::seed_from_u64(19878367467713)));
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    commands.insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467713)));
 }

@@ -1,10 +1,9 @@
 use crate::util;
-use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Xyza};
+use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
-use bevy_utils::FloatOrd;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -96,6 +95,7 @@ impl_float_animatable!(DVec4, f64);
 impl_color_animatable!(LinearRgba);
 impl_color_animatable!(Laba);
 impl_color_animatable!(Oklaba);
+impl_color_animatable!(Srgba);
 impl_color_animatable!(Xyza);
 
 // Vec3 is special cased to use Vec3A internally for blending

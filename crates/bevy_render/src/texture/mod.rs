@@ -90,7 +90,7 @@ impl Plugin for ImagePlugin {
             .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
-            .insert(Handle::default(), Image::default());
+            .insert(&Handle::default(), Image::default());
         #[cfg(feature = "basis-universal")]
         if let Some(processor) = app
             .world

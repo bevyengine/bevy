@@ -23,6 +23,8 @@ approx = "0.5"
 # Supply rngs for examples and tests
 rand = "0.8"
 rand_chacha = "0.3"
+# Enable the approx feature when testing.
+bevy_math = { path = ".", version = "0.14.0-dev", features = ["approx"] }
 
 [features]
 default = ["rand"]
@@ -45,4 +47,5 @@ rand = ["dep:rand"]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

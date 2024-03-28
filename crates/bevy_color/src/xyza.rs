@@ -1,16 +1,20 @@
 use crate::{
-    impl_componentwise_point, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Xyza {
     /// The x-axis. [0.0, 1.0]
     pub x: f32,
@@ -24,7 +28,7 @@ pub struct Xyza {
 
 impl StandardColor for Xyza {}
 
-impl_componentwise_point!(Xyza, [x, y, z, alpha]);
+impl_componentwise_vector_space!(Xyza, [x, y, z, alpha]);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.

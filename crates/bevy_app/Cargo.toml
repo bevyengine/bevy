@@ -37,4 +37,5 @@ console_error_panic_hook = "0.1.6"
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

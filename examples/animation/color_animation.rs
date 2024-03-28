@@ -1,10 +1,10 @@
 //! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
-use bevy::{math::cubic_splines::Point, prelude::*};
+use bevy::{math::VectorSpace, prelude::*};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
-trait CurveColor: Point + Into<Color> + Send + Sync + 'static {}
-impl<T: Point + Into<Color> + Send + Sync + 'static> CurveColor for T {}
+trait CurveColor: VectorSpace + Into<Color> + Send + Sync + 'static {}
+impl<T: VectorSpace + Into<Color> + Send + Sync + 'static> CurveColor for T {}
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
 trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
@@ -37,7 +37,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
-    // The color spaces `Oklaba`, `Laba`, `LinearRgba` and `Xyza` all are either perceptually or physically linear.
+    // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either perceptually or physically linear.
     // This property allows us to define curves, e.g. bezier curves through these spaces.
 
     // Define the control points for the curve.
