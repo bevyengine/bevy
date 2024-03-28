@@ -15,7 +15,16 @@ impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Ellipse {
-        pub half_size: Vec2,
+        half_size: Vec2,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
+    struct Annulus {
+        inner_circle: Circle,
+        outer_circle: Circle,
     }
 );
 

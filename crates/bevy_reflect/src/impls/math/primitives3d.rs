@@ -47,6 +47,14 @@ impl_reflect!(
 impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
+    struct Triangle3d {
+        vertices: [Vec3; 3],
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
     struct Cuboid {
         half_size: Vec3,
     }
