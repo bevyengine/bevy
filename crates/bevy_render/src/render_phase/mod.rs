@@ -123,7 +123,8 @@ pub(crate) struct UnbatchableBinnedEntities {
     /// The entities.
     pub(crate) entities: Vec<Entity>,
 
-    pub(crate) dynamic_offsets: UnbatchableBinnedEntityDynamicOffsets,
+    /// The GPU array buffer indices of each unbatchable binned entity.
+    pub(crate) buffer_indices: UnbatchableBinnedEntityBufferIndex,
 }
 
 /// Stores instance indices and dynamic offsets for unbatchable entities in a
@@ -135,7 +136,7 @@ pub(crate) struct UnbatchableBinnedEntities {
 /// platforms that aren't WebGL 2.
 #[derive(Default)]
 
-pub(crate) enum UnbatchableBinnedEntityDynamicOffsets {
+pub(crate) enum UnbatchableBinnedEntityBufferIndex {
     /// There are no unbatchable entities in this bin (yet).
     #[default]
     NoEntities,
@@ -191,7 +192,7 @@ where
                     self.unbatchable_keys.push(key);
                     entry.insert(UnbatchableBinnedEntities {
                         entities: vec![entity],
-                        dynamic_offsets: default(),
+                        buffer_indices: default(),
                     });
                 }
             }
@@ -235,18 +236,18 @@ where
         for key in &self.unbatchable_keys {
             let unbatchable_entities = &self.unbatchable_values[key];
             for (entity_index, &entity) in unbatchable_entities.entities.iter().enumerate() {
-                let unbatchable_dynamic_offset = match &unbatchable_entities.dynamic_offsets {
-                    UnbatchableBinnedEntityDynamicOffsets::NoEntities => {
+                let unbatchable_dynamic_offset = match &unbatchable_entities.buffer_indices {
+                    UnbatchableBinnedEntityBufferIndex::NoEntities => {
                         // Shouldn't happen…
                         continue;
                     }
-                    UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets { instance_range } => {
+                    UnbatchableBinnedEntityBufferIndex::NoDynamicOffsets { instance_range } => {
                         UnbatchableBinnedEntityDynamicOffset {
                             instance_index: instance_range.start + entity_index as u32,
                             dynamic_offset: None,
                         }
                     }
-                    UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(ref dynamic_offsets) => {
+                    UnbatchableBinnedEntityBufferIndex::DynamicOffsets(ref dynamic_offsets) => {
                         dynamic_offsets[entity_index]
                     }
                 };
@@ -290,26 +291,26 @@ where
     }
 }
 
-impl UnbatchableBinnedEntityDynamicOffsets {
+impl UnbatchableBinnedEntityBufferIndex {
     /// Adds a new entity to the list of unbatchable binned entities.
     pub fn add<T>(&mut self, gpu_array_buffer_index: GpuArrayBufferIndex<T>)
     where
         T: ShaderSize + WriteInto + Clone,
     {
         match (&mut *self, gpu_array_buffer_index.dynamic_offset) {
-            (UnbatchableBinnedEntityDynamicOffsets::NoEntities, None) => {
+            (UnbatchableBinnedEntityBufferIndex::NoEntities, None) => {
                 // This is the first entity we've seen, and we're not on WebGL
                 // 2. Initialize the fast path.
-                *self = UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets {
+                *self = UnbatchableBinnedEntityBufferIndex::NoDynamicOffsets {
                     instance_range: gpu_array_buffer_index.index
                         ..(gpu_array_buffer_index.index + 1),
                 }
             }
 
-            (UnbatchableBinnedEntityDynamicOffsets::NoEntities, Some(dynamic_offset)) => {
+            (UnbatchableBinnedEntityBufferIndex::NoEntities, Some(dynamic_offset)) => {
                 // This is the first entity we've seen, and we're on WebGL 2.
                 // Initialize an array.
-                *self = UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(vec![
+                *self = UnbatchableBinnedEntityBufferIndex::DynamicOffsets(vec![
                     UnbatchableBinnedEntityDynamicOffset {
                         instance_index: gpu_array_buffer_index.index,
                         dynamic_offset: Some(dynamic_offset),
@@ -318,7 +319,7 @@ impl UnbatchableBinnedEntityDynamicOffsets {
             }
 
             (
-                UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets {
+                UnbatchableBinnedEntityBufferIndex::NoDynamicOffsets {
                     ref mut instance_range,
                 },
                 None,
@@ -328,7 +329,7 @@ impl UnbatchableBinnedEntityDynamicOffsets {
             }
 
             (
-                UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(ref mut offsets),
+                UnbatchableBinnedEntityBufferIndex::DynamicOffsets(ref mut offsets),
                 dynamic_offset,
             ) => {
                 // This is the normal case on WebGL 2.
@@ -339,7 +340,7 @@ impl UnbatchableBinnedEntityDynamicOffsets {
             }
 
             (
-                UnbatchableBinnedEntityDynamicOffsets::NoDynamicOffsets { instance_range },
+                UnbatchableBinnedEntityBufferIndex::NoDynamicOffsets { instance_range },
                 dynamic_offset,
             ) => {
                 // We thought we were in non-WebGL 2 mode, but we got a dynamic
@@ -357,14 +358,14 @@ impl UnbatchableBinnedEntityDynamicOffsets {
                     instance_index: gpu_array_buffer_index.index,
                     dynamic_offset,
                 });
-                *self = UnbatchableBinnedEntityDynamicOffsets::DynamicOffsets(new_dynamic_offsets);
+                *self = UnbatchableBinnedEntityBufferIndex::DynamicOffsets(new_dynamic_offsets);
             }
         }
     }
 }
 
-/// A collection of all rendering instructions, that will be executed by the GPU, for a
-/// single render phase for a single view.
+/// A collection of all items to be rendered that will be encoded to GPU
+/// commands for a single render phase for a single view.
 ///
 /// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
 /// They are used to queue entities for rendering.

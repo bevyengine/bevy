@@ -199,7 +199,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
             for &entity in &unbatchables.entities {
                 if let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) {
                     let instance = gpu_array_buffer.push(buffer_data);
-                    unbatchables.dynamic_offsets.add(instance);
+                    unbatchables.buffer_indices.add(instance);
                 }
             }
         }
