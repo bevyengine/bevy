@@ -1188,6 +1188,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);
+        app.finish();
     }
 
     #[test]
