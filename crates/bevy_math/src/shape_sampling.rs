@@ -159,9 +159,9 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     if u + v > 1. {
         let u1 = 1. - v;
         let v1 = 1. - u;
-        ab * u1 + ac * v1
+        a + (ab * u1 + ac * v1)
     } else {
-        ab * u + ac * v
+        a + (ab * u + ac * v)
     }
 }
 
