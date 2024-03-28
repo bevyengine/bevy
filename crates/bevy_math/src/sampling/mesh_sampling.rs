@@ -4,7 +4,20 @@ use rand::Rng;
 use rand_distr::{Distribution, WeightedAliasIndex};
 use thiserror::Error;
 
-/// A wrapper struct that caches data to allow fast sampling from the surface of a mesh. Used via [`Distribution::sample`].
+/// A wrapper that caches data to allow fast sampling from the surface of a mesh. Generally used via
+/// [`Distribution::sample`] or [`Distribution::sample_iter`].
+///
+/// Example
+/// ```
+/// # use bevy_math::{Vec3, UniformMeshSampler, primitives::Torus};
+/// # use bevy_render::prelude::Meshable;
+/// # use rand::{SeedableRng, rngs::StdRng, distributions::Distribution};
+/// let my_torus_mesh = Torus::new(1.0, 0.5).mesh().build();
+/// let torus_sampler = UniformMeshSampler::try_new(&my_torus_mesh).unwrap();
+/// let rng = StdRng::from_entropy();
+/// // 50 random points on the torus:
+/// let torus_samples: Vec<Vec3> = torus_sampler.sample_iter(rng).take(50).collect();
+/// ```
 pub struct UniformMeshSampler {
     triangle_mesh: TriangleMesh,
     face_distribution: WeightedAliasIndex<f32>,
@@ -39,14 +52,19 @@ impl TryFrom<TriangleMesh> for UniformMeshSampler {
     }
 }
 
+/// An error that indicates that we were unable to form a [`UniformMeshSampler`] from the given data,
+/// either because its conversion to a [`TriangleMesh`] failed or because the resulting [`TriangleMesh`]
+/// had zero area.
 #[derive(Debug, Error)]
 pub enum MeshSamplerConstructionError<TriangleMeshingError> {
-    DistributionFormation {
-        error: ZeroAreaMeshError,
-    },
+    /// A [`TriangleMesh`] was successfully constructed, but it had zero area, so we were unable to create
+    /// a distribution for it.
+    DistributionFormation(ZeroAreaMeshError),
 
+    /// A [`TriangleMesh`] could not be constructed.
     TriangleMeshing {
         #[from]
+        /// The underlying reason for the failure in construction of the [`TriangleMesh`]
         error: TriangleMeshingError,
     },
 }
@@ -61,6 +79,6 @@ impl UniformMeshSampler {
         let tri_mesh: TriangleMesh = meshable.try_into()?;
         tri_mesh
             .try_into()
-            .map_err(|err| MeshSamplerConstructionError::DistributionFormation { error: err })
+            .map_err(MeshSamplerConstructionError::DistributionFormation)
     }
 }

@@ -26,6 +26,8 @@ rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", version = "0.14.0-dev", features = ["approx"] }
+# Allow rendering code for doc examples
+bevy_render = { path = "../bevy_render" }
 
 [features]
 default = ["rand"]
