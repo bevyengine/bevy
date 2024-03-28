@@ -1,5 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::change_detection::{ChangeTicks, DetectChangesMut, MutFetchItem};
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
@@ -153,9 +154,17 @@ use std::{
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+    /// Whether or not change detection is enabled
+    const CHANGE_DETECTION: bool;
+    // TODO: should we also have a ReadFetch that returns a &T if change detection is disabled?
+    /// The type of the Fetch returned when querying for &mut T
+    type WriteItem<'w>: std::ops::DerefMut<Target = Self> + MutFetchItem<'w> + DetectChangesMut;
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+
+    /// Shrink the given item to a shorter lifetime
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteItem<'wlong>) -> Self::WriteItem<'wshort>;
 }
 
 /// The storage used for a specific component type.
@@ -255,6 +264,7 @@ impl ComponentHooks {
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
+    change_detection_id: Option<ComponentId>,
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
 }
@@ -264,6 +274,12 @@ impl ComponentInfo {
     #[inline]
     pub fn id(&self) -> ComponentId {
         self.id
+    }
+
+    /// Returns the [`ComponentId`] for the change detection component associated with this component,
+    /// if it exists.
+    pub fn change_detection_id(&self) -> Option<ComponentId> {
+        self.change_detection_id
     }
 
     /// Returns the name of the current component.
@@ -314,6 +330,7 @@ impl ComponentInfo {
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
             id,
+            change_detection_id: None,
             descriptor,
             hooks: ComponentHooks::default(),
         }
@@ -545,15 +562,46 @@ impl Components {
             components,
             ..
         } = self;
-        *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
-                components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-            );
-            T::register_component_hooks(&mut components[index.index()].hooks);
-            index
-        })
+        if let Some(component_id) = indices.get(&type_id) {
+            return *component_id;
+        };
+
+        // Cannot call this recursively because the compiler gets stuck in a recursive loop
+        // let change_detection_id = if !T::CHANGE_DETECTION {
+        //     Some(self.init_component::<ChangeTicks<T>>(storages))
+        // } else {
+        //     None
+        // };
+        let change_detection_id = T::CHANGE_DETECTION
+            .then(|| {
+                let change_ticks_descriptor = ComponentDescriptor {
+                    name: Cow::Borrowed(std::any::type_name::<ChangeTicks<T>>()),
+                    storage_type: T::STORAGE_TYPE,
+                    is_send_and_sync: true,
+                    type_id: Some(TypeId::of::<ChangeTicks<T>>()),
+                    layout: Layout::new::<ComponentTicks>(),
+                    drop: None,
+                };
+                Components::init_component_inner(
+                    components,
+                    storages,
+                    change_ticks_descriptor,
+                    None,
+                )
+            })
+            .inspect(|id| {
+                indices.insert(TypeId::of::<ChangeTicks<T>>(), *id);
+            });
+
+        let index = Components::init_component_inner(
+            components,
+            storages,
+            ComponentDescriptor::new::<T>(),
+            change_detection_id,
+        );
+        T::register_component_hooks(&mut components[index.index()].hooks);
+        indices.insert(type_id, index);
+        index
     }
 
     /// Initializes a component described by `descriptor`.
@@ -572,7 +620,27 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        // TODO: optionally disable change detection for this component
+        let change_ticks_descriptor = ComponentDescriptor {
+            name: Cow::Owned(format!("ChangeTicks<{}>", descriptor.name.as_ref())),
+            storage_type: StorageType::Table,
+            is_send_and_sync: true,
+            type_id: None,
+            layout: Layout::new::<ComponentTicks>(),
+            drop: None,
+        };
+        let change_detection_id = Components::init_component_inner(
+            &mut self.components,
+            storages,
+            change_ticks_descriptor,
+            None,
+        );
+        Components::init_component_inner(
+            &mut self.components,
+            storages,
+            descriptor,
+            Some(change_detection_id),
+        )
     }
 
     #[inline]
@@ -580,9 +648,11 @@ impl Components {
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
+        change_detection_id: Option<ComponentId>,
     ) -> ComponentId {
         let component_id = ComponentId(components.len());
-        let info = ComponentInfo::new(component_id, descriptor);
+        let mut info = ComponentInfo::new(component_id, descriptor);
+        info.change_detection_id = change_detection_id;
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
@@ -910,7 +980,7 @@ impl ComponentTicks {
     /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
+    /// let mut component_ticks: ComponentTicks = unimplemented!();
     ///
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```

@@ -5,6 +5,7 @@ use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,
 };
+use std::ops::DerefMut;
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
@@ -446,7 +447,7 @@ fn buttons_handler<T>(
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
-                    text.sections[0].value = target.update_target(target_value.as_mut());
+                    text.sections[0].value = target.update_target(target_value.deref_mut());
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
                         || text.sections[0].value.contains("Hidden")
                     {

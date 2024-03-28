@@ -33,17 +33,21 @@ use crate::{
     system::{Commands, Res, Resource},
     world::error::TryRunScheduleError,
 };
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::warn;
+use std::ops::IndexMut;
 use std::{
     any::TypeId,
     fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+use crate::component::StorageType;
+use crate::storage::TableId;
 pub use identifier::WorldId;
 
 /// A [`World`] mutation.
@@ -2047,8 +2051,49 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
+
+        // check table change ticks
+        self.components.iter().for_each(|component_info| {
+            if let Some(change_component_id) = component_info.change_detection_id() {
+                match component_info.storage_type() {
+                    StorageType::Table => {
+                        for table_id in 0..tables.len() {
+                            if let Some(column) = tables
+                                .index_mut(TableId::from_usize(table_id))
+                                .get_column_mut(change_component_id)
+                            {
+                                // SAFETY: we have exclusive world access
+                                unsafe {
+                                    column.get_data_slice::<ComponentTicks>().iter().for_each(
+                                        |component_ticks| {
+                                            let ticks = component_ticks.deref_mut();
+                                            ticks.added.check_tick(change_tick);
+                                            ticks.changed.check_tick(change_tick);
+                                        },
+                                    );
+                                }
+                            };
+                        }
+                    }
+                    StorageType::SparseSet => {
+                        if let Some(sparse_set) = sparse_sets.get_mut(change_component_id) {
+                            // SAFETY: we have exclusive world access
+                            unsafe {
+                                sparse_set
+                                    .get_dense()
+                                    .get_data_slice::<ComponentTicks>()
+                                    .iter()
+                                    .for_each(|component_ticks| {
+                                        let ticks = component_ticks.deref_mut();
+                                        ticks.added.check_tick(change_tick);
+                                        ticks.changed.check_tick(change_tick);
+                                    });
+                            }
+                        }
+                    }
+                }
+            }
+        });
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
 
@@ -2436,6 +2481,7 @@ mod tests {
 
     // For bevy_ecs_macros
     use crate as bevy_ecs;
+    use crate::change_detection::ChangeTicks;
 
     type ID = u8;
 
@@ -2700,36 +2746,66 @@ mod tests {
                 .collect()
         }
 
+        let foo_ticks_id = TypeId::of::<ChangeTicks<Foo>>();
         let foo_id = TypeId::of::<Foo>();
+        let bar_ticks_id = TypeId::of::<ChangeTicks<Bar>>();
         let bar_id = TypeId::of::<Bar>();
+        let baz_ticks_id = TypeId::of::<ChangeTicks<Baz>>();
         let baz_id = TypeId::of::<Baz>();
+        // note that the change detection component is registered before the component
         assert_eq!(
             to_type_ids(world.inspect_entity(ent0)),
-            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(bar_ticks_id),
+                Some(bar_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent1)),
-            [Some(foo_id), Some(bar_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(bar_ticks_id),
+                Some(bar_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent2)),
-            [Some(bar_id), Some(baz_id)].into()
+            [
+                Some(bar_ticks_id),
+                Some(bar_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent3)),
-            [Some(foo_id), Some(baz_id)].into()
+            [
+                Some(foo_ticks_id),
+                Some(foo_id),
+                Some(baz_ticks_id),
+                Some(baz_id)
+            ]
+            .into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent4)),
-            [Some(foo_id)].into()
+            [Some(foo_ticks_id), Some(foo_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent5)),
-            [Some(bar_id)].into()
+            [Some(bar_ticks_id), Some(bar_id)].into()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent6)),
-            [Some(baz_id)].into()
+            [Some(baz_ticks_id), Some(baz_id)].into()
         );
     }
 

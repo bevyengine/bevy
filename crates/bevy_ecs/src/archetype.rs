@@ -113,12 +113,17 @@ pub(crate) enum ComponentStatus {
     Mutated,
 }
 
+pub(crate) struct ComponentChangeStatus {
+    pub(crate) component: ComponentStatus,
+    pub(crate) change_component: Option<ComponentStatus>,
+}
+
 pub(crate) struct AddBundle {
     /// The target archetype after the bundle is added to the source archetype
     pub archetype_id: ArchetypeId,
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed
-    pub bundle_status: Vec<ComponentStatus>,
+    pub bundle_status: Vec<ComponentChangeStatus>,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -130,14 +135,29 @@ pub(crate) trait BundleComponentStatus {
     /// # Safety
     /// Callers must ensure that index is always a valid bundle index for the
     /// Bundle associated with this [`BundleComponentStatus`]
-    unsafe fn get_status(&self, index: usize) -> ComponentStatus;
+    unsafe fn get_component_status(&self, index: usize) -> ComponentStatus;
+
+    /// Returns the Bundle's change detection component status for the given "bundle index"
+    ///
+    /// Returns None if the component does not have change detection enabled.
+    ///
+    /// # Safety
+    /// Callers must ensure that index is always a valid bundle index for the
+    /// Bundle associated with this [`BundleComponentStatus`]
+    unsafe fn get_component_change_status(&self, index: usize) -> Option<ComponentStatus>;
 }
 
 impl BundleComponentStatus for AddBundle {
     #[inline]
-    unsafe fn get_status(&self, index: usize) -> ComponentStatus {
+    unsafe fn get_component_status(&self, index: usize) -> ComponentStatus {
         // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        unsafe { *self.bundle_status.get_unchecked(index) }
+        unsafe { self.bundle_status.get_unchecked(index).component }
+    }
+
+    #[inline]
+    unsafe fn get_component_change_status(&self, index: usize) -> Option<ComponentStatus> {
+        // SAFETY: caller has ensured index is a valid bundle index for this bundle
+        unsafe { self.bundle_status.get_unchecked(index).change_component }
     }
 }
 
@@ -145,9 +165,16 @@ pub(crate) struct SpawnBundleStatus;
 
 impl BundleComponentStatus for SpawnBundleStatus {
     #[inline]
-    unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
+    unsafe fn get_component_status(&self, _index: usize) -> ComponentStatus {
         // Components added during a spawn call are always treated as added
         ComponentStatus::Added
+    }
+
+    #[inline]
+    unsafe fn get_component_change_status(&self, _index: usize) -> Option<ComponentStatus> {
+        // TODO: be able to handle components with no change detection!!
+        // Change detection added during a spawn call are always treated as added
+        Some(ComponentStatus::Added)
     }
 }
 
@@ -201,7 +228,7 @@ impl Edges {
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
-        bundle_status: Vec<ComponentStatus>,
+        bundle_status: Vec<ComponentChangeStatus>,
     ) {
         self.add_bundle.insert(
             bundle_id,

@@ -14,7 +14,7 @@ use crate::{
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
 };
-use bevy_ptr::Ptr;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -715,7 +715,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| Ref {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
-                ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
+                ticks: Ticks::from_ptr(cells, last_change_tick, change_tick),
             })
         }
     }
@@ -814,7 +814,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| Mut {
                 // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                ticks: TicksMut::from_ptr(cells, last_change_tick, change_tick),
             })
         }
     }
@@ -874,7 +874,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
-                ticks: TicksMut::from_tick_cells(
+                ticks: TicksMut::from_ptr(
                     cells,
                     self.world.last_change_tick(),
                     self.world.change_tick(),
@@ -955,22 +955,29 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, TickCells<'_>)> {
-    match storage_type {
+) -> Option<(Ptr<'_>, Ptr<'_>)> {
+    let ptr = match storage_type {
         StorageType::Table => {
             let components = world.fetch_table(location, component_id)?;
-
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some((
-                components.get_data_unchecked(location.table_row),
-                TickCells {
-                    added: components.get_added_tick_unchecked(location.table_row),
-                    changed: components.get_changed_tick_unchecked(location.table_row),
-                },
-            ))
+            components.get_data_unchecked(location.table_row)
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
-    }
+        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity)?,
+    };
+    // If change detection is disabled, just return None
+    let change_component_id = world
+        .components()
+        .get_info_unchecked(component_id)
+        .change_detection_id()?;
+    let component_ticks = match storage_type {
+        StorageType::Table => {
+            let components = world.fetch_table(location, change_component_id)?;
+            // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
+            components.get_data_unchecked(location.table_row)
+        }
+        StorageType::SparseSet => world.fetch_sparse_set(change_component_id)?.get(entity)?,
+    };
+    Some((ptr, component_ticks))
 }
 
 /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
@@ -990,12 +997,23 @@ unsafe fn get_ticks(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<ComponentTicks> {
+    let component_info = world.components().get_info_unchecked(component_id);
+    let change_component_id = component_info.change_detection_id()?;
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
-            // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_ticks_unchecked(location.table_row))
+            let column = world.fetch_table(location, change_component_id)?;
+            Some(
+                column
+                    .get_data_slice::<ComponentTicks>()
+                    .get(location.table_row.as_usize())?
+                    .read(),
+            )
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+        StorageType::SparseSet => {
+            let sparse_set = world.fetch_sparse_set(change_component_id)?;
+            sparse_set
+                .get(entity)
+                .map(|ptr| ptr.assert_unique().promote().read())
+        }
     }
 }

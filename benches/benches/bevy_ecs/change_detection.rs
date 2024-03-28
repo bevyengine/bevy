@@ -164,12 +164,12 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
                     let mut query = world.query::<&mut T>();
-                    let mut to_modify: Vec<bevy_ecs::prelude::Mut<T>> =
-                        query.iter_mut(&mut world).collect();
+                    let mut to_modify = query.iter_mut(&mut world).collect::<Vec<_>>();
                     to_modify.shuffle(&mut deterministic_rand());
                     for component in to_modify[0..amount_to_modify].iter_mut() {
                         black_box(component.bench_modify());
                     }
+                    drop(to_modify);
                     world
                 },
                 |mut world| {

@@ -75,6 +75,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
@@ -339,9 +340,13 @@ impl Plugin for RenderPlugin {
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
+            .register_type::<ChangeTicks<primitives::Aabb>>()
             .register_type::<primitives::CascadesFrusta>()
+            .register_type::<ChangeTicks<primitives::CascadesFrusta>>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>();
+            .register_type::<ChangeTicks<primitives::CubemapFrusta>>()
+            .register_type::<primitives::Frustum>()
+            .register_type::<ChangeTicks<primitives::Frustum>>();
     }
 
     fn ready(&self, app: &App) -> bool {

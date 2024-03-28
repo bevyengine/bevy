@@ -21,6 +21,7 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -44,11 +45,14 @@ impl Plugin for ViewPlugin {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
         app.register_type::<InheritedVisibility>()
+            .register_type::<ChangeTicks<InheritedVisibility>>()
             .register_type::<ViewVisibility>()
+            .register_type::<ChangeTicks<ViewVisibility>>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
+            .register_type::<ChangeTicks<Visibility>>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()

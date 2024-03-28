@@ -61,6 +61,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::change_detection::ChangeTicks;
     use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
@@ -1381,9 +1382,41 @@ mod tests {
 
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
-        let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
+        let a_ticks_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<A>>())
+            .unwrap();
+        let b_ticks_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<B>>())
+            .unwrap();
         expected.add_write(a_id);
-        expected.add_read(b_id);
+        expected.add_write(a_ticks_id);
+        expected.add_read(b_ticks_id);
+        assert!(
+            query.component_access.eq(&expected),
+            "ComponentId access from query fetch and query filter should be combined"
+        );
+    }
+
+    #[test]
+    fn filtered_query_access_mut() {
+        let mut world = World::new();
+        let query = world.query_filtered::<&mut A, Changed<B>>();
+
+        let mut expected = FilteredAccess::<ComponentId>::default();
+        let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
+        let a_tick_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<A>>())
+            .unwrap();
+        let b_tick_id = world
+            .components
+            .get_id(TypeId::of::<ChangeTicks<B>>())
+            .unwrap();
+        expected.add_write(a_id);
+        expected.add_write(a_tick_id);
+        expected.add_read(b_tick_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"

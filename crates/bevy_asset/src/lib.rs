@@ -52,6 +52,7 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
@@ -381,6 +382,7 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
+            .register_type::<ChangeTicks<Handle<A>>>()
             .add_systems(
                 Last,
                 Assets::<A>::asset_events

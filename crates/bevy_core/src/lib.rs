@@ -25,6 +25,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::change_detection::ChangeTicks;
 use bevy_ecs::prelude::*;
 use std::marker::PhantomData;
 
@@ -38,6 +39,7 @@ pub struct TypeRegistrationPlugin;
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Name>();
+        app.register_type::<ChangeTicks<Name>>();
     }
 }
 

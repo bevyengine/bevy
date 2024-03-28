@@ -1077,6 +1077,7 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let old_archetype = &world.archetypes[location.archetype_id];
+        // TODO: should we also send RemovedComponent for ChangeTicks components?
         for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 world.removed_components.send(component_id, entity);
@@ -1142,7 +1143,11 @@ impl<'w> EntityWorldMut<'w> {
 
         let to_remove = &old_archetype
             .components()
-            .filter(|c| !retained_bundle_info.components().contains(c))
+            .filter(|c| {
+                !retained_bundle_info
+                    .iter_components()
+                    .any(|comp| comp == *c)
+            })
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
@@ -2258,7 +2263,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.components().iter().cloned() {
+            for component_id in bundle_info.iter_all_components() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = unsafe { components.get_info_unchecked(component_id) };
