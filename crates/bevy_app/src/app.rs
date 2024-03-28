@@ -1101,6 +1101,18 @@ mod tests {
         }
     }
 
+    struct PluginE;
+
+    impl Plugin for PluginE {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            if app.is_plugin_added::<PluginA>() {
+                panic!("cannot run if PluginA is already registered");
+            }
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1169,6 +1181,13 @@ mod tests {
 
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
+    }
+
+    #[test]
+    fn cannot_use_plugin_registry_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginE);
     }
 
     #[test]
