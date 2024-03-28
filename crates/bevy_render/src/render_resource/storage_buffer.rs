@@ -24,7 +24,9 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
@@ -154,7 +156,9 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`EncasedBufferVec`](crate::render_resource::EncasedBufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage

@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
-    render_resource::{BufferUsages, BufferVec},
+    render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
@@ -23,13 +23,13 @@ pub struct MorphIndices(EntityHashMap<MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {
-    pub buffer: BufferVec<f32>,
+    pub buffer: RawBufferVec<f32>,
 }
 
 impl Default for MorphUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: RawBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -54,7 +54,7 @@ const fn can_align(step: usize, target: usize) -> bool {
 const WGPU_MIN_ALIGN: usize = 256;
 
 /// Align a [`BufferVec`] to `N` bytes by padding the end with `T::default()` values.
-fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
+fn add_to_alignment<T: Pod + Default>(buffer: &mut RawBufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
     let t_size = mem::size_of::<T>();
     if !can_align(n, t_size) {
