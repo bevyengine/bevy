@@ -7,7 +7,7 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
-    pub color: Color,
+    pub color: LinearRgba,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
     pub range: f32,
@@ -40,7 +40,7 @@ impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the center
         Self {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
             // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
             // this would be way too bright.

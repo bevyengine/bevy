@@ -112,7 +112,7 @@ fn generate_bodies(
         .with_children(|p| {
             p.spawn(PointLightBundle {
                 point_light: PointLight {
-                    color: Color::WHITE,
+                    color: LinearRgba::WHITE,
                     range: 100.0,
                     radius: star_radius,
                     ..default()

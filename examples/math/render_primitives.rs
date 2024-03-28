@@ -605,7 +605,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         .try_normalize()
         .unwrap_or(Vec3::Z),
     );
-    let color = Color::WHITE;
+    let color = LinearRgba::WHITE;
     let segments = 10;
 
     match state.get() {

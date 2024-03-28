@@ -58,7 +58,7 @@ fn setup(
                 point_light: PointLight {
                     intensity: 0.0,
                     range: spawn_plane_depth,
-                    color: Color::WHITE,
+                    color: LinearRgba::WHITE,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,

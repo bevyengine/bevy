@@ -50,7 +50,7 @@ use super::*;
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
-    pub color: Color,
+    pub color: LinearRgba,
     /// Illuminance in lux (lumens per square meter), representing the amount of
     /// light projected onto surfaces by this light source. Lux is used here
     /// instead of lumens because a directional light illuminates all surfaces
@@ -68,7 +68,7 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         DirectionalLight {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,

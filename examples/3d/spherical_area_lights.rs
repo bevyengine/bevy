@@ -63,7 +63,7 @@ fn setup(
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
                         radius,
-                        color: Color::srgb(0.2, 0.2, 1.0),
+                        color: Srgba::new(0.2, 0.2, 1.0, 1.0).into(),
                         ..default()
                     },
                     ..default()

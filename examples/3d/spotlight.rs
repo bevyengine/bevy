@@ -99,7 +99,7 @@ fn setup(
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
                         intensity: 40_000.0, // lumens
-                        color: Color::WHITE,
+                        color: LinearRgba::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,

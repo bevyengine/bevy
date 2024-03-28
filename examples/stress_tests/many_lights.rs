@@ -82,7 +82,7 @@ fn setup(
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: Hsla::new(rng.gen_range(0.0..360.0), 1.0, 0.5, 1.0).into(),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),

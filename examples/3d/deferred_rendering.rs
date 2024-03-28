@@ -123,10 +123,10 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = Color::srgb(10.0, 4.0, 1.0);
+    let sphere_color = LinearRgba::from(Srgba::new(10.0, 4.0, 1.0, 1.0));
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
-    let mut unlit_mat: StandardMaterial = sphere_color.into();
+    let mut unlit_mat: StandardMaterial = Color::from(sphere_color).into();
     unlit_mat.unlit = true;
     commands.spawn((
         PbrBundle {

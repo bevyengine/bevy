@@ -7,7 +7,7 @@ use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
-    Color, Oklcha,
+    LinearRgba, Oklcha,
 };
 use bevy_ecs::{
     component::Component,
@@ -35,7 +35,7 @@ use crate::{
 fn point_light_gizmo(
     transform: &GlobalTransform,
     point_light: &PointLight,
-    color: Color,
+    color: LinearRgba,
     gizmos: &mut Gizmos<LightGizmoConfigGroup>,
 ) {
     let position = transform.translation();
@@ -59,7 +59,7 @@ fn point_light_gizmo(
 fn spot_light_gizmo(
     transform: &GlobalTransform,
     spot_light: &SpotLight,
-    color: Color,
+    color: LinearRgba,
     gizmos: &mut Gizmos<LightGizmoConfigGroup>,
 ) {
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
@@ -116,7 +116,7 @@ fn spot_light_gizmo(
 /// Draws an arrow alongside the directional light direction.
 fn directional_light_gizmo(
     transform: &GlobalTransform,
-    color: Color,
+    color: LinearRgba,
     gizmos: &mut Gizmos<LightGizmoConfigGroup>,
 ) {
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
@@ -150,7 +150,7 @@ impl Plugin for LightGizmoPlugin {
 #[derive(Debug, Clone, Copy, Default, Reflect)]
 pub enum LightGizmoColor {
     /// User-specified color.
-    Manual(Color),
+    Manual(LinearRgba),
     /// Random color derived from the light's [`Entity`].
     Varied,
     /// Take the color of the represented light.
@@ -174,15 +174,15 @@ pub struct LightGizmoConfigGroup {
     /// [`Color`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`RED`].
-    pub point_light_color: Color,
+    pub point_light_color: LinearRgba,
     /// [`Color`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`GREEN`].
-    pub spot_light_color: Color,
+    pub spot_light_color: LinearRgba,
     /// [`Color`] to use for drawing a [`DirectionalLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`BLUE`].
-    pub directional_light_color: Color,
+    pub directional_light_color: LinearRgba,
 }
 
 impl Default for LightGizmoConfigGroup {
