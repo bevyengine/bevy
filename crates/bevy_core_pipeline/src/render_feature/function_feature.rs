@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{SystemParam, SystemParamItem},
 };
 
-use super::{FeatureIO, FeatureSignature, Sig, SubFeature, SubFeatureInput, SubFeatureOutput};
+use super::{RenderIO, RenderSignature, Sig, SubFeature, SubFeatureInput, SubFeatureOutput};
 
 //credit to SystemParamFunction impl
 
@@ -18,15 +18,15 @@ pub struct FunctionSubFeature<Marker, F: SubFeatureFunction<Marker>> {
 }
 
 pub trait SubFeatureFunction<Marker>: Send + Sync + 'static {
-    type Sig: FeatureSignature<false>;
+    type Sig: RenderSignature<false>;
     type Param: SystemParam;
 
     fn run(
         &mut self,
         view_entity: Entity,
-        input: <Self::Sig as FeatureSignature<false>>::In,
+        input: <Self::Sig as RenderSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
-    ) -> <Self::Sig as FeatureSignature<false>>::Out;
+    ) -> <Self::Sig as RenderSignature<false>>::Out;
 }
 
 impl<Marker: 'static, F: SubFeatureFunction<Marker>>
@@ -60,8 +60,8 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>> SubFeature for FunctionSubF
 
 impl<In, Out, Func: Send + Sync + 'static> SubFeatureFunction<fn(Entity, In) -> Out> for Func
 where
-    In: FeatureIO<true>,
-    Out: FeatureIO<false>,
+    In: RenderIO<true>,
+    Out: RenderIO<false>,
     for<'a> &'a mut Func: FnMut(Entity, In) -> Out + FnMut(Entity, In) -> Out,
 {
     type Sig = Sig![In => Out];
@@ -71,9 +71,9 @@ where
     fn run(
         &mut self,
         view_entity: Entity,
-        input: <Self::Sig as FeatureSignature<false>>::In,
+        input: <Self::Sig as RenderSignature<false>>::In,
         _param: &SystemParamItem<Self::Param>,
-    ) -> <Self::Sig as FeatureSignature<false>>::Out {
+    ) -> <Self::Sig as RenderSignature<false>>::Out {
         // Yes, this is strange, but `rustc` fails to compile this impl
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
@@ -91,8 +91,8 @@ where
 impl<Out, In, Func: Send + Sync + 'static, Param: SystemParam>
     SubFeatureFunction<fn(Entity, In, Param) -> Out> for Func
 where
-    In: FeatureIO<true>,
-    Out: FeatureIO<false>,
+    In: RenderIO<true>,
+    Out: RenderIO<false>,
     for<'a> &'a mut Func:
         FnMut(Entity, In, &Param) -> Out + FnMut(Entity, In, &SystemParamItem<Param>) -> Out,
 {
@@ -103,9 +103,9 @@ where
     fn run(
         &mut self,
         view_entity: Entity,
-        input: <Self::Sig as FeatureSignature<false>>::In,
+        input: <Self::Sig as RenderSignature<false>>::In,
         param: &SystemParamItem<Self::Param>,
-    ) -> <Self::Sig as FeatureSignature<false>>::Out {
+    ) -> <Self::Sig as RenderSignature<false>>::Out {
         // Yes, this is strange, but `rustc` fails to compile this impl
         // without using this function. It fails to recognize that `func`
         // is a function, potentially because of the multiple impls of `FnMut`
