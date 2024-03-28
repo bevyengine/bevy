@@ -1,12 +1,17 @@
 use std::marker::PhantomData;
 
 use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::{
+    render_resource::{BufferPoolSlice, QueueWriteBufferViewWrapper},
+    renderer::{RenderDevice, RenderQueue},
+};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{
+    util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
+};
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
@@ -133,6 +138,157 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+    }
+}
+
+pub struct StorageBufferPool<T: ShaderType> {
+    buffer: Option<Buffer>,
+    label: Option<String>,
+    changed: bool,
+    buffer_usage: BufferUsages,
+    reserved: wgpu::BufferAddress,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T: ShaderType + WriteInto> StorageBufferPool<T> {
+    pub fn new() -> Self {
+        Self {
+            buffer: None,
+            label: None,
+            changed: false,
+            reserved: 0,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            _marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
+    }
+
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::STORAGE`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
+    }
+
+    pub fn reserve(&mut self, count: wgpu::BufferSize) -> BufferPoolSlice {
+        let start = self.reserved;
+        let size = T::min_size()
+            .get()
+            .checked_mul(count.get())
+            .and_then(wgpu::BufferSize::new)
+            .expect("Overflowed buffer size");
+        self.reserved = self
+            .reserved
+            .checked_add(size.get())
+            .expect("Overflowed buffer size");
+        BufferPoolSlice {
+            address: start,
+            size,
+        }
+    }
+
+    pub fn allocate<'a>(&mut self, device: &RenderDevice) {
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+
+        if capacity < self.reserved || self.changed {
+            self.buffer = Some(device.create_buffer(&BufferDescriptor {
+                label: self.label.as_deref(),
+                size: self.reserved,
+                usage: self.buffer_usage,
+                mapped_at_creation: false,
+            }));
+            self.changed = false;
+        }
+    }
+
+    /// Creates a writer that can be used to directly write elements into the target buffer.
+    ///
+    /// The provided `slice` should be provided by calling [`reserve`] as many times as needed, then the
+    /// underlying buffer *must* be allocated via [`allocate`] first, or this will return `None`
+    /// for any invalid `slice`.
+    #[inline]
+    pub fn get_writer<'a>(
+        &'a self,
+        slice: BufferPoolSlice,
+        queue: &'a RenderQueue,
+    ) -> Option<StorageBufferWriter<'a, T>> {
+        let buffer = self.buffer.as_deref()?;
+        let buffer_view = queue.write_buffer_with(buffer, slice.address, slice.size)?;
+
+        Some(StorageBufferWriter {
+            buffer: encase::StorageBuffer::new(QueueWriteBufferViewWrapper {
+                capacity: slice.size.get() as usize,
+                buffer_view,
+            }),
+            current_index: (slice.address / T::min_size().get()) as usize,
+            _marker: PhantomData,
+        })
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.reserved = 0;
+    }
+}
+
+impl<T: ShaderType> Default for StorageBufferPool<T> {
+    fn default() -> Self {
+        Self {
+            buffer: None,
+            label: None,
+            changed: false,
+            reserved: 0,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// A writer that can be used to directly write elements into the target buffer.
+///
+/// For more information, see [`DynamicUniformBuffer::get_writer`].
+pub struct StorageBufferWriter<'a, T> {
+    buffer: encase::StorageBuffer<QueueWriteBufferViewWrapper<'a>>,
+    current_index: usize,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<'a, T: ShaderType + WriteInto> StorageBufferWriter<'a, T> {
+    pub fn write(&mut self, value: &T) {
+        self.buffer.write(value).unwrap();
+        self.current_index += 1;
+    }
+
+    pub fn current_index(&self) -> usize {
+        self.current_index
     }
 }
 
