@@ -1,17 +1,19 @@
 use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// A type that supports the mathematical operations of a vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
 /// - Scalar multiplication and division on the right by elements of `f32`
+/// - Negation
 /// - Addition and subtraction
+/// - Zero
 ///
 /// Within the limitations of floating point arithmetic, all the following are required to hold:
 /// - (Associativity of addition) For all `u, v, w: Self`, `(u + v) + w == u + (v + w)`.
 /// - (Commutativity of addition) For all `u, v: Self`, `u + v == v + u`.
 /// - (Additive identity) For all `v: Self`, `v + Self::ZERO == v`.
-/// - (Additive inverse) For all `v: Self`, `v - v == v + v * (-1) == Self::ZERO`.
+/// - (Additive inverse) For all `v: Self`, `v - v == v + (-v) == Self::ZERO`.
 /// - (Compatibility of multiplication) For all `a, b: f32`, `v: Self`, `v * (a * b) == (v * a) * b`.
 /// - (Multiplicative identity) For all `v: Self`, `v * 1.0 == v`.
 /// - (Distributivity for vector addition) For all `a: f32`, `u, v: Self`, `(u + v) * a == u * a + v * a`.
@@ -24,6 +26,7 @@ pub trait VectorSpace:
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
+    + Neg
     + Default
     + Debug
     + Clone

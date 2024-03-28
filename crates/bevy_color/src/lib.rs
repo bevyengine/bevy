@@ -181,6 +181,16 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
+        impl std::ops::Neg for $ty {
+            type Output = Self;
+
+            fn neg(self) -> Self::Output {
+                Self::Output {
+                    $($element: -self.$element,)+
+                }
+            }
+        }
+
         impl std::ops::Sub<Self> for $ty {
             type Output = Self;
 
