@@ -66,6 +66,7 @@ pub fn gilrs_event_system(
                     continue;
                 };
                 events.send(GamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
+                // TODO: Filtering and set analog buttons thingy!
                 /*
                 if let Some(button_type) = convert_button(gilrs_button) {
                     let button = GamepadButton::new(gamepad, button_type);

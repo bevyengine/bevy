@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     input::gamepad::event::raw::{GamepadConnectionEvent, GamepadAxisChangedEvent, GamepadButtonChangedEvent},
-    input::gamepad::{GamepadDigitalButtonsComponent, GamepadSettings},
+    input::gamepad::{GamepadButtons, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -449,7 +449,7 @@ fn setup_connected(mut commands: Commands) {
 }
 
 fn update_buttons(
-    gamepads: Query<&GamepadDigitalButtonsComponent>,
+    gamepads: Query<&GamepadButtons>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {

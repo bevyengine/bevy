@@ -260,10 +260,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Bundle)]
 pub struct MinimalGamepad {
     gamepad: Gamepad,
-    //info: GamepadInfo,
     settings: GamepadSettings,
-    analog: GamepadAnalogButtonsComponent,
-    digital: GamepadDigitalButtonsComponent,
+    buttons: GamepadButtons,
     axis: GamepadAxisComponent,
 }
 
@@ -272,8 +270,7 @@ impl MinimalGamepad {
         Self {
             gamepad,
             settings: GamepadSettings::default(),
-            analog: GamepadAnalogButtonsComponent::default(),
-            digital: GamepadDigitalButtonsComponent::default(),
+            buttons: GamepadButtons::default(),
             axis: GamepadAxisComponent::default(),
         }
     }
@@ -428,12 +425,23 @@ pub enum GamepadButtonType {
     Other(u8),
 }
 
-#[derive(Default, Component)]
-pub struct GamepadDigitalButtonsComponent {
-    digital: ButtonInput<GamepadButtonType>,
+#[derive(Component)]
+pub struct GamepadButtons {
+    // TODO: Change digital to 2 fixedbitsets?
+    pub(crate)digital: ButtonInput<GamepadButtonType>,
+    pub(crate)analog: Axis<GamepadButtonType>,
+    //pub(crate)raw_analog: Axis<GamepadButtonType>,
 }
 
-impl GamepadDigitalButtonsComponent {
+impl GamepadButtons {
+    pub fn get(&self, button_type: GamepadButtonType) -> Option<f32> {
+        self.analog.get(button_type)
+    }
+
+    pub fn get_unclamped(&self, button_type: GamepadButtonType) -> Option<f32> {
+        self.analog.get_unclamped(button_type)
+    }
+
     pub fn pressed(&self, button_type: GamepadButtonType) -> bool {
         self.digital.pressed(button_type)
     }
@@ -497,32 +505,20 @@ impl GamepadDigitalButtonsComponent {
     }
 }
 
-#[derive(Component)]
-pub struct GamepadAnalogButtonsComponent {
-    analog: Axis<GamepadButtonType>,
-}
-
-impl GamepadAnalogButtonsComponent {
-    pub fn get(&self, button_type: GamepadButtonType) -> Option<f32> {
-        self.analog.get(button_type)
-    }
-
-    pub fn get_button_unclamped(&self, button_type: GamepadButtonType) -> Option<f32> {
-        self.analog.get_unclamped(button_type)
-    }
-}
-
-impl Default for GamepadAnalogButtonsComponent {
+impl Default for GamepadButtons {
     fn default() -> Self {
         let mut analog = Axis::default();
         for button in ALL_BUTTON_TYPES.iter() {
             analog.set(*button, 0.0);
         }
         Self {
+            digital: ButtonInput::default(),
             analog
         }
     }
 }
+
+
 
 /// A type of a [`GamepadAxis`].
 ///
@@ -1323,7 +1319,7 @@ pub fn gamepad_axis_event_system(
 pub fn gamepad_button_event_system(
     mut gamepads: Query<(
         &Gamepad,
-        &mut GamepadDigitalButtonsComponent,
+        &mut GamepadButtons,
         &GamepadSettings,
     )>,
     gamepads_map: Res<EntityGamepadMap>,
@@ -1367,7 +1363,7 @@ pub fn gamepad_button_event_system(
 
 /// Splits the [`GamepadEvent`] event stream into it's component events.
 pub fn gamepad_event_system(
-    mut gamepads_buttons: Query<&mut GamepadDigitalButtonsComponent>,
+    mut gamepads_buttons: Query<&mut GamepadButtons>,
     mut gamepad_events: EventReader<GamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
