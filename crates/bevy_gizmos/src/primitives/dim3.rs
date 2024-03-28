@@ -134,18 +134,18 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 
 // plane 3d
 
-/// Builder for configuring the drawing options of [`Sphere`].
+/// Builder for configuring the drawing options of [`Plane3d`].
 pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
     // direction of the normal orthogonal to the plane
     normal: Dir3,
 
-    // Rotation of the sphere around the origin in 3D space
+    // Rotation of the plane around the origin in 3D space
     rotation: Quat,
-    // Center position of the sphere in 3D space
+    // Center position of the plane in 3D space
     position: Vec3,
-    // Color of the sphere
+    // Color of the plane
     color: Color,
 
     // Number of axis to hint the plane

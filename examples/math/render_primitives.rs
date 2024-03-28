@@ -166,7 +166,10 @@ const TRIANGLE: Triangle2d = Triangle2d {
 };
 
 const PLANE_2D: Plane2d = Plane2d { normal: Dir2::Y };
-const PLANE_3D: Plane3d = Plane3d { normal: Dir3::Y };
+const PLANE_3D: Plane3d = Plane3d {
+    normal: Dir3::Y,
+    half_size: Vec2::new(BIG_3D, BIG_3D),
+};
 
 const LINE2D: Line2d = Line2d { direction: Dir2::X };
 const LINE3D: Line3d = Line3d { direction: Dir3::X };
