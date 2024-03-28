@@ -3,7 +3,7 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Primitive3d};
 use crate::{
     bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Quat, Vec3,
+    Dir3, InvalidDirectionError, Mat3, Quat, Vec3,
 };
 
 /// A sphere primitive
@@ -823,6 +823,64 @@ impl Bounded3d for Triangle3d {
     }
 }
 
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+impl Primitive3d for Tetrahedron {}
+
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, `[0.5, -0.5, 0.0]` and `[0.0, 0.0, 0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+                Vec3::new(0.0, 0.0, 0.5),
+            ],
+        }
+    }
+}
+
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
+    }
+
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + (ac - ab).cross(ad - ab).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        Mat3::from_cols(ab, ac, ad).determinant().abs() / 6.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
@@ -985,5 +1043,26 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+
+        assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.083333336,
+            "incorrect volume"
+        );
     }
 }
