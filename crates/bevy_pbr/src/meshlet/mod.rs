@@ -30,12 +30,11 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
+pub use self::asset::*;
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{
-    asset::MeshletMeshSaverLoad,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,

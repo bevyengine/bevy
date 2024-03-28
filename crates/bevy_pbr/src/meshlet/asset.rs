@@ -25,8 +25,8 @@ use std::sync::Arc;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
-    /// The total amount of triangles summed across all meshlets in the mesh.
-    pub total_meshlet_triangles: u64,
+    /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
+    pub worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
     pub vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
@@ -35,8 +35,10 @@ pub struct MeshletMesh {
     pub indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
     pub meshlets: Arc<[Meshlet]>,
-    /// A list of spherical bounding volumes, 1 per meshlet.
-    pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
+    /// Spherical bounding volumes.
+    pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    /// Simplification errors used for choosing level of detail.
+    pub lod_errors: Arc<[MeshletLodErrors]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -51,12 +53,34 @@ pub struct Meshlet {
     pub triangle_count: u32,
 }
 
-/// A spherical bounding volume used for culling a [`Meshlet`].
+/// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletBoundingSpheres {
+    /// The bounding sphere used for frustum and occlusion culling for this meshlet.
+    pub self_culling: MeshletBoundingSphere,
+    /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
+    pub self_lod: MeshletBoundingSphere,
+    /// The bounding sphere used for determining if this meshlet's parent is at the correct level of detail for a given view.
+    pub parent_lod: MeshletBoundingSphere,
+}
+
+/// A spherical bounding volume used for a [`Meshlet`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
+}
+
+/// Simplification errors used for determining level of detail for a [`Meshlet`].
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletLodErrors {
+    /// The simplification error used for creating this meshlet (from its children).
+    pub self_: f32,
+    /// The simplification error used for creating this meshlet's parent (from this meshlet, and its siblings).
+    pub parent: f32,
 }
 
 /// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
