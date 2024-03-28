@@ -79,7 +79,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        gamepad::{Gamepad, GamepadButton, GamepadButtonType},
+        gamepad::{GamepadId, GamepadButton, GamepadButtonType},
         Axis,
     };
 
@@ -101,7 +101,7 @@ mod tests {
 
         for (value, expected) in cases {
             let gamepad_button =
-                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
+                GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
@@ -117,7 +117,7 @@ mod tests {
 
         for value in cases {
             let gamepad_button =
-                GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger);
+                GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger);
             let mut axis = Axis::<GamepadButton>::default();
 
             axis.set(gamepad_button, value);
@@ -137,25 +137,25 @@ mod tests {
         assert_eq!(axis.devices().count(), 0);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger),
             0.1,
         );
         assert_eq!(axis.devices().count(), 1);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::LeftTrigger),
+            GamepadButton::new(GamepadId::new(1), GamepadButtonType::LeftTrigger),
             0.5,
         );
         assert_eq!(axis.devices().count(), 2);
 
         axis.set(
-            GamepadButton::new(Gamepad::new(1), GamepadButtonType::RightTrigger),
+            GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger),
             -0.1,
         );
         assert_eq!(axis.devices().count(), 2);
 
         axis.remove(GamepadButton::new(
-            Gamepad::new(1),
+            GamepadId::new(1),
             GamepadButtonType::RightTrigger,
         ));
         assert_eq!(axis.devices().count(), 1);

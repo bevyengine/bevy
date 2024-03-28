@@ -1,7 +1,10 @@
-use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
+use bevy_input::gamepad::{GamepadId, GamepadAxisType, GamepadButtonType};
 
-pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
-    Gamepad::new(gamepad_id.into())
+//  TODO: bevy_input directly depends on Gilrs::GamepadId's. This could cause conflicts with other plugins.
+//  Instead, bevy_input should provide a unique GamepadId and bevy_gilrs keep a mapping between them
+pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> GamepadId {
+    //GamepadId::new(gamepad_id.into())
+    GamepadId{ id: gamepad_id.into()}
 }
 
 pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {

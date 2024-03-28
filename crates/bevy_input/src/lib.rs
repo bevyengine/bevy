@@ -27,7 +27,7 @@ pub use button_input::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        gamepad::{Gamepad, GamepadAxisType, GamepadButtonType},
+        gamepad::{GamepadId, GamepadAxisType, GamepadButtonType},
         keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},

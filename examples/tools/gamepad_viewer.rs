@@ -4,10 +4,11 @@ use std::f32::consts::PI;
 
 use bevy::{
     input::gamepad::event::raw::{GamepadConnectionEvent, GamepadAxisChangedEvent, GamepadButtonChangedEvent},
-    input::gamepad::{GamepadDigitalButtonsComponent, GamepadInfo, GamepadSettings},
+    input::gamepad::{GamepadDigitalButtonsComponent, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
+use bevy_internal::input::gamepad::Gamepad;
 
 const BUTTON_RADIUS: f32 = 25.;
 const BUTTON_CLUSTER_RADIUS: f32 = 50.;
@@ -508,7 +509,7 @@ fn update_axes(
 
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
-    gamepads: Query<(&Gamepad, &GamepadInfo)>,
+    gamepads: Query<&Gamepad>,
     mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
 ) {
     if connected.is_empty() {
@@ -519,7 +520,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(gamepad, info)| format!("{} - {}", gamepad.id, info.name))
+        .map(|gamepad| format!("{} - {}", gamepad.id(), gamepad.name()))
         .collect::<Vec<_>>()
         .join("\n");
 
