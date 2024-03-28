@@ -331,6 +331,9 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
 
+# Enable support for FidelityFX Super Resolution
+fsr = ["bevy_internal/fsr"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
