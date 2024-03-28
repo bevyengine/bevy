@@ -23,9 +23,6 @@ multi-threaded = ["bevy_tasks/multi-threaded"]
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
-# Enable the rand dependency for sampling
-rand = ["dep:rand", "dep:rand_distr"]
-
 # For ktx2 supercompression
 zlib = ["flate2"]
 zstd = ["ruzstd"]
@@ -104,11 +101,6 @@ profiling = { version = "1", features = [
 async-channel = "2.2.0"
 nonmax = "0.5"
 smallvec = "1.11"
-# Optional dependencies for random sampling of meshes
-rand = { version = "0.8", features = [
-  "alloc",
-], default-features = false, optional = true }
-rand_distr = { version = "0.4.3", optional = true}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.

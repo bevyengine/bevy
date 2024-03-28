@@ -1,4 +1,5 @@
 mod conversions;
+pub mod mesh_conversions;
 pub mod skinning;
 use bevy_transform::components::Transform;
 pub use wgpu::PrimitiveTopology;
@@ -28,9 +29,6 @@ use wgpu::{
 };
 
 use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
-
-// #[cfg(feature = "rand")]
-pub mod sampling;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;

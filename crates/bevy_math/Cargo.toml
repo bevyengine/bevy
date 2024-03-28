@@ -17,6 +17,7 @@ approx = { version = "0.5", optional = true }
 rand = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
+rand_distr = { version = "0.4", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
@@ -39,7 +40,7 @@ glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
-rand = ["dep:rand"]
+rand = ["dep:rand", "dep:rand_distr"]
 
 [lints]
 workspace = true

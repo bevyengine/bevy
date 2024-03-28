@@ -16,6 +16,7 @@ pub mod bounding;
 mod common_traits;
 pub mod cubic_splines;
 mod direction;
+mod meshes;
 pub mod primitives;
 mod ray;
 mod rects;
@@ -27,11 +28,12 @@ pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
 pub use common_traits::*;
 pub use direction::*;
+pub use meshes::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rotation2d;
 #[cfg(feature = "rand")]
-pub use sampling::ShapeSample;
+pub use sampling::*;
 
 /// The `bevy_math` prelude.
 pub mod prelude {
