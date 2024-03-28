@@ -18,6 +18,11 @@ use crate::{
 pub(super) trait SystemExecutor: Send + Sync {
     fn kind(&self) -> ExecutorKind;
     fn init(&mut self, schedule: &SystemSchedule);
+
+    /// Run the schedule in the order defined by the [`SystemSchedule`]
+    ///
+    /// `skip_systems` can be provided to skip certain systems; the bit `i` corresponds to the
+    /// system at index `i` in the [`SystemSchedule`]'s `system_ids`
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
