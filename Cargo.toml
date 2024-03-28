@@ -47,6 +47,7 @@ ptr_cast_constness = "warn"
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
+unsafe_code = "deny"
 
 [lints]
 workspace = true

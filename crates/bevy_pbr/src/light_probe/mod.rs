@@ -12,7 +12,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
-use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
+use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -26,7 +26,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, FloatOrd, HashMap};
+use bevy_utils::{tracing::error, HashMap};
 
 use std::hash::Hash;
 use std::ops::Deref;

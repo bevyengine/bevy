@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -16,6 +17,7 @@ pub mod bounding;
 mod common_traits;
 pub mod cubic_splines;
 mod direction;
+mod float_ord;
 mod meshes;
 pub mod primitives;
 mod ray;
@@ -28,6 +30,7 @@ pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
 pub use common_traits::*;
 pub use direction::*;
+pub use float_ord::*;
 pub use meshes::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
