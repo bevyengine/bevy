@@ -1,7 +1,12 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+use bevy_render::{
+    render_phase::{DrawFunctionId, DrawFunctions, PhaseItem},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
+
+use crate::DrawUiMaterial;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -106,6 +111,14 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     #[allow(unused_variables)]
     #[inline]
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
+
+    /// Returns the ID of the registered draw function that will be used for this material.
+    ///
+    /// The default draw function for UI is [`DrawUiMaterial`]. If you use a custom draw function,
+    /// make sure to adapt the pipeline descriptor in [`UiMaterial::specialize()`]
+    fn draw_function_id<P: PhaseItem>(draw_functions: &DrawFunctions<P>) -> DrawFunctionId {
+        draw_functions.read().id::<DrawUiMaterial<Self>>()
+    }
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
