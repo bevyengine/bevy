@@ -1337,9 +1337,6 @@ pub fn gamepad_axis_event_system(
             continue;
         };
 
-        // TODO: There is something wrong with axis filtering. We don't update the axis if
-        // it doesn't pass the filter meaning some events might be lost, there should be 2 buffers,
-        // one with raw values and another for filtered values
         gamepad_axis.axis.set(axis_event.axis_type, filtered_value);
         filtered_events.send(GamepadAxisInput::new(
             entity,
@@ -1349,20 +1346,21 @@ pub fn gamepad_axis_event_system(
         ));
     }
 }
-
 /// Uses [`RawGamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
+    // TODO: Change settings to Option<T>?
     mut gamepads: Query<(&Gamepad, &mut GamepadButtons, &GamepadSettings)>,
     gamepads_map: Res<EntityGamepadMap>,
-    mut button_changed_events: EventReader<RawGamepadButtonChangedEvent>,
-    //mut button_input: ResMut<ButtonInput<GamepadButton>>,
-    mut button_input_events: EventWriter<GamepadButtonInput>,
-    //settings: Res<GamepadSettings>,
+    mut raw_events: EventReader<RawGamepadButtonChangedEvent>,
+    // TODO?: This only contains digital data (press state), should we also send analog data?
+    // A different event for analog changes?
+    mut processed_events: EventWriter<GamepadButtonInput>,
 ) {
-    for button_event in button_changed_events.read() {
+    for event in raw_events.read() {
+        let button = event.button_type;
         let Some(entity) = gamepads_map
             .id_to_entity
-            .get(&button_event.gamepad)
+            .get(&event.gamepad)
             .copied()
         else {
             continue;
@@ -1370,14 +1368,16 @@ pub fn gamepad_button_event_system(
         let Ok((gamepad, mut buttons, settings)) = gamepads.get_mut(entity) else {
             continue;
         };
-        let value = button_event.value;
-        let button = button_event.button_type;
-        let button_property = settings.get_button_settings(button);
+        let Some(filtered_value) = settings.get_button_axis_settings(button).filter(event.value, buttons.get(button)) else {
+            continue;
+        };
+        let button_settings = settings.get_button_settings(button);
+        buttons.analog.set(button, filtered_value);
 
-        if button_property.is_released(value) {
+        if button_settings.is_released(filtered_value) {
             // Check if button was previously pressed
             if buttons.digital.pressed(button) {
-                button_input_events.send(GamepadButtonInput::new(
+                processed_events.send(GamepadButtonInput::new(
                     entity,
                     gamepad,
                     button,
@@ -1387,10 +1387,10 @@ pub fn gamepad_button_event_system(
             // We don't have to check if the button was previously pressed here
             // because that check is performed within Input<T>::release()
             buttons.digital.release(button);
-        } else if button_property.is_pressed(value) {
+        } else if button_settings.is_pressed(filtered_value) {
             // Check if button was previously not pressed
             if !buttons.digital.pressed(button) {
-                button_input_events.send(GamepadButtonInput::new(
+                processed_events.send(GamepadButtonInput::new(
                     entity,
                     gamepad,
                     button,

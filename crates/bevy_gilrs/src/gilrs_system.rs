@@ -66,42 +66,12 @@ pub fn gilrs_event_system(
                     continue;
                 };
                 events.send(RawGamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
-                // TODO: Filtering and set analog buttons thingy!
-                /*
-                if let Some(button_type) = convert_button(gilrs_button) {
-                    let button = GamepadButton::new(gamepad, button_type);
-                    let old_value = gamepad_buttons.get(button);
-                    let button_settings = gamepad_settings.get_button_axis_settings(button);
-
-                    // Only send events that pass the user-defined change threshold
-                    if let Some(filtered_value) = button_settings.filter(raw_value, old_value) {
-                        events.send(
-                            GamepadButtonChangedEvent::new(gamepad, button_type, filtered_value)
-                                .into(),
-                        );
-                        // Update the current value prematurely so that `old_value` is correct in
-                        // future iterations of the loop.
-                        gamepad_buttons.set(button, filtered_value);
-                    }
-                }*/
             }
             EventType::AxisChanged(gilrs_axis, raw_value, _) => {
                 let Some(axis) = convert_axis(gilrs_axis) else {
                     continue;
                 };
                 events.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
-                /*if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    let axis = GamepadAxis::new(gamepad, axis_type);
-                    let old_value = gamepad_axis.get(axis);
-                    let axis_settings = gamepad_settings.get_axis_settings(axis);
-
-                    // Only send events that pass the user-defined change threshold
-                    if let Some(filtered_value) = axis_settings.filter(raw_value, old_value) {
-                        events.send(
-                            GamepadAxisChangedEvent::new(gamepad, axis_type, filtered_value).into(),
-                        );
-                    }
-                }*/
             }
             _ => (),
         };
