@@ -1,14 +1,14 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned, TypeRegistry};
-use crate::{
-    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap,
-    FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
-    TypePath, TypeRegistration, Typed, ValueInfo,
-};
-
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
+};
+use crate::{
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
+    Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
+    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -314,6 +314,10 @@ macro_rules! impl_reflect_for_veclike {
                 crate::list_apply(self, value);
             }
 
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                crate::list_try_apply(self, value)
+            }
+
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
@@ -538,6 +542,10 @@ macro_rules! impl_reflect_for_hashmap {
 
             fn apply(&mut self, value: &dyn Reflect) {
                 map_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                map_try_apply(self, value)
             }
 
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -766,6 +774,10 @@ where
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -908,6 +920,11 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Reflect for [T
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         crate::array_apply(self, value);
+    }
+
+    #[inline]
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::array_try_apply(self, value)
     }
 
     #[inline]
@@ -1056,13 +1073,18 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            return Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            ));
         }
+        Ok(())
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1246,6 +1268,10 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
         crate::list_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::list_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -1342,13 +1368,17 @@ impl Reflect for &'static str {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            return Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            ));
         }
+        Ok(())
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1444,12 +1474,16 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
+            Ok(())
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            ))
         }
     }
 
@@ -1545,12 +1579,16 @@ impl Reflect for Cow<'static, Path> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             *self = value.clone();
+            Ok(())
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            Err(ApplyError::MismatchedTypes(
+                value.reflect_type_path().into(),
+                <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            ))
         }
     }
 
@@ -1782,14 +1820,14 @@ mod tests {
 
         // === None on None === //
         let patch = None::<Foo>;
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "Some apply onto None");

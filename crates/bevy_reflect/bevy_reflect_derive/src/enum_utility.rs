@@ -21,7 +21,7 @@ pub(crate) struct EnumVariantConstructors {
 pub(crate) fn get_variant_constructors(
     reflect_enum: &ReflectEnum,
     ref_value: &Ident,
-    can_panic: bool,
+    return_apply_error: bool,
 ) -> EnumVariantConstructors {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let variant_count = reflect_enum.variants().len();
@@ -50,17 +50,23 @@ pub(crate) fn get_variant_constructors(
                     _ => quote! { #FQDefault::default() }
                 }
             } else {
-                let (resolve_error, resolve_missing) = if can_panic {
+                let (resolve_error, resolve_missing) = if return_apply_error {
                     let field_ref_str = match &field_ident {
-                        Member::Named(ident) => format!("the field `{ident}`"),
-                        Member::Unnamed(index) => format!("the field at index {}", index.index)
+                        Member::Named(ident) => format!("field `{ident}`"),
+                        Member::Unnamed(index) => format!("field at index {}", index.index)
                     };
                     let ty = field.data.ty.to_token_stream();
 
-                    let on_error = format!("{field_ref_str} should be of type `{ty}`");
-                    let on_missing = format!("{field_ref_str} is required but could not be found");
-
-                    (quote!(.expect(#on_error)), quote!(.expect(#on_missing)))
+                    (
+                        quote!(.ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes(
+                            #field_ref_str.into(),
+                            <#ty as #bevy_reflect_path::TypePath>::type_path().into()
+                        ))?),
+                        quote!(.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField(
+                                #name.into(),
+                                #field_ref_str.into()
+                            ))?)
+                    )
                 } else {
                     (quote!(?), quote!(?))
                 };
