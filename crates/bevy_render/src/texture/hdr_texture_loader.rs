@@ -24,8 +24,6 @@ pub enum HdrTextureLoaderError {
     Io(#[from] std::io::Error),
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
-    #[error("Could not return a 32bit RGB image reference")]
-    ImageReferenceRgb32F,
 }
 
 impl AssetLoader for HdrTextureLoader {
@@ -52,7 +50,7 @@ impl AssetLoader for HdrTextureLoader {
         let dynamic_image = DynamicImage::from_decoder(decoder)?;
         let image_buffer = dynamic_image
             .as_rgb32f()
-            .ok_or(HdrTextureLoaderError::ImageReferenceRgb32F)?;
+            .expect("Image format should be Rgb32F");
         let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * format.pixel_size());
 
         for rgb in image_buffer.pixels() {
