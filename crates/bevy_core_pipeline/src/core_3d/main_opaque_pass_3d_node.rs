@@ -7,7 +7,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{RenderPhase, TrackedRenderPass},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -17,14 +17,16 @@ use bevy_utils::tracing::info_span;
 
 use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`]
+/// [`BinnedRenderPhase`] and [`AlphaMask3d`]
+/// [`bevy_render::render_phase::SortedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3d>,
-        &'static RenderPhase<AlphaMask3d>,
+        &'static BinnedRenderPhase<Opaque3d>,
+        &'static BinnedRenderPhase<AlphaMask3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -80,14 +82,14 @@ impl ViewNode for MainOpaquePass3dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
                 opaque_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha draws
-            if !alpha_mask_phase.items.is_empty() {
+            if !alpha_mask_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
                 alpha_mask_phase.render(&mut render_pass, world, view_entity);

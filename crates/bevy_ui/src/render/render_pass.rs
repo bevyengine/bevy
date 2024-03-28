@@ -20,7 +20,7 @@ use nonmax::NonMaxU32;
 pub struct UiPassNode {
     ui_view_query: QueryState<
         (
-            &'static RenderPhase<TransparentUi>,
+            &'static SortedRenderPhase<TransparentUi>,
             &'static ViewTarget,
             &'static ExtractedCamera,
         ),
@@ -96,26 +96,14 @@ pub struct TransparentUi {
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
     }
 
     #[inline]
@@ -136,6 +124,20 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl SortedPhaseItem for TransparentUi {
+    type SortKey = (FloatOrd, u32);
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
     }
 }
 

@@ -50,7 +50,7 @@ pub enum Pipeline {
 type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {

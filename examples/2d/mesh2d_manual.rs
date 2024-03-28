@@ -13,7 +13,7 @@ use bevy::{
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -360,7 +360,7 @@ pub fn queue_colored_mesh2d(
     render_mesh_instances: Res<RenderMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {

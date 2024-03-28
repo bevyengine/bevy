@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
+    render_phase::SortedRenderPhase,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -12,14 +12,15 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
+/// [`SortedRenderPhase`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Transparent3d>,
+        &'static SortedRenderPhase<Transparent3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );

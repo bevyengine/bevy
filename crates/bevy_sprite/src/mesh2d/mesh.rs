@@ -14,7 +14,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -101,7 +101,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_render_phase::<Transparent2d, Mesh2dPipeline>
+                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),

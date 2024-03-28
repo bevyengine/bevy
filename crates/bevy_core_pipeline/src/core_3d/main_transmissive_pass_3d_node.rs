@@ -4,7 +4,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
+    render_phase::SortedRenderPhase,
     render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -13,7 +13,8 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use std::ops::Range;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
+/// [`SortedRenderPhase`].
 #[derive(Default)]
 pub struct MainTransmissivePass3dNode;
 
@@ -21,7 +22,7 @@ impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static Camera3d,
-        &'static RenderPhase<Transmissive3d>,
+        &'static SortedRenderPhase<Transmissive3d>,
         &'static ViewTarget,
         Option<&'static ViewTransmissionTexture>,
         &'static ViewDepthTexture,
