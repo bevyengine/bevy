@@ -28,7 +28,6 @@ Note: one utility is the Handles! macro, which when writing a handles tuple repl
 - the feature inputs are mapped through some sub-features, to the outputs
   - since the RenderHandles are the mechanism for this, we don't need any awkward configuration
 
-
 ### small `Feature` example: 
 
 ```rs
@@ -66,7 +65,7 @@ impl <G: RenderSubGraph> Feature<G> for Blit {
 ## SubFeature
 
 - basically, an abstraction over iterating extracted `Views`, very common in rendering
-- they take in a set of inputs (in the backend: dynamic components on the view) and output a single new component to be added to that View
+- they take in a set of inputs (in the backend: dynamic components on the view) and output a single new dynamic component to be added to that View
 - Their `Signature`s must impl `RenderSignature<false>`, since they don't support multiple output (should they?)
 - Closures/functions of the signature `Fn(Entity, (Input..), (SystemParams..)) -> Output` implement SubFeature
 
@@ -99,13 +98,10 @@ pub fn new_texture(
 
 ## RenderIO<const MULT: bool>
 
-
 - `RenderIO<false>`: a marker trait implemented for all `Send + Sync + 'static` types and tuples. The `Handles` associated with any `RenderIO<false>` is always considered a single value, so turns into a `RenderHandle<Self>`
 - `RenderIO<true>`: a marker trait for all tuples of `RenderIO<false>`, used for multi-input and multi-output features and sub-features since its `Handles` type is tupled as well:
   - note: derive macro implementing multi input-output for structs of handles?
 
 ```rs 
 <(u8, u8, u8) as RenderIO<true>>::Handles = (RenderHandle<u8>, RenderHandle<u8>, RenderHandle<u8>);
-```
-
 
