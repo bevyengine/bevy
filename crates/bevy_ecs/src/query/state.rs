@@ -1,11 +1,11 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    batching::BatchingStrategy,
     component::{ComponentId, Tick},
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
-        QueryIter, QueryParIter,
+        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
