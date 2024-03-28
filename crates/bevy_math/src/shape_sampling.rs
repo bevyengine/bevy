@@ -142,7 +142,7 @@ impl ShapeSample for Cuboid {
     }
 }
 
-// Interior sampling for triangles which doesn't depend on the ambient dimension.
+/// Interior sampling for triangles which doesn't depend on the ambient dimension.
 fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     vertices: [P; 3],
     rng: &mut R,
@@ -165,7 +165,7 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     }
 }
 
-// Boundary sampling for triangles which doesn't depend on the ambient dimension.
+/// Boundary sampling for triangles which doesn't depend on the ambient dimension.
 fn sample_triangle_boundary<P: NormedVectorSpace, R: Rng + ?Sized>(
     vertices: [P; 3],
     rng: &mut R,
