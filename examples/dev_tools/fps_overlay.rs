@@ -1,7 +1,7 @@
 //! Showcase how to use and configure FPS overlay.
 
 use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     prelude::*,
 };
 
@@ -18,6 +18,13 @@ fn main() {
                         color: Color::srgb(0.0, 1.0, 0.0),
                         // If we want, we can use a custom font
                         font: default(),
+                    },
+                    frame_time_graph_config: FrameTimeGraphConfig {
+                        enabled: true,
+                        // The minimum acceptable fps
+                        min_fps: 30.0,
+                        // The target fps
+                        target_fps: 144.0,
                     },
                 },
             },
@@ -47,7 +54,8 @@ fn setup(mut commands: Commands) {
             c.spawn(TextBundle::from_section(
                 concat!(
                     "Press 1 to change color of the overlay.\n",
-                    "Press 2 to change size of the overlay."
+                    "Press 2 to change size of the overlay.\n",
+                    "Press 3 to toggle the frame time graph."
                 ),
                 TextStyle {
                     font_size: 25.0,
@@ -64,5 +72,8 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
     }
     if input.just_pressed(KeyCode::Digit2) {
         overlay.text_config.font_size -= 2.0;
+    }
+    if input.just_released(KeyCode::Digit3) {
+        overlay.frame_time_graph_config.enabled = !overlay.frame_time_graph_config.enabled;
     }
 }
