@@ -48,6 +48,7 @@ pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
+use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -67,7 +68,7 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, FloatOrd, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
 use nonmax::NonMaxU32;
 
 use crate::{

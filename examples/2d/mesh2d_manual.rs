@@ -8,6 +8,7 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::Transparent2d,
+    math::FloatOrd,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
@@ -28,7 +29,6 @@ use bevy::{
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
         RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
-    utils::FloatOrd,
 };
 use std::f32::consts::PI;
 
