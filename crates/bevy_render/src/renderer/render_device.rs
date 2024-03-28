@@ -11,19 +11,20 @@ use wgpu::{
 use super::RenderQueue;
 
 use crate::render_resource::resource_macros::*;
+use crate::WgpuWrapper;
 
 render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: ErasedRenderDevice,
+    device: WgpuWrapper<ErasedRenderDevice>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
         Self {
-            device: ErasedRenderDevice::new(device),
+            device: WgpuWrapper::new(ErasedRenderDevice::new(device)),
         }
     }
 }
