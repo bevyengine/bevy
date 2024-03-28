@@ -1408,8 +1408,13 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(alphabet_entity_system);
 /// ```
-#[derive(Debug)]
 pub struct Has<T>(PhantomData<T>);
+
+impl<T> std::fmt::Debug for Has<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "Has<{}>", std::any::type_name::<T>())
+    }
+}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
