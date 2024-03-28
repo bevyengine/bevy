@@ -33,6 +33,8 @@ use state::{extract_state_buffers, prepare_state_buffers, AutoExposureStateBuffe
 use crate::core_3d::graph::{Core3d, Node3d};
 
 /// Plugin for the auto exposure feature.
+///
+/// See [`AutoExposureSettings`] for more details.
 pub struct AutoExposurePlugin;
 
 #[derive(Resource)]
@@ -126,17 +128,20 @@ fn queue_view_auto_exposure_pipelines(
             continue;
         };
 
+        let (min_log_lum, max_log_lum) = settings.range.clone().into_inner();
+        let (low_percent, high_percent) = settings.filter.clone().into_inner();
+
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
             state: buffer.state.clone(),
             compensation_curve: settings.compensation_curve.clone(),
             uniform: AutoExposureUniform {
-                min_log_lum: settings.min,
-                inv_log_lum_range: 1.0 / (settings.max - settings.min),
-                log_lum_range: settings.max - settings.min,
-                low_percent: settings.low_percent,
-                high_percent: settings.high_percent,
+                min_log_lum,
+                inv_log_lum_range: 1.0 / (max_log_lum - min_log_lum),
+                log_lum_range: max_log_lum - min_log_lum,
+                low_percent,
+                high_percent,
                 speed_up: settings.speed_brighten * time.delta_seconds(),
                 speed_down: settings.speed_darken * time.delta_seconds(),
             },

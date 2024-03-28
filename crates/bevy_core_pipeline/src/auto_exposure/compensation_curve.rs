@@ -14,6 +14,9 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 
+/// An auto exposure compensation curve.
+/// This curve is used to map the average log luminance of a scene to an
+/// exposure compensation value, to allow for fine control over the final exposure.
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct AutoExposureCompensationCurve {
@@ -37,6 +40,33 @@ impl Default for AutoExposureCompensationCurve {
 }
 
 impl From<CubicCurve<Vec2>> for AutoExposureCompensationCurve {
+    /// Constructs a new [`AutoExposureCompensationCurve`] from a [`CubicCurve<Vec2>`], where:
+    /// - x represents the average log luminance of the scene in EV-100;
+    /// - y represents the exposure compensation value in F-stops.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_asset::prelude::*;
+    /// # use bevy_math::vec2;
+    /// # use bevy_math::cubic_splines::*;
+    /// # use bevy_core_pipeline::auto_exposure::AutoExposureCompensationCurve;
+    /// # let mut compensation_curves = Assets::<AutoExposureCompensationCurve>::default();
+    /// let curve: Handle<AutoExposureCompensationCurve> = compensation_curves.add(
+    ///    LinearSpline::new([
+    ///        vec2(-4.0, -2.0),
+    ///        vec2(0.0, 0.0),
+    ///        vec2(2.0, 0.0),
+    ///        vec2(4.0, 2.0),
+    ///    ])
+    ///    .to_curve()
+    /// );
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the end of a segment is not equal to the beginning of the next segment,
+    /// or if the curve is not monotonically increasing on the x-axis.
     fn from(curve: CubicCurve<Vec2>) -> Self {
         let min_log_lum = curve.position(0.0).x;
         let max_log_lum = curve.position(curve.segments().len() as f32).x;
@@ -168,7 +198,7 @@ impl RenderAsset for AutoExposureCompensationCurve {
             })
             .unwrap();
 
-        let domain = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let extents = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: None,
             contents: settings.as_ref(),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
@@ -176,7 +206,7 @@ impl RenderAsset for AutoExposureCompensationCurve {
 
         Ok(GpuAutoExposureCompensationCurve {
             texture_view,
-            extents: domain,
+            extents,
         })
     }
 }

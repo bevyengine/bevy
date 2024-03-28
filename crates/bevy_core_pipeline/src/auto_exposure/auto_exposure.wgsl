@@ -159,5 +159,5 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
 
     // Apply the exposure to the color grading settings, from where it will be used for the color
     // grading pass.
-    view.color_grading.exposure = exposure;
+    view.color_grading.exposure += exposure;
 }

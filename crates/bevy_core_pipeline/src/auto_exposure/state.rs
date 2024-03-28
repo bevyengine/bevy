@@ -31,7 +31,10 @@ pub(super) fn extract_state_buffers(
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
-            .map(|(entity, settings)| (entity, 0.0f32.clamp(settings.min, settings.max)))
+            .map(|(entity, settings)| {
+                let (min, max) = settings.range.clone().into_inner();
+                (entity, 0.0f32.clamp(min, max))
+            })
             .collect(),
         removed: removed.read().collect(),
     });
