@@ -165,7 +165,6 @@ pub mod event {
         use bevy_ecs::entity::Entity;
         use bevy_ecs::event::Event;
         use bevy_reflect::Reflect;
-        use std::borrow::Borrow;
 
         /// A gamepad button input event.
         #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -176,7 +175,9 @@ pub mod event {
             reflect(Serialize, Deserialize)
         )]
         pub struct GamepadButtonInput {
+            /// The entity that represents this gamepad.
             pub entity: Entity,
+            /// The gamepad id of this gamepad.
             pub gamepad_id: GamepadId,
             /// The gamepad button assigned to the event.
             pub button: GamepadButtonType,
@@ -185,6 +186,7 @@ pub mod event {
         }
 
         impl GamepadButtonInput {
+            /// Creates a new [`GamepadButtonInput`]
             pub fn new(
                 entity: Entity,
                 gamepad_id: impl AsRef<GamepadId>,
@@ -200,15 +202,21 @@ pub mod event {
             }
         }
 
+        /// A gamepad axis event.
         #[derive(Event, Debug, Clone, Copy, PartialEq)]
         pub struct GamepadAxisInput {
+            /// The entity that represents this gamepad.
             pub entity: Entity,
+            /// The gamepad id of this gamepad.
             pub gamepad_id: GamepadId,
+            /// The gamepad axis assigned to the event.
             pub axis: GamepadAxisType,
+            /// The value of this axis.
             pub value: f32,
         }
 
         impl GamepadAxisInput {
+            /// Creates a new [`GamepadAxisInput`]
             pub fn new(
                 entity: Entity,
                 gamepad_id: impl AsRef<GamepadId>,
@@ -284,15 +292,21 @@ pub enum ButtonSettingsError {
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+/// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
 #[derive(Bundle)]
 pub struct MinimalGamepad {
-    gamepad: Gamepad,
-    settings: GamepadSettings,
-    buttons: GamepadButtons,
-    axis: GamepadAxisComponent,
+    /// The [`Gamepad`] component
+    pub gamepad: Gamepad,
+    /// The [`GamepadSettings`] component
+    pub settings: GamepadSettings,
+    /// The [`GamepadButtons`] component
+    pub buttons: GamepadButtons,
+    /// The [`GamepadAxis`] component
+    pub axis: GamepadAxisComponent,
 }
 
 impl MinimalGamepad {
+    /// Creates a new minimal gamepad
     pub fn new(gamepad: Gamepad) -> Self {
         Self {
             gamepad,
@@ -307,13 +321,13 @@ impl MinimalGamepad {
 ///
 /// ## Usage
 ///
-/// The primary way to access the individual connected gamepads is done through the [`Gamepads`]
-/// `bevy` resource. It is also used inside of [`GamepadConnectionEvent`]s to correspond a gamepad
-/// with a connection event.
+/// It is the primary identifier for raw events. You can access the individual [`entity`](Entity)
+/// belonging to a [`GamepadId`] through the [`EntityGamepadMap`] [`resource`](Res) or a [`query`](Query) with [`Gamepad`].
 ///
 /// ## Note
 ///
-/// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
+/// The `ID` of a gamepad is fixed until the app is restarted.
+/// Reconnected gamepads will try to preserve their `ID` but it's not guaranteed.
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -338,17 +352,32 @@ impl Display for GamepadId {
     }
 }
 
+/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the [`GamepadId`] identifier or `name`.
+///
+/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
+///
+/// # Usage
+///
+/// The only way to obtain a [`Gamepad`] is by [`query`](Query).
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_input::gamepad::{Gamepad};
+/// # use bevy_ecs::system::Query;
+/// #
+/// fn gamepad_name_system(gamepads: Query<&Gamepad>) {
+///     for gamepad in gamepads.iter() {
+///         println!("{}", gamepad.id())
+///     }
+/// }
+/// ```
 #[derive(Component, Debug, Clone)]
 pub struct Gamepad {
     id: GamepadId,
     info: GamepadInfo,
 }
 
-/*impl Borrow<GamepadId> for Gamepad {
-    fn borrow(&self) -> &GamepadId {
-        &self.id
-    }
-}*/
 impl AsRef<GamepadId> for Gamepad {
     fn as_ref(&self) -> &GamepadId {
         &self.id
@@ -356,10 +385,16 @@ impl AsRef<GamepadId> for Gamepad {
 }
 
 impl Gamepad {
+    /// Returns the [`GamepadId`] of the gamepad.
     pub fn id(&self) -> GamepadId {
         self.id
     }
 
+    /// The name of the gamepad.
+    ///
+    /// This name is generally defined by the OS.
+    ///
+    /// For example on Windows the name may be "HID-compliant game controller".
     pub fn name(&self) -> &str {
         self.info.name.as_str()
     }
@@ -382,9 +417,13 @@ pub struct GamepadInfo {
     pub name: String,
 }
 
+/// A [`resource`](Resource) with the mapping of connected [`GamepadId`] and their [`Entity`].
+// TODO: Members private and manually provide safe methods.
 #[derive(Default, Resource)]
 pub struct EntityGamepadMap {
+    /// Mapping of [`Entity`] to [`GamepadId`].
     pub entity_to_id: EntityHashMap<GamepadId>,
+    /// Mapping of [`GamepadId`] to [`Entity`].
     pub id_to_entity: HashMap<GamepadId, Entity>,
 }
 
@@ -451,43 +490,83 @@ pub enum GamepadButtonType {
     Other(u8),
 }
 
-#[derive(Component)]
+/// The [`GamepadButtons`] [`component`](Component) is a collection of [`GamepadButtonType`] and their state during the current frame.
+///
+/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
+///
+/// # Usage
+///
+/// The only way to obtain a [`GamepadButtons`] is by [`query`](Query).
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_input::gamepad::{Gamepad, GamepadButtons, GamepadButtonType};
+/// # use bevy_ecs::system::Query;
+/// #
+/// fn gamepad_button_input_system(gamepads: Query<(&Gamepad, &GamepadButtons)>) {
+///     for (gamepad, buttons) in gamepads.iter() {
+///         if buttons.just_pressed(GamepadButtonType::North) {
+///             println!("{} just pressed North", gamepad.id())
+///         }
+///     }
+/// }
+/// ```
+#[derive(Component, Default)]
 pub struct GamepadButtons {
     // TODO: Change digital to 2 fixedbitsets?
+    /// [`ButtonInput`] of [`GamepadButtonType`] representing their digital state
     pub(crate) digital: ButtonInput<GamepadButtonType>,
+    /// [`Axis`] of [`GamepadButtonType`] representing their analog state.
     pub(crate) analog: Axis<GamepadButtonType>,
-    //pub(crate)raw_analog: Axis<GamepadButtonType>,
 }
 
 impl GamepadButtons {
+    /// Returns the position data of the provided [`GamepadButtonType`].
+    ///
+    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
     pub fn get(&self, button_type: GamepadButtonType) -> Option<f32> {
         self.analog.get(button_type)
     }
 
+    /// Returns the unclamped position data of the provided [`GamepadButtonType`].
+    ///
+    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
+    ///
+    /// Use for things like camera zoom, where you want devices like mouse wheels to be able to
+    /// exceed the normal range. If being able to move faster on one input device
+    /// than another would give an unfair advantage, you should likely use [`Axis::get`] instead.
     pub fn get_unclamped(&self, button_type: GamepadButtonType) -> Option<f32> {
         self.analog.get_unclamped(button_type)
     }
 
+    /// Returns `true` if the [`GamepadButtonType`] has been pressed.
     pub fn pressed(&self, button_type: GamepadButtonType) -> bool {
         self.digital.pressed(button_type)
     }
 
+    /// Returns `true` if any item in [`GamepadButtonType`] has been pressed.
     pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButtonType>) -> bool {
         button_inputs
             .into_iter()
             .any(|button_type| self.pressed(button_type))
     }
 
+    /// Returns `true` if all items in [`GamepadButtonType`] have been pressed.
     pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButtonType>) -> bool {
         button_inputs
             .into_iter()
             .all(|button_type| self.pressed(button_type))
     }
 
+    /// Returns `true` if the [`GamepadButtonType`] has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, button_type: GamepadButtonType) -> bool {
         self.digital.just_pressed(button_type)
     }
 
+    /// Returns `true` if any item in [`GamepadButtonType`] has been pressed during the current frame.
     pub fn any_just_pressed(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButtonType>,
@@ -497,6 +576,7 @@ impl GamepadButtons {
             .any(|button_type| self.just_pressed(button_type))
     }
 
+    /// Returns `true` if all items in [`GamepadButtonType`] have been just pressed.
     pub fn all_just_pressed(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButtonType>,
@@ -506,10 +586,14 @@ impl GamepadButtons {
             .all(|button_type| self.just_pressed(button_type))
     }
 
+    /// Returns `true` if the [`GamepadButtonType`] has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, button_type: GamepadButtonType) -> bool {
         self.digital.just_released(button_type)
     }
 
+    /// Returns `true` if any item in [`GamepadButtonType`] has just been released.
     pub fn any_just_released(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButtonType>,
@@ -519,6 +603,7 @@ impl GamepadButtons {
             .any(|button_type| self.just_released(button_type))
     }
 
+    /// Returns `true` if all items in [`GamepadButtonType`] have just been released.
     pub fn all_just_released(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButtonType>,
@@ -526,19 +611,6 @@ impl GamepadButtons {
         button_inputs
             .into_iter()
             .all(|button_type| self.just_released(button_type))
-    }
-}
-
-impl Default for GamepadButtons {
-    fn default() -> Self {
-        let mut analog = Axis::default();
-        for button in ALL_BUTTON_TYPES.iter() {
-            analog.set(*button, 0.0);
-        }
-        Self {
-            digital: ButtonInput::default(),
-            analog,
-        }
     }
 }
 
@@ -575,29 +647,49 @@ pub enum GamepadAxisType {
     Other(u8),
 }
 
-#[derive(Component)]
+/// The [`GamepadAxisComponent`] [`component`](Component) is a collection of [`GamepadAxisType`] and their state during the current frame.
+///
+/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
+///
+/// # Usage
+///
+/// The only way to obtain a [`GamepadAxisComponent`] is by [`query`](Query).
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_input::gamepad::{Gamepad, GamepadAxisComponent, GamepadAxisType};
+/// # use bevy_ecs::system::Query;
+/// #
+/// fn gamepad_button_input_system(gamepads: Query<(&Gamepad, &GamepadAxisComponent)>) {
+///     for (gamepad, axis) in gamepads.iter() {
+///         if let Some(left_stick_x) = axis.get(GamepadAxisType::LeftStickX)  {
+///             println!("{} left stick X: {}", gamepad.id(), left_stick_x)
+///         }
+///     }
+/// }
+/// ```
+#[derive(Component, Default)]
 pub struct GamepadAxisComponent {
     axis: Axis<GamepadAxisType>,
 }
 
-impl Default for GamepadAxisComponent {
-    fn default() -> Self {
-        let mut axis = Axis::default();
-        for axis_type in ALL_AXIS_TYPES.iter() {
-            axis.set(*axis_type, 0.0);
-        }
-        Self { axis }
-    }
-}
-
 impl GamepadAxisComponent {
+    /// Returns the position data of the provided [`GamepadAxisType`].
+    ///
+    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
     pub fn get(&self, axis_type: GamepadAxisType) -> Option<f32> {
         self.axis.get(axis_type)
     }
 
+    /// Returns the unclamped position data of the provided [`GamepadAxisType`].
+    ///
+    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
     pub fn get_unclamped(&self, axis_type: GamepadAxisType) -> Option<f32> {
         self.axis.get_unclamped(axis_type)
     }
+
+    /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
             x: self.get(GamepadAxisType::LeftStickX).unwrap_or(0.0),
@@ -605,6 +697,7 @@ impl GamepadAxisComponent {
         }
     }
 
+    /// Returns the right stick as a [`Vec2`]
     pub fn right_stick(&self) -> Vec2 {
         Vec2 {
             x: self.get(GamepadAxisType::RightStickX).unwrap_or(0.0),
@@ -651,11 +744,10 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButton, GamepadId, GamepadButtonType};
+    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButtonType};
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let button = GamepadButton::new(GamepadId::new(1), GamepadButtonType::South);
-    /// let button_settings = settings.get_button_settings(button);
+    /// let button_settings = settings.get_button_settings(GamepadButtonType::South);
     /// ```
     pub fn get_button_settings(&self, button: GamepadButtonType) -> &ButtonSettings {
         self.button_settings
@@ -670,11 +762,10 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadAxis, GamepadId, GamepadAxisType};
+    /// # use bevy_input::gamepad::{GamepadSettings, GamepadAxisType};
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let axis = GamepadAxis::new(GamepadId::new(1), GamepadAxisType::LeftStickX);
-    /// let axis_settings = settings.get_axis_settings(axis);
+    /// let axis_settings = settings.get_axis_settings(GamepadAxisType::LeftStickX);
     /// ```
     pub fn get_axis_settings(&self, axis: GamepadAxisType) -> &AxisSettings {
         self.axis_settings
@@ -689,11 +780,10 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButton, GamepadId, GamepadButtonType};
+    /// # use bevy_input::gamepad::{GamepadSettings, GamepadButtonType};
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let button = GamepadButton::new(GamepadId::new(1), GamepadButtonType::South);
-    /// let button_axis_settings = settings.get_button_axis_settings(button);
+    /// let button_axis_settings = settings.get_button_axis_settings(GamepadButtonType::South);
     /// ```
     pub fn get_button_axis_settings(&self, button: GamepadButtonType) -> &ButtonAxisSettings {
         self.button_axis_settings
@@ -1264,10 +1354,10 @@ impl ButtonAxisSettings {
     }
 }
 
-/// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
+/// Handles [`GamepadConnectionEvent`]s events.
 ///
-/// Updates the [`Gamepads`] resource and resets and/or initializes
-/// the [`Axis<GamepadButton>`] and [`ButtonInput<GamepadButton>`] resources.
+/// On connection, spawns new entities with components representing a [`gamepad`](MinimalGamepad) and inserts them to the [`EntityGamepadMap`] resource.
+/// On disconnection, despawns selected entities and removes them from the [`EntityGamepadMap`] resource.
 ///
 /// ## Note
 ///
@@ -1315,7 +1405,7 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Uses [`RawGamepadAxisChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
+/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxisComponent`] and sends a [`GamepadAxisInput`] [`event`](Event).
 pub fn gamepad_axis_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads_axis: Query<(&mut GamepadAxisComponent, &GamepadSettings)>,
@@ -1346,7 +1436,8 @@ pub fn gamepad_axis_event_system(
         ));
     }
 }
-/// Uses [`RawGamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
+
+/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonInput`] [`event`](Event).
 pub fn gamepad_button_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads: Query<(&Gamepad, &mut GamepadButtons, &GamepadSettings)>,
@@ -1403,11 +1494,11 @@ pub fn gamepad_button_event_system(
 }
 
 /// Splits the [`RawGamepadEvent`] event stream into it's component events.
+// TODO: This could be moved to gilrs since we already do the match?
 pub fn gamepad_event_system(
     mut gamepads_buttons: Query<&mut GamepadButtons>,
     mut gamepad_events: EventReader<RawGamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
-    // TODO: This below could be moved to gilrs?
     mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
     mut axis_events: EventWriter<RawGamepadAxisChangedEvent>,
 ) {
@@ -1430,7 +1521,7 @@ pub fn gamepad_event_system(
 }
 
 /// An array of every [`GamepadButtonType`] variant.
-const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
+pub const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
     GamepadButtonType::South,
     GamepadButtonType::East,
     GamepadButtonType::North,
@@ -1453,7 +1544,7 @@ const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
 ];
 
 /// An array of every [`GamepadAxisType`] variant.
-const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
+pub const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::LeftStickX,
     GamepadAxisType::LeftStickY,
     GamepadAxisType::LeftZ,
@@ -1530,16 +1621,16 @@ impl GamepadRumbleIntensity {
 /// # Example
 ///
 /// ```
-/// # use bevy_input::gamepad::{GamepadId, Gamepads, GamepadRumbleRequest, GamepadRumbleIntensity};
-/// # use bevy_ecs::prelude::{EventWriter, Res};
+/// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity, EntityGamepadMap};
+/// # use bevy_ecs::prelude::{EventWriter, Res, Query};
 /// # use bevy_utils::Duration;
 /// fn rumble_gamepad_system(
 ///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
-///     gamepads: Res<Gamepads>
+///     gamepads: Query<&Gamepad>,
 /// ) {
 ///     for gamepad in gamepads.iter() {
 ///         rumble_requests.send(GamepadRumbleRequest::Add {
-///             gamepad,
+///             gamepad: *gamepad.id(),
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration: Duration::from_secs_f32(0.5),
 ///         });

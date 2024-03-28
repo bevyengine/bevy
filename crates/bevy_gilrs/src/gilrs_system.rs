@@ -36,9 +36,6 @@ pub fn gilrs_event_system(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut events: EventWriter<RawGamepadEvent>,
-    //mut gamepad_buttons: ResMut<Axis<GamepadButton>>,
-    //gamepad_axis: Res<Axis<GamepadAxis>>,
-    //gamepad_settings: Res<GamepadSettings>,
 ) {
     let gilrs = gilrs.0.get();
     while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {

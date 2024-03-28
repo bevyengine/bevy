@@ -57,7 +57,7 @@ where
 
     /// Returns the unclamped position data of the provided `input_device`.
     ///
-    /// This value may be outside of the [`Axis::MIN`] and [`Axis::MAX`] range.
+    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
     ///
     /// Use for things like camera zoom, where you want devices like mouse wheels to be able to
     /// exceed the normal range. If being able to move faster on one input device
@@ -70,16 +70,12 @@ where
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
     }
-    /// Returns an iterator of all the input devices that have position data
-    pub fn devices(&self) -> impl ExactSizeIterator<Item = &T> {
-        self.axis_data.keys()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        gamepad::{GamepadId, GamepadButton, GamepadButtonType},
+        gamepad::GamepadButtonType,
         Axis,
     };
 
@@ -100,13 +96,11 @@ mod tests {
         ];
 
         for (value, expected) in cases {
-            let gamepad_button =
-                GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger);
-            let mut axis = Axis::<GamepadButton>::default();
+            let mut axis = Axis::<GamepadButtonType>::default();
 
-            axis.set(gamepad_button, value);
+            axis.set(GamepadButtonType::RightTrigger, value);
 
-            let actual = axis.get(gamepad_button);
+            let actual = axis.get(GamepadButtonType::RightTrigger);
             assert_eq!(expected, actual);
         }
     }
@@ -116,48 +110,16 @@ mod tests {
         let cases = [-1.0, -0.9, -0.1, 0.0, 0.1, 0.9, 1.0];
 
         for value in cases {
-            let gamepad_button =
-                GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger);
-            let mut axis = Axis::<GamepadButton>::default();
+            let mut axis = Axis::<GamepadButtonType>::default();
 
-            axis.set(gamepad_button, value);
-            assert!(axis.get(gamepad_button).is_some());
+            axis.set(GamepadButtonType::RightTrigger, value);
+            assert!(axis.get(GamepadButtonType::RightTrigger).is_some());
 
-            axis.remove(gamepad_button);
-            let actual = axis.get(gamepad_button);
+            axis.remove(GamepadButtonType::RightTrigger);
+            let actual = axis.get(GamepadButtonType::RightTrigger);
             let expected = None;
 
             assert_eq!(expected, actual);
         }
-    }
-
-    #[test]
-    fn test_axis_devices() {
-        let mut axis = Axis::<GamepadButton>::default();
-        assert_eq!(axis.devices().count(), 0);
-
-        axis.set(
-            GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger),
-            0.1,
-        );
-        assert_eq!(axis.devices().count(), 1);
-
-        axis.set(
-            GamepadButton::new(GamepadId::new(1), GamepadButtonType::LeftTrigger),
-            0.5,
-        );
-        assert_eq!(axis.devices().count(), 2);
-
-        axis.set(
-            GamepadButton::new(GamepadId::new(1), GamepadButtonType::RightTrigger),
-            -0.1,
-        );
-        assert_eq!(axis.devices().count(), 2);
-
-        axis.remove(GamepadButton::new(
-            GamepadId::new(1),
-            GamepadButtonType::RightTrigger,
-        ));
-        assert_eq!(axis.devices().count(), 1);
     }
 }
