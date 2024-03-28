@@ -4,12 +4,13 @@ use std::f32::consts::PI;
 
 use bevy::{
     input::gamepad::event::raw::{
-        GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+        GamepadConnectionEvent, RawGamepadButtonChangedEvent,
     },
     input::gamepad::{GamepadButtons, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
+use bevy_internal::input::gamepad::event::processed::GamepadAxisInput;
 use bevy_internal::input::gamepad::Gamepad;
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -481,13 +482,12 @@ fn update_button_values(
 }
 
 fn update_axes(
-    // FIXME: This is wrong because we send raw values now.
-    mut axis_events: EventReader<RawGamepadAxisChangedEvent>,
+    mut axis_events: EventReader<GamepadAxisInput>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
     for axis_event in axis_events.read() {
-        let axis_type = axis_event.axis_type;
+        let axis_type = axis_event.axis;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {
             if axis_type == move_with.x_axis {
