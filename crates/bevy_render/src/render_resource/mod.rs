@@ -51,7 +51,7 @@ pub use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode,
+    VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
 pub mod encase {
