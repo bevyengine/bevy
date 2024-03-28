@@ -96,7 +96,7 @@ use bevy_render::{
     render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
-    view::VisibilitySystems,
+    view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -336,6 +336,14 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
+                    check_visibility::<WithLight>
+                        .in_set(VisibilitySystems::CheckVisibility)
+                        .after(VisibilitySystems::CalculateBounds)
+                        .after(VisibilitySystems::UpdateOrthographicFrusta)
+                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
+                        .after(VisibilitySystems::UpdateProjectionFrusta)
+                        .after(VisibilitySystems::VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)

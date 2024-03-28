@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, WithMesh2d, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -488,7 +488,11 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
-        view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
+        view_entities.extend(
+            visible_entities
+                .iter::<WithMesh2d>()
+                .map(|e| e.index() as usize),
+        );
 
         transparent_phase
             .items
