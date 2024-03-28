@@ -2,7 +2,7 @@ use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-/// A type that supports the mathematical operations of a vector space, irrespective of dimension.
+/// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
 /// - Scalar multiplication and division on the right by elements of `f32`
 /// - Negation
