@@ -1203,10 +1203,8 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {asset_path}: {err}");
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    path: dependency,
-                    ..
-                }) = err
+                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError(dependency)) =
+                    err
                 {
                     let info = self.get_mut(&asset_path).expect("info should exist");
                     info.processed_info = Some(ProcessedInfo {
@@ -1214,7 +1212,7 @@ impl ProcessorAssetInfos {
                         full_hash: AssetHash::default(),
                         process_dependencies: vec![],
                     });
-                    self.add_dependant(&dependency, asset_path.to_owned());
+                    self.add_dependant(dependency.path(), asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");
