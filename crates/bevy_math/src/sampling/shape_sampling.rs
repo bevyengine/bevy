@@ -151,7 +151,7 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     let ab = b - a;
     let ac = c - a;
 
-    // Generate random points on a parallelipiped and reflect so that
+    // Generate random points on a parallelogram and reflect so that
     // we can use the points that lie outside the triangle
     let u = rng.gen_range(0.0..=1.0);
     let v = rng.gen_range(0.0..=1.0);

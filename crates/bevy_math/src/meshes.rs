@@ -16,6 +16,7 @@ impl TriangleMesh {
     }
 }
 
+#[derive(Debug)]
 /// A triangular surface mesh with indexed faces, allowing face adjacencies to be recovered.
 pub struct IndexedFaceMesh {
     vertices: Vec<Vec3>, // should these fields be public?
@@ -35,7 +36,7 @@ impl IndexedFaceMesh {
     /// Build a face from the indices of its vertices.
     #[inline]
     fn build_face_triangle(vertices: &[Vec3], indices: [usize; 3]) -> Triangle3d {
-        let vertices = indices.map(|v| vertices[v as usize]);
+        let vertices = indices.map(|v| vertices[v]);
         Triangle3d { vertices }
     }
 
