@@ -24,6 +24,7 @@ fn setup(
     let shapes = [
         Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
         Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
