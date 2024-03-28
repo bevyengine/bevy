@@ -2,6 +2,8 @@
 
 ## Feature 
 - a weird version of `Plugin` specific to rendering
+- The type parameter G allows for configuring the plugin based on its trait impls
+  - in my other write-up I made the case for this 
 - Defines a multi-input multi-output `Signature: RenderSignature<true>`,
   - like a function signature, it defines the inputs and outputs of a render feature
   - the `<true>` in `RenderSignature<true>` indicates that it's multi-output (described below in the RenderIO section)
@@ -94,7 +96,7 @@ pub fn new_texture(
 
 ## RenderSignature
 
-- has two associated types: `In: RenderIO<true>` and `Out<>`. Always multiple-input, multiple-output if the type parameter is `true`
+- has two associated types: `In: RenderIO<true>` and `Out: RenderIO<MULTI_OUTPUT>`. Always multiple-input, multiple-output if the const parameter `MULTI_OUTPUT` is `true`
 
 ## RenderIO<const MULT: bool>
 
@@ -104,4 +106,12 @@ pub fn new_texture(
 
 ```rs 
 <(u8, u8, u8) as RenderIO<true>>::Handles = (RenderHandle<u8>, RenderHandle<u8>, RenderHandle<u8>);
+```
 
+# How will Features be added to the World? 
+
+I don't know. They need to be stored per-graph/procedure/whatever, where graph/procedure/whatever is the name for the render sub graph itself and all its supporting systems. IMO this should be done with a single large builder and submitted a single time, so that a procedure could be reconfigured and resubmitted at will if settings change. But, I don't know if that's even possible or the best way to achieve dynamism.
+
+# How to disambiguate resources between same-named sub-features? 
+
+Again an open question, but I think a wrapper resource with a `HashMap<SubFeatureId, MyResource>` or something couldn't be the worst idea.
