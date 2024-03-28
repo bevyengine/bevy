@@ -240,6 +240,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         instance_buffer: Option<&'w InstanceBuffer>,
         (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,

@@ -23,6 +23,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod indirect;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -60,6 +61,7 @@ pub use extract_param::Extract;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use indirect::IndirectRenderPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::deterministic::DeterministicRenderingConfig;
@@ -333,6 +335,7 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            IndirectRenderPlugin,
         ));
 
         app.register_type::<alpha::AlphaMode>()

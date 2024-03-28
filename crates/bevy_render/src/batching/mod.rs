@@ -55,7 +55,7 @@ impl<T: PartialEq> BatchMeta<T> {
 
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
-pub trait GetBatchData {
+pub trait GetBatchData: Sized {
     type Param: SystemParam + 'static;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
@@ -77,11 +77,11 @@ pub trait GetBatchData {
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
-    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
+    data_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
     param: StaticSystemParam<F::Param>,
 ) {
-    let gpu_array_buffer = gpu_array_buffer.into_inner();
+    let gpu_array_buffer = data_buffer.into_inner();
     let system_param_item = param.into_inner();
 
     let mut process_item = |item: &mut I| {

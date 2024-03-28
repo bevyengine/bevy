@@ -34,6 +34,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
+        index: usize,
     );
 }
 
@@ -201,6 +202,7 @@ pub trait RenderCommand<P: PhaseItem> {
     /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
+        index: usize,
         view: ROQueryItem<'w, Self::ViewQuery>,
         entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
@@ -224,6 +226,7 @@ macro_rules! render_command_tuple_impl {
             #[allow(non_snake_case)]
             fn render<'w>(
                 _item: &P,
+                _index: usize,
                 ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
                 maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
@@ -231,12 +234,12 @@ macro_rules! render_command_tuple_impl {
             ) -> RenderCommandResult {
                 match maybe_entities {
                     None => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, _index, $view, None, $name, _pass) {
                             return RenderCommandResult::Failure;
                         })*
                     }
                     Some(($($entity,)*)) => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, _index, $view, Some($entity), $name, _pass) {
                             return RenderCommandResult::Failure;
                         })*
                     }
@@ -289,12 +292,13 @@ where
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
+        index: usize,
     ) {
         let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).ok();
         // TODO: handle/log `RenderCommand` failure
-        C::render(item, view, entity, param, pass);
+        C::render(item, index, view, entity, param, pass);
     }
 }
 

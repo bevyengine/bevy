@@ -29,7 +29,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
+    view::{ExtractedView, GpuCulling, Msaa, VisibleEntities},
     Extract,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -443,6 +443,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _item_query: Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
@@ -539,15 +540,16 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&Camera3d>,
-        Has<TemporalJitter>,
         Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transmissive3d>,
         &mut RenderPhase<Transparent3d>,
         (
+            Has<TemporalJitter>,
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
+            Has<GpuCulling>,
         ),
     )>,
 ) where
@@ -562,13 +564,12 @@ pub fn queue_material_meshes<M: Material>(
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         camera_3d,
-        temporal_jitter,
         projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transmissive_phase,
         mut transparent_phase,
-        (has_environment_maps, has_irradiance_volumes),
+        (temporal_jitter, has_environment_maps, has_irradiance_volumes, gpu_culling),
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -605,6 +606,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if gpu_culling {
+            view_key |= MeshPipelineKey::INDIRECT;
         }
 
         if let Some(projection) = projection {

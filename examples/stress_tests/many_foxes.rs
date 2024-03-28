@@ -9,6 +9,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
+    render::view::GpuCulling,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -23,6 +24,10 @@ struct Args {
     /// total number of foxes.
     #[argh(option, default = "1000")]
     count: usize,
+
+    /// whether to use GPU culling
+    #[argh(switch)]
+    gpu_culling: bool,
 }
 
 #[derive(Resource)]
@@ -65,6 +70,7 @@ fn main() {
             moving: true,
             sync: args.sync,
         })
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -113,6 +119,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
+    args: Res<Args>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -194,11 +201,14 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn(Camera3dBundle {
+    let mut camera = commands.spawn(Camera3dBundle {
         transform: Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
         ..default()
     });
+    if args.gpu_culling {
+        camera.insert(GpuCulling);
+    }
 
     // Plane
     commands.spawn(PbrBundle {

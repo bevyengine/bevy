@@ -721,6 +721,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         view_uniform: &'_ ViewUniformOffset,
         _entity: Option<()>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
@@ -742,6 +743,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         batch: Option<&'_ SpriteBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
@@ -772,6 +774,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
     fn render<'w>(
         _item: &P,
+        _index: usize,
         _view: (),
         batch: Option<&'_ SpriteBatch>,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,

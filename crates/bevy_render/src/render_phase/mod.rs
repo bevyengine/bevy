@@ -115,7 +115,7 @@ impl<I: PhaseItem> RenderPhase<I> {
                 index += 1;
             } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-                draw_function.draw(world, render_pass, view, item);
+                draw_function.draw(world, render_pass, view, item, index);
                 index += batch_range.len();
             }
         }
@@ -201,6 +201,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     #[inline]
     fn render<'w>(
         item: &P,
+        _index: usize,
         _view: (),
         _entity: Option<()>,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,

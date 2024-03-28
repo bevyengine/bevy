@@ -78,6 +78,8 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the GPU culling node.
+        GpuCull,
     }
 }
 
@@ -292,6 +294,7 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
+                GpuCullPlugin,
             ))
             .configure_sets(
                 PostUpdate,

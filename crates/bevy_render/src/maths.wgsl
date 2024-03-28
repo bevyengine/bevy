@@ -17,6 +17,10 @@ fn affine3_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
     ));
 }
 
+fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
+}
+
 fn mat2x4_f32_to_mat3x3_unpack(
     a: mat2x4<f32>,
     b: f32,
