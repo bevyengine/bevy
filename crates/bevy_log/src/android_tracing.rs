@@ -77,26 +77,32 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
     }
 
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        fn sanitize(string: &str) -> CStirng {
+            let mut bytes: Vec<u8> = string
+                .as_bytes()
+                .into_iter()
+                .filter(|byte| byte != 0)
+                .collect();
+            CString::new(bytes).unwrap()
+        }
+
         let mut recorder = StringRecorder::new();
         event.record(&mut recorder);
         let meta = event.metadata();
-        let level = meta.level();
-        let priority = match *level {
+        let priority = match meta.level() {
             Level::TRACE => android_log_sys::LogPriority::VERBOSE,
             Level::DEBUG => android_log_sys::LogPriority::DEBUG,
             Level::INFO => android_log_sys::LogPriority::INFO,
             Level::WARN => android_log_sys::LogPriority::WARN,
             Level::ERROR => android_log_sys::LogPriority::ERROR,
         };
-        let message = CString::new(recorder).expect("message contained null character.");
-        let tag = CString::new(meta.name()).expect("tag contained null character.");
         // SAFETY: Called only on Android platforms. priority is guaranteed to be in range of c_int.
         // The provided tag and message are null terminated properly.
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
-                tag.as_c_str().as_ptr(),
-                message.as_c_str().as_ptr(),
+                sanitize(recorder).as_ptr(),
+                sanitize(meta.tag()).as_ptr(),
             );
         }
     }
