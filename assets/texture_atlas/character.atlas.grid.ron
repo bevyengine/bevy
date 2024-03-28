@@ -1,0 +1,7 @@
+(
+    tile_size: (24, 24),
+    rows: 1,
+    columns: 7,
+    padding: None,
+    offset: None,
+)
