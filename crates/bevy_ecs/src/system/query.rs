@@ -1333,12 +1333,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Besides removing parameters from the query, you can also
     /// make limited changes to the types of parameters.
     ///
-    /// * Can always add/remove `Entity`
+    /// * Can always add/remove [`Entity`]
+    /// * Can always add/remove [`EntityLocation`]
+    /// * Can always add/remove [`&Archetype`]
     /// * `Ref<T>` <-> `&T`
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///    
+    ///  
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`&Archetype`]: crate::archetype::Archetype
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
