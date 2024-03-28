@@ -2,7 +2,7 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
+pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor, MultiThreadedTaskPool};
 pub use self::simple::SimpleExecutor;
 pub use self::single_threaded::SingleThreadedExecutor;
 

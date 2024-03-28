@@ -236,19 +236,22 @@ impl SystemExecutor for MultiThreadedExecutor {
             .map(|e| e.0.clone());
         let thread_executor = thread_executor.as_deref();
 
+        let custom_task_pool = world
+            .get_resource::<MultiThreadedTaskPool>()
+            .map(|t| t.0.clone());
+        let task_pool = custom_task_pool
+            .as_deref()
+            .unwrap_or(ComputeTaskPool::get_or_init(TaskPool::default));
+
         let environment = &Environment::new(self, schedule, world);
 
-        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
-            false,
-            thread_executor,
-            |scope| {
-                let context = Context { environment, scope };
+        task_pool.scope_with_executor(false, thread_executor, |scope| {
+            let context = Context { environment, scope };
 
-                // The first tick won't need to process finished systems, but we still need to run the loop in
-                // tick_executor() in case a system completes while the first tick still holds the mutex.
-                context.tick_executor();
-            },
-        );
+            // The first tick won't need to process finished systems, but we still need to run the loop in
+            // tick_executor() in case a system completes while the first tick still holds the mutex.
+            context.tick_executor();
+        });
 
         // End the borrows of self and world in environment by copying out the reference to systems.
         let systems = environment.systems;
@@ -790,6 +793,22 @@ unsafe fn evaluate_and_fold_conditions(
             unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// Newtyped [`TaskPool`] [`Resource`] that is used to run systems on a custom task pool.
+///
+/// By default all [`MultiThreadedExecutor`] will use the same [`ComputeTaskPool`] in order
+/// to run systems in parallel. Insert a [`MultiThreadedTaskPool`] resource into the [`World`]
+/// with a custom [`TaskPool`] to change this behavior.
+#[derive(Resource)]
+pub struct MultiThreadedTaskPool(Arc<TaskPool>);
+
+impl MultiThreadedTaskPool {
+    /// Creates a new [`MultiThreadedTaskPool`] with a [`TaskPool`] to be used by
+    /// [`MultiThreadedExecutor`].
+    pub fn new(task_pool: TaskPool) -> Self {
+        Self(Arc::new(task_pool))
+    }
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
