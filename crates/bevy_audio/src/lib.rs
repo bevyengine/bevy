@@ -28,6 +28,8 @@
 //! ```
 
 mod audio;
+#[cfg(feature = "input")]
+mod audio_input;
 mod audio_output;
 mod audio_source;
 mod pitch;
@@ -40,6 +42,9 @@ pub mod prelude {
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
         GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
     };
+
+    #[cfg(feature = "input")]
+    pub use crate::audio_input::{AudioInputEvent, AudioInputStreamCommands};
 }
 
 pub use audio::*;
@@ -56,6 +61,8 @@ use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
 use bevy_transform::TransformSystem;
 
+#[cfg(feature = "input")]
+pub use audio_input::*;
 use audio_output::*;
 
 /// Set for the audio playback systems, so they can share a run condition
@@ -100,6 +107,13 @@ impl Plugin for AudioPlugin {
         {
             app.add_audio_source::<AudioSource>();
             app.init_asset_loader::<AudioLoader>();
+        }
+
+        #[cfg(feature = "input")]
+        if let Some(audio_input_stream) = AudioInputStream::try_default() {
+            app.insert_non_send_resource(audio_input_stream)
+                .add_event::<AudioInputEvent>()
+                .add_systems(PostUpdate, handle_input_stream.before(AudioPlaySet));
         }
 
         app.add_audio_source::<Pitch>();
