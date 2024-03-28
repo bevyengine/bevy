@@ -42,7 +42,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-            material: materials.add(Color::WHITE),
+            material: materials.add(LinearRgba::WHITE),
             ..default()
         },
         Movable,
@@ -54,7 +54,7 @@ fn setup(
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
-    let blue = materials.add(Color::srgb_u8(124, 144, 255));
+    let blue = materials.add(LinearRgba::from(Srgba::rgb_u8(124, 144, 255)));
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {

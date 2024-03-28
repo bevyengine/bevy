@@ -109,7 +109,7 @@ fn setup_basic_scene(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
+            material: materials.add(LinearRgba::from(Srgba::rgb(0.1, 0.2, 0.1))),
             ..default()
         },
         SceneNumber(1),
@@ -141,21 +141,21 @@ fn setup_basic_scene(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, s_val, 1.0),
+                base_color: Srgba::rgb(s_val, s_val, 1.0).into(),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, 1.0, s_val),
+                base_color: Srgba::rgb(s_val, 1.0, s_val).into(),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, s_val, s_val),
+                base_color: Srgba::rgb(1.0, s_val, s_val).into(),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()

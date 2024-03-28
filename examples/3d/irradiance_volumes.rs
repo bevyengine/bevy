@@ -523,7 +523,7 @@ impl FromWorld for ExampleAssets {
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
             fox: world.load_asset("models/animated/Fox.glb#Scene0"),
-            main_sphere_material: world.add_asset(Color::from(SILVER)),
+            main_sphere_material: world.add_asset(LinearRgba::from(SILVER)),
             main_scene: world
                 .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
@@ -578,7 +578,7 @@ fn create_cubes(
         let resolution = image.texture_descriptor.size;
 
         let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
-            base: StandardMaterial::from(Color::from(RED)),
+            base: StandardMaterial::from(LinearRgba::RED),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
                     transform: VOXEL_TRANSFORM.inverse(),

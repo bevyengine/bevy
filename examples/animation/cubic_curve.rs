@@ -40,7 +40,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(ORANGE)),
+            material: materials.add(LinearRgba::from(ORANGE)),
             transform: Transform::from_translation(points[0][0]),
             ..default()
         },
@@ -62,7 +62,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
-        material: materials.add(Color::from(SILVER)),
+        material: materials.add(LinearRgba::from(SILVER)),
         ..default()
     });
 

@@ -55,7 +55,7 @@ fn setup(
 
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(Color::WHITE),
+        material: materials.add(LinearRgba::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });

@@ -68,7 +68,7 @@ fn setup(
     commands.spawn(PbrBundle {
         transform: Transform::from_xyz(0., -2., 0.),
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        material: materials.add(LinearRgba::from(Srgba::rgb(0.3, 0.5, 0.3))),
         ..default()
     });
 
@@ -91,7 +91,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::srgb(0.5, 0.5, 0.5)),
+            material: materials.add(LinearRgba::from(Srgba::rgb(0.5, 0.5, 0.5))),
             ..default()
         },
         Cube {

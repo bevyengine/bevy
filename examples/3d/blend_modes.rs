@@ -36,7 +36,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let base_color = Color::srgb(0.9, 0.2, 0.3);
+    let base_color = Srgba::rgb(0.9, 0.2, 0.3).into();
     let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
@@ -140,8 +140,8 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK);
-    let white_material = materials.add(Color::WHITE);
+    let black_material = materials.add(LinearRgba::BLACK);
+    let white_material = materials.add(LinearRgba::WHITE);
 
     let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
 

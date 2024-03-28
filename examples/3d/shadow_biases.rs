@@ -38,7 +38,7 @@ fn setup(
     let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LinearRgba::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });

@@ -34,7 +34,7 @@ mod prepass;
 mod render;
 mod ssao;
 
-use bevy_color::{Color, LinearRgba};
+use bevy_color::{Color, LinearRgba, Srgba};
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -355,7 +355,7 @@ impl Plugin for PbrPlugin {
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
             &Handle::<StandardMaterial>::default(),
             StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.5),
+                base_color: Srgba::new(1.0, 0.0, 0.5, 1.0).into(),
                 unlit: true,
                 ..Default::default()
             },

@@ -120,7 +120,7 @@ fn setup(
         PbrBundle {
             mesh: cylinder_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.9, 0.2, 0.3),
+                base_color: Srgba::rgb(0.9, 0.2, 0.3).into(),
                 diffuse_transmission: 0.7,
                 perceptual_roughness: 0.32,
                 thickness: 0.2,
@@ -167,7 +167,7 @@ fn setup(
         PbrBundle {
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
+                base_color: LinearRgba::WHITE,
                 specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
@@ -256,14 +256,14 @@ fn setup(
 
     // Chessboard Plane
     let black_material = materials.add(StandardMaterial {
-        base_color: Color::BLACK,
+        base_color: LinearRgba::BLACK,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
     });
 
     let white_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LinearRgba::WHITE,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
@@ -296,7 +296,7 @@ fn setup(
         PbrBundle {
             mesh: plane_mesh,
             material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
+                base_color: LinearRgba::WHITE,
                 diffuse_transmission: 0.6,
                 perceptual_roughness: 0.8,
                 reflectance: 1.0,
@@ -489,7 +489,7 @@ fn example_control_system(
 
         if controls.color && randomize_colors {
             material.base_color =
-                Color::srgba(random(), random(), random(), material.base_color.alpha());
+                Srgba::new(random(), random(), random(), material.base_color.alpha()).into();
         }
     }
 

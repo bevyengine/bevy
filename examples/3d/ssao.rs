@@ -42,7 +42,7 @@ fn setup(
         .insert(TemporalAntiAliasBundle::default());
 
     let material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.5, 0.5, 0.5),
+        base_color: Srgba::rgb(0.5, 0.5, 0.5).into(),
         perceptual_roughness: 1.0,
         reflectance: 0.0,
         ..default()
@@ -69,7 +69,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Sphere::new(0.4).mesh().uv(72, 36)),
             material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.4, 0.4, 0.4),
+                base_color: Srgba::rgb(0.4, 0.4, 0.4).into(),
                 perceptual_roughness: 1.0,
                 reflectance: 0.0,
                 ..default()

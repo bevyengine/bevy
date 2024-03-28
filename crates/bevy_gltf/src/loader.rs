@@ -920,7 +920,7 @@ fn load_material(
         let emissive = Color::from(scaled_emissive);
 
         StandardMaterial {
-            base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+            base_color: LinearRgba::new(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -945,7 +945,7 @@ fn load_material(
             thickness_texture,
             ior,
             attenuation_distance,
-            attenuation_color: Color::linear_rgb(
+            attenuation_color: LinearRgba::rgb(
                 attenuation_color[0],
                 attenuation_color[1],
                 attenuation_color[2],

@@ -246,7 +246,7 @@ fn init_materials(
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: LinearRgba::WHITE,
         base_color_texture: textures.first().cloned(),
         ..default()
     }));
@@ -258,7 +258,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Srgba::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()).into(),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })

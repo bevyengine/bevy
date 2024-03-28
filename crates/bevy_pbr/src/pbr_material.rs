@@ -25,15 +25,15 @@ pub struct StandardMaterial {
     /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     ///
-    /// Defaults to [`Color::WHITE`].
-    pub base_color: Color,
+    /// Defaults to [`LinearRgba::WHITE`].
+    pub base_color: LinearRgba,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
     ///
     /// See [`base_color`] for details.
     ///
-    /// You should set `base_color` to [`Color::WHITE`] (the default)
+    /// You should set `base_color` to [`LinearRgba::WHITE`] (the default)
     /// if you want the texture to show as-is.
     ///
     /// Setting `base_color` to something else than white will tint
@@ -57,7 +57,7 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
+    /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
     /// To increase emissive strength, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
@@ -76,7 +76,7 @@ pub struct StandardMaterial {
     /// to get the final "emitting" color of a surface.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
-    /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
+    /// Meaning that you should set [`emissive`] to [`LinearRgba::WHITE`]
     /// if you want to use the full range of color of the emissive texture.
     ///
     /// [`emissive`]: StandardMaterial::emissive
@@ -283,7 +283,7 @@ pub struct StandardMaterial {
 
     /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
     ///
-    /// Defaults to [`Color::WHITE`], i.e. no change.
+    /// Defaults to [`LinearRgba::WHITE`], i.e. no change.
     ///
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_distance`];
@@ -291,7 +291,7 @@ pub struct StandardMaterial {
     /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_color")]
     #[doc(alias = "extinction_color")]
-    pub attenuation_color: Color,
+    pub attenuation_color: LinearRgba,
 
     /// Used to fake the lighting of bumps and dents on a material.
     ///
@@ -491,7 +491,7 @@ impl Default for StandardMaterial {
         StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
-            base_color: Color::WHITE,
+            base_color: LinearRgba::WHITE,
             base_color_texture: None,
             emissive: Color::BLACK,
             emissive_texture: None,
@@ -514,7 +514,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
-            attenuation_color: Color::WHITE,
+            attenuation_color: LinearRgba::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -537,8 +537,8 @@ impl Default for StandardMaterial {
     }
 }
 
-impl From<Color> for StandardMaterial {
-    fn from(color: Color) -> Self {
+impl From<LinearRgba> for StandardMaterial {
+    fn from(color: LinearRgba) -> Self {
         StandardMaterial {
             base_color: color,
             alpha_mode: if color.alpha() < 1.0 {

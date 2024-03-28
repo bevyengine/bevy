@@ -26,7 +26,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
-            material: materials.add(Color::from(BLUE)),
+            material: materials.add(LinearRgba::from(BLUE)),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
@@ -44,7 +44,7 @@ fn setup(
             // left ear indicator
             parent.spawn(PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(RED)),
+                material: materials.add(LinearRgba::from(RED)),
                 transform: Transform::from_translation(listener.left_ear_offset),
                 ..default()
             });
@@ -52,7 +52,7 @@ fn setup(
             // right ear indicator
             parent.spawn(PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(LIME)),
+                material: materials.add(LinearRgba::from(LIME)),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
             });

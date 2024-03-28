@@ -27,7 +27,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
+            material: materials.add(LinearRgba::WHITE),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
