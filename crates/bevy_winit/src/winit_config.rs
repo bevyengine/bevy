@@ -58,6 +58,7 @@ impl Default for WinitSettings {
     }
 }
 
+#[allow(rustdoc::redundant_explicit_links)]
 /// Determines how frequently an [`App`](bevy_app::App) should update.
 ///
 /// **Note:** This setting is independent of VSync. VSync is controlled by a window's

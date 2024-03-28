@@ -51,7 +51,7 @@ fn main() {
 /// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
 /// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.
 /// This illustrates that when you process an asset, you can change its type! However you don't _need_ to change the type.
-pub struct TextPlugin;
+struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
