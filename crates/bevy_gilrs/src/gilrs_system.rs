@@ -7,7 +7,7 @@ use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::NonSendMut;
 use bevy_ecs::system::ResMut;
 use bevy_input::gamepad::event::raw::{
-    GamepadEvent, GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent,
+    RawGamepadEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, GamepadConnectionEvent,
 };
 use bevy_input::gamepad::{GamepadConnection, GamepadInfo};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
@@ -15,7 +15,7 @@ use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 pub fn gilrs_event_startup_system(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut events: EventWriter<GamepadEvent>,
+    mut events: EventWriter<RawGamepadEvent>,
 ) {
     for (id, gamepad) in gilrs.0.get().gamepads() {
         let info = GamepadInfo {
@@ -35,7 +35,7 @@ pub fn gilrs_event_startup_system(
 pub fn gilrs_event_system(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut events: EventWriter<GamepadEvent>,
+    mut events: EventWriter<RawGamepadEvent>,
     //mut gamepad_buttons: ResMut<Axis<GamepadButton>>,
     //gamepad_axis: Res<Axis<GamepadAxis>>,
     //gamepad_settings: Res<GamepadSettings>,
@@ -65,7 +65,7 @@ pub fn gilrs_event_system(
                 let Some(button) = convert_button(gilrs_button) else {
                     continue;
                 };
-                events.send(GamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
+                events.send(RawGamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
                 // TODO: Filtering and set analog buttons thingy!
                 /*
                 if let Some(button_type) = convert_button(gilrs_button) {
@@ -89,7 +89,7 @@ pub fn gilrs_event_system(
                 let Some(axis) = convert_axis(gilrs_axis) else {
                     continue;
                 };
-                events.send(GamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
+                events.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
                 /*if let Some(axis_type) = convert_axis(gilrs_axis) {
                     let axis = GamepadAxis::new(gamepad, axis_type);
                     let old_value = gamepad_axis.get(axis);

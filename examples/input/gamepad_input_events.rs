@@ -2,10 +2,10 @@
 
 use bevy::{
     input::gamepad::event::raw::{
-        GamepadAxisChangedEvent, GamepadButtonChangedEvent,
-        GamepadConnectionEvent, GamepadEvent,
+        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+        GamepadConnectionEvent, RawGamepadEvent,
     },
-    input::gamepad::event::filtered::GamepadButtonInput,
+    input::gamepad::event::processed::GamepadButtonInput,
     prelude::*,
 };
 
@@ -18,10 +18,10 @@ fn main() {
 
 fn gamepad_events(
     mut connection_events: EventReader<GamepadConnectionEvent>,
-    mut axis_changed_events: EventReader<GamepadAxisChangedEvent>,
+    mut axis_changed_events: EventReader<RawGamepadAxisChangedEvent>,
     // Handles the continuous measure of how far a button has been pressed down, as measured
     // by `Axis<GamepadButton>`. Whenever that value changes, this event is emitted.
-    mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
+    mut button_changed_events: EventReader<RawGamepadButtonChangedEvent>,
     // Handles the boolean measure of whether a button is considered pressed or unpressed, as
     // defined by the thresholds in `GamepadSettings::button_settings` and measured by
     // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
@@ -53,12 +53,12 @@ fn gamepad_events(
 // If you require in-frame relative event ordering, you can also read the `Gamepad` event
 // stream directly. For standard use-cases, reading the events individually or using the
 // `Input<T>` or `Axis<T>` resources is preferable.
-fn gamepad_ordered_events(mut gamepad_events: EventReader<GamepadEvent>) {
+fn gamepad_ordered_events(mut gamepad_events: EventReader<RawGamepadEvent>) {
     for gamepad_event in gamepad_events.read() {
         match gamepad_event {
-            GamepadEvent::Connection(connection_event) => info!("{:?}", connection_event),
-            GamepadEvent::Button(button_event) => info!("{:?}", button_event),
-            GamepadEvent::Axis(axis_event) => info!("{:?}", axis_event),
+            RawGamepadEvent::Connection(connection_event) => info!("{:?}", connection_event),
+            RawGamepadEvent::Button(button_event) => info!("{:?}", button_event),
+            RawGamepadEvent::Axis(axis_event) => info!("{:?}", axis_event),
         }
     }
 }

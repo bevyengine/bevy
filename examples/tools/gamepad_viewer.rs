@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::event::raw::{GamepadConnectionEvent, GamepadAxisChangedEvent, GamepadButtonChangedEvent},
+    input::gamepad::event::raw::{GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent},
     input::gamepad::{GamepadButtons, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
@@ -464,10 +464,9 @@ fn update_buttons(
         }
     }
 }
-
 fn update_button_values(
     // FIXME: This is wrong because we send raw values now.
-    mut events: EventReader<GamepadButtonChangedEvent>,
+    mut events: EventReader<RawGamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
@@ -481,7 +480,7 @@ fn update_button_values(
 
 fn update_axes(
     // FIXME: This is wrong because we send raw values now.
-    mut axis_events: EventReader<GamepadAxisChangedEvent>,
+    mut axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {

@@ -45,7 +45,7 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, GamepadRumbleRequest, GamepadSettings, event::raw::*, event::filtered::*
+    gamepad_event_system, GamepadRumbleRequest, GamepadSettings, event::raw::*, event::processed::*
 };
 
 use crate::gamepad::EntityGamepadMap;
@@ -77,10 +77,11 @@ impl Plugin for InputPlugin {
             .add_event::<TouchpadRotate>()
             // gamepad
             .add_event::<GamepadConnectionEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadButtonInput>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_event::<GamepadEvent>()
+            .add_event::<GamepadAxisInput>()
+            .add_event::<RawGamepadAxisChangedEvent>()
+            .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
             .init_resource::<EntityGamepadMap>()
             .add_systems(
@@ -109,7 +110,7 @@ impl Plugin for InputPlugin {
             .register_type::<TouchpadMagnify>()
             .register_type::<TouchpadRotate>()
             .register_type::<TouchInput>()
-            .register_type::<GamepadEvent>()
+            .register_type::<RawGamepadEvent>()
             .register_type::<GamepadButtonInput>()
             .register_type::<GamepadSettings>();
     }
