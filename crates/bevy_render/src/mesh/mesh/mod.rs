@@ -1,4 +1,5 @@
 mod conversions;
+pub mod mesh_conversions;
 pub mod skinning;
 use bevy_transform::components::Transform;
 pub use wgpu::PrimitiveTopology;
