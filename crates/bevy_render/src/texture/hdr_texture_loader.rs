@@ -3,7 +3,7 @@ use crate::{
     texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
-use image::{DynamicImage, ImageDecoder};
+use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
@@ -24,8 +24,6 @@ pub enum HdrTextureLoaderError {
     Io(#[from] std::io::Error),
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
-    #[error("Could not convert total number of bytes in decoded image from u64 to usize: {0}")]
-    TryIntoTotalBytes(#[from] std::num::TryFromIntError),
     #[error("Could not return a 32bit RGB image reference")]
     ImageReferenceRgb32F,
 }
@@ -51,12 +49,11 @@ impl AssetLoader for HdrTextureLoader {
         reader.read_to_end(&mut bytes).await?;
         let decoder = image::codecs::hdr::HdrDecoder::new(bytes.as_slice())?;
         let info = decoder.metadata();
-        let total_bytes = decoder.total_bytes().try_into()?;
         let dynamic_image = DynamicImage::from_decoder(decoder)?;
         let image_buffer = dynamic_image
             .as_rgb32f()
             .ok_or(HdrTextureLoaderError::ImageReferenceRgb32F)?;
-        let mut rgba_data = Vec::with_capacity(total_bytes);
+        let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * format.pixel_size());
 
         for rgb in image_buffer.pixels() {
             let alpha = 1.0f32;
