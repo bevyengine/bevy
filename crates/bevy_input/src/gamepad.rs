@@ -1381,9 +1381,10 @@ pub fn gamepad_connection_system(
             gamepads.entity_to_id.insert(entity, id);
             info!("{:?} Connected", id);
         } else {
-            let entity = gamepads.id_to_entity.get(&id).copied().expect(
-                "GamepadId doesn't exist in id_to_entity map. We are in a broken state.",
-            );
+            let entity =
+                gamepads.id_to_entity.get(&id).copied().expect(
+                    "GamepadId doesn't exist in id_to_entity map. We are in a broken state.",
+                );
             if let Some(mut entity_commands) = commands.get_entity(entity) {
                 entity_commands.despawn();
             } else {

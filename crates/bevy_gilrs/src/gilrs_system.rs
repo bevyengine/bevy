@@ -7,7 +7,8 @@ use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::NonSendMut;
 use bevy_ecs::system::ResMut;
 use bevy_input::gamepad::event::raw::{
-    RawGamepadEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, GamepadConnectionEvent,
+    GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    RawGamepadEvent,
 };
 use bevy_input::gamepad::{GamepadConnection, GamepadInfo};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};

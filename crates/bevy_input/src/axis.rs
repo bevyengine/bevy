@@ -74,10 +74,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        gamepad::GamepadButtonType,
-        Axis,
-    };
+    use crate::{gamepad::GamepadButtonType, Axis};
 
     #[test]
     fn test_axis_set() {

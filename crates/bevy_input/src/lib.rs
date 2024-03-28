@@ -27,7 +27,7 @@ pub use button_input::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        gamepad::{GamepadId, GamepadAxisType, GamepadButtonType},
+        gamepad::{GamepadAxisType, GamepadButtonType, GamepadId},
         keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},
@@ -44,8 +44,8 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
-    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, GamepadRumbleRequest, GamepadSettings, event::raw::*, event::processed::*
+    event::processed::*, event::raw::*, gamepad_axis_event_system, gamepad_button_event_system,
+    gamepad_connection_system, gamepad_event_system, GamepadRumbleRequest, GamepadSettings,
 };
 
 use crate::gamepad::EntityGamepadMap;

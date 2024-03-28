@@ -1,11 +1,11 @@
 //! Iterates and prints gamepad input and connection events.
 
 use bevy::{
-    input::gamepad::event::raw::{
-        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
-        GamepadConnectionEvent, RawGamepadEvent,
-    },
     input::gamepad::event::processed::GamepadButtonInput,
+    input::gamepad::event::raw::{
+        GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+        RawGamepadEvent,
+    },
     prelude::*,
 };
 
