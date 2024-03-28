@@ -291,6 +291,7 @@ pub enum ButtonSettingsError {
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_utils::tracing::warn;
 
 /// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
 #[derive(Bundle)]
@@ -1369,22 +1370,27 @@ pub fn gamepad_connection_system(
 ) {
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
-        let entity = gamepads
-            .id_to_entity
-            .get(&id)
-            .copied()
-            .unwrap_or(commands.spawn_empty().id());
         if let GamepadConnection::Connected(info) = &connection_event.connection {
-            commands.entity(entity).insert(MinimalGamepad::new(Gamepad {
-                id,
-                info: info.clone(),
-            }));
-
+            let entity = commands
+                .spawn(MinimalGamepad::new(Gamepad {
+                    id,
+                    info: info.clone(),
+                }))
+                .id();
             gamepads.id_to_entity.insert(id, entity);
             gamepads.entity_to_id.insert(entity, id);
             info!("{:?} Connected", id);
         } else {
-            commands.entity(entity).despawn();
+            let entity = gamepads.id_to_entity.get(&id).copied().expect(
+                "GamepadId doesn't exist in id_to_entity map. We are in a broken state.",
+            );
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                entity_commands.despawn();
+            } else {
+                warn!("Disconnecting gamepad entity was already de-spawned. We can still proceed.");
+            }
+            gamepads.id_to_entity.remove(&id);
+            gamepads.entity_to_id.remove(&entity);
             info!("{:?} Disconnected", id);
         }
     }
@@ -1449,17 +1455,16 @@ pub fn gamepad_button_event_system(
 ) {
     for event in raw_events.read() {
         let button = event.button_type;
-        let Some(entity) = gamepads_map
-            .id_to_entity
-            .get(&event.gamepad)
-            .copied()
-        else {
+        let Some(entity) = gamepads_map.id_to_entity.get(&event.gamepad).copied() else {
             continue;
         };
         let Ok((gamepad, mut buttons, settings)) = gamepads.get_mut(entity) else {
             continue;
         };
-        let Some(filtered_value) = settings.get_button_axis_settings(button).filter(event.value, buttons.get(button)) else {
+        let Some(filtered_value) = settings
+            .get_button_axis_settings(button)
+            .filter(event.value, buttons.get(button))
+        else {
             continue;
         };
         let button_settings = settings.get_button_settings(button);
