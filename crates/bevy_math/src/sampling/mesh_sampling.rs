@@ -4,8 +4,7 @@ use rand::Rng;
 use rand_distr::{Distribution, WeightedAliasIndex};
 use thiserror::Error;
 
-/// A wrapper struct that caches data to allow fast sampling from the surface
-/// of a mesh. Used via [`Distribution::sample`].
+/// A wrapper struct that caches data to allow fast sampling from the surface of a mesh. Used via [`Distribution::sample`].
 pub struct UniformMeshSampler {
     triangle_mesh: TriangleMesh,
     face_distribution: WeightedAliasIndex<f32>,
@@ -37,5 +36,31 @@ impl TryFrom<TriangleMesh> for UniformMeshSampler {
             triangle_mesh,
             face_distribution,
         })
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum MeshSamplerConstructionError<TriangleMeshingError> {
+    DistributionFormation {
+        error: ZeroAreaMeshError,
+    },
+
+    TriangleMeshing {
+        #[from]
+        error: TriangleMeshingError,
+    },
+}
+
+impl UniformMeshSampler {
+    /// Construct a new [`UniformMeshSampler`] from anything that can be fallibly converted into a [`TriangleMesh`].
+    ///
+    /// Returns an error if the intermediate [`TriangleMesh`] conversion fails or if it has zero surface area.
+    pub fn try_new<T: TryInto<TriangleMesh>>(
+        meshable: T,
+    ) -> Result<Self, MeshSamplerConstructionError<T::Error>> {
+        let tri_mesh: TriangleMesh = meshable.try_into()?;
+        tri_mesh
+            .try_into()
+            .map_err(|err| MeshSamplerConstructionError::DistributionFormation { error: err })
     }
 }
