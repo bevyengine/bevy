@@ -33,6 +33,8 @@ bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
+fsr = { path = "../fsr", version = "2.2", optional = true }
+
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 radsort = "0.1"

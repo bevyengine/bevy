@@ -1,0 +1,12 @@
+[package]
+name = "fsr"
+version = "2.2.1"
+edition = "2021"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "FidelityFX Super Resolution"
+
+[dependencies]
+ash = "0.37"
