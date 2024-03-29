@@ -95,10 +95,7 @@ const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(74148126892380
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
-/// Requires to be loaded after [PbrPlugin] or [SpritePlugin].
-///
-/// [PbrPlugin]: bevy_pbr::PbrPlugin
-/// [SpritePlugin]: bevy_sprite::SpritePlugin
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
