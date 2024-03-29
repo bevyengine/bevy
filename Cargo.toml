@@ -1379,6 +1379,17 @@ category = "Audio"
 wasm = true
 
 [[example]]
+name = "soundtrack"
+path = "examples/audio/soundtrack.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.soundtrack]
+name = "Soundtrack"
+description = "Shows how to play different soundtracks"
+category = "Audio"
+wasm = true
+
+[[example]]
 name = "spatial_audio_2d"
 path = "examples/audio/spatial_audio_2d.rs"
 doc-scrape-examples = true
