@@ -4,7 +4,6 @@ use taffy::TaffyTree;
 
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::prelude::Resource;
-use bevy_hierarchy::Children;
 use bevy_math::UVec2;
 use bevy_utils::default;
 use bevy_utils::tracing::warn;
@@ -115,7 +114,7 @@ impl UiSurface {
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
-    pub fn update_children(&mut self, entity: Entity, children: &Children) {
+    pub fn update_children(&mut self, entity: Entity, children: &[Entity]) {
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
