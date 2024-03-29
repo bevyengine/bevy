@@ -31,6 +31,7 @@ fn default_viewport_style() -> taffy::style::Style {
 pub struct RootNodePair {
     // The implicit "viewport" node created by Bevy
     pub(super) implicit_viewport_node: taffy::NodeId,
+    #[deprecated]
     // The root (parentless) node specified by the user
     pub(super) user_root_node: taffy::NodeId,
 }
