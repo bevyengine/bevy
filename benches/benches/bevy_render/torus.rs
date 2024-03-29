@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use bevy_render::mesh::TorusMeshBuilder;
