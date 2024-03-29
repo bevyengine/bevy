@@ -191,7 +191,10 @@ impl FsrManager {
                 x: resources.temporal_jitter.offset.x,
                 y: resources.temporal_jitter.offset.y,
             },
-            motionVectorScale: todo!(),
+            motionVectorScale: FfxFloatCoords2D {
+                x: resources.frame_input.size().width as f32,
+                y: resources.frame_input.size().height as f32,
+            },
             renderSize: FfxDimensions2D {
                 width: resources.frame_input.size().width,
                 height: resources.frame_input.size().height,
