@@ -1,12 +1,15 @@
+use std::fmt;
+
+use taffy::prelude::LayoutTree;
+use taffy::Taffy;
+
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::prelude::Resource;
-use taffy::Taffy;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::UVec2;
 use bevy_utils::default;
 use bevy_utils::tracing::warn;
-use std::fmt;
-use taffy::prelude::LayoutTree;
+
 use crate::{LayoutContext, LayoutError, Style};
 use crate::layout::convert;
 

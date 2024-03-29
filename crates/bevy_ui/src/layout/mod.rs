@@ -1,8 +1,8 @@
-mod convert;
-pub mod debug;
-pub(crate) mod ui_surface;
+use std::fmt;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use taffy::{Taffy, tree::LayoutTree};
+use thiserror::Error;
+
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::{Entity, EntityHashMap},
@@ -16,13 +16,16 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
 use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use std::fmt;
-use taffy::{Taffy, tree::LayoutTree};
-use thiserror::Error;
 use ui_surface::UiSurface;
+
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+
+mod convert;
+pub mod debug;
+pub(crate) mod ui_surface;
 
 pub struct LayoutContext {
     pub scale_factor: f32,
@@ -323,12 +326,8 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 
 #[cfg(test)]
 mod tests {
-    use crate::layout::round_layout_coords;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
-    use crate::layout::ui_surface::UiSurface;
+    use taffy::tree::LayoutTree;
+
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2dBundle;
@@ -348,15 +347,21 @@ mod tests {
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
     use bevy_transform::prelude::{GlobalTransform, Transform};
-    use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
+    use bevy_utils::prelude::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowCreated;
     use bevy_window::WindowResized;
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
-    use taffy::tree::LayoutTree;
+
+    use crate::ContentSize;
+    use crate::layout::round_layout_coords;
+    use crate::layout::ui_surface::UiSurface;
+    use crate::prelude::*;
+    use crate::ui_layout_system;
+    use crate::update::update_target_camera_system;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
