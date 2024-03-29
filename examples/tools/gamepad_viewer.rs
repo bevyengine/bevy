@@ -21,10 +21,10 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
-const ACTIVE_BUTTON_COLOR: Color = Color::srgb(0.5, 0., 0.5);
-const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
-const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
+const NORMAL_BUTTON_COLOR: Srgba = Srgba::rgb(0.3, 0.3, 0.3);
+const ACTIVE_BUTTON_COLOR: Srgba = Srgba::rgb(0.5, 0., 0.5);
+const LIVE_COLOR: Srgba = Srgba::rgb(0.4, 0.4, 0.4);
+const DEAD_COLOR: Srgba = Srgba::rgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
 struct ReactTo(GamepadButtonType);
@@ -286,7 +286,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
-                        color: DEAD_COLOR,
+                        color: DEAD_COLOR.into(),
                         ..default()
                     },
                     ..default()
@@ -296,7 +296,7 @@ fn setup_sticks(
                     transform: Transform::from_xyz(live_mid, live_mid, 2.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(live_size, live_size)),
-                        color: LIVE_COLOR,
+                        color: LIVE_COLOR.into(),
                         ..default()
                     },
                     ..default()
@@ -306,7 +306,7 @@ fn setup_sticks(
                     transform: Transform::from_xyz(dead_mid, dead_mid, 3.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(dead_size, dead_size)),
-                        color: DEAD_COLOR,
+                        color: DEAD_COLOR.into(),
                         ..default()
                     },
                     ..default()

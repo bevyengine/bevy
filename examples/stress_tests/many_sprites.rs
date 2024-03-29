@@ -19,7 +19,7 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-const COLORS: [Color; 3] = [Color::Srgba(BLUE), Color::Srgba(WHITE), Color::Srgba(RED)];
+const COLORS: [Srgba; 3] = [BLUE, WHITE, RED];
 
 #[derive(Resource)]
 struct ColorTint(bool);
@@ -91,9 +91,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                 sprite: Sprite {
                     custom_size: Some(tile_size),
                     color: if color_tint.0 {
-                        COLORS[rng.gen_range(0..3)]
+                        COLORS[rng.gen_range(0..3)].into()
                     } else {
-                        Color::WHITE
+                        LinearRgba::WHITE
                     },
                     ..default()
                 },

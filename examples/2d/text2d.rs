@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(SpriteBundle {
             sprite: Sprite {
-                color: Color::srgb(0.25, 0.25, 0.75),
+                color: Srgba::rgb(0.25, 0.25, 0.75).into(),
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
                 ..default()
             },
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(SpriteBundle {
             sprite: Sprite {
-                color: Color::srgb(0.20, 0.3, 0.70),
+                color: Srgba::rgb(0.20, 0.3, 0.70).into(),
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
                 ..default()
             },

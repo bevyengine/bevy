@@ -12,7 +12,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)

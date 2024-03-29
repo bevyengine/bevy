@@ -164,7 +164,7 @@ impl WallBundle {
                     ..default()
                 },
                 sprite: Sprite {
-                    color: WALL_COLOR,
+                    color: WALL_COLOR.into(),
                     ..default()
                 },
                 ..default()
@@ -206,7 +206,7 @@ fn setup(
                 ..default()
             },
             sprite: Sprite {
-                color: PADDLE_COLOR,
+                color: PADDLE_COLOR.into(),
                 ..default()
             },
             ..default()
@@ -298,7 +298,7 @@ fn setup(
             commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: BRICK_COLOR,
+                        color: BRICK_COLOR.into(),
                         ..default()
                     },
                     transform: Transform {

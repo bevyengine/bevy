@@ -159,7 +159,7 @@ fn setup_2d(mut commands: Commands) {
     });
     commands.spawn(SpriteBundle {
         sprite: Sprite {
-            color: Color::srgb(0.25, 0.25, 0.75),
+            color: Srgba::rgb(0.25, 0.25, 0.75).into(),
             custom_size: Some(Vec2::new(50.0, 50.0)),
             ..default()
         },
