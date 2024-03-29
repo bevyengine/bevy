@@ -57,7 +57,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(LinearRgba::from(BLUE)),
+        material: materials.add(BLUE),
         ..default()
     });
 
@@ -65,7 +65,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(LinearRgba::from(RED)),
+            material: materials.add(RED),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         },
@@ -74,7 +74,7 @@ fn setup(
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
-        material: materials.add(LinearRgba::from(ORANGE)),
+        material: materials.add(ORANGE),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -82,7 +82,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(LinearRgba::from(LIME)),
+            material: materials.add(LIME),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         },

@@ -53,7 +53,7 @@ fn setup(
     // Cubes.
     {
         let mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-        let material = materials.add(LinearRgba::from(Srgba::rgb_u8(124, 144, 255)));
+        let material = materials.add(Srgba::rgb_u8(124, 144, 255));
         for x in [-2.0, 0.0, 2.0] {
             commands.spawn(PbrBundle {
                 mesh: mesh.clone(),

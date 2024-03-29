@@ -139,7 +139,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
-                material: materials.add(LinearRgba::from(Srgba::rgb(0.8, 0.7, 0.6))),
+                material: materials.add(Srgba::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the animation graph and player
@@ -170,7 +170,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(LinearRgba::from(Srgba::rgb(0.3, 0.9, 0.3))),
+                        material: materials.add(Srgba::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     AnimationTarget {

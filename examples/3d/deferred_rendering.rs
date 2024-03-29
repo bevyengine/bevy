@@ -95,7 +95,7 @@ fn setup(
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = LinearRgba::from(Srgba::rgb(0.1, 0.2, 0.1)).into();
+    let mut forward_mat: StandardMaterial = Srgba::rgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
@@ -123,7 +123,7 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = LinearRgba::from(Srgba::new(10.0, 4.0, 1.0, 1.0));
+    let sphere_color = Srgba::new(10.0, 4.0, 1.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
@@ -143,7 +143,7 @@ fn setup(
             intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
-            color: sphere_color,
+            color: sphere_color.into(),
             ..default()
         },
         transform: sphere_pos,

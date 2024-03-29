@@ -79,7 +79,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(LinearRgba::from(SILVER)),
+        material: materials.add(SILVER),
         ..default()
     });
 

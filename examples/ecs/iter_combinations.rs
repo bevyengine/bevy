@@ -69,11 +69,11 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(LinearRgba::from(Srgba::rgb(
+                material: materials.add(Srgba::rgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
-                ))),
+                )),
                 ..default()
             },
             mass: Mass(mass_value),

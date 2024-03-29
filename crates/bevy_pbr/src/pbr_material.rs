@@ -1,5 +1,5 @@
 use bevy_asset::Asset;
-use bevy_color::Alpha;
+use bevy_color::{Alpha, Hsla, Hsva, Oklaba, Oklcha};
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -537,6 +537,8 @@ impl Default for StandardMaterial {
     }
 }
 
+// We cannot use a blanket impl of From<T: Into<LinearRgba>> for StandardMaterial because it conflicts with
+// the impl of From<Handle<Image>> for StandardMaterial.
 impl From<LinearRgba> for StandardMaterial {
     fn from(color: LinearRgba) -> Self {
         StandardMaterial {
@@ -548,6 +550,41 @@ impl From<LinearRgba> for StandardMaterial {
             },
             ..Default::default()
         }
+    }
+}
+
+impl From<Srgba> for StandardMaterial {
+    fn from(color: Srgba) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
+    }
+}
+
+impl From<Hsla> for StandardMaterial {
+    fn from(color: Hsla) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
+    }
+}
+
+impl From<Hsva> for StandardMaterial {
+    fn from(color: Hsva) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
+    }
+}
+
+impl From<Oklaba> for StandardMaterial {
+    fn from(color: Oklaba) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
+    }
+}
+
+impl From<Oklcha> for StandardMaterial {
+    fn from(color: Oklcha) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
     }
 }
 

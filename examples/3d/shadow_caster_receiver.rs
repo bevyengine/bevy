@@ -42,7 +42,7 @@ fn setup(
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(LinearRgba::from(RED)),
+        material: materials.add(RED),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -51,7 +51,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(LinearRgba::from(BLUE)),
+            material: materials.add(BLUE),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -62,7 +62,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(LinearRgba::from(LIME)),
+            material: materials.add(LIME),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },

@@ -21,7 +21,7 @@ fn setup(
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(6.0, 6.0)),
-        material: materials.add(LinearRgba::from(Srgba::rgb(0.3, 0.5, 0.3))),
+        material: materials.add(Srgba::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -62,7 +62,7 @@ fn setup(
         // Notice how there is no need to set the `alpha_mode` explicitly here.
         // When converting a color to a material using `into()`, the alpha mode is
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
-        material: materials.add(LinearRgba::from(Srgba::new(0.5, 0.5, 1.0, 0.0))),
+        material: materials.add(Srgba::new(0.5, 0.5, 1.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -70,7 +70,7 @@ fn setup(
     // Opaque sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
-        material: materials.add(LinearRgba::from(Srgba::rgb(0.7, 0.2, 0.1))),
+        material: materials.add(Srgba::rgb(0.7, 0.2, 0.1)),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
     });

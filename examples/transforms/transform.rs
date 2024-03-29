@@ -47,7 +47,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
-            material: materials.add(LinearRgba::from(YELLOW)),
+            material: materials.add(YELLOW),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },

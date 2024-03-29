@@ -38,7 +38,7 @@ fn setup(
         for z in -1..2 {
             commands.spawn(PbrBundle {
                 mesh: cube.clone(),
-                material: materials.add(LinearRgba::from(hsla)),
+                material: materials.add(hsla),
                 transform: Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
                 ..default()
             });
@@ -56,7 +56,7 @@ fn animate_materials(
         if let Some(material) = materials.get_mut(material_handle) {
             let hsla_color = Hsla::from(material.base_color);
             let rotated_color = hsla_color.rotate_hue(time.delta_seconds() * 100.0);
-            material.base_color = LinearRgba::from(rotated_color);
+            material.base_color = rotated_color.into();
         }
     }
 }
