@@ -120,6 +120,7 @@ impl FsrManager {
 
     pub fn get_input_resolution(upscaled_resolution: UVec2, quality_mode: FsrQualityMode) -> UVec2 {
         let quality_mode = match quality_mode {
+            FsrQualityMode::Native => todo!(),
             FsrQualityMode::Quality => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_QUALITY,
             FsrQualityMode::Balanced => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_BALANCED,
             FsrQualityMode::Peformance => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_PERFORMANCE,
@@ -167,6 +168,7 @@ impl FsrManager {
 
     pub fn get_mip_bias(quality_mode: FsrQualityMode) -> f32 {
         match quality_mode {
+            FsrQualityMode::Native => todo!(),
             FsrQualityMode::Quality => -1.58,
             FsrQualityMode::Balanced => -1.76,
             FsrQualityMode::Peformance => -2.0,
