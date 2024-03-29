@@ -58,35 +58,35 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
-            .add_systems(Startup, setup)
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
+
+        // Register component hooks for DynamicScene
+        app.world
+            .register_component_hooks::<Handle<DynamicScene>>()
+            .on_remove(|mut world, entity, _| {
+                let id = world.get::<Handle<DynamicScene>>(entity).unwrap().id();
+                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                    let mut scene_spawner = world.resource_mut::<SceneSpawner>();
+                    if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
+                        instance_ids.remove(&scene_instance);
+                    }
+                    scene_spawner.despawn_instance(scene_instance);
+                }
+            });
+
+        // Register component hooks for Scene
+        app.world
+            .register_component_hooks::<Handle<Scene>>()
+            .on_remove(|mut world, entity, _| {
+                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                    let mut scene_spawner = world.resource_mut::<SceneSpawner>();
+                    scene_spawner.despawn_instance(scene_instance);
+                }
+            });
     }
 }
 
 #[cfg(not(feature = "serialize"))]
 impl Plugin for ScenePlugin {
     fn build(&self, _: &mut App) {}
-}
-
-fn setup(world: &mut World) {
-    world
-        .register_component_hooks::<Handle<DynamicScene>>()
-        .on_remove(|mut world, entity, _| {
-            let id = world.get::<Handle<DynamicScene>>(entity).unwrap().id();
-            if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
-                let mut scene_spawner = world.resource_mut::<SceneSpawner>();
-                if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
-                    instance_ids.remove(&scene_instance);
-                }
-                scene_spawner.despawn_instance(scene_instance);
-            }
-        });
-    world
-        .register_component_hooks::<Handle<Scene>>()
-        .on_remove(|mut world, entity, _| {
-            if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
-                let mut scene_spawner = world.resource_mut::<SceneSpawner>();
-                scene_spawner.despawn_instance(scene_instance);
-            }
-        });
 }
