@@ -29,7 +29,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(ClearColor(WINDOW_CLEAR_COLOR))
+        .insert_resource(ClearColor(WINDOW_CLEAR_COLOR.into()))
         .insert_resource(WindowTransparency(false))
         .insert_resource(CursorWorldPos(None))
         .add_systems(Startup, setup)
@@ -94,7 +94,7 @@ const BIRDS_EYES: [(f32, f32, f32); 3] = [
     (222.0 - 128.0, -(140.0 - 128.0), 8.0),
 ];
 
-const WINDOW_CLEAR_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
+const WINDOW_CLEAR_COLOR: Srgba = Srgba::rgb(0.2, 0.2, 0.2);
 
 /// Spawn the scene
 fn setup(
@@ -362,9 +362,9 @@ fn toggle_transparency(
     let mut window = q_primary_window.single_mut();
     let clear_color;
     (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
-        (false, WindowLevel::AlwaysOnTop, Color::NONE)
+        (false, WindowLevel::AlwaysOnTop, LinearRgba::NONE)
     } else {
-        (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR)
+        (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR.into())
     };
 
     // Set the clear color

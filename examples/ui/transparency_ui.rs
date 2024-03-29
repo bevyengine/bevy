@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LinearRgba::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();

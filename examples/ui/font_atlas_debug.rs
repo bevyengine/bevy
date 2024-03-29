@@ -8,7 +8,7 @@ use rand_chacha::ChaCha8Rng;
 fn main() {
     App::new()
         .init_resource::<State>()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(LinearRgba::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, atlas_render_system))

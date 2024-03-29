@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::NONE)) // Use a transparent window, to make effects obvious.
+        .insert_resource(ClearColor(LinearRgba::NONE)) // Use a transparent window, to make effects obvious.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Set the window's parameters, note we're setting the window to always be on top.
