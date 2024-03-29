@@ -12,6 +12,22 @@ use bevy_utils::tracing::warn;
 use crate::layout::convert;
 use crate::{LayoutContext, LayoutError, Style};
 
+#[inline(always)]
+fn default_viewport_style() -> taffy::style::Style {
+    taffy::style::Style {
+        display: taffy::style::Display::Grid,
+        // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
+        // So this is setting width:100% and height:100%
+        size: taffy::geometry::Size {
+            width: taffy::style::Dimension::Percent(1.0),
+            height: taffy::style::Dimension::Percent(1.0),
+        },
+        align_items: Some(taffy::style::AlignItems::Start),
+        justify_items: Some(taffy::style::JustifyItems::Start),
+        ..default()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodeData {
     // The implicit "viewport" node created by Bevy
@@ -129,19 +145,6 @@ without UI components as a child of an entity with UI components, results may be
         camera_entity: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let viewport_style = taffy::style::Style {
-            display: taffy::style::Display::Grid,
-            // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
-            // So this is setting width:100% and height:100%
-            size: taffy::geometry::Size {
-                width: taffy::style::Dimension::Percent(1.0),
-                height: taffy::style::Dimension::Percent(1.0),
-            },
-            align_items: Some(taffy::style::AlignItems::Start),
-            justify_items: Some(taffy::style::JustifyItems::Start),
-            ..default()
-        };
-
         let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_entity).or_default();
         let existing_roots = self.camera_roots.entry(camera_entity).or_default();
         let mut new_roots = Vec::new();
@@ -159,7 +162,7 @@ without UI components as a child of an entity with UI components, results may be
 
                     let viewport_node = *camera_root_node_map
                         .entry(entity)
-                        .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
+                        .or_insert_with(|| self.taffy.new_leaf(default_viewport_style()).unwrap());
                     self.taffy.add_child(viewport_node, node).unwrap();
 
                     RootNodeData {
