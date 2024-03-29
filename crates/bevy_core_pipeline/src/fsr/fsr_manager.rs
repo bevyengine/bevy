@@ -7,7 +7,7 @@ use bevy_ecs::system::Resource;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::{Exposure, PerspectiveProjection, TemporalJitter},
-    render_resource::{CommandBuffer, CommandEncoderDescriptor},
+    render_resource::{hal::vulkan::VulkanApi, CommandBuffer, CommandEncoderDescriptor},
     renderer::RenderDevice,
     texture::CachedTexture,
 };
@@ -177,38 +177,7 @@ impl FsrManager {
     pub fn record_command_buffer(&mut self, resources: FsrCameraResources) -> CommandBuffer {
         let context = self.context.as_mut().expect("FSR context does not exist");
 
-        let dispatch_description = FfxFsr2DispatchDescription {
-            commandList: todo!(),
-            color: ffx_get_texture(&resources.frame_input, context),
-            depth: ffx_get_texture(&resources.depth, context),
-            motionVectors: ffx_get_texture(&resources.motion_vectors, context),
-            exposure: ffx_null_texture(context),
-            reactive: ffx_null_texture(context),
-            transparencyAndComposition: ffx_null_texture(context),
-            output: ffx_get_texture(&resources.upscaled_output, context),
-            jitterOffset: FfxFloatCoords2D {
-                x: resources.temporal_jitter.offset.x,
-                y: resources.temporal_jitter.offset.y,
-            },
-            motionVectorScale: FfxFloatCoords2D {
-                x: resources.frame_input.texture.width() as f32,
-                y: resources.frame_input.texture.height() as f32,
-            },
-            renderSize: FfxDimensions2D {
-                width: resources.frame_input.texture.width(),
-                height: resources.frame_input.texture.height(),
-            },
-            enableSharpening: false,
-            sharpness: 0.0,
-            frameTimeDelta: resources.time.delta_seconds() * 1000.0,
-            preExposure: resources.exposure.exposure(),
-            reset: resources.reset,
-            cameraNear: resources.camera_projection.near,
-            cameraFar: resources.camera_projection.far,
-            cameraFovAngleVertical: resources.camera_projection.fov,
-        };
-
-        let command_encoder =
+        let mut command_encoder =
             self.render_device
                 .create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("fsr_command_encoder"),
@@ -216,8 +185,44 @@ impl FsrManager {
 
         // TODO: Dispatch dummy compute shader with read_write on all input textures to ensure barriers
 
-        unsafe { ffx_check_result(ffxFsr2ContextDispatch(context, &dispatch_description)) }
-            .expect("Failed to render FSR");
+        unsafe {
+            command_encoder.as_hal_mut::<VulkanApi, _, _>(|command_encoder| {
+                let dispatch_description = FfxFsr2DispatchDescription {
+                    commandList: ffxGetCommandListVK(command_encoder.unwrap().raw_handle()),
+                    color: ffx_get_texture(&resources.frame_input, context),
+                    depth: ffx_get_texture(&resources.depth, context),
+                    motionVectors: ffx_get_texture(&resources.motion_vectors, context),
+                    exposure: ffx_null_texture(context),
+                    reactive: ffx_null_texture(context),
+                    transparencyAndComposition: ffx_null_texture(context),
+                    output: ffx_get_texture(&resources.upscaled_output, context),
+                    jitterOffset: FfxFloatCoords2D {
+                        x: resources.temporal_jitter.offset.x,
+                        y: resources.temporal_jitter.offset.y,
+                    },
+                    motionVectorScale: FfxFloatCoords2D {
+                        x: resources.frame_input.texture.width() as f32,
+                        y: resources.frame_input.texture.height() as f32,
+                    },
+                    renderSize: FfxDimensions2D {
+                        width: resources.frame_input.texture.width(),
+                        height: resources.frame_input.texture.height(),
+                    },
+                    enableSharpening: false,
+                    sharpness: 0.0,
+                    frameTimeDelta: resources.time.delta_seconds() * 1000.0,
+                    preExposure: resources.exposure.exposure(),
+                    reset: resources.reset,
+                    cameraNear: resources.camera_projection.near,
+                    cameraFar: resources.camera_projection.far,
+                    cameraFovAngleVertical: resources.camera_projection.fov,
+                };
+
+                ffx_check_result(ffxFsr2ContextDispatch(context, &dispatch_description))
+            })
+        }
+        .flatten()
+        .expect("Failed to dispatch FSR");
 
         // TODO: Dispatch dummy compute shader with read_write on all input textures to ensure barriers
 

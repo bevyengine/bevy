@@ -1,7 +1,7 @@
 use bevy_render::{
     render_resource::{
         hal::vulkan::{Device, VulkanApi},
-        TextureFormat, TextureUsages,
+        TextureFormat,
     },
     renderer::RenderDevice,
     texture::CachedTexture,
@@ -29,8 +29,12 @@ pub fn ffx_get_texture(texture: &CachedTexture, context: &mut FfxFsr2Context) ->
     unsafe {
         ffxGetTextureResourceVK(
             context,
-            todo!(),
-            todo!(),
+            texture
+                .texture
+                .as_hal::<VulkanApi, _, _>(|t| t.unwrap().raw_handle()),
+            texture
+                .default_view
+                .as_hal::<VulkanApi, _, _>(|t| t.unwrap().raw_handle()),
             texture.texture.width(),
             texture.texture.height(),
             match texture.texture.format() {
