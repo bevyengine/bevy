@@ -1,9 +1,13 @@
+use std::marker::PhantomData;
+
 use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
 use bytemuck::{cast_slice, Pod};
 use wgpu::BufferUsages;
+
+use super::GpuArrayBufferable;
 
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.
@@ -158,5 +162,79 @@ impl<T: Pod> Extend<T> for BufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.values.extend(iter);
+    }
+}
+
+pub struct UninitBufferVec<T>
+where
+    T: GpuArrayBufferable,
+{
+    buffer: Option<Buffer>,
+    len: usize,
+    capacity: usize,
+    item_size: usize,
+    buffer_usage: BufferUsages,
+    label: Option<String>,
+    label_changed: bool,
+    phantom: PhantomData<T>,
+}
+
+impl<T> UninitBufferVec<T>
+where
+    T: GpuArrayBufferable,
+{
+    pub const fn new(buffer_usage: BufferUsages) -> Self {
+        Self {
+            len: 0,
+            buffer: None,
+            capacity: 0,
+            item_size: std::mem::size_of::<T>(),
+            buffer_usage,
+            label: None,
+            label_changed: false,
+            phantom: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
+    }
+
+    pub fn add(&mut self) -> usize {
+        let index = self.len;
+        self.len += 1;
+        index
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn clear(&mut self) {
+        self.len = 0;
+    }
+
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+        if capacity <= self.capacity && !self.label_changed {
+            return;
+        }
+
+        self.capacity = capacity;
+        let size = self.item_size * capacity;
+        self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+            label: self.label.as_deref(),
+            size: size as wgpu::BufferAddress,
+            usage: BufferUsages::COPY_DST | self.buffer_usage,
+            mapped_at_creation: false,
+        }));
+
+        self.label_changed = false;
+    }
+
+    pub fn write_buffer(&mut self, device: &RenderDevice) {
+        if !self.is_empty() {
+            self.reserve(self.len, device);
+        }
     }
 }

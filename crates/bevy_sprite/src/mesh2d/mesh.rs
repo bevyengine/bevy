@@ -11,6 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::batching::BatchedInstanceBuffers;
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
@@ -32,6 +33,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::error;
+use bytemuck::{Pod, Zeroable};
 
 use crate::Material2dBindGroupId;
 
@@ -116,9 +119,15 @@ impl Plugin for Mesh2dRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+            let render_device = render_app.world.resource::<RenderDevice>();
+            let batched_instance_buffers = BatchedInstanceBuffers::<Mesh2dUniform, ()>::new(
+                render_device,
+                /*using_gpu_uniform_building=*/ false,
+            );
+
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
@@ -126,9 +135,7 @@ impl Plugin for Mesh2dRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(batched_instance_buffers)
                 .init_resource::<Mesh2dPipeline>();
         }
 
@@ -150,7 +157,8 @@ pub struct Mesh2dTransforms {
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone)]
+#[derive(ShaderType, Clone, Pod, Copy, Zeroable)]
+#[repr(C)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
     pub transform: [Vec4; 3],
@@ -161,6 +169,7 @@ pub struct Mesh2dUniform {
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
     pub flags: u32,
+    pub pad: [u32; 2],
 }
 
 impl From<&Mesh2dTransforms> for Mesh2dUniform {
@@ -172,6 +181,7 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
+            pad: [0; 2],
         }
     }
 }
@@ -342,6 +352,7 @@ impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
+    type BufferInputData = ();
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
@@ -355,6 +366,14 @@ impl GetBatchData for Mesh2dPipeline {
                 mesh_instance.mesh_asset_id,
             )),
         ))
+    }
+
+    fn get_batch_index(
+        _: &SystemParamItem<Self::Param>,
+        _: Entity,
+    ) -> Option<(u32, Option<Self::CompareData>)> {
+        error!("Attempted to build 2D mesh uniforms on GPU, which is currently unsupported");
+        None
     }
 }
 
@@ -571,9 +590,9 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<BatchedInstanceBuffers<Mesh2dUniform, ()>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.binding() {
+    if let Some(binding) = mesh2d_uniforms.uniform_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",

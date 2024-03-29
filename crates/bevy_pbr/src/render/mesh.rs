@@ -1,20 +1,22 @@
+use std::mem;
+
 use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec4};
+use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
+        batch_and_prepare_render_phase, write_batched_instance_buffer, BatchedInstanceBuffers,
+        GetBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -30,6 +32,7 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
+use bytemuck::{Pod, Zeroable};
 
 use crate::render::{
     morph::{
@@ -43,8 +46,9 @@ use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 use super::skin::SkinIndices;
 
-#[derive(Default)]
-pub struct MeshRenderPlugin;
+pub struct MeshRenderPlugin {
+    pub using_gpu_uniform_builder: bool,
+}
 
 pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
@@ -66,6 +70,14 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 /// See: <https://gpuweb.github.io/gpuweb/#limits>
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
+
+impl Default for MeshRenderPlugin {
+    fn default() -> Self {
+        Self {
+            using_gpu_uniform_builder: true,
+        }
+    }
+}
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -109,18 +121,16 @@ impl Plugin for MeshRenderPlugin {
         );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_mesh_instances = RenderMeshInstances::new(self.using_gpu_uniform_builder);
+
             render_app
-                .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
                 .init_resource::<SkinUniform>()
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
-                .allow_ambiguous_resource::<GpuArrayBuffer<MeshUniform>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (extract_meshes, extract_skins, extract_morphs),
-                )
+                .insert_resource(render_mesh_instances)
+                .add_systems(ExtractSchedule, (extract_skins, extract_morphs))
                 .add_systems(
                     Render,
                     (
@@ -142,6 +152,12 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
+
+            if self.using_gpu_uniform_builder {
+                render_app.add_systems(ExtractSchedule, extract_meshes_for_gpu_building);
+            } else {
+                render_app.add_systems(ExtractSchedule, extract_meshes_for_cpu_building);
+            }
         }
     }
 
@@ -149,9 +165,16 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+            let render_device = render_app.world.resource::<RenderDevice>();
+            let batched_instance_buffers =
+                BatchedInstanceBuffers::<MeshUniform, MeshInputUniform>::new(
+                    render_device,
+                    self.using_gpu_uniform_builder,
+                );
+
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
@@ -159,9 +182,7 @@ impl Plugin for MeshRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(batched_instance_buffers)
                 .init_resource::<MeshPipeline>();
         }
 
@@ -208,6 +229,16 @@ pub struct MeshUniform {
     pub lightmap_uv_rect: UVec2,
 }
 
+#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
+#[repr(C)]
+pub struct MeshInputUniform {
+    // Affine 4x3 matrix transposed to 3x4
+    pub transform: [Vec4; 3],
+    pub lightmap_uv_rect: UVec2,
+    pub flags: u32,
+    pub previous_input_index: u32,
+}
+
 impl MeshUniform {
     pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
@@ -237,26 +268,104 @@ bitflags::bitflags! {
     }
 }
 
-pub struct RenderMeshInstance {
-    pub transforms: MeshTransforms,
-    pub mesh_asset_id: AssetId<Mesh>,
-    pub material_bind_group_id: AtomicMaterialBindGroupId,
-    pub shadow_caster: bool,
-    pub automatic_batching: bool,
-}
-
-impl RenderMeshInstance {
-    pub fn should_batch(&self) -> bool {
-        self.automatic_batching && self.material_bind_group_id.get().is_some()
+bitflags::bitflags! {
+    #[derive(Clone, Copy)]
+    pub struct RenderMeshInstanceFlags: u8 {
+        const SHADOW_CASTER           = 1 << 0;
+        const AUTOMATIC_BATCHING      = 1 << 1;
+        const HAVE_PREVIOUS_TRANSFORM = 1 << 2;
     }
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(EntityHashMap<RenderMeshInstance>);
+#[derive(Deref)]
+pub struct RenderMeshInstanceCpu {
+    #[deref]
+    pub shared: RenderMeshInstanceShared,
+    pub transforms: MeshTransforms,
+}
 
-pub fn extract_meshes(
+#[derive(Deref)]
+pub struct RenderMeshInstanceGpu {
+    #[deref]
+    pub shared: RenderMeshInstanceShared,
+    pub translation: Vec3,
+    pub current_uniform_index: u32,
+}
+
+pub struct RenderMeshInstanceShared {
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: AtomicMaterialBindGroupId,
+    pub flags: RenderMeshInstanceFlags,
+}
+
+pub struct RenderMeshInstanceGpuBuilder {
+    pub shared: RenderMeshInstanceShared,
+    pub transform: Affine3,
+    pub mesh_flags: MeshFlags,
+}
+
+impl RenderMeshInstanceShared {
+    pub fn should_batch(&self) -> bool {
+        self.flags
+            .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
+            && self.material_bind_group_id.get().is_some()
+    }
+}
+
+#[derive(Resource)]
+pub enum RenderMeshInstances {
+    CpuBuilding(EntityHashMap<RenderMeshInstanceCpu>),
+    GpuBuilding(EntityHashMap<RenderMeshInstanceGpu>),
+}
+
+impl RenderMeshInstances {
+    fn new(using_gpu_uniform_builder: bool) -> RenderMeshInstances {
+        if using_gpu_uniform_builder {
+            RenderMeshInstances::GpuBuilding(EntityHashMap::default())
+        } else {
+            RenderMeshInstances::CpuBuilding(EntityHashMap::default())
+        }
+    }
+
+    pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref instances) => instances
+                .get(&entity)
+                .map(|instance| instance.mesh_asset_id),
+            RenderMeshInstances::GpuBuilding(ref instances) => instances
+                .get(&entity)
+                .map(|instance| instance.mesh_asset_id),
+        }
+    }
+
+    pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref instances) => {
+                instances.get(&entity).map(|instance| RenderMeshQueueData {
+                    shared: &instance.shared,
+                    translation: instance.transforms.transform.translation,
+                })
+            }
+            RenderMeshInstances::GpuBuilding(ref instances) => {
+                instances.get(&entity).map(|instance| RenderMeshQueueData {
+                    shared: &instance.shared,
+                    translation: instance.translation,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Deref)]
+pub struct RenderMeshQueueData<'a> {
+    #[deref]
+    pub shared: &'a RenderMeshInstanceShared,
+    pub translation: Vec3,
+}
+
+pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    mut thread_local_queues: Local<Parallel<Vec<(Entity, RenderMeshInstance)>>>,
+    mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -287,41 +396,200 @@ pub fn extract_meshes(
                 return;
             }
             let transform = transform.affine();
-            let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-            let mut flags = if not_shadow_receiver {
+            let mut mesh_flags = if not_shadow_receiver {
                 MeshFlags::empty()
             } else {
                 MeshFlags::SHADOW_RECEIVER
             };
             if transmitted_receiver {
-                flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+                mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
             }
             if transform.matrix3.determinant().is_sign_positive() {
-                flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+                mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
             }
-            let transforms = MeshTransforms {
-                transform: (&transform).into(),
-                previous_transform: (&previous_transform).into(),
-                flags: flags.bits(),
-            };
-            thread_local_queues.scope(|queue| {
+
+            let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
+            mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
+            mesh_instance_flags.set(
+                RenderMeshInstanceFlags::AUTOMATIC_BATCHING,
+                !no_automatic_batching,
+            );
+            mesh_instance_flags.set(
+                RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
+                previous_transform.is_some(),
+            );
+
+            render_mesh_instance_queues.scope(|queue| {
+                let shared = RenderMeshInstanceShared {
+                    mesh_asset_id: handle.id(),
+
+                    flags: mesh_instance_flags,
+                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
+                };
+
                 queue.push((
                     entity,
-                    RenderMeshInstance {
-                        mesh_asset_id: handle.id(),
-                        transforms,
-                        shadow_caster: !not_shadow_caster,
-                        material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                        automatic_batching: !no_automatic_batching,
+                    RenderMeshInstanceCpu {
+                        transforms: MeshTransforms {
+                            transform: (&transform).into(),
+                            previous_transform: (&previous_transform
+                                .map(|t| t.0)
+                                .unwrap_or(transform))
+                                .into(),
+                            flags: mesh_flags.bits(),
+                        },
+                        shared,
                     },
                 ));
             });
         },
     );
 
+    // Collect the render mesh instances.
+    let RenderMeshInstances::CpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
+    else {
+        panic!(
+            "`extract_meshes_for_cpu_building` should only be called if we're using CPU \
+            `MeshUniform` building"
+        );
+    };
+
     render_mesh_instances.clear();
-    for queue in thread_local_queues.iter_mut() {
+    for queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instances.extend(queue.drain(..));
+    }
+}
+
+pub fn extract_meshes_for_gpu_building(
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut batched_instance_buffers: ResMut<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
+    mut prev_render_mesh_instances: Local<EntityHashMap<RenderMeshInstanceGpu>>,
+    meshes_query: Extract<
+        Query<(
+            Entity,
+            &ViewVisibility,
+            &GlobalTransform,
+            Option<&PreviousGlobalTransform>,
+            &Handle<Mesh>,
+            Has<NotShadowReceiver>,
+            Has<TransmittedShadowReceiver>,
+            Has<NotShadowCaster>,
+            Has<NoAutomaticBatching>,
+        )>,
+    >,
+) {
+    meshes_query.par_iter().for_each(
+        |(
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_shadow_receiver,
+            transmitted_receiver,
+            not_shadow_caster,
+            no_automatic_batching,
+        )| {
+            if !view_visibility.get() {
+                return;
+            }
+            let transform = transform.affine();
+            let mut mesh_flags = if not_shadow_receiver {
+                MeshFlags::empty()
+            } else {
+                MeshFlags::SHADOW_RECEIVER
+            };
+            if transmitted_receiver {
+                mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+            }
+            if transform.matrix3.determinant().is_sign_positive() {
+                mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            }
+
+            let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
+            mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
+            mesh_instance_flags.set(
+                RenderMeshInstanceFlags::AUTOMATIC_BATCHING,
+                !no_automatic_batching,
+            );
+            mesh_instance_flags.set(
+                RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
+                previous_transform.is_some(),
+            );
+
+            render_mesh_instance_queues.scope(|queue| {
+                let shared = RenderMeshInstanceShared {
+                    mesh_asset_id: handle.id(),
+
+                    flags: mesh_instance_flags,
+                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
+                };
+                queue.push((
+                    entity,
+                    RenderMeshInstanceGpuBuilder {
+                        shared,
+                        transform: (&transform).into(),
+                        mesh_flags,
+                    },
+                ));
+            });
+        },
+    );
+
+    // Collect render mesh instances. Build up the uniform buffer.
+    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
+    else {
+        panic!(
+            "`extract_meshes_for_gpu_building` should only be called if we're using GPU \
+            `MeshUniform` building"
+        );
+    };
+    let BatchedInstanceBuffers::GpuBuilt {
+        ref mut current_input_buffer,
+        ref mut previous_input_buffer,
+        ..
+    } = *batched_instance_buffers
+    else {
+        unreachable!()
+    };
+
+    // Swap buffers.
+    mem::swap(current_input_buffer, previous_input_buffer);
+    mem::swap(render_mesh_instances, &mut prev_render_mesh_instances);
+
+    render_mesh_instances.clear();
+    for queue in render_mesh_instance_queues.iter_mut() {
+        for (entity, builder) in queue.drain(..) {
+            let previous_input_index = if builder
+                .shared
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
+            {
+                prev_render_mesh_instances
+                    .get(&entity)
+                    .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
+            } else {
+                None
+            };
+
+            let current_uniform_index = current_input_buffer.push(MeshInputUniform {
+                transform: builder.transform.to_transpose(),
+                // TODO: Track this.
+                lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(None),
+                flags: builder.mesh_flags.bits(),
+                previous_input_index: previous_input_index.unwrap_or(!0),
+            });
+
+            render_mesh_instances.insert(
+                entity,
+                RenderMeshInstanceGpu {
+                    translation: builder.transform.translation,
+                    shared: builder.shared,
+                    current_uniform_index: current_uniform_index as u32,
+                },
+            );
+        }
     }
 }
 
@@ -450,10 +718,15 @@ impl GetBatchData for MeshPipeline {
 
     type BufferData = MeshUniform;
 
+    type BufferInputData = MeshInputUniform;
+
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            return None;
+        };
         let mesh_instance = mesh_instances.get(&entity)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
 
@@ -462,6 +735,26 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
+            mesh_instance.should_batch().then_some((
+                mesh_instance.material_bind_group_id.get(),
+                mesh_instance.mesh_asset_id,
+                maybe_lightmap.map(|lightmap| lightmap.image),
+            )),
+        ))
+    }
+
+    fn get_batch_index(
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<(u32, Option<Self::CompareData>)> {
+        let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+
+        Some((
+            mesh_instance.current_uniform_index,
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
                 mesh_instance.mesh_asset_id,
@@ -982,14 +1275,14 @@ pub fn prepare_mesh_bind_group(
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
-    mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
+    mesh_uniforms: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
-    let Some(model) = mesh_uniforms.binding() else {
+    let Some(model) = mesh_uniforms.uniform_binding() else {
         return;
     };
     groups.model_only = Some(layouts.model_only(&render_device, &model));
@@ -1091,7 +1384,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let entity = &item.entity();
 
-        let Some(mesh) = mesh_instances.get(entity) else {
+        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
             return RenderCommandResult::Success;
         };
         let skin_index = skin_indices.get(entity);
@@ -1105,8 +1398,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .get(entity)
             .map(|render_lightmap| render_lightmap.image);
 
-        let Some(bind_group) =
-            bind_groups.get(mesh.mesh_asset_id, lightmap, is_skinned, is_morphed)
+        let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
         else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
@@ -1152,10 +1444,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
 
-        let Some(mesh_instance) = mesh_instances.get(&item.entity()) else {
+        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(gpu_mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {
             return RenderCommandResult::Failure;
         };
 

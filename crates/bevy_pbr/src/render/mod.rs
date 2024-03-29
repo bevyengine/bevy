@@ -1,3 +1,4 @@
+mod build_mesh_uniforms;
 mod fog;
 mod light;
 pub(crate) mod mesh;
@@ -6,6 +7,7 @@ mod mesh_view_bindings;
 mod morph;
 mod skin;
 
+pub use build_mesh_uniforms::*;
 pub use fog::*;
 pub use light::*;
 pub use mesh::*;

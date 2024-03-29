@@ -78,6 +78,7 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        BuildMeshUniforms,
     }
 }
 
@@ -133,6 +134,8 @@ pub struct PbrPlugin {
     pub prepass_enabled: bool,
     /// Controls if [`DeferredPbrLightingPlugin`] is added.
     pub add_default_deferred_lighting_plugin: bool,
+    /// Controls if GPU [`MeshUniform`] building is enabled.
+    pub using_gpu_uniform_builder: bool,
 }
 
 impl Default for PbrPlugin {
@@ -140,6 +143,7 @@ impl Default for PbrPlugin {
         Self {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
+            using_gpu_uniform_builder: true,
         }
     }
 }
@@ -280,7 +284,9 @@ impl Plugin for PbrPlugin {
             .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
-                MeshRenderPlugin,
+                MeshRenderPlugin {
+                    using_gpu_uniform_builder: self.using_gpu_uniform_builder,
+                },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()
@@ -350,6 +356,10 @@ impl Plugin for PbrPlugin {
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
+        }
+
+        if self.using_gpu_uniform_builder {
+            app.add_plugins(BuildMeshUniformsPlugin);
         }
 
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(

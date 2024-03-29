@@ -1644,10 +1644,14 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
+                else {
                     continue;
                 };
-                if !mesh_instance.shadow_caster {
+                if !mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
+                {
                     continue;
                 }
                 let Some(material_asset_id) = render_material_instances.get(&entity) else {

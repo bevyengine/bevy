@@ -132,7 +132,9 @@ impl Plugin for LightmapPlugin {
 
         render_app.init_resource::<RenderLightmaps>().add_systems(
             ExtractSchedule,
-            extract_lightmaps.after(crate::extract_meshes),
+            extract_lightmaps
+                .after(crate::extract_meshes_for_cpu_building)
+                .after(crate::extract_meshes_for_gpu_building),
         );
     }
 }
@@ -157,8 +159,8 @@ fn extract_lightmaps(
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
             || !render_mesh_instances
-                .get(&entity)
-                .and_then(|mesh_instance| meshes.get(mesh_instance.mesh_asset_id))
+                .mesh_asset_id(entity)
+                .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;

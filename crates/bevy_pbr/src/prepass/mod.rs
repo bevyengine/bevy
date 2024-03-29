@@ -156,8 +156,14 @@ where
                     Render,
                     (
                         prepare_previous_view_projection_uniforms,
-                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<
+                            Opaque3dPrepass,
+                            MeshPipeline,
+                        >,
+                        batch_and_prepare_render_phase::<
+                            AlphaMask3dPrepass,
+                            MeshPipeline,
+                        >,
                     )
                         .in_set(RenderSet::PrepareResources),
                 );
@@ -773,7 +779,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
             let Some(material) = render_materials.get(material_asset_id) else {
