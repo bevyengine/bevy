@@ -3,14 +3,16 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+pub use crate::label::DynEq;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_label;
-use bevy_utils::intern::Interned;
-pub use bevy_utils::label::DynEq;
 
-use crate::system::{
-    ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-    IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+use crate::{
+    define_label,
+    intern::Interned,
+    system::{
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    },
 };
 
 define_label!(
