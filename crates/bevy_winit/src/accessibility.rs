@@ -8,7 +8,7 @@ use std::{
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     accesskit::{
-        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, TreeUpdate,
+        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate
     },
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
@@ -42,6 +42,37 @@ impl ActionHandler for WinitActionHandler {
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
     }
+}
+
+/// Prepares accessibility for a winit window.
+pub(crate) fn prepare_accessibility_for_window(
+    winit_window: &winit::window::Window,
+    entity: Entity,
+    name: String,
+    accessibility_requested: AccessibilityRequested,
+    adapters: &mut AccessKitAdapters,
+    handlers: &mut WinitActionHandlers,
+) {
+    let mut root_builder = NodeBuilder::new(Role::Window);
+    root_builder.set_name(name.into_boxed_str());
+    let root = root_builder.build(&mut NodeClassSet::lock_global());
+
+    let accesskit_window_id = NodeId(entity.to_bits());
+    let handler = WinitActionHandler::default();
+    let adapter = Adapter::with_action_handler(
+        &winit_window,
+        move || {
+            accessibility_requested.set(true);
+            TreeUpdate {
+                nodes: vec![(accesskit_window_id, root)],
+                tree: Some(Tree::new(accesskit_window_id)),
+                focus: accesskit_window_id,
+            }
+        },
+        Box::new(handler.clone()),
+    );
+    adapters.insert(entity, adapter);
+    handlers.insert(entity, handler);
 }
 
 fn window_closed(
