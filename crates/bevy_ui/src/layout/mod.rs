@@ -1,6 +1,6 @@
 mod convert;
 pub mod debug;
-mod ui_surface;
+pub(crate) mod ui_surface;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{

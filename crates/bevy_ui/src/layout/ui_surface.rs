@@ -11,19 +11,19 @@ use crate::{LayoutContext, LayoutError, Style};
 use crate::layout::convert;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct RootNodePair {
+pub struct RootNodePair {
     // The implicit "viewport" node created by Bevy
-    implicit_viewport_node: taffy::node::Node,
+    pub(super) implicit_viewport_node: taffy::node::Node,
     // The root (parentless) node specified by the user
-    user_root_node: taffy::node::Node,
+    pub(super) user_root_node: taffy::node::Node,
 }
 
 #[derive(Resource)]
 pub struct UiSurface {
-    entity_to_taffy: EntityHashMap<taffy::node::Node>,
-    camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
-    camera_roots: EntityHashMap<Vec<RootNodePair>>,
-    taffy: Taffy,
+    pub(super) entity_to_taffy: EntityHashMap<taffy::node::Node>,
+    pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
+    pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,
+    pub(super) taffy: Taffy,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
