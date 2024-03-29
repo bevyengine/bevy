@@ -18,7 +18,7 @@ use super::*;
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
-    pub color: Color,
+    pub color: LinearRgba,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
     pub brightness: f32,
 }
@@ -26,14 +26,14 @@ pub struct AmbientLight {
 impl Default for AmbientLight {
     fn default() -> Self {
         Self {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             brightness: 80.0,
         }
     }
 }
 impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
         brightness: 0.0,
     };
 }
