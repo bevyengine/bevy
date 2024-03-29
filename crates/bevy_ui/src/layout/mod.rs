@@ -200,7 +200,7 @@ pub fn ui_layout_system(
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(*camera_id, camera.size);
+        ui_surface.compute_camera_layout(camera_id, camera.size);
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
                 *root,
@@ -494,7 +494,7 @@ mod tests {
 
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_root_nodes.is_empty());
 
         // respawn camera
         let camera_entity = world.spawn(Camera2dBundle::default()).id();
@@ -508,9 +508,9 @@ mod tests {
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface
-            .camera_entity_to_taffy
+            .camera_root_nodes
             .contains_key(&camera_entity));
-        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
+        assert_eq!(ui_surface.camera_root_nodes.len(), 1);
 
         world.despawn(ui_entity);
         world.despawn(camera_entity);
@@ -520,9 +520,9 @@ mod tests {
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(!ui_surface
-            .camera_entity_to_taffy
+            .camera_root_nodes
             .contains_key(&camera_entity));
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_root_nodes.is_empty());
     }
 
     #[test]
