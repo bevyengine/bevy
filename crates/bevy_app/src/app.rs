@@ -683,7 +683,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry.iter().any(|p| p.is::<T>())
+        self.plugin_name_added.contains(std::any::type_name::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -1184,7 +1184,8 @@ mod tests {
     }
 
     #[test]
-    fn cannot_use_plugin_registry_during_finish() {
+    #[should_panic]
+    fn test_is_plugin_added_works_during_finish() {
         let mut app = App::new();
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);

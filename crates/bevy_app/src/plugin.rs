@@ -68,9 +68,6 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
     /// Finish adding this plugin to the [`App`], once all plugins registered are ready. This can
     /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
-    ///
-    /// The plugin registry is not available during this step, so methods like [`is_plugin_added`](App::is_plugin_added)
-    /// will not work.
     fn finish(&self, _app: &mut App) {
         // do nothing
     }
@@ -78,9 +75,6 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Runs after all plugins are built and finished, but before the app schedule is executed.
     /// This can be useful if you have some resource that other plugins need during their build step,
     /// but after build you want to remove it and send it to another thread.
-    ///
-    /// The plugin registry is not available during this step, so methods like [`is_plugin_added`](App::is_plugin_added)
-    /// will not work.
     fn cleanup(&self, _app: &mut App) {
         // do nothing
     }
