@@ -8,7 +8,7 @@ use std::{
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     accesskit::{
-        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate
+        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate,
     },
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
