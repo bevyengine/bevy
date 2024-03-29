@@ -515,11 +515,11 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// order isn't critical.
 pub trait BinnedPhaseItem: PhaseItem {
     /// The key used for binning [`PhaseItem`]s into bins. Order the members of
-    /// [`BinKey`] by the order of binding for best performance. For example,
-    /// pipeline id, draw function id, mesh asset id, lowest variable bind group
-    /// id such as the material bind group id, and its dynamic offsets if any,
-    /// next bind group and offsets, etc. This reduces the need for rebinding
-    /// between bins and improves performance.
+    /// [`BinnedPhaseItem::BinKey`] by the order of binding for best
+    /// performance. For example, pipeline id, draw function id, mesh asset id,
+    /// lowest variable bind group id such as the material bind group id, and
+    /// its dynamic offsets if any, next bind group and offsets, etc. This
+    /// reduces the need for rebinding between bins and improves performance.
     type BinKey: Clone + Send + Sync + Eq + Ord + Hash;
 
     /// Creates a new binned phase item from the key and per-entity data.
