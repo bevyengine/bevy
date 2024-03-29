@@ -155,18 +155,17 @@ where
                 .add_systems(
                     Render,
                     (
-                        prepare_previous_view_projection_uniforms,
                         (
                             sort_binned_render_phase::<Opaque3dPrepass>,
-                            batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>
-                        ).chain(),
+                            sort_binned_render_phase::<AlphaMask3dPrepass>
+                        ).in_set(RenderSet::PhaseSort),
                         (
-                            sort_binned_render_phase::<AlphaMask3dPrepass>,
+                            prepare_previous_view_projection_uniforms,
+                            batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
                             batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
-                                MeshPipeline>
-                        ).chain(),
+                                MeshPipeline>,
+                        ).in_set(RenderSet::PrepareResources),
                     )
-                        .in_set(RenderSet::PrepareResources),
                 );
         }
 
