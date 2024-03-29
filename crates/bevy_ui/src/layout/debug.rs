@@ -1,4 +1,4 @@
-use crate::UiSurface;
+use crate::layout::ui_surface::UiSurface;
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;
 use std::fmt::Write;

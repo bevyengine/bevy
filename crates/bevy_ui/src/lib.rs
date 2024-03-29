@@ -42,8 +42,8 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+        geometry::*, Interaction, node_bundles::*, ui_material::*, ui_node::*, UiMaterialPlugin,
+        UiScale, widget::Button, widget::Label,
     };
     // `bevy_sprite` re-exports for texture slicing
     #[doc(hidden)]
@@ -55,6 +55,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::RenderApp;
 use bevy_transform::TransformSystem;
+use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
