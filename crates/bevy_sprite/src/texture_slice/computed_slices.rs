@@ -62,10 +62,10 @@ impl ComputedTextureSlices {
         let sprite_size = sprite
             .custom_size
             .unwrap_or(sprite.rect.unwrap_or_default().size());
-        if sprite_size != Vec2::ZERO {
-            sprite.anchor.as_vec() * sprite_size / slice.draw_size
-        } else {
+        if sprite_size == Vec2::ZERO {
             sprite.anchor.as_vec()
+        } else {
+            sprite.anchor.as_vec() * sprite_size / slice.draw_size
         }
     }
 }
