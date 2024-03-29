@@ -126,22 +126,7 @@ impl Plugin for WinitPlugin {
             event_loop_builder.with_android_app(ANDROID_APP.get().expect(msg).clone());
         }
 
-        app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitSettings>()
-            .add_event::<WinitEvent>()
-            .set_runner(winit_runner)
-            .add_systems(
-                Last,
-                (
-                    // `exit_on_all_closed` only checks if windows exist but doesn't access data,
-                    // so we don't need to care about its ordering relative to `changed_windows`
-                    changed_windows.ambiguous_with(exit_on_all_closed),
-                    despawn_windows,
-                )
-                    .chain(),
-            );
-
-        app.add_plugins(AccessKitPlugin);
+        app.add_plugins(WinitCorePlugin).set_runner(winit_runner);
 
         let event_loop = event_loop_builder
             .build()
@@ -166,6 +151,31 @@ impl Plugin for WinitPlugin {
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
+    }
+}
+
+/// A [`Plugin`] that adds systems and resources to sync with the `winit` backend.
+///
+/// This plugin does not set up a `winit` event loop. For full `winit` setup use [`WinitPlugin`].
+pub struct WinitCorePlugin;
+
+impl Plugin for WinitCorePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_non_send_resource::<WinitWindows>()
+            .init_resource::<WinitSettings>()
+            .add_event::<WinitEvent>()
+            .add_systems(
+                Last,
+                (
+                    // `exit_on_all_closed` only checks if windows exist but doesn't access data,
+                    // so we don't need to care about its ordering relative to `changed_windows`
+                    changed_windows.ambiguous_with(exit_on_all_closed),
+                    despawn_windows,
+                )
+                    .chain(),
+            );
+
+        app.add_plugins(AccessKitPlugin);
     }
 }
 
