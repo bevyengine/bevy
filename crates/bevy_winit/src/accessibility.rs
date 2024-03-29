@@ -60,7 +60,7 @@ pub(crate) fn prepare_accessibility_for_window(
     let accesskit_window_id = NodeId(entity.to_bits());
     let handler = WinitActionHandler::default();
     let adapter = Adapter::with_action_handler(
-        &winit_window,
+        winit_window,
         move || {
             accessibility_requested.set(true);
             TreeUpdate {
