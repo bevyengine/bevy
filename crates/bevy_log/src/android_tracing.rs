@@ -40,16 +40,6 @@ impl Visit for StringRecorder {
     }
 }
 
-impl core::fmt::Display for StringRecorder {
-    fn fmt(&self, mut f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        if !self.0.is_empty() {
-            write!(&mut f, " {}", self.0)
-        } else {
-            Ok(())
-        }
-    }
-}
-
 impl core::default::Default for StringRecorder {
     fn default() -> Self {
         StringRecorder::new()
@@ -82,7 +72,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
                 .as_bytes()
                 .into_iter()
                 .copied()
-                .filter(|byte| byte != 0)
+                .filter(|byte| *byte != 0)
                 .collect();
             CString::new(bytes).unwrap()
         }
@@ -102,7 +92,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
-                sanitize(recorder).as_ptr(),
+                sanitize(&recorder.0).as_ptr(),
                 sanitize(meta.tag()).as_ptr(),
             );
         }
