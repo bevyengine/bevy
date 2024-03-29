@@ -25,7 +25,7 @@ pub mod serde;
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
 pub use bevy_asset::ron;
 
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::{schedule::IntoSystemConfigs, world::World};
 pub use bundle::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -44,7 +44,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AssetApp;
+use bevy_asset::{AssetApp, Handle};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -58,6 +58,7 @@ impl Plugin for ScenePlugin {
             .init_asset_loader::<SceneLoader>()
             .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
+            .add_systems(Startup, setup)
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
     }
 }
@@ -65,4 +66,21 @@ impl Plugin for ScenePlugin {
 #[cfg(not(feature = "serialize"))]
 impl Plugin for ScenePlugin {
     fn build(&self, _: &mut App) {}
+}
+
+fn setup(world: &mut World) {
+    world
+        .register_component_hooks::<Handle<DynamicScene>>()
+        .on_remove(|mut world, entity, _| {
+            let id = world.get::<Handle<DynamicScene>>(entity).unwrap().id();
+            if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                let mut scene_spawner = world.resource_mut::<SceneSpawner>();
+                scene_spawner
+                    .spawned_dynamic_scenes
+                    .get_mut(&id)
+                    .map(|instance_ids| {
+                        instance_ids.remove(&scene_instance);
+                    });
+            }
+        });
 }

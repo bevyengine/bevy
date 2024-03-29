@@ -60,8 +60,7 @@ impl InstanceId {
 /// - [`despawn_instance`](Self::despawn_instance)
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
-    spawned_scenes: HashMap<AssetId<Scene>, Vec<InstanceId>>,
-    spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, Vec<InstanceId>>,
+    pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
@@ -207,7 +206,7 @@ impl SceneSpawner {
         self.spawned_instances
             .insert(instance_id, InstanceInfo { entity_map });
         let spawned = self.spawned_dynamic_scenes.entry(id).or_default();
-        spawned.push(instance_id);
+        spawned.insert(instance_id);
         Ok(instance_id)
     }
 
@@ -248,8 +247,6 @@ impl SceneSpawner {
                 scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
             self.spawned_instances.insert(instance_id, instance_info);
-            let spawned = self.spawned_scenes.entry(id).or_default();
-            spawned.push(instance_id);
             Ok(instance_id)
         })
     }
@@ -307,8 +304,8 @@ impl SceneSpawner {
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
-                        .or_insert_with(Vec::new);
-                    spawned.push(instance_id);
+                        .or_insert_with(HashSet::new);
+                    spawned.insert(instance_id);
                 }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
                     self.dynamic_scenes_to_spawn.push((handle, instance_id));

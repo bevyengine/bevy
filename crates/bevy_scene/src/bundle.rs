@@ -16,7 +16,7 @@ use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
 #[derive(Component, Deref, DerefMut)]
-pub struct SceneInstance(InstanceId);
+pub struct SceneInstance(pub(crate) InstanceId);
 
 /// A component bundle for a [`Scene`] root.
 ///
