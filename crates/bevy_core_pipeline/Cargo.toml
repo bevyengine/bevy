@@ -18,6 +18,7 @@ trace = []
 webgl = []
 webgpu = []
 tonemapping_luts = ["bevy_render/ktx2", "bevy_render/zstd"]
+fsr = ["dep:fsr", "bevy_time"]
 
 [dependencies]
 # bevy
@@ -29,6 +30,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }

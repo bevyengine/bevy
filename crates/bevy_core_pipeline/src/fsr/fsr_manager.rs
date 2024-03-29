@@ -1,12 +1,16 @@
-use super::util::{call_hal, ffx_check_result};
+use super::{
+    util::{call_hal, ffx_check_result},
+    FsrQualityMode,
+};
 use bevy_core::FrameCount;
 use bevy_ecs::system::Resource;
 use bevy_math::UVec2;
 use bevy_render::{
-    camera::TemporalJitter,
-    render_resource::{CommandBuffer, CommandEncoderDescriptor},
+    camera::{Exposure, PerspectiveProjection, TemporalJitter},
+    render_resource::{CommandBuffer, CommandEncoderDescriptor, Texture},
     renderer::RenderDevice,
 };
+use bevy_time::Time;
 use fsr::*;
 use std::mem::MaybeUninit;
 
@@ -113,8 +117,31 @@ impl FsrManager {
         .expect("Failed to create FSR context");
     }
 
+    pub fn get_input_resolution(upscaled_resolution: UVec2, quality_mode: FsrQualityMode) -> UVec2 {
+        let quality_mode = match quality_mode {
+            FsrQualityMode::Quality => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_QUALITY,
+            FsrQualityMode::Balanced => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_BALANCED,
+            FsrQualityMode::Peformance => FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_PERFORMANCE,
+            FsrQualityMode::UltraPerformance => {
+                FfxFsr2QualityMode_FFX_FSR2_QUALITY_MODE_ULTRA_PERFORMANCE
+            }
+        };
+
+        let mut input_resolution = UVec2::default();
+        ffx_check_result(unsafe {
+            ffxFsr2GetRenderResolutionFromQualityMode(
+                &mut input_resolution.x,
+                &mut input_resolution.y,
+                upscaled_resolution.x,
+                upscaled_resolution.y,
+                quality_mode,
+            )
+        })
+        .expect("Failed to determine input resolution from FsrQualityMode");
+        input_resolution
+    }
+
     pub fn get_temporal_jitter(
-        &mut self,
         input_resolution: UVec2,
         upscaled_resolution: UVec2,
         frame_count: FrameCount,
@@ -137,7 +164,16 @@ impl FsrManager {
         temporal_jitter
     }
 
-    pub fn record_command_buffer(&mut self, resources: FsrResources) -> CommandBuffer {
+    pub fn get_mip_bias(quality_mode: FsrQualityMode) -> f32 {
+        match quality_mode {
+            FsrQualityMode::Quality => -1.58,
+            FsrQualityMode::Balanced => -1.76,
+            FsrQualityMode::Peformance => -2.0,
+            FsrQualityMode::UltraPerformance => -2.58,
+        }
+    }
+
+    pub fn record_command_buffer(&mut self, resources: FsrCameraResources) -> CommandBuffer {
         let command_encoder = self
             .render_device
             .create_command_encoder(&CommandEncoderDescriptor { label: Some("fsr") });
@@ -151,17 +187,23 @@ impl FsrManager {
             reactive: todo!(),
             transparencyAndComposition: todo!(),
             output: todo!(),
-            jitterOffset: todo!(),
+            jitterOffset: FfxFloatCoords2D {
+                x: resources.temporal_jitter.offset.x,
+                y: resources.temporal_jitter.offset.y,
+            },
             motionVectorScale: todo!(),
-            renderSize: todo!(),
-            enableSharpening: todo!(),
-            sharpness: todo!(),
-            frameTimeDelta: todo!(),
-            preExposure: todo!(),
-            reset: todo!(),
-            cameraNear: todo!(),
-            cameraFar: todo!(),
-            cameraFovAngleVertical: todo!(),
+            renderSize: FfxDimensions2D {
+                width: resources.frame_input.size().width,
+                height: resources.frame_input.size().height,
+            },
+            enableSharpening: false,
+            sharpness: 0.0,
+            frameTimeDelta: resources.time.delta_seconds() * 1000.0,
+            preExposure: resources.exposure.exposure(),
+            reset: resources.reset,
+            cameraNear: resources.camera_projection.near,
+            cameraFar: resources.camera_projection.far,
+            cameraFovAngleVertical: resources.camera_projection.fov,
         };
 
         let context = self.context.as_mut().expect("FSR context does not exist");
@@ -194,4 +236,14 @@ impl Drop for FsrManager {
 unsafe impl Send for FsrManager {}
 unsafe impl Sync for FsrManager {}
 
-pub struct FsrResources {}
+pub struct FsrCameraResources {
+    pub frame_input: Texture,
+    pub depth: Texture,
+    pub motion_vectors: Texture,
+    pub upscaled_output: Texture,
+    pub temporal_jitter: TemporalJitter,
+    pub exposure: Exposure,
+    pub camera_projection: PerspectiveProjection,
+    pub time: Time,
+    pub reset: bool,
+}

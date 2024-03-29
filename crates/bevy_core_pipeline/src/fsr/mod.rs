@@ -18,3 +18,14 @@ impl Plugin for FsrPlugin {
         );
     }
 }
+
+pub enum FsrQualityMode {
+    /// Upscale by 1.5x
+    Quality,
+    /// Upscale by 1.7x
+    Balanced,
+    /// Upscale by 2.0x
+    Peformance,
+    /// Upscale by 3.0x
+    UltraPerformance,
+}
