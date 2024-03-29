@@ -5,7 +5,7 @@ use taffy::Taffy;
 
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::prelude::Resource;
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::Children;
 use bevy_math::UVec2;
 use bevy_utils::default;
 use bevy_utils::tracing::warn;
