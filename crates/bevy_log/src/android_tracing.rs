@@ -81,6 +81,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
             let mut bytes: Vec<u8> = string
                 .as_bytes()
                 .into_iter()
+                .copied()
                 .filter(|byte| byte != 0)
                 .collect();
             CString::new(bytes).unwrap()
@@ -89,7 +90,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         let mut recorder = StringRecorder::new();
         event.record(&mut recorder);
         let meta = event.metadata();
-        let priority = match meta.level() {
+        let priority = match *meta.level() {
             Level::TRACE => android_log_sys::LogPriority::VERBOSE,
             Level::DEBUG => android_log_sys::LogPriority::DEBUG,
             Level::INFO => android_log_sys::LogPriority::INFO,
