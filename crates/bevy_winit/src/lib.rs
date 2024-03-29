@@ -340,6 +340,17 @@ fn handle_winit_event(
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
+    // Reinitialize system states if the world changed.
+    if !create_window.matches_world(app.world.id()) {
+        *create_window = SystemState::new(&mut app.world);
+    }
+    if !event_writer_system_state.matches_world(app.world.id()) {
+        *event_writer_system_state = SystemState::new(&mut app.world);
+    }
+    if !focused_windows_state.matches_world(app.world.id()) {
+        *focused_windows_state = SystemState::new(&mut app.world);
+    }
+
     if app.plugins_state() != PluginsState::Cleaned {
         if app.plugins_state() != PluginsState::Ready {
             #[cfg(not(target_arch = "wasm32"))]
@@ -768,6 +779,12 @@ fn run_app_update_if_should(
         runner_state.last_update = Instant::now();
 
         app.update();
+
+        // Reinitialize system states if the world changed.
+        if !create_window.matches_world(app.world.id()) {
+            *create_window = SystemState::new(&mut app.world);
+            *focused_windows_state = SystemState::new(&mut app.world);
+        }
 
         // decide when to run the next update
         let (config, windows) = focused_windows_state.get(app.world());
