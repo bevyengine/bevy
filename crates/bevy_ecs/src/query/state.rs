@@ -246,7 +246,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns `true` if the given [`Entity`] matches the query.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn contains(&self, entity: Entity, world: &World, last_run: Tick, this_run: Tick) -> bool {
         // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
@@ -589,7 +589,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
@@ -663,7 +663,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_mut<'w>(
         &mut self,
@@ -756,7 +756,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_manual<'w>(
         &self,
@@ -777,7 +777,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -796,7 +796,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
     /// the current change tick are given.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -878,7 +878,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///

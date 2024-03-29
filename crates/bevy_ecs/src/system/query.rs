@@ -813,7 +813,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
@@ -933,7 +933,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
@@ -1049,7 +1049,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1254,7 +1254,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns `true` if the given [`Entity`] matches the query.
     ///
-    /// This is always guarenteed to run in `O(1)` time.
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
