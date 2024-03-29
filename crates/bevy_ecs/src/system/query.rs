@@ -813,6 +813,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guarenteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter` resource.
@@ -931,6 +933,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guarenteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1044,6 +1048,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guarenteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1247,6 +1253,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guarenteed to run in `O(1)` time.
     ///
     /// # Example
     ///
