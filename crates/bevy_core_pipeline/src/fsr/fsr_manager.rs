@@ -1,5 +1,5 @@
 use super::{
-    util::{call_hal, ffx_check_result},
+    util::{call_hal, ffx_check_result, ffx_get_texture, ffx_null_texture},
     FsrQualityMode,
 };
 use bevy_core::FrameCount;
@@ -7,8 +7,9 @@ use bevy_ecs::system::Resource;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::{Exposure, PerspectiveProjection, TemporalJitter},
-    render_resource::{CommandBuffer, CommandEncoderDescriptor, Texture},
+    render_resource::{CommandBuffer, CommandEncoderDescriptor},
     renderer::RenderDevice,
+    texture::CachedTexture,
 };
 use bevy_time::Time;
 use fsr::*;
@@ -174,30 +175,28 @@ impl FsrManager {
     }
 
     pub fn record_command_buffer(&mut self, resources: FsrCameraResources) -> CommandBuffer {
-        let command_encoder = self
-            .render_device
-            .create_command_encoder(&CommandEncoderDescriptor { label: Some("fsr") });
+        let context = self.context.as_mut().expect("FSR context does not exist");
 
         let dispatch_description = FfxFsr2DispatchDescription {
             commandList: todo!(),
-            color: todo!(),
-            depth: todo!(),
-            motionVectors: todo!(),
-            exposure: todo!(),
-            reactive: todo!(),
-            transparencyAndComposition: todo!(),
-            output: todo!(),
+            color: ffx_get_texture(&resources.frame_input, context),
+            depth: ffx_get_texture(&resources.depth, context),
+            motionVectors: ffx_get_texture(&resources.motion_vectors, context),
+            exposure: ffx_null_texture(context),
+            reactive: ffx_null_texture(context),
+            transparencyAndComposition: ffx_null_texture(context),
+            output: ffx_get_texture(&resources.upscaled_output, context),
             jitterOffset: FfxFloatCoords2D {
                 x: resources.temporal_jitter.offset.x,
                 y: resources.temporal_jitter.offset.y,
             },
             motionVectorScale: FfxFloatCoords2D {
-                x: resources.frame_input.size().width as f32,
-                y: resources.frame_input.size().height as f32,
+                x: resources.frame_input.texture.width() as f32,
+                y: resources.frame_input.texture.height() as f32,
             },
             renderSize: FfxDimensions2D {
-                width: resources.frame_input.size().width,
-                height: resources.frame_input.size().height,
+                width: resources.frame_input.texture.width(),
+                height: resources.frame_input.texture.height(),
             },
             enableSharpening: false,
             sharpness: 0.0,
@@ -209,10 +208,18 @@ impl FsrManager {
             cameraFovAngleVertical: resources.camera_projection.fov,
         };
 
-        let context = self.context.as_mut().expect("FSR context does not exist");
+        let command_encoder =
+            self.render_device
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("fsr_command_encoder"),
+                });
+
+        // TODO: Dispatch dummy compute shader with read_write on all input textures to ensure barriers
 
         unsafe { ffx_check_result(ffxFsr2ContextDispatch(context, &dispatch_description)) }
             .expect("Failed to render FSR");
+
+        // TODO: Dispatch dummy compute shader with read_write on all input textures to ensure barriers
 
         command_encoder.finish()
     }
@@ -240,10 +247,10 @@ unsafe impl Send for FsrManager {}
 unsafe impl Sync for FsrManager {}
 
 pub struct FsrCameraResources {
-    pub frame_input: Texture,
-    pub depth: Texture,
-    pub motion_vectors: Texture,
-    pub upscaled_output: Texture,
+    pub frame_input: CachedTexture,
+    pub depth: CachedTexture,
+    pub motion_vectors: CachedTexture,
+    pub upscaled_output: CachedTexture,
     pub temporal_jitter: TemporalJitter,
     pub exposure: Exposure,
     pub camera_projection: PerspectiveProjection,
