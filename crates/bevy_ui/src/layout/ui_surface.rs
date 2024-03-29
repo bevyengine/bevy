@@ -31,6 +31,8 @@ pub struct UiSurface {
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
+    _assert_send_sync::<EntityHashMap<EntityHashMap<taffy::NodeId>>>();
+    _assert_send_sync::<EntityHashMap<Vec<RootNodePair>>>();
     _assert_send_sync::<TaffyTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
@@ -39,6 +41,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
+            .field("camera_entity_to_taffy", &self.camera_entity_to_taffy)
             .field("camera_roots", &self.camera_roots)
             .finish()
     }
