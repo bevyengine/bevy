@@ -67,7 +67,7 @@ fn setup(
                     Vec2::new(50.0, -50.0),
                 ))
                 .into(),
-            material: materials.add(LegacyColor::BLACK),
+            material: materials.add(Color::BLACK),
             transform: Transform::from_xyz(-150.0, 0.0, 0.0),
             ..default()
         },
@@ -76,7 +76,7 @@ fn setup(
     // Rectangle: Follows global wireframe setting
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
-        material: materials.add(LegacyColor::BLACK),
+        material: materials.add(Color::BLACK),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
@@ -84,7 +84,7 @@ fn setup(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(50.0)).into(),
-            material: materials.add(LegacyColor::BLACK),
+            material: materials.add(Color::BLACK),
             transform: Transform::from_xyz(150.0, 0.0, 0.0),
             ..default()
         },
