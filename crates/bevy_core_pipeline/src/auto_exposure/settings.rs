@@ -43,6 +43,25 @@ pub struct AutoExposureSettings {
     /// The speed at which the exposure adapts from bright to dark scenes, in F-stops per second.
     pub speed_darken: f32,
 
+    /// The distance in F-stops from the target exposure from where to transition from animating
+    /// in linear fashion to animating exponentially. This helps against jittering when the
+    /// target exposure keeps on changing slightly from frame to frame, while still maintinaing
+    /// a relatively slow animation for big changes in scene brightness.
+    ///
+    /// ```text
+    /// ev
+    ///                       ➔●┐
+    /// |              ⬈         ├ exponential section
+    /// │        ⬈               ┘
+    /// │    ⬈                   ┐
+    /// │  ⬈                     ├ linear section
+    /// │⬈                       ┘
+    /// ●───────────────────────── time
+    /// ```
+    ///
+    /// The default value is 1.5.
+    pub exponential_transition_distance: f32,
+
     /// The mask to apply when metering. The mask will cover the entire screen, where:
     /// * `(0.0, 0.0)` is the top-left corner,
     /// * `(1.0, 1.0)` is the bottom-right corner.
@@ -73,6 +92,7 @@ impl Default for AutoExposureSettings {
             filter: 0.10..=0.90,
             speed_brighten: 3.0,
             speed_darken: 1.0,
+            exponential_transition_distance: 1.5,
             metering_mask: default(),
             compensation_curve: default(),
         }

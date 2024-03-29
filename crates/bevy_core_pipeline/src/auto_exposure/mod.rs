@@ -131,6 +131,9 @@ fn queue_view_auto_exposure_pipelines(
         let (min_log_lum, max_log_lum) = settings.range.clone().into_inner();
         let (low_percent, high_percent) = settings.filter.clone().into_inner();
 
+        let brighten = settings.speed_brighten * time.delta_seconds();
+        let darken = settings.speed_darken * time.delta_seconds();
+
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
@@ -142,8 +145,10 @@ fn queue_view_auto_exposure_pipelines(
                 log_lum_range: max_log_lum - min_log_lum,
                 low_percent,
                 high_percent,
-                speed_up: settings.speed_brighten * time.delta_seconds(),
-                speed_down: settings.speed_darken * time.delta_seconds(),
+                speed_up: brighten,
+                speed_down: darken,
+                exp_up: brighten / settings.exponential_transition_distance,
+                exp_down: darken / settings.exponential_transition_distance,
             },
             metering_mask: settings.metering_mask.clone(),
         });

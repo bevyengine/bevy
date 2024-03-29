@@ -11,6 +11,8 @@ struct AutoExposure {
     high_percent: f32,
     speed_up: f32,
     speed_down: f32,
+    exp_up: f32,
+    exp_down: f32,
 }
 
 struct CompensationCurve {
@@ -150,12 +152,13 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
             - avg_lum;
     }
 
-    // Smoothly adjust the exposure to the target exposure.
-    exposure = exposure + clamp(
-        target_exposure - exposure,
-        -settings.speed_up,
-        settings.speed_down
-    );
+    // Smoothly adjust the `exposure` towards the `target_exposure`
+    let delta = target_exposure - exposure;
+    if target_exposure > exposure {
+        exposure = exposure + min(settings.speed_down, delta * settings.exp_down);
+    } else {
+        exposure = exposure + max(-settings.speed_up, delta * settings.exp_up);
+    }
 
     // Apply the exposure to the color grading settings, from where it will be used for the color
     // grading pass.

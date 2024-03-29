@@ -24,13 +24,15 @@ pub struct ViewAutoExposurePipeline {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct AutoExposureUniform {
-    pub min_log_lum: f32,
-    pub inv_log_lum_range: f32,
-    pub log_lum_range: f32,
-    pub low_percent: f32,
-    pub high_percent: f32,
-    pub speed_up: f32,
-    pub speed_down: f32,
+    pub(super) min_log_lum: f32,
+    pub(super) inv_log_lum_range: f32,
+    pub(super) log_lum_range: f32,
+    pub(super) low_percent: f32,
+    pub(super) high_percent: f32,
+    pub(super) speed_up: f32,
+    pub(super) speed_down: f32,
+    pub(super) exp_up: f32,
+    pub(super) exp_down: f32,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
