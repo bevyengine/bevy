@@ -105,6 +105,8 @@ const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(74148126892380
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+///
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -146,9 +148,17 @@ impl Plugin for GizmoPlugin {
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
+            app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+        }
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
+            app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+        }
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
