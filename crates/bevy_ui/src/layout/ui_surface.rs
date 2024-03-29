@@ -126,7 +126,7 @@ without UI components as a child of an entity with UI components, results may be
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
-        camera_id: Entity,
+        camera_entity: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
         let viewport_style = taffy::style::Style {
@@ -142,8 +142,8 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
-        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();
-        let existing_roots = self.camera_roots.entry(camera_id).or_default();
+        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_entity).or_default();
+        let existing_roots = self.camera_roots.entry(camera_entity).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
             let node = *self.entity_to_taffy.get(&entity).unwrap();
@@ -170,7 +170,7 @@ without UI components as a child of an entity with UI components, results may be
             new_roots.push(root_node);
         }
 
-        self.camera_roots.insert(camera_id, new_roots);
+        self.camera_roots.insert(camera_entity, new_roots);
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
