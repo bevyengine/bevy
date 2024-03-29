@@ -11,7 +11,11 @@
 7. Update book.
 8. Bump version number for all crates, using the "Release" workflow.
 9. Create tag on GitHub.
-10. Bump `latest` tag to most recent release.
+10. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
+11. Bump `latest` tag to most recent release.
+12. Run this workflow to update screenshots:
+    * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
+    * _This will block blog post releases (and take ~40 minutes) so do it early_.
 
 ## Release
 

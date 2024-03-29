@@ -6,13 +6,13 @@ warning: unused import: `SystemState`
   |
   = note: `#[warn(unused_imports)]` on by default
 
-error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not satisfied
+error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satisfied
   --> tests/ui/system_param_derive_readonly.rs:18:23
    |
 18 |     assert_readonly::<Mutable>();
-   |                       ^^^^^^^ the trait `ReadOnlyWorldQuery` is not implemented for `&'static mut Foo`
+   |                       ^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `&'static mut Foo`, which is required by `Mutable<'_, '_>: ReadOnlySystemParam`
    |
-   = help: the following other types implement trait `ReadOnlyWorldQuery`:
+   = help: the following other types implement trait `ReadOnlyQueryData`:
              bevy_ecs::change_detection::Ref<'__w, T>
              Has<T>
              AnyOf<()>
@@ -22,7 +22,7 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not sati
              AnyOf<(F0, F1, F2, F3)>
              AnyOf<(F0, F1, F2, F3, F4)>
            and $N others
-   = note: `ReadOnlyWorldQuery` is implemented for `&'static Foo`, but not for `&'static mut Foo`
+   = note: `ReadOnlyQueryData` is implemented for `&'static Foo`, but not for `&'static mut Foo`
    = note: required for `bevy_ecs::system::Query<'_, '_, &'static mut Foo>` to implement `ReadOnlySystemParam`
    = note: 1 redundant requirement hidden
    = note: required for `Mutable<'_, '_>` to implement `ReadOnlySystemParam`

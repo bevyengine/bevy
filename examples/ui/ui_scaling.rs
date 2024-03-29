@@ -1,6 +1,6 @@
-//! This example illustrates the [`UIScale`] resource from `bevy_ui`.
+//! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{prelude::*, text::TextSettings, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
@@ -24,7 +24,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::ANTIQUE_WHITE.into(),
+            background_color: ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: Color::RED.into(),
+                    background_color: RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: Color::BLUE.into(),
+                background_color: BLUE.into(),
                 ..default()
             });
             parent.spawn(ImageBundle {
@@ -84,13 +84,13 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
 }
 
 /// System that changes the scale of the ui when pressing up or down on the keyboard.
-fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
-    if input.just_pressed(KeyCode::Up) {
+fn change_scaling(input: Res<ButtonInput<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
         ui_scale.set_scale(scale);
         info!("Scaling up! Scale: {}", ui_scale.target_scale);
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         let scale = (ui_scale.target_scale / 2.0).max(1. / 8.);
         ui_scale.set_scale(scale);
         info!("Scaling down! Scale: {}", ui_scale.target_scale);
@@ -99,22 +99,22 @@ fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>)
 
 #[derive(Resource)]
 struct TargetScale {
-    start_scale: f64,
-    target_scale: f64,
+    start_scale: f32,
+    target_scale: f32,
     target_time: Timer,
 }
 
 impl TargetScale {
-    fn set_scale(&mut self, scale: f64) {
+    fn set_scale(&mut self, scale: f32) {
         self.start_scale = self.current_scale();
         self.target_scale = scale;
         self.target_time.reset();
     }
 
-    fn current_scale(&self) -> f64 {
-        let completion = self.target_time.percent();
-        let multiplier = ease_in_expo(completion as f64);
-        self.start_scale + (self.target_scale - self.start_scale) * multiplier
+    fn current_scale(&self) -> f32 {
+        let completion = self.target_time.fraction();
+        let t = ease_in_expo(completion);
+        self.start_scale.lerp(self.target_scale, t)
     }
 
     fn tick(&mut self, delta: Duration) -> &Self {
@@ -139,10 +139,10 @@ fn apply_scaling(
     ui_scale.0 = target_scale.current_scale();
 }
 
-fn ease_in_expo(x: f64) -> f64 {
+fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        (2.0f64).powf(5. * x - 5.)
+        2.0f32.powf(5. * x - 5.)
     }
 }

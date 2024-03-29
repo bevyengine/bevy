@@ -29,9 +29,9 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_utils::nonmax::NonMaxU32;
 pub use draw::*;
 pub use draw_state::*;
+use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
@@ -139,6 +139,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// based on the view-space `Z` value of the corresponding view matrix.
     type SortKey: Ord;
 
+    /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
+    const AUTOMATIC_BATCHING: bool = true;
+
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,
@@ -193,13 +196,13 @@ pub struct SetItemPipeline;
 
 impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
+    type ViewQuery = ();
+    type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _entity: (),
+        _entity: Option<()>,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

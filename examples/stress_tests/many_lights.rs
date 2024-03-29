@@ -4,12 +4,14 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowPlugin, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
@@ -18,7 +20,8 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: (1024.0, 768.0).into(),
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     title: "many_lights".into(),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
@@ -29,6 +32,10 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();
@@ -42,26 +49,20 @@ fn setup(
     warn!(include_str!("warning_string.txt"));
 
     const LIGHT_RADIUS: f32 = 0.3;
-    const LIGHT_INTENSITY: f32 = 5.0;
+    const LIGHT_INTENSITY: f32 = 1000.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: RADIUS,
-                subdivisions: 9,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: DEEP_PINK.into(),
         ..default()
     });
 
@@ -69,11 +70,15 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-    let mut rng = thread_rng();
-    for i in 0..N_LIGHTS {
+
+    // Spawn N_LIGHTS many lights
+    commands.spawn_batch((0..N_LIGHTS).map(move |i| {
+        let mut rng = thread_rng();
+
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn(PointLightBundle {
+
+        PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
@@ -82,8 +87,8 @@ fn setup(
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
             ..default()
-        });
-    }
+        }
+    }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
@@ -152,9 +157,8 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));

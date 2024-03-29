@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -59,10 +59,10 @@ impl WindowRef {
 }
 
 impl MapEntities for WindowRef {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         match self {
             Self::Entity(entity) => {
-                *entity = entity_mapper.get_or_reserve(*entity);
+                *entity = entity_mapper.map_entity(*entity);
             }
             Self::Primary => {}
         };
@@ -95,8 +95,29 @@ impl NormalizedWindowRef {
 /// When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
+/// The primary window entity (and the corresponding window) is spawned by default
+/// by [`WindowPlugin`](crate::WindowPlugin) and is marked with the [`PrimaryWindow`] component.
+///
 /// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
+///
+/// # Example
+///
+/// Because this component is synchronized with `winit`, it can be used to perform
+/// OS-integrated windowing operations. For example, here's a simple system
+/// to change the cursor type:
+///
+/// ```
+/// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
+/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+///     // Query returns one window typically.
+///     for mut window in windows.iter_mut() {
+///         window.cursor.icon = CursorIcon::Wait;
+///     }
+/// }
+/// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -117,6 +138,21 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
+    /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
+    ///
+    /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
+    /// For details about `WM_CLASS`, see the [X11 Manual Pages](https://www.x.org/releases/current/doc/man/man3/XAllocClassHint.3.xhtml).
+    /// For details about **`Windows`**'s window class names, see [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **`Windows`**: Can only be set while building the window, setting the window's window class name.
+    /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
+    /// - **`X11`**: Can only be set while building the window, setting the window's `WM_CLASS`.
+    /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
+    ///
+    /// Notes: Changing this field during runtime will have no effect for now.
+    pub name: Option<String>,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's logical size
@@ -215,7 +251,7 @@ pub struct Window {
     pub window_theme: Option<WindowTheme>,
     /// Sets the window's visibility.
     ///
-    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `false`, this will hide the window completely, it won't appear on the screen or in the task bar.
     /// If `true`, this will show the window.
     /// Note that this doesn't change its focused or minimized state.
     ///
@@ -223,12 +259,24 @@ pub struct Window {
     ///
     /// - **Android / Wayland / Web:** Unsupported.
     pub visible: bool,
+    /// Sets whether the window should be shown in the taskbar.
+    ///
+    /// If `true`, the window will not appear in the taskbar.
+    /// If `false`, the window will appear in the taskbar.
+    ///
+    /// Note that this will only take effect on window creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub skip_taskbar: bool,
 }
 
 impl Default for Window {
     fn default() -> Self {
         Self {
             title: "App".to_owned(),
+            name: None,
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
@@ -250,6 +298,7 @@ impl Default for Window {
             canvas: None,
             window_theme: None,
             visible: true,
+            skip_taskbar: false,
         }
     }
 }
@@ -285,6 +334,14 @@ impl Window {
         self.resolution.height()
     }
 
+    /// The window's client size in logical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        self.resolution.size()
+    }
+
     /// The window's client area width in physical pixels.
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
@@ -301,11 +358,19 @@ impl Window {
         self.resolution.physical_height()
     }
 
+    /// The window's client size in physical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn physical_size(&self) -> bevy_math::UVec2 {
+        self.resolution.physical_size()
+    }
+
     /// The window's scale factor.
     ///
     /// Ratio of physical size to logical size, see [`WindowResolution`].
     #[inline]
-    pub fn scale_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f32 {
         self.resolution.scale_factor()
     }
 
@@ -317,7 +382,7 @@ impl Window {
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
         self.physical_cursor_position()
-            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
+            .map(|position| (position.as_dvec2() / self.scale_factor() as f64).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -348,7 +413,7 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
         self.internal.physical_cursor_position =
-            position.map(|p| p.as_dvec2() * self.scale_factor());
+            position.map(|p| p.as_dvec2() * self.scale_factor() as f64);
     }
 
     /// Set the cursor position in this window in physical pixels.
@@ -589,12 +654,12 @@ pub struct WindowResolution {
     physical_height: u32,
     /// Code-provided ratio of physical size to logical size.
     ///
-    /// Should be used instead `scale_factor` when set.
-    scale_factor_override: Option<f64>,
+    /// Should be used instead of `scale_factor` when set.
+    scale_factor_override: Option<f32>,
     /// OS-provided ratio of physical size to logical size.
     ///
     /// Set automatically depending on the pixel density of the screen.
-    scale_factor: f64,
+    scale_factor: f32,
 }
 
 impl Default for WindowResolution {
@@ -619,21 +684,27 @@ impl WindowResolution {
     }
 
     /// Builder method for adding a scale factor override to the resolution.
-    pub fn with_scale_factor_override(mut self, scale_factor_override: f64) -> Self {
-        self.scale_factor_override = Some(scale_factor_override);
+    pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
+        self.set_scale_factor_override(Some(scale_factor_override));
         self
     }
 
     /// The window's client area width in logical pixels.
     #[inline]
     pub fn width(&self) -> f32 {
-        (self.physical_width() as f64 / self.scale_factor()) as f32
+        self.physical_width() as f32 / self.scale_factor()
     }
 
     /// The window's client area height in logical pixels.
     #[inline]
     pub fn height(&self) -> f32 {
-        (self.physical_height() as f64 / self.scale_factor()) as f32
+        self.physical_height() as f32 / self.scale_factor()
+    }
+
+    /// The window's client size in logical pixels
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
     }
 
     /// The window's client area width in physical pixels.
@@ -648,10 +719,16 @@ impl WindowResolution {
         self.physical_height
     }
 
+    /// The window's client size in physical pixels
+    #[inline]
+    pub fn physical_size(&self) -> UVec2 {
+        UVec2::new(self.physical_width, self.physical_height)
+    }
+
     /// The ratio of physical pixels to logical pixels.
     ///
     /// `physical_pixels = logical_pixels * scale_factor`
-    pub fn scale_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f32 {
         self.scale_factor_override
             .unwrap_or_else(|| self.base_scale_factor())
     }
@@ -660,7 +737,7 @@ impl WindowResolution {
     ///
     /// This value is unaffected by [`WindowResolution::scale_factor_override`].
     #[inline]
-    pub fn base_scale_factor(&self) -> f64 {
+    pub fn base_scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
@@ -668,7 +745,7 @@ impl WindowResolution {
     ///
     /// This value may be different from the scale factor reported by the window backend.
     #[inline]
-    pub fn scale_factor_override(&self) -> Option<f64> {
+    pub fn scale_factor_override(&self) -> Option<f32> {
         self.scale_factor_override
     }
 
@@ -676,8 +753,8 @@ impl WindowResolution {
     #[inline]
     pub fn set(&mut self, width: f32, height: f32) {
         self.set_physical_resolution(
-            (width as f64 * self.scale_factor()) as u32,
-            (height as f64 * self.scale_factor()) as u32,
+            (width * self.scale_factor()) as u32,
+            (height * self.scale_factor()) as u32,
         );
     }
 
@@ -693,7 +770,7 @@ impl WindowResolution {
 
     /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
-    pub fn set_scale_factor(&mut self, scale_factor: f64) {
+    pub fn set_scale_factor(&mut self, scale_factor: f32) {
         let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
         self.set(width, height);
@@ -704,7 +781,7 @@ impl WindowResolution {
     /// This can change the logical and physical sizes if the resulting physical
     /// size is not within the limits.
     #[inline]
-    pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f64>) {
+    pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
         let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
         self.set(width, height);
@@ -729,14 +806,14 @@ where
     }
 }
 
-impl From<bevy_math::Vec2> for WindowResolution {
-    fn from(res: bevy_math::Vec2) -> WindowResolution {
+impl From<Vec2> for WindowResolution {
+    fn from(res: Vec2) -> WindowResolution {
         WindowResolution::new(res.x, res.y)
     }
 }
 
-impl From<bevy_math::DVec2> for WindowResolution {
-    fn from(res: bevy_math::DVec2) -> WindowResolution {
+impl From<DVec2> for WindowResolution {
+    fn from(res: DVec2) -> WindowResolution {
         WindowResolution::new(res.x as f32, res.y as f32)
     }
 }
@@ -968,6 +1045,11 @@ pub enum WindowMode {
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
     /// on the scale factor, see [`WindowResolution`].
+    ///
+    /// Note: As this mode respects the scale factor provided by the operating system,
+    /// the window's logical size may be different from its physical size.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     BorderlessFullscreen,
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
@@ -985,6 +1067,11 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
+    ///
+    /// Note: As this mode respects the scale factor provided by the operating system,
+    /// the window's logical size may be different from its physical size.
+    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     Fullscreen,
 }
 

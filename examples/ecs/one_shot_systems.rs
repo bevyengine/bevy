@@ -4,9 +4,9 @@
 //! reducing the overhead of running extremely rarely run systems
 //! and improving schedule flexibility.
 //!
-//! See the [`World::run_system`](bevy::ecs::World::run_system) or
-//! [`World::run_system_once`](bevy::ecs::World::run_system_once) docs for more
-//! details.
+//! See the [`World::run_system`](World::run_system) or
+//! [`World::run_system_once`](World#method.run_system_once_with)
+//! docs for more details.
 
 use bevy::{
     ecs::system::{RunSystemOnce, SystemId},

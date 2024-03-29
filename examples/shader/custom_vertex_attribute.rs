@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
             VertexFormat,
@@ -31,19 +31,20 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
-    mesh.insert_attribute(
-        ATTRIBUTE_BLEND_COLOR,
-        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-        vec![[1.0, 0.0, 0.0, 1.0]; 24],
-    );
+    let mesh = Mesh::from(Cuboid::default())
+        // Sets the custom attribute
+        .with_inserted_attribute(
+            ATTRIBUTE_BLEND_COLOR,
+            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+            vec![[1.0, 0.0, 0.0, 1.0]; 24],
+        );
 
     // cube
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(mesh),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
         }),
         ..default()
     });
@@ -57,9 +58,9 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for CustomMaterial {
@@ -73,10 +74,10 @@ impl Material for CustomMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.get_layout(&[
+        let vertex_layout = layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_BLEND_COLOR.at_shader_location(1),
         ])?;

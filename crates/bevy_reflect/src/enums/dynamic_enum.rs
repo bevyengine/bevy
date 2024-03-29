@@ -2,8 +2,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
-    Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter,
-    VariantType,
+    Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
+    VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -289,13 +289,6 @@ impl Enum for DynamicEnum {
 
 impl Reflect for DynamicEnum {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_default()
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
@@ -376,7 +369,7 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("`{}` is not an enum", value.type_name());
+            panic!("`{}` is not an enum", value.reflect_type_path());
         }
     }
 
@@ -384,6 +377,11 @@ impl Reflect for DynamicEnum {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
     }
 
     #[inline]

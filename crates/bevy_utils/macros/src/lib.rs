@@ -1,3 +1,7 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -128,6 +132,41 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
         let ident_tuples = &ident_tuples[..i];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
+        }
+    });
+    TokenStream::from(quote! {
+        #(
+            #invocations
+        )*
+    })
+}
+
+#[proc_macro]
+pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as AllTuples);
+    let len = 1 + input.end - input.start;
+    let mut ident_tuples = Vec::with_capacity(len);
+    for i in 0..=len {
+        let idents = input
+            .idents
+            .iter()
+            .map(|ident| format_ident!("{}{}", ident, i));
+        if input.idents.len() < 2 {
+            ident_tuples.push(quote! {
+                #(#idents)*
+            });
+        } else {
+            ident_tuples.push(quote! {
+                (#(#idents),*)
+            });
+        }
+    }
+
+    let macro_ident = &input.macro_ident;
+    let invocations = (input.start..=input.end).map(|i| {
+        let ident_tuples = &ident_tuples[..i];
+        quote! {
+            #macro_ident!(#i, #(#ident_tuples),*);
         }
     });
     TokenStream::from(quote! {

@@ -13,13 +13,15 @@ use wgpu::{
     util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
 };
 
+use super::IntoBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
 /// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are
 /// only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
@@ -139,13 +141,23 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic uniform buffer.
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
 /// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](DynamicUniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
@@ -215,8 +227,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     #[inline]
-    pub fn push(&mut self, value: T) -> u32 {
-        self.scratch.write(&value).unwrap() as u32
+    pub fn push(&mut self, value: &T) -> u32 {
+        self.scratch.write(value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -265,8 +277,16 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment =
-            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64);
+        let alignment = if cfg!(feature = "ios_simulator") {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+            AlignmentValue::new(256)
+        } else {
+            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)
+        };
+
         let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = alignment
             .round_up(T::min_size().get())
@@ -348,7 +368,7 @@ impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
 }
 
 /// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
-/// [`encase::internal::BufferMut`].
+/// [`BufferMut`].
 struct QueueWriteBufferViewWrapper<'a> {
     buffer_view: wgpu::QueueWriteBufferView<'a>,
     // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
@@ -365,5 +385,12 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
         self.buffer_view.write(offset, val);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicUniformBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

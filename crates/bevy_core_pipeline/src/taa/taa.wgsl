@@ -10,8 +10,6 @@
 const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
 const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var motion_vectors: texture_2d<f32>;
@@ -177,7 +175,14 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Blend current and past sample
     // Use more of the history if we're confident in it (reduces noise when there is no motion)
     // https://hhoppe.com/supersample.pdf, section 4.1
-    let current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
+    var current_color_factor = clamp(1.0 / history_confidence, MIN_HISTORY_BLEND_RATE, DEFAULT_HISTORY_BLEND_RATE);
+
+    // Reject history when motion vectors point off screen
+    if any(saturate(history_uv) != history_uv) {
+        current_color_factor = 1.0;
+        history_confidence = 1.0;
+    }
+
     current_color = mix(history_color, current_color, current_color_factor);
 #endif // #ifndef RESET
 

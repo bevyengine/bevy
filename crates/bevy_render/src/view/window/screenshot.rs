@@ -2,10 +2,9 @@ use std::{borrow::Cow, path::Path, sync::PoisonError};
 
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_ecs::prelude::*;
-use bevy_log::{error, info, info_span};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::HashMap;
+use bevy_utils::tracing::{error, info, info_span};
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -14,10 +13,11 @@ use wgpu::{
 
 use crate::{
     prelude::{Image, Shader},
+    render_asset::RenderAssetUsages,
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
     },
     renderer::RenderDevice,
     texture::TextureFormatPixelInfo,
@@ -32,7 +32,7 @@ pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
 #[derive(Resource, Default)]
 pub struct ScreenshotManager {
     // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<HashMap<Entity, ScreenshotFn>>,
+    pub(crate) callbacks: Mutex<EntityHashMap<ScreenshotFn>>,
 }
 
 #[derive(Error, Debug)]
@@ -140,35 +140,7 @@ impl Plugin for ScreenshotPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if app
-            .world
-            .contains_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
-        }
     }
-}
-
-#[cfg(feature = "bevy_ci_testing")]
-fn ci_testing_screenshot_at(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
-    main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-) {
-    if ci_testing_config
-        .screenshot_frames
-        .contains(&*current_frame)
-    {
-        info!("Taking a screenshot at frame {}.", *current_frame);
-        let path = format!("./screenshot-{}.png", *current_frame);
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
-    }
-    *current_frame += 1;
 }
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {
@@ -201,19 +173,13 @@ impl FromWorld for ScreenshotToScreenPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let device = render_world.resource::<RenderDevice>();
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = device.create_bind_group_layout(
+            "screenshot-to-screen-bgl",
+            &BindGroupLayoutEntries::single(
+                wgpu::ShaderStages::FRAGMENT,
+                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+            ),
+        );
 
         Self { bind_group_layout }
     }
@@ -274,7 +240,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
                     buffer: &memory.buffer,
-                    layout: crate::view::screenshot::layout_data(width, height, texture_format),
+                    layout: layout_data(width, height, texture_format),
                 },
                 Extent3d {
                     width,
@@ -296,10 +262,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     })],
                     depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);
@@ -367,6 +335,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
+                    RenderAssetUsages::RENDER_WORLD,
                 ));
             };
 

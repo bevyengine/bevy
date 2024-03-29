@@ -7,6 +7,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::InternedSystemSet,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -141,10 +142,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
@@ -161,6 +158,10 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
@@ -170,8 +171,9 @@ where
             // in parallel, so their world accesses will not conflict with each other.
             // Additionally, `update_archetype_component_access` has been called,
             // which forwards to the implementations for `self.a` and `self.b`.
-            |input| self.a.run_unsafe(input, world),
-            |input| self.b.run_unsafe(input, world),
+            |input| unsafe { self.a.run_unsafe(input, world) },
+            // SAFETY: See the comment above.
+            |input| unsafe { self.b.run_unsafe(input, world) },
         )
     }
 
@@ -217,6 +219,12 @@ where
         self.b.check_change_tick(change_tick);
     }
 
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
+
     fn get_last_run(&self) -> Tick {
         self.a.get_last_run()
     }
@@ -224,12 +232,6 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let mut default_sets = self.a.default_system_sets();
-        default_sets.append(&mut self.b.default_system_sets());
-        default_sets
     }
 }
 

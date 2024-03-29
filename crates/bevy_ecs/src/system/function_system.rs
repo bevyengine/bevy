@@ -3,12 +3,13 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
+    schedule::{InternedSystemSet, SystemSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
@@ -24,6 +25,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
+    has_deferred: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -39,6 +41,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
+            has_deferred: false,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -66,6 +69,18 @@ impl SystemMeta {
     pub fn set_non_send(&mut self) {
         self.is_send = false;
     }
+
+    /// Returns true if the system has deferred [`SystemParam`]'s
+    #[inline]
+    pub fn has_deferred(&self) -> bool {
+        self.has_deferred
+    }
+
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    pub fn set_has_deferred(&mut self) {
+        self.has_deferred = true;
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
@@ -74,7 +89,7 @@ impl SystemMeta {
 ///
 /// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
-/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](crate::system::World::run_system)
+/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](World::run_system)
 /// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
@@ -91,12 +106,12 @@ impl SystemMeta {
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
-/// Note that this is automatically handled for you when using a [`World::run_system`](crate::system::World::run_system).
+/// Note that this is automatically handled for you when using a [`World::run_system`](World::run_system).
 ///
 /// # Example
 ///
 /// Basic usage:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -129,7 +144,7 @@ impl SystemMeta {
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
-/// ```rust
+/// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
@@ -155,7 +170,7 @@ impl SystemMeta {
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
-///     for events in event_reader.iter() {
+///     for events in event_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// });
@@ -328,7 +343,8 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        self.fetch(world, change_tick)
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { self.fetch(world, change_tick) }
     }
 
     /// # Safety
@@ -341,7 +357,9 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+        // SAFETY: The invariants are uphold by the caller.
+        let param =
+            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
         param
     }
@@ -439,11 +457,6 @@ where
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
-    }
-
-    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -464,6 +477,11 @@ where
     }
 
     #[inline]
+    fn has_deferred(&self) -> bool {
+        self.system_meta.has_deferred
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
@@ -475,23 +493,17 @@ where
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
-            &self.system_meta,
-            world,
-            change_tick,
-        );
+        let params = unsafe {
+            F::Param::get_param(
+                self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+                &self.system_meta,
+                world,
+                change_tick,
+            )
+        };
         let out = self.func.run(input, params);
         self.system_meta.last_run = change_tick;
         out
-    }
-
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
     }
 
     #[inline]
@@ -508,7 +520,7 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -528,9 +540,17 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 
@@ -556,7 +576,7 @@ where
 ///
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
-/// ```rust
+/// ```
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
@@ -675,3 +695,44 @@ macro_rules! impl_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_system_function, 0, 16, F);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn into_system_type_id_consistency() {
+        fn test<T, In, Out, Marker>(function: T)
+        where
+            T: IntoSystem<In, Out, Marker> + Copy,
+        {
+            fn reference_system() {}
+
+            use std::any::TypeId;
+
+            let system = IntoSystem::into_system(function);
+
+            assert_eq!(
+                system.type_id(),
+                function.system_type_id(),
+                "System::type_id should be consistent with IntoSystem::system_type_id"
+            );
+
+            assert_eq!(
+                system.type_id(),
+                TypeId::of::<T::System>(),
+                "System::type_id should be consistent with TypeId::of::<T::System>()"
+            );
+
+            assert_ne!(
+                system.type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
+                "Different systems should have different TypeIds"
+            );
+        }
+
+        fn function_system() {}
+
+        test(function_system);
+    }
+}

@@ -1,5 +1,3 @@
-#![allow(clippy::doc_markdown)]
-
 use std::marker::PhantomData;
 
 use super::Buffer;
@@ -17,7 +15,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 ///
 /// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](StorageBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
 /// is automatically enforced by this structure.
 ///
@@ -143,12 +141,12 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
 /// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
 /// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
-/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
+/// [`push`](DynamicStorageBuffer::push) method.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
+/// The contained data is stored in system RAM. [`write_buffer`](DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
 /// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
-/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// these requirements. Each item [`push`](DynamicStorageBuffer::push)ed into this structure
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:

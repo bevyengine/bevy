@@ -1,11 +1,14 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
+pub mod helper;
 /// Systems responsible for transform propagation
 pub mod systems;
 
@@ -13,8 +16,8 @@ pub mod systems;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
-        TransformPoint,
+        commands::BuildChildrenTransformExt, components::*, helper::TransformHelper,
+        TransformBundle, TransformPlugin, TransformPoint,
     };
 }
 
@@ -42,7 +45,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`TransformPropagate`](TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`]. If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag

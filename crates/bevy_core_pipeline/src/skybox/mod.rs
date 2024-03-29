@@ -2,27 +2,28 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::With,
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    camera::Exposure,
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
+        binding_types::{sampler, texture_cube, uniform_buffer},
+        *,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
+
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
@@ -32,11 +33,13 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Skybox>::default(),
+            UniformComponentPlugin::<SkyboxUniforms>::default(),
+        ));
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app
@@ -51,9 +54,8 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         let render_device = render_app.world.resource::<RenderDevice>().clone();
@@ -68,8 +70,51 @@ impl Plugin for SkyboxPlugin {
 /// To do so, use `EnvironmentMapLight` alongside this component.
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, ExtractComponent, Clone)]
-pub struct Skybox(pub Handle<Image>);
+#[derive(Component, Clone)]
+pub struct Skybox {
+    pub image: Handle<Image>,
+    /// Scale factor applied to the skybox image.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
+    pub brightness: f32,
+}
+
+impl ExtractComponent for Skybox {
+    type QueryData = (&'static Self, Option<&'static Exposure>);
+    type QueryFilter = ();
+    type Out = (Self, SkyboxUniforms);
+
+    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        let exposure = exposure
+            .map(|e| e.exposure())
+            .unwrap_or_else(|| Exposure::default().exposure());
+
+        Some((
+            skybox.clone(),
+            SkyboxUniforms {
+                brightness: skybox.brightness * exposure,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_8b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_12b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_16b: 0,
+            },
+        ))
+    }
+}
+
+// TODO: Replace with a push constant once WebGPU gets support for that
+#[derive(Component, ShaderType, Clone)]
+pub struct SkyboxUniforms {
+    brightness: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_8b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_12b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_16b: u32,
+}
 
 #[derive(Resource)]
 struct SkyboxPipeline {
@@ -78,41 +123,20 @@ struct SkyboxPipeline {
 
 impl SkyboxPipeline {
     fn new(render_device: &RenderDevice) -> Self {
-        let bind_group_layout_descriptor = BindGroupLayoutDescriptor {
-            label: Some("skybox_bind_group_layout"),
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::Cube,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-        };
-
         Self {
-            bind_group_layout: render_device
-                .create_bind_group_layout(&bind_group_layout_descriptor),
+            bind_group_layout: render_device.create_bind_group_layout(
+                "skybox_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_cube(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                        uniform_buffer::<ViewUniform>(true)
+                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                        uniform_buffer::<SkyboxUniforms>(true),
+                    ),
+                ),
+            ),
         }
     }
 }
@@ -121,6 +145,7 @@ impl SkyboxPipeline {
 struct SkyboxPipelineKey {
     hdr: bool,
     samples: u32,
+    depth_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
@@ -139,7 +164,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: key.depth_format,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -169,7 +194,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    blend: Some(BlendState::REPLACE),
+                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -195,6 +221,7 @@ fn prepare_skybox_pipelines(
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
+                depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );
 
@@ -205,40 +232,37 @@ fn prepare_skybox_pipelines(
 }
 
 #[derive(Component)]
-pub struct SkyboxBindGroup(pub BindGroup);
+pub struct SkyboxBindGroup(pub (BindGroup, u32));
 
 fn prepare_skybox_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
+    skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
     images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &Skybox)>,
+    views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
-    for (entity, skybox) in &views {
-        if let (Some(skybox), Some(view_uniforms)) =
-            (images.get(&skybox.0), view_uniforms.uniforms.binding())
-        {
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: Some("skybox_bind_group"),
-                layout: &pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&skybox.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&skybox.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: view_uniforms,
-                    },
-                ],
-            });
+    for (entity, skybox, skybox_uniform_index) in &views {
+        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
+            images.get(&skybox.image),
+            view_uniforms.uniforms.binding(),
+            skybox_uniforms.binding(),
+        ) {
+            let bind_group = render_device.create_bind_group(
+                "skybox_bind_group",
+                &pipeline.bind_group_layout,
+                &BindGroupEntries::sequential((
+                    &skybox.texture_view,
+                    &skybox.sampler,
+                    view_uniforms,
+                    skybox_uniforms,
+                )),
+            );
 
-            commands.entity(entity).insert(SkyboxBindGroup(bind_group));
+            commands
+                .entity(entity)
+                .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
         }
     }
 }

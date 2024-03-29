@@ -46,6 +46,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get_mut`]
+    #[allow(unsafe_code)]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
@@ -61,7 +62,7 @@ impl ReflectAsset {
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
     /// This means that this is *not allowed*:
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_asset::{ReflectAsset, UntypedHandle};
     /// # use bevy_ecs::prelude::World;
     /// # let reflect_asset: ReflectAsset = unimplemented!();
@@ -82,13 +83,14 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
+    #[allow(unsafe_code)]
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         handle: UntypedHandle,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
-        (self.get_unchecked_mut)(world, handle)
+        unsafe { (self.get_unchecked_mut)(world, handle) }
     }
 
     /// Equivalent of [`Assets::add`]
@@ -135,6 +137,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
+                #[allow(unsafe_code)]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
                 asset.map(|asset| asset as &mut dyn Reflect)
@@ -149,7 +152,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(handle.typed_debug_checked(), value);
+                assets.insert(&handle.typed_debug_checked(), value);
             },
             len: |world| {
                 let assets = world.resource::<Assets<A>>();
@@ -161,7 +164,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value = assets.remove(handle.typed_debug_checked());
+                let value = assets.remove(&handle.typed_debug_checked());
                 value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }
@@ -176,7 +179,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 /// the [`ReflectAsset`] type data on the corresponding `T` asset type:
 ///
 ///
-/// ```rust,no_run
+/// ```no_run
 /// # use bevy_reflect::{TypeRegistry, prelude::*};
 /// # use bevy_ecs::prelude::*;
 /// use bevy_asset::{ReflectHandle, ReflectAsset};
@@ -268,13 +271,12 @@ mod tests {
         };
 
         let handle = reflect_asset.add(&mut app.world, &value);
-        let strukt = match reflect_asset
+        let ReflectMut::Struct(strukt) = reflect_asset
             .get_mut(&mut app.world, handle)
             .unwrap()
             .reflect_mut()
-        {
-            ReflectMut::Struct(s) => s,
-            _ => unreachable!(),
+        else {
+            unreachable!();
         };
         strukt
             .field_mut("field")

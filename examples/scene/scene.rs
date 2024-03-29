@@ -4,7 +4,7 @@ use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
+        .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()
@@ -75,7 +75,8 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
-// load_scene_example.scn. You should immediately see the changes appear in the console.
+// load_scene_example.scn. If you enable the `file_watcher` cargo feature you should immediately see
+// the changes appear in the console whenever you make a change.
 fn log_system(
     query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
     res: Option<Res<ResourceA>>,
@@ -113,16 +114,19 @@ fn save_scene_system(world: &mut World) {
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
+        Name::new("joe"),
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // With our sample world ready to go, we can now create our scene:
+    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
+    // For simplicity, we will create our scene using DynamicScene:
     let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
     let type_registry = world.resource::<AppTypeRegistry>();
-    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
+    let type_registry = type_registry.read();
+    let serialized_scene = scene.serialize(&type_registry).unwrap();
 
     // Showing the scene in the console
     info!("{}", serialized_scene);
@@ -150,7 +154,6 @@ fn infotext_system(mut commands: Commands) {
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font_size: 50.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

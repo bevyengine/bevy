@@ -79,6 +79,7 @@ pub fn propagate_transforms(
                 // - Since each root entity is unique and the hierarchy is consistent and forest-like,
                 //   other root entities' `propagate_recursive` calls will not conflict with this one.
                 // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
+                #[allow(unsafe_code)]
                 unsafe {
                     propagate_recursive(
                         &global_transform,
@@ -106,6 +107,7 @@ pub fn propagate_transforms(
 /// nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
 /// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+#[allow(unsafe_code)]
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
@@ -182,7 +184,7 @@ unsafe fn propagate_recursive(
 mod test {
     use bevy_app::prelude::*;
     use bevy_ecs::prelude::*;
-    use bevy_ecs::system::CommandQueue;
+    use bevy_ecs::world::CommandQueue;
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
@@ -193,7 +195,7 @@ mod test {
 
     #[test]
     fn correct_parent_removed() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
         let offset_global_transform =
             |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
@@ -248,7 +250,7 @@ mod test {
 
     #[test]
     fn did_propagate() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -326,7 +328,7 @@ mod test {
 
     #[test]
     fn correct_children() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -404,7 +406,7 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
 
         app.add_systems(Update, (sync_simple_transforms, propagate_transforms));
 
@@ -446,7 +448,7 @@ mod test {
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         // We cannot directly edit Parent and Children, so we use a temp world to break
         // the hierarchy's invariants.
         let mut temp = World::new();

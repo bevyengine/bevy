@@ -1,6 +1,9 @@
-#![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
@@ -16,7 +19,7 @@ pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
@@ -32,9 +35,12 @@ pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
+pub use futures_lite::future::poll_once;
 
 mod iter;
 pub use iter::ParallelIterator;
+
+pub use futures_lite;
 
 #[allow(missing_docs)]
 pub mod prelude {

@@ -1,15 +1,16 @@
+use crate::AssetPath;
 use async_fs::File;
-use bevy_log::error;
+use bevy_utils::tracing::error;
 use bevy_utils::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]
 pub(crate) enum LogEntry {
-    BeginProcessing(PathBuf),
-    EndProcessing(PathBuf),
+    BeginProcessing(AssetPath<'static>),
+    EndProcessing(AssetPath<'static>),
     UnrecoverableError,
 }
 
@@ -55,12 +56,12 @@ pub enum ValidateLogError {
 /// An error that occurs when validating individual [`ProcessorTransactionLog`] entries.
 #[derive(Error, Debug)]
 pub enum LogEntryError {
-    #[error("Encountered a duplicate process asset transaction: {0:?}")]
-    DuplicateTransaction(PathBuf),
-    #[error("A transaction was ended that never started {0:?}")]
-    EndedMissingTransaction(PathBuf),
-    #[error("An asset started processing but never finished: {0:?}")]
-    UnfinishedTransaction(PathBuf),
+    #[error("Encountered a duplicate process asset transaction: {0}")]
+    DuplicateTransaction(AssetPath<'static>),
+    #[error("A transaction was ended that never started {0}")]
+    EndedMissingTransaction(AssetPath<'static>),
+    #[error("An asset started processing but never finished: {0}")]
+    UnfinishedTransaction(AssetPath<'static>),
 }
 
 const LOG_PATH: &str = "imported_assets/log";
@@ -114,9 +115,13 @@ impl ProcessorTransactionLog {
         file.read_to_string(&mut string).await?;
         for line in string.lines() {
             if let Some(path_str) = line.strip_prefix(ENTRY_BEGIN) {
-                log_lines.push(LogEntry::BeginProcessing(PathBuf::from(path_str)));
+                log_lines.push(LogEntry::BeginProcessing(
+                    AssetPath::parse(path_str).into_owned(),
+                ));
             } else if let Some(path_str) = line.strip_prefix(ENTRY_END) {
-                log_lines.push(LogEntry::EndProcessing(PathBuf::from(path_str)));
+                log_lines.push(LogEntry::EndProcessing(
+                    AssetPath::parse(path_str).into_owned(),
+                ));
             } else if line.is_empty() {
                 continue;
             } else {
@@ -127,7 +132,7 @@ impl ProcessorTransactionLog {
     }
 
     pub(crate) async fn validate() -> Result<(), ValidateLogError> {
-        let mut transactions: HashSet<PathBuf> = Default::default();
+        let mut transactions: HashSet<AssetPath<'static>> = Default::default();
         let mut errors: Vec<LogEntryError> = Vec::new();
         let entries = Self::read().await?;
         for entry in entries {
@@ -160,21 +165,27 @@ impl ProcessorTransactionLog {
 
     /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`ProcessorTransactionLog::end_processing`],
     /// in the next run of the processor the asset processing will be considered "incomplete" and it will be reprocessed.
-    pub(crate) async fn begin_processing(&mut self, path: &Path) -> Result<(), WriteLogError> {
-        self.write(&format!("{ENTRY_BEGIN}{}\n", path.to_string_lossy()))
+    pub(crate) async fn begin_processing(
+        &mut self,
+        path: &AssetPath<'_>,
+    ) -> Result<(), WriteLogError> {
+        self.write(&format!("{ENTRY_BEGIN}{path}\n"))
             .await
             .map_err(|e| WriteLogError {
-                log_entry: LogEntry::BeginProcessing(path.to_owned()),
+                log_entry: LogEntry::BeginProcessing(path.clone_owned()),
                 error: e,
             })
     }
 
     /// Logs the end of an asset being successfully processed. See [`ProcessorTransactionLog::begin_processing`].
-    pub(crate) async fn end_processing(&mut self, path: &Path) -> Result<(), WriteLogError> {
-        self.write(&format!("{ENTRY_END}{}\n", path.to_string_lossy()))
+    pub(crate) async fn end_processing(
+        &mut self,
+        path: &AssetPath<'_>,
+    ) -> Result<(), WriteLogError> {
+        self.write(&format!("{ENTRY_END}{path}\n"))
             .await
             .map_err(|e| WriteLogError {
-                log_entry: LogEntry::EndProcessing(path.to_owned()),
+                log_entry: LogEntry::EndProcessing(path.clone_owned()),
                 error: e,
             })
     }

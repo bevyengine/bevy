@@ -4,27 +4,50 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
+
+#[derive(FromArgs, Resource)]
+/// `many_foxes` stress test
+struct Args {
+    /// whether all foxes run in sync.
+    #[argh(switch)]
+    sync: bool,
+
+    /// total number of foxes.
+    #[argh(option, default = "1000")]
+    count: usize,
+}
 
 #[derive(Resource)]
 struct Foxes {
     count: usize,
     speed: f32,
     moving: bool,
+    sync: bool,
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -32,16 +55,15 @@ fn main() {
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .insert_resource(Foxes {
-            count: std::env::args()
-                .nth(1)
-                .map_or(1000, |s| s.parse::<usize>().unwrap()),
+            count: args.count,
             speed: 2.0,
             moving: true,
-        })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
+            sync: args.sync,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -56,7 +78,10 @@ fn main() {
 }
 
 #[derive(Resource)]
-struct Animations(Vec<Handle<AnimationClip>>);
+struct Animations {
+    node_indices: Vec<AnimationNodeIndex>,
+    graph: Handle<AnimationGraph>,
+}
 
 const RING_SPACING: f32 = 2.0;
 const FOX_SPACING: f32 = 2.0;
@@ -86,16 +111,25 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
-    commands.insert_resource(Animations(vec![
+    let animation_clips = [
         asset_server.load("models/animated/Fox.glb#Animation2"),
         asset_server.load("models/animated/Fox.glb#Animation1"),
         asset_server.load("models/animated/Fox.glb#Animation0"),
-    ]));
+    ];
+    let mut animation_graph = AnimationGraph::new();
+    let node_indices = animation_graph
+        .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
+        .collect();
+    commands.insert_resource(Animations {
+        node_indices,
+        graph: animation_graphs.add(animation_graph),
+    });
 
     // Foxes
     // Concentric rings of foxes, running in opposite directions. The rings are spaced at 2m radius intervals.
@@ -168,8 +202,8 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -200,12 +234,21 @@ fn setup(
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
     foxes: Res<Foxes>,
-    mut player: Query<&mut AnimationPlayer>,
+    mut commands: Commands,
+    mut player: Query<(Entity, &mut AnimationPlayer)>,
     mut done: Local<bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
-        for mut player in &mut player {
-            player.play(animations.0[0].clone_weak()).repeat();
+        for (entity, mut player) in &mut player {
+            commands
+                .entity(entity)
+                .insert(animations.graph.clone())
+                .insert(AnimationTransitions::new());
+
+            let playing_animation = player.play(animations.node_indices[0]).repeat();
+            if !foxes.sync {
+                playing_animation.seek_to(entity.index() as f32 / 10.0);
+            }
         }
         *done = true;
     }
@@ -228,8 +271,8 @@ fn update_fox_rings(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut animation_player: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
     mut foxes: ResMut<Foxes>,
@@ -238,51 +281,48 @@ fn keyboard_animation_control(
         foxes.moving = !foxes.moving;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Up) {
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         foxes.speed *= 1.25;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Down) {
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
         foxes.speed *= 0.8;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Return) {
-        *current_animation = (*current_animation + 1) % animations.0.len();
+    if keyboard_input.just_pressed(KeyCode::Enter) {
+        *current_animation = (*current_animation + 1) % animations.node_indices.len();
     }
 
-    for mut player in &mut animation_player {
+    for (mut player, mut transitions) in &mut animation_player {
         if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
+            if player.all_paused() {
+                player.resume_all();
             } else {
-                player.pause();
+                player.pause_all();
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.25);
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            player.adjust_speeds(1.25);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            player.adjust_speeds(0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed - 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            player.seek_all_by(-0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed + 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            player.seek_all_by(0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
-            player
-                .play_with_transition(
-                    animations.0[*current_animation].clone_weak(),
+        if keyboard_input.just_pressed(KeyCode::Enter) {
+            transitions
+                .play(
+                    &mut player,
+                    animations.node_indices[*current_animation],
                     Duration::from_millis(250),
                 )
                 .repeat();

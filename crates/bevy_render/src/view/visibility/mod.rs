@@ -9,9 +9,9 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use std::cell::Cell;
-use thread_local::ThreadLocal;
+use bevy_utils::Parallel;
 
+use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -46,18 +46,20 @@ pub enum Visibility {
 }
 
 // Allows `&Visibility == Visibility`
-impl std::cmp::PartialEq<Visibility> for &Visibility {
+impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
-        **self == *other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(*self, other)
     }
 }
 
 // Allows `Visibility == &Visibility`
-impl std::cmp::PartialEq<&Visibility> for Visibility {
+impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
-        *self == **other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(self, *other)
     }
 }
 
@@ -85,7 +87,7 @@ impl InheritedVisibility {
     }
 }
 
-/// Algorithmically-computed indication or whether an entity is visible and should be extracted for rendering.
+/// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
 ///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
 /// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
@@ -135,7 +137,7 @@ impl ViewVisibility {
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug, Clone, Default)]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
@@ -166,7 +168,7 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
@@ -188,11 +190,9 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
-    /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
-    CalculateBoundsFlush,
     /// Label for the [`update_frusta<OrthographicProjection>`] system.
     UpdateOrthographicFrusta,
     /// Label for the [`update_frusta<PerspectiveProjection>`] system.
@@ -213,47 +213,42 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app
-            // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
-            .configure_sets(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
-            .add_systems(
-                PostUpdate,
-                (
-                    calculate_bounds.in_set(CalculateBounds),
-                    update_frusta::<OrthographicProjection>
-                        .in_set(UpdateOrthographicFrusta)
-                        .after(camera_system::<OrthographicProjection>)
-                        .after(TransformSystem::TransformPropagate)
-                        // We assume that no camera will have more than one projection component,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                        .ambiguous_with(update_frusta::<Projection>),
-                    update_frusta::<PerspectiveProjection>
-                        .in_set(UpdatePerspectiveFrusta)
-                        .after(camera_system::<PerspectiveProjection>)
-                        .after(TransformSystem::TransformPropagate)
-                        // We assume that no camera will have more than one projection component,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_frusta::<Projection>),
-                    update_frusta::<Projection>
-                        .in_set(UpdateProjectionFrusta)
-                        .after(camera_system::<Projection>)
-                        .after(TransformSystem::TransformPropagate),
-                    (visibility_propagate_system, reset_view_visibility)
-                        .in_set(VisibilityPropagate),
-                    check_visibility
-                        .in_set(CheckVisibility)
-                        .after(CalculateBoundsFlush)
-                        .after(UpdateOrthographicFrusta)
-                        .after(UpdatePerspectiveFrusta)
-                        .after(UpdateProjectionFrusta)
-                        .after(VisibilityPropagate)
-                        .after(TransformSystem::TransformPropagate),
-                ),
-            );
+        app.add_systems(
+            PostUpdate,
+            (
+                calculate_bounds.in_set(CalculateBounds),
+                update_frusta::<OrthographicProjection>
+                    .in_set(UpdateOrthographicFrusta)
+                    .after(camera_system::<OrthographicProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                    .ambiguous_with(update_frusta::<Projection>),
+                update_frusta::<PerspectiveProjection>
+                    .in_set(UpdatePerspectiveFrusta)
+                    .after(camera_system::<PerspectiveProjection>)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no camera will have more than one projection component,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_frusta::<Projection>),
+                update_frusta::<Projection>
+                    .in_set(UpdateProjectionFrusta)
+                    .after(camera_system::<Projection>)
+                    .after(TransformSystem::TransformPropagate),
+                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
+                check_visibility
+                    .in_set(CheckVisibility)
+                    .after(CalculateBounds)
+                    .after(UpdateOrthographicFrusta)
+                    .after(UpdatePerspectiveFrusta)
+                    .after(UpdateProjectionFrusta)
+                    .after(VisibilityPropagate)
+                    .after(TransformSystem::TransformPropagate),
+            ),
+        );
     }
 }
 
@@ -269,7 +264,7 @@ pub fn calculate_bounds(
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
+                commands.entity(entity).try_insert(aabb);
             }
         }
     }
@@ -287,14 +282,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
-        let view_projection =
-            projection.get_projection_matrix() * transform.compute_matrix().inverse();
-        *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
-            &transform.translation(),
-            &transform.back(),
-            projection.far(),
-        );
+        *frustum = projection.compute_frustum(transform);
     }
 }
 
@@ -310,10 +298,10 @@ fn visibility_propagate_system(
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
-            Visibility::Inherited => match parent {
-                None => true,
-                Some(parent) => visibility_query.get(parent.get()).unwrap().1.get(),
-            },
+            // fall back to true if no parent is found or parent lacks components
+            Visibility::Inherited => parent
+                .and_then(|p| visibility_query.get(p.get()).ok())
+                .map_or(true, |(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
             .get_mut(entity)
@@ -383,28 +371,29 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
-    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
+    mut view_query: Query<(
+        &mut VisibleEntities,
+        &Frustum,
+        Option<&RenderLayers>,
+        &Camera,
+    )>,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
-        &Aabb,
+        Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
-    mut visible_no_aabb_query: Query<
-        (
-            Entity,
-            &InheritedVisibility,
-            &mut ViewVisibility,
-            Option<&RenderLayers>,
-        ),
-        Without<Aabb>,
-    >,
+    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+        if !camera.is_active {
+            continue;
+        }
+
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
@@ -414,7 +403,7 @@ pub fn check_visibility(
                 inherited_visibility,
                 mut view_visibility,
                 maybe_entity_mask,
-                model_aabb,
+                maybe_model_aabb,
                 transform,
                 no_frustum_culling,
             ) = query_item;
@@ -430,53 +419,37 @@ pub fn check_visibility(
                 return;
             }
 
-            // If we have an aabb and transform, do frustum culling
+            // If we have an aabb, do frustum culling
             if !no_frustum_culling {
-                let model = transform.affine();
-                let model_sphere = Sphere {
-                    center: model.transform_point3a(model_aabb.center),
-                    radius: transform.radius_vec3a(model_aabb.half_extents),
-                };
-                // Do quick sphere-based frustum culling
-                if !frustum.intersects_sphere(&model_sphere, false) {
-                    return;
-                }
-                // If we have an aabb, do aabb-based frustum culling
-                if !frustum.intersects_obb(model_aabb, &model, true, false) {
-                    return;
+                if let Some(model_aabb) = maybe_model_aabb {
+                    let model = transform.affine();
+                    let model_sphere = Sphere {
+                        center: model.transform_point3a(model_aabb.center),
+                        radius: transform.radius_vec3a(model_aabb.half_extents),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // Do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        return;
+                    }
                 }
             }
 
             view_visibility.set();
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take();
-            queue.push(entity);
-            cell.set(queue);
+            thread_queues.scope(|queue| {
+                queue.push(entity);
+            });
         });
 
-        visible_no_aabb_query.par_iter_mut().for_each(|query_item| {
-            let (entity, inherited_visibility, mut view_visibility, maybe_entity_mask) = query_item;
-
-            // Skip computing visibility for entities that are configured to be hidden.
-            // `ViewVisibility` has already been reset in `reset_view_visibility`.
-            if !inherited_visibility.get() {
-                return;
-            }
-
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                return;
-            }
-
-            view_visibility.set();
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take();
-            queue.push(entity);
-            cell.set(queue);
-        });
-
-        for cell in &mut thread_queues {
-            visible_entities.entities.append(cell.get_mut());
+        visible_entities.entities.clear();
+        thread_queues.drain_into(&mut visible_entities.entities);
+        if deterministic_rendering_config.stable_sort_z_fighting {
+            // We can use the faster unstable sort here because
+            // the values (`Entity`) are guaranteed to be unique.
+            visible_entities.entities.sort_unstable();
         }
     }
 }
@@ -719,6 +692,24 @@ mod test {
         assert!(!q.get(&world, id2).unwrap().is_changed());
         assert!(!q.get(&world, id3).unwrap().is_changed());
         assert!(!q.get(&world, id4).unwrap().is_changed());
+    }
+
+    #[test]
+    fn visibility_propagation_with_invalid_parent() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(visibility_propagate_system);
+
+        let parent = world.spawn(()).id();
+        let child = world.spawn(VisibilityBundle::default()).id();
+        world.entity_mut(parent).push_children(&[child]);
+
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let child_visible = world.entity(child).get::<InheritedVisibility>().unwrap().0;
+        // defaults to same behavior of parent not found: visible = true
+        assert!(child_visible);
     }
 
     #[test]

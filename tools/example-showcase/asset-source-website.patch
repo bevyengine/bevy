@@ -1,0 +1,13 @@
+diff --git a/crates/bevy_asset/src/lib.rs b/crates/bevy_asset/src/lib.rs
+index 004f87a85..3c8656efc 100644
+--- a/crates/bevy_asset/src/lib.rs
++++ b/crates/bevy_asset/src/lib.rs
+@@ -105,7 +105,7 @@ impl Default for AssetPlugin {
+     fn default() -> Self {
+         Self {
+             mode: AssetMode::Unprocessed,
+-            file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
++            file_path: "/assets/examples".to_string(),
+             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
+             watch_for_changes_override: None,
+         }

@@ -1,8 +1,11 @@
-//! Accessibility for Bevy
-
-#![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! Accessibility for Bevy
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -106,6 +109,7 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
-            .init_resource::<Focus>();
+            .init_resource::<Focus>()
+            .allow_ambiguous_component::<AccessibilityNode>();
     }
 }

@@ -14,6 +14,7 @@ mod image;
 mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
+mod texture_attachment;
 mod texture_cache;
 
 pub(crate) mod image_texture_conversion;
@@ -32,6 +33,7 @@ pub use hdr_texture_loader::*;
 pub use compressed_image_saver::*;
 pub use fallback_image::*;
 pub use image_loader::*;
+pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
@@ -45,7 +47,7 @@ use bevy_ecs::prelude::*;
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+    pub default_sampler: ImageSamplerDescriptor,
 }
 
 impl Default for ImagePlugin {
@@ -58,14 +60,14 @@ impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::linear_descriptor(),
+            default_sampler: ImageSamplerDescriptor::linear(),
         }
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSampler::nearest_descriptor(),
+            default_sampler: ImageSamplerDescriptor::nearest(),
         }
     }
 }
@@ -88,7 +90,7 @@ impl Plugin for ImagePlugin {
             .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
-            .insert(Handle::default(), Image::default());
+            .insert(&Handle::default(), Image::default());
         #[cfg(feature = "basis-universal")]
         if let Some(processor) = app
             .world
@@ -116,6 +118,8 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
@@ -129,6 +133,8 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         {
             app.init_asset_loader::<ImageLoader>();
@@ -137,15 +143,14 @@ impl Plugin for ImagePlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();
-                device.create_sampler(&self.default_sampler.clone())
+                device.create_sampler(&self.default_sampler.as_wgpu())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<FallbackImage>()
                 .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
-                .init_resource::<FallbackImageMsaaCache>()
-                .init_resource::<FallbackImageDepthCache>();
+                .init_resource::<FallbackImageFormatMsaaCache>();
         }
     }
 }

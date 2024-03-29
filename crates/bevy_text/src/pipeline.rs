@@ -1,7 +1,6 @@
 use crate::{
     compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextAlignment, TextSection,
-    TextSettings, YAxisOrientation,
+    FontAtlasSets, JustifyText, PositionedGlyph, Text, TextSection, TextSettings, YAxisOrientation,
 };
 use ab_glyph::PxScale;
 use bevy_asset::{AssetId, Assets, Handle};
@@ -12,7 +11,7 @@ use bevy_math::Vec2;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText, ToSectionText};
 
@@ -46,15 +45,14 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f64,
-        text_alignment: TextAlignment,
+        scale_factor: f32,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         font_atlas_sets: &mut FontAtlasSets,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
@@ -97,7 +95,6 @@ impl TextPipeline {
             texture_atlases,
             textures,
             text_settings,
-            font_atlas_warning,
             y_axis_orientation,
         )?;
 
@@ -119,7 +116,7 @@ pub struct TextMeasureSection {
 pub struct TextMeasureInfo {
     pub fonts: Box<[ab_glyph::FontArc]>,
     pub sections: Box<[TextMeasureSection]>,
-    pub text_alignment: TextAlignment,
+    pub justification: JustifyText,
     pub linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
     pub min: Vec2,
     pub max: Vec2,
@@ -129,49 +126,42 @@ impl TextMeasureInfo {
     pub fn from_text(
         text: &Text,
         fonts: &Assets<Font>,
-        scale_factor: f64,
+        scale_factor: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         let sections = &text.sections;
-        for section in sections {
-            if !fonts.contains(&section.style.font) {
-                return Err(TextError::NoSuchFont);
-            }
-        }
-        let (auto_fonts, sections) = sections
-            .iter()
-            .enumerate()
-            .map(|(i, section)| {
-                // SAFETY: we exited early earlier in this function if
-                // one of the fonts was missing.
-                let font = unsafe { fonts.get(&section.style.font).unwrap_unchecked() };
-                (
-                    font.font.clone(),
-                    TextMeasureSection {
+        let mut auto_fonts = Vec::with_capacity(sections.len());
+        let mut out_sections = Vec::with_capacity(sections.len());
+        for (i, section) in sections.iter().enumerate() {
+            match fonts.get(&section.style.font) {
+                Some(font) => {
+                    auto_fonts.push(font.font.clone());
+                    out_sections.push(TextMeasureSection {
                         font_id: FontId(i),
                         scale: scale_value(section.style.font_size, scale_factor),
                         text: section.value.clone().into_boxed_str(),
-                    },
-                )
-            })
-            .unzip();
+                    });
+                }
+                None => return Err(TextError::NoSuchFont),
+            }
+        }
 
         Ok(Self::new(
             auto_fonts,
-            sections,
-            text.alignment,
+            out_sections,
+            text.justify,
             text.linebreak_behavior.into(),
         ))
     }
     fn new(
         fonts: Vec<ab_glyph::FontArc>,
         sections: Vec<TextMeasureSection>,
-        text_alignment: TextAlignment,
+        justification: JustifyText,
         linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
     ) -> Self {
         let mut info = Self {
             fonts: fonts.into_boxed_slice(),
             sections: sections.into_boxed_slice(),
-            text_alignment,
+            justification,
             linebreak_behavior,
             min: Vec2::ZERO,
             max: Vec2::ZERO,
@@ -191,7 +181,7 @@ impl TextMeasureInfo {
             ..Default::default()
         };
         let section_glyphs = glyph_brush_layout::Layout::default()
-            .h_align(self.text_alignment.into())
+            .h_align(self.justification.into())
             .line_breaker(self.linebreak_behavior)
             .calculate_glyphs(&self.fonts, &geom, sections);
 

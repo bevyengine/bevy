@@ -1,26 +1,28 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use nonmax::NonMaxU32;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
-            Option<&'static UiCameraConfig>,
+            &'static ExtractedCamera,
         ),
         With<ExtractedView>,
     >,
@@ -50,16 +52,12 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera_ui)) =
+        let Ok((transparent_phase, target, camera)) =
             self.ui_view_query.get_manual(world, input_view_entity)
         else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 
@@ -74,13 +72,14 @@ impl Node for UiPassNode {
         };
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
+            color_attachments: &[Some(target.get_unsampled_color_attachment())],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
-
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
         transparent_phase.render(&mut render_pass, world, view_entity);
 
         Ok(())
@@ -88,7 +87,7 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
-    pub sort_key: FloatOrd,
+    pub sort_key: (FloatOrd, u32),
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -97,7 +96,7 @@ pub struct TransparentUi {
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = FloatOrd;
+    type SortKey = (FloatOrd, u32);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -157,13 +156,13 @@ pub type DrawUi = (
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -178,18 +177,22 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
     type Param = SRes<UiImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
@@ -197,19 +200,32 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        let Some(batch) = batch else {
+            return RenderCommandResult::Failure;
+        };
+
+        let ui_meta = ui_meta.into_inner();
+        // Store the vertices
+        pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
+        // Define how to "connect" the vertices
+        pass.set_index_buffer(
+            ui_meta.indices.buffer().unwrap().slice(..),
+            0,
+            bevy_render::render_resource::IndexFormat::Uint32,
+        );
+        // Draw the vertices
+        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }

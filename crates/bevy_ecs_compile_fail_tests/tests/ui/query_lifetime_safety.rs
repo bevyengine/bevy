@@ -25,18 +25,6 @@ fn main() {
         }
 
         {
-            let data: &Foo = query.get_component::<Foo>(e).unwrap();
-            let mut data2: Mut<Foo> = query.get_component_mut(e).unwrap();
-            assert_eq!(data, &mut *data2); // oops UB
-        }
-
-        {
-            let mut data2: Mut<Foo> = query.get_component_mut(e).unwrap();
-            let data: &Foo = query.get_component::<Foo>(e).unwrap();
-            assert_eq!(data, &mut *data2); // oops UB
-        }
-
-        {
             let data: &Foo = query.single();
             let mut data2: Mut<Foo> = query.single_mut();
             assert_eq!(data, &mut *data2); // oops UB
@@ -75,16 +63,16 @@ fn main() {
         {
             let mut opt_data: Option<&Foo> = None;
             let mut opt_data_2: Option<Mut<Foo>> = None;
-            query.for_each(|data| opt_data = Some(data));
-            query.for_each_mut(|data| opt_data_2 = Some(data));
+            query.iter().for_each(|data| opt_data = Some(data));
+            query.iter_mut().for_each(|data| opt_data_2 = Some(data));
             assert_eq!(opt_data.unwrap(), &mut *opt_data_2.unwrap()); // oops UB
         }
 
         {
             let mut opt_data_2: Option<Mut<Foo>> = None;
             let mut opt_data: Option<&Foo> = None;
-            query.for_each_mut(|data| opt_data_2 = Some(data));
-            query.for_each(|data| opt_data = Some(data));
+            query.iter_mut().for_each(|data| opt_data_2 = Some(data));
+            query.iter().for_each(|data| opt_data = Some(data));
             assert_eq!(opt_data.unwrap(), &mut *opt_data_2.unwrap()); // oops UB
         }
         dbg!("bye");

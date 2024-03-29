@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    background_color: Color::srgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -53,7 +53,6 @@ fn setup(mut commands: Commands) {
                             "Example text",
                             TextStyle {
                                 font_size: 30.0,
-                                color: Color::WHITE,
                                 ..default()
                             },
                         )
@@ -77,10 +76,10 @@ fn display_override(mut windows: Query<&mut Window>) {
 }
 
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
 
-    if input.just_pressed(KeyCode::Return) {
+    if input.just_pressed(KeyCode::Enter) {
         let scale_factor_override = window.resolution.scale_factor_override();
         window
             .resolution
@@ -89,14 +88,14 @@ fn toggle_override(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) 
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
     let scale_factor_override = window.resolution.scale_factor_override();
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         window
             .resolution
             .set_scale_factor_override(scale_factor_override.map(|n| n + 1.0));
-    } else if input.just_pressed(KeyCode::Down) {
+    } else if input.just_pressed(KeyCode::ArrowDown) {
         window
             .resolution
             .set_scale_factor_override(scale_factor_override.map(|n| (n - 1.0).max(1.0)));

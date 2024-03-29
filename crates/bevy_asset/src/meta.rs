@@ -1,6 +1,6 @@
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
-use bevy_log::error;
+use bevy_utils::tracing::error;
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ pub struct AssetMetaMinimal {
     pub asset: AssetActionMinimal,
 }
 
-/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetActionMinimal`]
+/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetAction`]
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
@@ -128,11 +128,6 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
 }
 
 impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
-    fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
-    }
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
             Some(settings)
@@ -146,6 +141,11 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
         } else {
             None
         }
+    }
+    fn serialize(&self) -> Vec<u8> {
+        ron::ser::to_string_pretty(&self, PrettyConfig::default())
+            .expect("type is convertible to ron")
+            .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info
@@ -171,12 +171,12 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    fn process<'a>(
+    async fn process<'a>(
         &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext,
+        _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
         _writer: &'a mut bevy_asset::io::Writer,
-    ) -> bevy_utils::BoxedFuture<'a, Result<(), bevy_asset::processor::ProcessError>> {
+    ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
 }
@@ -194,12 +194,12 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        _reader: &'a mut crate::io::Reader,
+        _reader: &'a mut crate::io::Reader<'_>,
         _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        _load_context: &'a mut crate::LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }
 
@@ -225,15 +225,14 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
     })
 }
 
-pub type AssetHash = [u8; 16];
+pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
 pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(meta_bytes);
-    context.consume(asset_bytes);
-    let digest = context.compute();
-    digest.0
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(meta_bytes);
+    hasher.update(asset_bytes);
+    *hasher.finalize().as_bytes()
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -241,11 +240,10 @@ pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
 ) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(asset_hash);
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&asset_hash);
     for hash in dependency_hashes {
-        context.consume(hash);
+        hasher.update(&hash);
     }
-    let digest = context.compute();
-    digest.0
+    *hasher.finalize().as_bytes()
 }

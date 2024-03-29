@@ -2,57 +2,53 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_boxed_label;
-use bevy_utils::label::DynHash;
+use bevy_utils::define_label;
+use bevy_utils::intern::Interned;
+pub use bevy_utils::label::DynEq;
 
 use crate::system::{
-    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+    IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-define_boxed_label!(ScheduleLabel);
+define_label!(
+    /// A strongly-typed class of labels used to identify an [`Schedule`].
+    ScheduleLabel,
+    SCHEDULE_LABEL_INTERNER
+);
 
-/// A shorthand for `Box<dyn SystemSet>`.
-pub type BoxedSystemSet = Box<dyn SystemSet>;
-/// A shorthand for `Box<dyn ScheduleLabel>`.
-pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
+define_label!(
+    /// Types that identify logical groups of systems.
+    SystemSet,
+    SYSTEM_SET_INTERNER,
+    extra_methods: {
+        /// Returns `Some` if this system set is a [`SystemTypeSet`].
+        fn system_type(&self) -> Option<TypeId> {
+            None
+        }
 
-/// Types that identify logical groups of systems.
-pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
-    /// Returns `Some` if this system set is a [`SystemTypeSet`].
-    fn system_type(&self) -> Option<TypeId> {
-        None
+        /// Returns `true` if this system set is an [`AnonymousSet`].
+        fn is_anonymous(&self) -> bool {
+            false
+        }
+    },
+    extra_methods_impl: {
+        fn system_type(&self) -> Option<TypeId> {
+            (**self).system_type()
+        }
+
+        fn is_anonymous(&self) -> bool {
+            (**self).is_anonymous()
+        }
     }
+);
 
-    /// Returns `true` if this system set is an [`AnonymousSet`].
-    fn is_anonymous(&self) -> bool {
-        false
-    }
-    /// Creates a boxed clone of the label corresponding to this system set.
-    fn dyn_clone(&self) -> Box<dyn SystemSet>;
-}
-
-impl PartialEq for dyn SystemSet {
-    fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other.as_dyn_eq())
-    }
-}
-
-impl Eq for dyn SystemSet {}
-
-impl Hash for dyn SystemSet {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.dyn_hash(state);
-    }
-}
-
-impl Clone for Box<dyn SystemSet> {
-    fn clone(&self) -> Self {
-        self.dyn_clone()
-    }
-}
+/// A shorthand for `Interned<dyn SystemSet>`.
+pub type InternedSystemSet = Interned<dyn SystemSet>;
+/// A shorthand for `Interned<dyn ScheduleLabel>`.
+pub type InternedScheduleLabel = Interned<dyn ScheduleLabel>;
 
 /// A [`SystemSet`] grouping instances of the same function.
 ///
@@ -108,6 +104,15 @@ impl<T> SystemSet for SystemTypeSet<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
     }
+
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        TypeId::of::<Self>().hash(&mut state);
+        self.hash(&mut state);
+    }
 }
 
 /// A [`SystemSet`] implicitly created when using
@@ -116,11 +121,9 @@ impl<T> SystemSet for SystemTypeSet<T> {
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct AnonymousSet(usize);
 
-static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
-
 impl AnonymousSet {
-    pub(crate) fn new() -> Self {
-        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    pub(crate) fn new(id: usize) -> Self {
+        Self(id)
     }
 }
 
@@ -131,6 +134,15 @@ impl SystemSet for AnonymousSet {
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
+    }
+
+    fn as_dyn_eq(&self) -> &dyn DynEq {
+        self
+    }
+
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        TypeId::of::<Self>().hash(&mut state);
+        self.hash(&mut state);
     }
 }
 
@@ -156,26 +168,28 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 // systems
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
     }
 }
 
 // exclusive systems
 impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
     }
 }
 
@@ -189,7 +203,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_boxed_label() {
+    fn test_schedule_label() {
         use crate::{self as bevy_ecs, world::World};
 
         #[derive(Resource)]
@@ -198,20 +212,220 @@ mod tests {
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct A;
 
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct B;
+
         let mut world = World::new();
 
         let mut schedule = Schedule::new(A);
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
         world.add_schedule(schedule);
 
-        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+        let interned = A.intern();
 
         world.insert_resource(Flag(false));
-        world.run_schedule(&boxed);
+        world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
 
         world.insert_resource(Flag(false));
-        world.run_schedule(boxed);
+        world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
+
+        assert_ne!(A.intern(), B.intern());
+    }
+
+    #[test]
+    fn test_derive_schedule_label() {
+        use crate::{self as bevy_ecs};
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitLabel;
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleLabel(u32, u32);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructLabel {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyTupleLabel();
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyStructLabel {}
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumLabel {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T>(PhantomData<T>);
+
+        assert_eq!(UnitLabel.intern(), UnitLabel.intern());
+        assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), TupleLabel(0, 0).intern());
+        assert_ne!(EnumLabel::Unit.intern(), EnumLabel::Tuple(0, 0).intern());
+
+        assert_eq!(TupleLabel(0, 0).intern(), TupleLabel(0, 0).intern());
+        assert_eq!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 0).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), TupleLabel(0, 1).intern());
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 1).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), EnumLabel::Tuple(0, 0).intern());
+        assert_ne!(
+            TupleLabel(0, 0).intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructLabel { a: 0, b: 0 }.intern(), UnitLabel.intern(),);
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u64>(PhantomData).intern()
+        );
+    }
+
+    #[test]
+    fn test_derive_system_set() {
+        use crate::{self as bevy_ecs};
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitSet;
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleSet(u32, u32);
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructSet {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyTupleSet();
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyStructSet {}
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumSet {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericSet<T>(PhantomData<T>);
+
+        assert_eq!(UnitSet.intern(), UnitSet.intern());
+        assert_eq!(EnumSet::Unit.intern(), EnumSet::Unit.intern());
+        assert_ne!(UnitSet.intern(), EnumSet::Unit.intern());
+        assert_ne!(UnitSet.intern(), TupleSet(0, 0).intern());
+        assert_ne!(EnumSet::Unit.intern(), EnumSet::Tuple(0, 0).intern());
+
+        assert_eq!(TupleSet(0, 0).intern(), TupleSet(0, 0).intern());
+        assert_eq!(EnumSet::Tuple(0, 0).intern(), EnumSet::Tuple(0, 0).intern());
+        assert_ne!(TupleSet(0, 0).intern(), TupleSet(0, 1).intern());
+        assert_ne!(EnumSet::Tuple(0, 0).intern(), EnumSet::Tuple(0, 1).intern());
+        assert_ne!(TupleSet(0, 0).intern(), EnumSet::Tuple(0, 0).intern());
+        assert_ne!(TupleSet(0, 0).intern(), StructSet { a: 0, b: 0 }.intern());
+        assert_ne!(
+            EnumSet::Tuple(0, 0).intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructSet { a: 0, b: 0 }.intern(),
+            StructSet { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            StructSet { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructSet { a: 0, b: 0 }.intern(), UnitSet.intern(),);
+        assert_ne!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericSet::<u32>(PhantomData).intern(),
+            GenericSet::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericSet::<u32>(PhantomData).intern(),
+            GenericSet::<u64>(PhantomData).intern()
+        );
     }
 }

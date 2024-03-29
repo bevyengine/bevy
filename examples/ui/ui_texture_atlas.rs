@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -20,20 +20,18 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Camera
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        color: Color::ANTIQUE_WHITE,
         font_size: 20.,
         ..default()
     };
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // root node
@@ -51,22 +49,26 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(AtlasImageBundle {
-                style: Style {
-                    width: Val::Px(256.),
-                    height: Val::Px(256.),
+            parent.spawn((
+                ImageBundle {
+                    style: Style {
+                        width: Val::Px(256.),
+                        height: Val::Px(256.),
+                        ..default()
+                    },
+                    image: UiImage::new(texture_handle),
                     ..default()
                 },
-                texture_atlas: texture_atlas_handle,
-                texture_atlas_image: UiTextureAtlasImage::default(),
-                ..default()
-            });
+                TextureAtlas::from(texture_atlas_handle),
+                BackgroundColor(ANTIQUE_WHITE.into()),
+                Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
+            ));
             parent.spawn(TextBundle::from_sections([
                 TextSection::new("press ".to_string(), text_style.clone()),
                 TextSection::new(
                     "space".to_string(),
                     TextStyle {
-                        color: Color::YELLOW,
+                        color: YELLOW.into(),
                         ..text_style.clone()
                     },
                 ),
@@ -76,8 +78,8 @@ fn setup(
 }
 
 fn increment_atlas_index(
-    mut atlas_images: Query<&mut UiTextureAtlasImage>,
-    keyboard: Res<Input<KeyCode>>,
+    mut atlas_images: Query<&mut TextureAtlas>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {

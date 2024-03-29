@@ -146,7 +146,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// }
     /// # let mut world = World::new();
     /// # world.insert_resource(Score(1));
-    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
@@ -210,7 +210,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # let mut world = World::new();
     /// # world.insert_resource(Events::<ScoreChanged>::default());
     /// # world.insert_resource(Score(1));
-    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
@@ -332,7 +332,7 @@ macro_rules! impl_methods {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
-            pub fn into_inner(mut self) -> &'a mut $target {
+            pub fn into_inner(mut self) -> &'w mut $target {
                 self.set_changed();
                 self.value
             }
@@ -358,7 +358,7 @@ macro_rules! impl_methods {
             /// You should never modify the argument passed to the closure -- if you want to modify the data
             /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
             ///
-            /// ```rust
+            /// ```
             /// # use bevy_ecs::prelude::*;
             /// # #[derive(PartialEq)] pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
@@ -375,7 +375,7 @@ macro_rules! impl_methods {
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
             /// ```
-            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'w, U> {
                 Mut {
                     value: f(self.value),
                     ticks: self.ticks,
@@ -410,58 +410,62 @@ macro_rules! impl_debug {
 }
 
 #[derive(Clone)]
-pub(crate) struct Ticks<'a> {
-    pub(crate) added: &'a Tick,
-    pub(crate) changed: &'a Tick,
+pub(crate) struct Ticks<'w> {
+    pub(crate) added: &'w Tick,
+    pub(crate) changed: &'w Tick,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
 }
 
-impl<'a> Ticks<'a> {
+impl<'w> Ticks<'w> {
     /// # Safety
     /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
-        cells: TickCells<'a>,
+        cells: TickCells<'w>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref(),
-            changed: cells.changed.deref(),
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            added: unsafe { cells.added.deref() },
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            changed: unsafe { cells.changed.deref() },
             last_run,
             this_run,
         }
     }
 }
 
-pub(crate) struct TicksMut<'a> {
-    pub(crate) added: &'a mut Tick,
-    pub(crate) changed: &'a mut Tick,
+pub(crate) struct TicksMut<'w> {
+    pub(crate) added: &'w mut Tick,
+    pub(crate) changed: &'w mut Tick,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
 }
 
-impl<'a> TicksMut<'a> {
+impl<'w> TicksMut<'w> {
     /// # Safety
     /// This should never alias the underlying ticks. All access must be unique.
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
-        cells: TickCells<'a>,
+        cells: TickCells<'w>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
+            // SAFETY: Caller ensures there is no alias to the cell.
+            added: unsafe { cells.added.deref_mut() },
+            // SAFETY: Caller ensures there is no alias to the cell.
+            changed: unsafe { cells.changed.deref_mut() },
             last_run,
             this_run,
         }
     }
 }
 
-impl<'a> From<TicksMut<'a>> for Ticks<'a> {
-    fn from(ticks: TicksMut<'a>) -> Self {
+impl<'w> From<TicksMut<'w>> for Ticks<'w> {
+    fn from(ticks: TicksMut<'w>) -> Self {
         Ticks {
             added: ticks.added,
             changed: ticks.changed,
@@ -542,9 +546,9 @@ impl_debug!(Res<'w, T>, Resource);
 /// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'a, T: ?Sized + Resource> {
-    pub(crate) value: &'a mut T,
-    pub(crate) ticks: TicksMut<'a>,
+pub struct ResMut<'w, T: ?Sized + Resource> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: TicksMut<'w>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -572,15 +576,15 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'a, T>, T, Resource);
-change_detection_mut_impl!(ResMut<'a, T>, T, Resource);
-impl_methods!(ResMut<'a, T>, T, Resource);
-impl_debug!(ResMut<'a, T>, Resource);
+change_detection_impl!(ResMut<'w, T>, T, Resource);
+change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
+impl_methods!(ResMut<'w, T>, T, Resource);
+impl_debug!(ResMut<'w, T>, Resource);
 
-impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
+impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
-    fn from(other: ResMut<'a, T>) -> Mut<'a, T> {
+    fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
@@ -600,20 +604,20 @@ impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 ///
 /// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
-pub struct NonSendMut<'a, T: ?Sized + 'static> {
-    pub(crate) value: &'a mut T,
-    pub(crate) ticks: TicksMut<'a>,
+pub struct NonSendMut<'w, T: ?Sized + 'static> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: TicksMut<'w>,
 }
 
-change_detection_impl!(NonSendMut<'a, T>, T,);
-change_detection_mut_impl!(NonSendMut<'a, T>, T,);
-impl_methods!(NonSendMut<'a, T>, T,);
-impl_debug!(NonSendMut<'a, T>,);
+change_detection_impl!(NonSendMut<'w, T>, T,);
+change_detection_mut_impl!(NonSendMut<'w, T>, T,);
+impl_methods!(NonSendMut<'w, T>, T,);
+impl_debug!(NonSendMut<'w, T>,);
 
-impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
+impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
     /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `NonSendMut`.
-    fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
+    fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
@@ -623,14 +627,36 @@ impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
 
 /// Shared borrow of an entity's component with access to change detection.
 /// Similar to [`Mut`] but is immutable and so doesn't require unique access.
-pub struct Ref<'a, T: ?Sized> {
-    pub(crate) value: &'a T,
-    pub(crate) ticks: Ticks<'a>,
+///
+/// # Examples
+///
+/// These two systems produce the same output.
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::query::{Changed, With};
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+///
+/// fn how_many_changed_1(query: Query<(), Changed<MyComponent>>) {
+///     println!("{} changed", query.iter().count());
+/// }
+///
+/// fn how_many_changed_2(query: Query<Ref<MyComponent>>) {
+///     println!("{} changed", query.iter().filter(|c| c.is_changed()).count());
+/// }
+/// ```
+pub struct Ref<'w, T: ?Sized> {
+    pub(crate) value: &'w T,
+    pub(crate) ticks: Ticks<'w>,
 }
 
-impl<'a, T: ?Sized> Ref<'a, T> {
+impl<'w, T: ?Sized> Ref<'w, T> {
     /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
-    pub fn into_inner(self) -> &'a T {
+    pub fn into_inner(self) -> &'w T {
         self.value
     }
 
@@ -638,7 +664,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     ///
     /// This doesn't do anything else than call `f` on the wrapped value.
     /// This is equivalent to [`Mut::map_unchanged`].
-    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'a, U> {
+    pub fn map<U: ?Sized>(self, f: impl FnOnce(&T) -> &U) -> Ref<'w, U> {
         Ref {
             value: f(self.value),
             ticks: self.ticks,
@@ -657,12 +683,12 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     ///    as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
-        value: &'a T,
-        added: &'a Tick,
-        changed: &'a Tick,
+        value: &'w T,
+        added: &'w Tick,
+        changed: &'w Tick,
         last_run: Tick,
         this_run: Tick,
-    ) -> Ref<'a, T> {
+    ) -> Ref<'w, T> {
         Ref {
             value,
             ticks: Ticks {
@@ -686,16 +712,16 @@ where
         self.value.into_iter()
     }
 }
-change_detection_impl!(Ref<'a, T>, T,);
-impl_debug!(Ref<'a, T>,);
+change_detection_impl!(Ref<'w, T>, T,);
+impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component
-pub struct Mut<'a, T: ?Sized> {
-    pub(crate) value: &'a mut T,
-    pub(crate) ticks: TicksMut<'a>,
+/// Unique mutable borrow of an entity's component or of a resource.
+pub struct Mut<'w, T: ?Sized> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: TicksMut<'w>,
 }
 
-impl<'a, T: ?Sized> Mut<'a, T> {
+impl<'w, T: ?Sized> Mut<'w, T> {
     /// Creates a new change-detection enabled smart pointer.
     /// In almost all cases you do not need to call this method manually,
     /// as instances of `Mut` will be created by engine-internal code.
@@ -712,9 +738,9 @@ impl<'a, T: ?Sized> Mut<'a, T> {
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
-        value: &'a mut T,
-        added: &'a mut Tick,
-        last_changed: &'a mut Tick,
+        value: &'w mut T,
+        added: &'w mut Tick,
+        last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -730,8 +756,8 @@ impl<'a, T: ?Sized> Mut<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> From<Mut<'a, T>> for Ref<'a, T> {
-    fn from(mut_ref: Mut<'a, T>) -> Self {
+impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
+    fn from(mut_ref: Mut<'w, T>) -> Self {
         Self {
             value: mut_ref.value,
             ticks: mut_ref.ticks.into(),
@@ -764,10 +790,10 @@ where
     }
 }
 
-change_detection_impl!(Mut<'a, T>, T,);
-change_detection_mut_impl!(Mut<'a, T>, T,);
-impl_methods!(Mut<'a, T>, T,);
-impl_debug!(Mut<'a, T>,);
+change_detection_impl!(Mut<'w, T>, T,);
+change_detection_mut_impl!(Mut<'w, T>, T,);
+impl_methods!(Mut<'w, T>, T,);
+impl_debug!(Mut<'w, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
 ///
@@ -777,17 +803,17 @@ impl_debug!(Mut<'a, T>,);
 /// Usually you don't need to use this and can instead use the APIs returning a
 /// [`Mut`], but in situations where the types are not known at compile time
 /// or are defined outside of rust this can be used.
-pub struct MutUntyped<'a> {
-    pub(crate) value: PtrMut<'a>,
-    pub(crate) ticks: TicksMut<'a>,
+pub struct MutUntyped<'w> {
+    pub(crate) value: PtrMut<'w>,
+    pub(crate) ticks: TicksMut<'w>,
 }
 
-impl<'a> MutUntyped<'a> {
+impl<'w> MutUntyped<'w> {
     /// Returns the pointer to the value, marking it as changed.
     ///
     /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
     #[inline]
-    pub fn into_inner(mut self) -> PtrMut<'a> {
+    pub fn into_inner(mut self) -> PtrMut<'w> {
         self.set_changed();
         self.value
     }
@@ -844,7 +870,7 @@ impl<'a> MutUntyped<'a> {
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
     /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
     /// ```
-    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
+    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'w>) -> &'w mut T) -> Mut<'w, T> {
         Mut {
             value: f(self.value),
             ticks: self.ticks,
@@ -855,15 +881,16 @@ impl<'a> MutUntyped<'a> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
-    pub unsafe fn with_type<T>(self) -> Mut<'a, T> {
+    pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
         Mut {
-            value: self.value.deref_mut(),
+            // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
+            value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
         }
     }
 }
 
-impl<'a> DetectChanges for MutUntyped<'a> {
+impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
@@ -884,8 +911,8 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     }
 }
 
-impl<'a> DetectChangesMut for MutUntyped<'a> {
-    type Inner = PtrMut<'a>;
+impl<'w> DetectChangesMut for MutUntyped<'w> {
+    type Inner = PtrMut<'w>;
 
     #[inline]
     fn set_changed(&mut self) {
@@ -908,6 +935,15 @@ impl std::fmt::Debug for MutUntyped<'_> {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
+    }
+}
+
+impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
+    fn from(value: Mut<'w, T>) -> Self {
+        MutUntyped {
+            value: value.value.into(),
+            ticks: value.ticks,
+        }
     }
 }
 
@@ -1029,8 +1065,8 @@ mod tests {
         for tracker in query.iter(&world) {
             let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
             let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
-            assert!(ticks_since_insert == MAX_CHANGE_AGE);
-            assert!(ticks_since_change == MAX_CHANGE_AGE);
+            assert_eq!(ticks_since_insert, MAX_CHANGE_AGE);
+            assert_eq!(ticks_since_change, MAX_CHANGE_AGE);
         }
     }
 
@@ -1226,5 +1262,30 @@ mod tests {
         new.reflect_mut();
 
         assert!(new.is_changed());
+    }
+
+    #[test]
+    fn mut_untyped_from_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run: Tick::new(3),
+            this_run: Tick::new(4),
+        };
+        let mut c = C {};
+        let mut_typed = Mut {
+            value: &mut c,
+            ticks,
+        };
+
+        let into_mut: MutUntyped = mut_typed.into();
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 }

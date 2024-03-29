@@ -1,5 +1,10 @@
-#![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -7,8 +12,7 @@ mod name;
 mod serde;
 mod task_pool_options;
 
-use bevy_ecs::system::{ResMut, Resource};
-pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use bevy_ecs::system::Resource;
 pub use name::*;
 pub use task_pool_options::*;
 
@@ -22,15 +26,8 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant, Uuid};
-use std::borrow::Cow;
-use std::ffi::OsString;
 use std::marker::PhantomData;
-use std::ops::Range;
-use std::path::{Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
@@ -40,65 +37,8 @@ pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Entity>().register_type::<Name>();
-
-        register_rust_types(app);
-        register_math_types(app);
+        app.register_type::<Name>();
     }
-}
-
-fn register_rust_types(app: &mut App) {
-    app.register_type::<Range<f32>>()
-        .register_type_data::<Range<f32>, ReflectSerialize>()
-        .register_type_data::<Range<f32>, ReflectDeserialize>()
-        .register_type::<String>()
-        .register_type::<PathBuf>()
-        .register_type::<OsString>()
-        .register_type::<HashSet<String>>()
-        .register_type::<Option<String>>()
-        .register_type::<Option<bool>>()
-        .register_type::<Option<f64>>()
-        .register_type::<Cow<'static, str>>()
-        .register_type::<Cow<'static, Path>>()
-        .register_type::<Duration>()
-        .register_type::<Instant>()
-        .register_type::<Uuid>();
-}
-
-fn register_math_types(app: &mut App) {
-    app.register_type::<bevy_math::IVec2>()
-        .register_type::<bevy_math::IVec3>()
-        .register_type::<bevy_math::IVec4>()
-        .register_type::<bevy_math::UVec2>()
-        .register_type::<bevy_math::UVec3>()
-        .register_type::<bevy_math::UVec4>()
-        .register_type::<bevy_math::DVec2>()
-        .register_type::<Option<bevy_math::DVec2>>()
-        .register_type::<bevy_math::DVec3>()
-        .register_type::<bevy_math::DVec4>()
-        .register_type::<bevy_math::BVec2>()
-        .register_type::<bevy_math::BVec3>()
-        .register_type::<bevy_math::BVec3A>()
-        .register_type::<bevy_math::BVec4>()
-        .register_type::<bevy_math::BVec4A>()
-        .register_type::<bevy_math::Vec2>()
-        .register_type::<bevy_math::Vec3>()
-        .register_type::<bevy_math::Vec3A>()
-        .register_type::<bevy_math::Vec4>()
-        .register_type::<bevy_math::DAffine2>()
-        .register_type::<bevy_math::DAffine3>()
-        .register_type::<bevy_math::Affine2>()
-        .register_type::<bevy_math::Affine3A>()
-        .register_type::<bevy_math::DMat2>()
-        .register_type::<bevy_math::DMat3>()
-        .register_type::<bevy_math::DMat4>()
-        .register_type::<bevy_math::Mat2>()
-        .register_type::<bevy_math::Mat3>()
-        .register_type::<bevy_math::Mat3A>()
-        .register_type::<bevy_math::Mat4>()
-        .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>()
-        .register_type::<bevy_math::Rect>();
 }
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
@@ -140,7 +80,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 /// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
 /// assumptions, one may exploit wrapping arithmetic to determine the number of frames
 /// that have elapsed between two observations – see [`u32::wrapping_sub()`].
-#[derive(Default, Resource, Clone, Copy)]
+#[derive(Debug, Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
 
 /// Adds frame counting functionality to Apps.
@@ -154,7 +94,10 @@ impl Plugin for FrameCountPlugin {
     }
 }
 
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+/// A system used to increment [`FrameCount`] with wrapping addition.
+///
+/// See [`FrameCount`] for more details.
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
 }
 

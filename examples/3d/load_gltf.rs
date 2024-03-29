@@ -8,10 +8,6 @@ use std::f32::consts::*;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -29,6 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 250.0,
         },
     ));
 

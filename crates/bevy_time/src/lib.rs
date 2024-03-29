@@ -1,35 +1,40 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 /// Common run conditions
 pub mod common_conditions;
-pub mod fixed_timestep;
+mod fixed;
+mod real;
 mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
 mod timer;
+mod virt;
 
-use fixed_timestep::FixedTime;
+pub use fixed::*;
+pub use real::*;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
-
-use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{tracing::warn, Duration, Instant};
-pub use crossbeam_channel::TrySendError;
-use crossbeam_channel::{Receiver, Sender};
+pub use virt::*;
 
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
+    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedUpdateLoop};
+use bevy_app::{prelude::*, RunFixedMainLoop};
+use bevy_ecs::event::{signal_event_update_system, EventUpdateSignal, EventUpdates};
 use bevy_ecs::prelude::*;
-
-use crate::fixed_timestep::run_fixed_update_schedule;
+use bevy_utils::{tracing::warn, Duration, Instant};
+pub use crossbeam_channel::TrySendError;
+use crossbeam_channel::{Receiver, Sender};
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -43,33 +48,35 @@ pub struct TimeSystem;
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
+            .init_resource::<Time<Real>>()
+            .init_resource::<Time<Virtual>>()
+            .init_resource::<Time<Fixed>>()
             .init_resource::<TimeUpdateStrategy>()
-            .register_type::<Timer>()
             .register_type::<Time>()
-            .register_type::<Stopwatch>()
-            .init_resource::<FixedTime>()
-            .add_systems(First, time_system.in_set(TimeSystem))
-            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
+            .register_type::<Time<Real>>()
+            .register_type::<Time<Virtual>>()
+            .register_type::<Time<Fixed>>()
+            .register_type::<Timer>()
+            .add_systems(
+                First,
+                (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
+            )
+            .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
-        #[cfg(feature = "bevy_ci_testing")]
-        if let Some(ci_testing_config) = app
-            .world
-            .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            if let Some(frame_time) = ci_testing_config.frame_time {
-                app.world
-                    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                        frame_time,
-                    )));
-            }
-        }
+        // ensure the events are not dropped until `FixedMain` systems can observe them
+        app.init_resource::<EventUpdateSignal>()
+            .add_systems(
+                First,
+                bevy_ecs::event::reset_event_update_signal_system.after(EventUpdates),
+            )
+            .add_systems(FixedPostUpdate, signal_event_update_system);
     }
 }
 
 /// Configuration resource used to determine how the time system should run.
 ///
-/// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with networking, or similar
-/// you may prefer to set the next [`Time`] value manually.
+/// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with
+/// networking or similar, you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
     /// [`Time`] will be automatically updated each frame using an [`Instant`] sent from the render world via a [`TimeSender`].
@@ -101,10 +108,10 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     (TimeSender(s), TimeReceiver(r))
 }
 
-/// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
-/// there to this system through channels. Otherwise the time is updated in this system.
+/// The system used to update the [`Time`] used by app logic. If there is a render world the time is
+/// sent from there to this system through channels. Otherwise the time is updated in this system.
 fn time_system(
-    mut time: ResMut<Time>,
+    mut time: ResMut<Time<Real>>,
     update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
     mut has_received_time: Local<bool>,
@@ -127,9 +134,68 @@ fn time_system(
     match update_strategy.as_ref() {
         TimeUpdateStrategy::Automatic => time.update_with_instant(new_time),
         TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
-        TimeUpdateStrategy::ManualDuration(duration) => {
-            let last_update = time.last_update().unwrap_or_else(|| time.startup());
-            time.update_with_instant(last_update + *duration);
+        TimeUpdateStrategy::ManualDuration(duration) => time.update_with_duration(*duration),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
+    use bevy_app::{App, Startup, Update};
+    use bevy_ecs::event::{Event, EventReader, EventWriter};
+    use std::error::Error;
+
+    #[derive(Event)]
+    struct TestEvent<T: Default> {
+        sender: std::sync::mpsc::Sender<T>,
+    }
+
+    impl<T: Default> Drop for TestEvent<T> {
+        fn drop(&mut self) {
+            self.sender
+                .send(T::default())
+                .expect("Failed to send drop signal");
         }
+    }
+
+    #[test]
+    fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
+        let (tx1, rx1) = std::sync::mpsc::channel();
+        let (tx2, rx2) = std::sync::mpsc::channel();
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_event::<TestEvent<i32>>()
+            .add_event::<TestEvent<()>>()
+            .add_systems(Startup, move |mut ev2: EventWriter<TestEvent<()>>| {
+                ev2.send(TestEvent {
+                    sender: tx2.clone(),
+                });
+            })
+            .add_systems(Update, move |mut ev1: EventWriter<TestEvent<i32>>| {
+                // Keep adding events so this event type is processed every update
+                ev1.send(TestEvent {
+                    sender: tx1.clone(),
+                });
+            })
+            .add_systems(
+                Update,
+                |mut ev1: EventReader<TestEvent<i32>>, mut ev2: EventReader<TestEvent<()>>| {
+                    // Read events so they can be dropped
+                    for _ in ev1.read() {}
+                    for _ in ev2.read() {}
+                },
+            )
+            .insert_resource(TimeUpdateStrategy::ManualDuration(
+                Time::<Fixed>::default().timestep(),
+            ));
+
+        for _ in 0..10 {
+            app.update();
+        }
+
+        // Check event type 1 as been dropped at least once
+        let _drop_signal = rx1.try_recv()?;
+        // Check event type 2 has been dropped
+        rx2.try_recv()
     }
 }

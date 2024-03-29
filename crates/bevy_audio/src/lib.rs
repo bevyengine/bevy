@@ -1,3 +1,10 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Audio support for the game engine Bevy
 //!
 //! ```no_run
@@ -20,10 +27,6 @@
 //! }
 //! ```
 
-#![forbid(unsafe_code)]
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
-
 mod audio;
 #[cfg(feature = "input")]
 mod audio_input;
@@ -37,8 +40,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings,
+        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
     };
 
     #[cfg(feature = "input")]
@@ -57,6 +59,7 @@ pub use sinks::*;
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
+use bevy_transform::TransformSystem;
 
 #[cfg(feature = "input")]
 pub use audio_input::*;
@@ -68,17 +71,36 @@ struct AudioPlaySet;
 
 /// Adds support for audio playback to a Bevy Application
 ///
-/// Insert an [`AudioBundle`] or [`SpatialAudioBundle`] onto your entities to play audio.
+/// Insert an [`AudioBundle`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
-    /// The global volume for all audio entities with a [`Volume::Relative`] volume.
+    /// The global volume for all audio entities.
     pub global_volume: GlobalVolume,
+    /// The scale factor applied to the positions of audio sources and listeners for
+    /// spatial audio.
+    pub default_spatial_scale: SpatialScale,
 }
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(self.global_volume)
-            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+        app.register_type::<Volume>()
+            .register_type::<GlobalVolume>()
+            .register_type::<SpatialListener>()
+            .register_type::<DefaultSpatialScale>()
+            .register_type::<PlaybackMode>()
+            .register_type::<PlaybackSettings>()
+            .insert_resource(self.global_volume)
+            .insert_resource(DefaultSpatialScale(self.default_spatial_scale))
+            .configure_sets(
+                PostUpdate,
+                AudioPlaySet
+                    .run_if(audio_output_available)
+                    .after(TransformSystem::TransformPropagate), // For spatial audio transforms
+            )
+            .add_systems(
+                PostUpdate,
+                (update_emitter_positions, update_listener_positions).in_set(AudioPlaySet),
+            )
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -106,9 +128,8 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            play_queued_audio_system::<T>.in_set(AudioPlaySet),
+            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>).in_set(AudioPlaySet),
         );
-        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
         self
     }
 }

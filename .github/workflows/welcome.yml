@@ -12,7 +12,7 @@ jobs:
   welcome:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
           script: |
             // Get a list of all issues created by the PR opener

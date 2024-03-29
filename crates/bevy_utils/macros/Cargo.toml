@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils_proc_macros"
-version = "0.12.0-dev"
+version = "0.14.0-dev"
 description = "Bevy Utils Proc Macros"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -12,3 +12,10 @@ proc-macro = true
 syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

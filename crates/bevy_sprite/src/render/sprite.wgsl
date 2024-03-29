@@ -2,8 +2,10 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
-#import bevy_render::maths affine_to_square
-#import bevy_render::view  View
+#import bevy_render::{
+    maths::affine3_to_square,
+    view::View,
+}
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -35,7 +37,7 @@ fn vertex(in: VertexInput) -> VertexOutput {
         0.0
     );
 
-    out.clip_position = view.view_proj * affine_to_square(mat3x4<f32>(
+    out.clip_position = view.view_proj * affine3_to_square(mat3x4<f32>(
         in.i_model_transpose_col0,
         in.i_model_transpose_col1,
         in.i_model_transpose_col2,
@@ -54,7 +56,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color * textureSample(sprite_texture, sprite_sampler, in.uv);
 
 #ifdef TONEMAP_IN_SHADER
-    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view.color_grading);
+    color = tonemapping::tone_mapping(color, view.color_grading);
 #endif
 
     return color;

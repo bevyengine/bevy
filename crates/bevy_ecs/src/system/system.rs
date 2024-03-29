@@ -2,6 +2,7 @@ use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
 use crate::component::Tick;
+use crate::schedule::InternedSystemSet;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
@@ -30,7 +31,10 @@ pub trait System: Send + Sync + 'static {
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
     /// Returns the [`TypeId`] of the underlying system type.
-    fn type_id(&self) -> TypeId;
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
@@ -41,9 +45,15 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 
+    /// Returns true if system as deferred buffers
+    fn has_deferred(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
     /// if used incorrectly, making it unsafe to call.
+    ///
+    /// Unlike [`System::run`], this will not apply deferred parameters, which must be independently
+    /// applied by calling [`System::apply_deferred`] at later point in time.
     ///
     /// # Safety
     ///
@@ -59,14 +69,18 @@ pub trait System: Send + Sync + 'static {
     ///
     /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
     ///
+    /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
+    ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let world = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world);
+        let world_cell = world.as_unsafe_world_cell();
+        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        unsafe { self.run_unsafe(input, world) }
+        let ret = unsafe { self.run_unsafe(input, world_cell) };
+        self.apply_deferred(world);
+        ret
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -91,7 +105,7 @@ pub trait System: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: Tick);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         Vec::new()
     }
 
@@ -165,8 +179,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// This function is not an efficient method of running systems and its meant to be used as a utility
 /// for testing and/or diagnostics.
 ///
-/// Systems called through [`run_system_once`](crate::system::RunSystemOnce::run_system_once) do not hold onto any state,
-/// as they are created and destroyed every time [`run_system_once`](crate::system::RunSystemOnce::run_system_once) is called.
+/// Systems called through [`run_system_once`](RunSystemOnce::run_system_once) do not hold onto any state,
+/// as they are created and destroyed every time [`run_system_once`](RunSystemOnce::run_system_once) is called.
 /// Practically, this means that [`Local`](crate::system::Local) variables are
 /// reset on every run and change detection does not work.
 ///
@@ -186,7 +200,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system`](crate::system::World::run_system)
+/// If you do need systems to hold onto state between runs, use the [`World::run_system`](World::run_system)
 /// and run the system by their [`SystemId`](crate::system::SystemId).
 ///
 /// # Usage
@@ -276,9 +290,7 @@ impl RunSystemOnce for &mut World {
     ) -> Out {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        let out = system.run(input, self);
-        system.apply_deferred(self);
-        out
+        system.run(input, self)
     }
 }
 

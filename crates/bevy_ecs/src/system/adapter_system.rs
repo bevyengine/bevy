@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
+use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
 
 /// Customizes the behavior of an [`AdapterSystem`]
 ///
@@ -81,10 +81,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
         self.system.component_access()
     }
@@ -104,11 +100,16 @@ where
         self.system.is_exclusive()
     }
 
+    fn has_deferred(&self) -> bool {
+        self.system.has_deferred()
+    }
+
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
-        self.func
-            .adapt(input, |input| self.system.run_unsafe(input, world))
+        self.func.adapt(input, |input| unsafe {
+            self.system.run_unsafe(input, world)
+        })
     }
 
     #[inline]
@@ -135,16 +136,16 @@ where
         self.system.check_change_tick(change_tick);
     }
 
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        self.system.default_system_sets()
+    }
+
     fn get_last_run(&self) -> crate::component::Tick {
         self.system.get_last_run()
     }
 
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
         self.system.set_last_run(last_run);
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        self.system.default_system_sets()
     }
 }
 

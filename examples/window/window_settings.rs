@@ -14,6 +14,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "I am a window!".into(),
+                    name: Some("bevy.app".into()),
                     resolution: (500., 300.).into(),
                     present_mode: PresentMode::AutoVsync,
                     // Tells wasm to resize the window according to the available canvas
@@ -64,8 +65,8 @@ fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::V) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyV) {
         let mut window = windows.single_mut();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
@@ -84,8 +85,9 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::T) {
+
+fn switch_level(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyT) {
         let mut window = windows.single_mut();
 
         window.window_level = match window.window_level {
@@ -102,10 +104,10 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
 /// for more details.
-fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let toggle_minimize = input.just_pressed(KeyCode::Key1);
-    let toggle_maximize = input.just_pressed(KeyCode::Key2);
-    let toggle_close = input.just_pressed(KeyCode::Key3);
+fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Digit1);
+    let toggle_maximize = input.just_pressed(KeyCode::Digit2);
+    let toggle_close = input.just_pressed(KeyCode::Digit3);
 
     if toggle_minimize || toggle_maximize || toggle_close {
         let mut window = windows.single_mut();
@@ -131,7 +133,7 @@ fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
     );
 }
 
-fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
+fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
         let mut window = windows.single_mut();
 
@@ -144,8 +146,8 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 }
 
 // This system will toggle the color theme used by the window
-fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::F) {
+fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::KeyF) {
         let mut window = windows.single_mut();
 
         if let Some(current_theme) = window.window_theme {
@@ -160,14 +162,14 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
     mut windows: Query<&mut Window>,
-    input: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
 ) {
     let mut window = windows.single_mut();
 
     const ICONS: &[CursorIcon] = &[
         CursorIcon::Default,
-        CursorIcon::Hand,
+        CursorIcon::Pointer,
         CursorIcon::Wait,
         CursorIcon::Text,
         CursorIcon::Copy,

@@ -2,12 +2,7 @@
 
 use bevy_math::Mat4;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS,
-    render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindingResource, Buffer, TextureView,
-    },
-    renderer::RenderDevice,
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
 };
 
 use crate::render::skin::MAX_JOINTS;
@@ -24,56 +19,40 @@ mod layout_entry {
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
-            BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, GpuArrayBuffer,
-            ShaderStages, TextureSampleType, TextureViewDimension,
+            binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
+            BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
+            ShaderStages, TextureSampleType,
         },
         renderer::RenderDevice,
     };
 
-    fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility,
-            count: None,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(size),
-            },
-        }
+    pub(super) fn model(render_device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        GpuArrayBuffer::<MeshUniform>::binding_layout(render_device)
+            .visibility(ShaderStages::VERTEX_FRAGMENT)
     }
-    pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
-        GpuArrayBuffer::<MeshUniform>::binding_layout(
-            binding,
-            ShaderStages::VERTEX_FRAGMENT,
-            render_device,
-        )
+    pub(super) fn skinning() -> BindGroupLayoutEntryBuilder {
+        uniform_buffer_sized(true, BufferSize::new(JOINT_BUFFER_SIZE as u64))
     }
-    pub(super) fn skinning(binding: u32) -> BindGroupLayoutEntry {
-        buffer(binding, JOINT_BUFFER_SIZE as u64, ShaderStages::VERTEX)
+    pub(super) fn weights() -> BindGroupLayoutEntryBuilder {
+        uniform_buffer_sized(true, BufferSize::new(MORPH_BUFFER_SIZE as u64))
     }
-    pub(super) fn weights(binding: u32) -> BindGroupLayoutEntry {
-        buffer(binding, MORPH_BUFFER_SIZE as u64, ShaderStages::VERTEX)
+    pub(super) fn targets() -> BindGroupLayoutEntryBuilder {
+        texture_3d(TextureSampleType::Float { filterable: false })
     }
-    pub(super) fn targets(binding: u32) -> BindGroupLayoutEntry {
-        BindGroupLayoutEntry {
-            binding,
-            visibility: ShaderStages::VERTEX,
-            ty: BindingType::Texture {
-                view_dimension: TextureViewDimension::D3,
-                sample_type: TextureSampleType::Float { filterable: false },
-                multisampled: false,
-            },
-            count: None,
-        }
+    pub(super) fn lightmaps_texture_view() -> BindGroupLayoutEntryBuilder {
+        texture_2d(TextureSampleType::Float { filterable: true }).visibility(ShaderStages::FRAGMENT)
+    }
+    pub(super) fn lightmaps_sampler() -> BindGroupLayoutEntryBuilder {
+        sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT)
     }
 }
-/// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
+
+/// Individual [`BindGroupEntry`]
 /// for bind groups.
 mod entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use bevy_render::render_resource::{
-        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, TextureView,
+        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
     };
 
     fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
@@ -101,6 +80,18 @@ mod entry {
             resource: BindingResource::TextureView(texture),
         }
     }
+    pub(super) fn lightmaps_texture_view(binding: u32, texture: &TextureView) -> BindGroupEntry {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::TextureView(texture),
+        }
+    }
+    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::Sampler(sampler),
+        }
+    }
 }
 
 /// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
@@ -108,6 +99,9 @@ mod entry {
 pub struct MeshLayouts {
     /// The mesh model uniform (transform) and nothing else.
     pub model_only: BindGroupLayout,
+
+    /// Includes the lightmap texture and uniform.
+    pub lightmapped: BindGroupLayout,
 
     /// Also includes the uniform for skinning
     pub skinned: BindGroupLayout,
@@ -131,6 +125,7 @@ impl MeshLayouts {
     pub fn new(render_device: &RenderDevice) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),
+            lightmapped: Self::lightmapped_layout(render_device),
             skinned: Self::skinned_layout(render_device),
             morphed: Self::morphed_layout(render_device),
             morphed_skinned: Self::morphed_skinned_layout(render_device),
@@ -140,50 +135,91 @@ impl MeshLayouts {
     // ---------- create individual BindGroupLayouts ----------
 
     fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[layout_entry::model(render_device, 0)],
-            label: Some("mesh_layout"),
-        })
+        render_device.create_bind_group_layout(
+            "mesh_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::empty(),
+                layout_entry::model(render_device),
+            ),
+        )
     }
     fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                layout_entry::model(render_device, 0),
-                layout_entry::skinning(1),
-            ],
-            label: Some("skinned_mesh_layout"),
-        })
+        render_device.create_bind_group_layout(
+            "skinned_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (1, layout_entry::skinning()),
+                ),
+            ),
+        )
     }
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                layout_entry::model(render_device, 0),
-                layout_entry::weights(2),
-                layout_entry::targets(3),
-            ],
-            label: Some("morphed_mesh_layout"),
-        })
+        render_device.create_bind_group_layout(
+            "morphed_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                ),
+            ),
+        )
     }
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                layout_entry::model(render_device, 0),
-                layout_entry::skinning(1),
-                layout_entry::weights(2),
-                layout_entry::targets(3),
-            ],
-            label: Some("morphed_skinned_mesh_layout"),
-        })
+        render_device.create_bind_group_layout(
+            "morphed_skinned_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (1, layout_entry::skinning()),
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                ),
+            ),
+        )
+    }
+    fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "lightmapped_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (4, layout_entry::lightmaps_texture_view()),
+                    (5, layout_entry::lightmaps_sampler()),
+                ),
+            ),
+        )
     }
 
     // ---------- BindGroup methods ----------
 
     pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone())],
-            layout: &self.model_only,
-            label: Some("model_only_mesh_bind_group"),
-        })
+        render_device.create_bind_group(
+            "model_only_mesh_bind_group",
+            &self.model_only,
+            &[entry::model(0, model.clone())],
+        )
+    }
+    pub fn lightmapped(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        lightmap: &GpuImage,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "lightmapped_mesh_bind_group",
+            &self.lightmapped,
+            &[
+                entry::model(0, model.clone()),
+                entry::lightmaps_texture_view(4, &lightmap.texture_view),
+                entry::lightmaps_sampler(5, &lightmap.sampler),
+            ],
+        )
     }
     pub fn skinned(
         &self,
@@ -191,11 +227,11 @@ impl MeshLayouts {
         model: &BindingResource,
         skin: &Buffer,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone()), entry::skinning(1, skin)],
-            layout: &self.skinned,
-            label: Some("skinned_mesh_bind_group"),
-        })
+        render_device.create_bind_group(
+            "skinned_mesh_bind_group",
+            &self.skinned,
+            &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+        )
     }
     pub fn morphed(
         &self,
@@ -204,15 +240,15 @@ impl MeshLayouts {
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
+        render_device.create_bind_group(
+            "morphed_mesh_bind_group",
+            &self.morphed,
+            &[
                 entry::model(0, model.clone()),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
-            layout: &self.morphed,
-            label: Some("morphed_mesh_bind_group"),
-        })
+        )
     }
     pub fn morphed_skinned(
         &self,
@@ -222,15 +258,15 @@ impl MeshLayouts {
         weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
-        render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
+        render_device.create_bind_group(
+            "morphed_skinned_mesh_bind_group",
+            &self.morphed_skinned,
+            &[
                 entry::model(0, model.clone()),
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
-            layout: &self.morphed_skinned,
-            label: Some("morphed_skinned_mesh_bind_group"),
-        })
+        )
     }
 }

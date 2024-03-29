@@ -1,5 +1,5 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::HashMap;
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
@@ -12,9 +12,9 @@ use std::{
 
 #[derive(Default, Debug)]
 struct DirInternal {
-    assets: HashMap<String, Data>,
-    metadata: HashMap<String, Data>,
-    dirs: HashMap<String, Dir>,
+    assets: HashMap<Box<str>, Data>,
+    metadata: HashMap<Box<str>, Data>,
+    dirs: HashMap<Box<str>, Dir>,
     path: PathBuf,
 }
 
@@ -40,25 +40,31 @@ impl Dir {
         self.insert_meta(path, asset.as_bytes().to_vec());
     }
 
-    pub fn insert_asset(&self, path: &Path, asset: Vec<u8>) {
+    pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().assets.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
-            Data(Arc::new((asset, path.to_owned()))),
+            path.file_name().unwrap().to_string_lossy().into(),
+            Data {
+                value: value.into(),
+                path: path.to_owned(),
+            },
         );
     }
 
-    pub fn insert_meta(&self, path: &Path, asset: Vec<u8>) {
+    pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().metadata.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
-            Data(Arc::new((asset, path.to_owned()))),
+            path.file_name().unwrap().to_string_lossy().into(),
+            Data {
+                value: value.into(),
+                path: path.to_owned(),
+            },
         );
     }
 
@@ -67,7 +73,7 @@ impl Dir {
         let mut full_path = PathBuf::new();
         for c in path.components() {
             full_path.push(c);
-            let name = c.as_os_str().to_string_lossy().to_string();
+            let name = c.as_os_str().to_string_lossy().into();
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
@@ -117,11 +123,16 @@ impl Dir {
 pub struct DirStream {
     dir: Dir,
     index: usize,
+    dir_index: usize,
 }
 
 impl DirStream {
     fn new(dir: Dir) -> Self {
-        Self { dir, index: 0 }
+        Self {
+            dir,
+            index: 0,
+            dir_index: 0,
+        }
     }
 }
 
@@ -133,10 +144,22 @@ impl Stream for DirStream {
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
-        let index = this.index;
-        this.index += 1;
         let dir = this.dir.0.read();
-        Poll::Ready(dir.assets.values().nth(index).map(|d| d.path().to_owned()))
+
+        let dir_index = this.dir_index;
+        if let Some(dir_path) = dir
+            .dirs
+            .keys()
+            .nth(dir_index)
+            .map(|d| dir.path.join(d.as_ref()))
+        {
+            this.dir_index += 1;
+            Poll::Ready(Some(dir_path))
+        } else {
+            let index = this.index;
+            this.index += 1;
+            Poll::Ready(dir.assets.values().nth(index).map(|d| d.path().to_owned()))
+        }
     }
 }
 
@@ -149,14 +172,45 @@ pub struct MemoryAssetReader {
 
 /// Asset data stored in a [`Dir`].
 #[derive(Clone, Debug)]
-pub struct Data(Arc<(Vec<u8>, PathBuf)>);
+pub struct Data {
+    path: PathBuf,
+    value: Value,
+}
+
+/// Stores either an allocated vec of bytes or a static array of bytes.
+#[derive(Clone, Debug)]
+pub enum Value {
+    Vec(Arc<Vec<u8>>),
+    Static(&'static [u8]),
+}
 
 impl Data {
     fn path(&self) -> &Path {
-        &self.0 .1
+        &self.path
     }
-    fn data(&self) -> &[u8] {
-        &self.0 .0
+    fn value(&self) -> &[u8] {
+        match &self.value {
+            Value::Vec(vec) => vec,
+            Value::Static(value) => value,
+        }
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Self::Vec(Arc::new(value))
+    }
+}
+
+impl From<&'static [u8]> for Value {
+    fn from(value: &'static [u8]) -> Self {
+        Self::Static(value)
+    }
+}
+
+impl<const N: usize> From<&'static [u8; N]> for Value {
+    fn from(value: &'static [u8; N]) -> Self {
+        Self::Static(value)
     }
 }
 
@@ -167,14 +221,15 @@ struct DataReader {
 
 impl AsyncRead for DataReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
-        if self.bytes_read >= self.data.data().len() {
+    ) -> Poll<futures_io::Result<usize>> {
+        if self.bytes_read >= self.data.value().len() {
             Poll::Ready(Ok(0))
         } else {
-            let n = ready!(Pin::new(&mut &self.data.data()[self.bytes_read..]).poll_read(cx, buf))?;
+            let n =
+                ready!(Pin::new(&mut &self.data.value()[self.bytes_read..]).poll_read(cx, buf))?;
             self.bytes_read += n;
             Poll::Ready(Ok(n))
         }
@@ -182,69 +237,47 @@ impl AsyncRead for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_asset(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or(AssetReaderError::NotFound(PathBuf::new()))
-        })
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_asset(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_metadata(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or(AssetReaderError::NotFound(PathBuf::new()))
-        })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_metadata(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_dir(path)
-                .map(|dir| {
-                    let stream: Box<PathStream> = Box::new(DirStream::new(dir));
-                    stream
-                })
-                .ok_or(AssetReaderError::NotFound(PathBuf::new()))
-        })
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.root
+            .get_dir(path)
+            .map(|dir| {
+                let stream: Box<PathStream> = Box::new(DirStream::new(dir));
+                stream
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
-        Box::pin(async move { Ok(self.root.get_dir(path).is_some()) })
-    }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn super::AssetWatcher>> {
-        None
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        Ok(self.root.get_dir(path).is_some())
     }
 }
 
@@ -263,12 +296,12 @@ pub mod test {
         dir.insert_asset(a_path, a_data.clone());
         let asset = dir.get_asset(a_path).unwrap();
         assert_eq!(asset.path(), a_path);
-        assert_eq!(asset.data(), a_data);
+        assert_eq!(asset.value(), a_data);
 
         dir.insert_meta(a_path, a_meta.clone());
         let meta = dir.get_metadata(a_path).unwrap();
         assert_eq!(meta.path(), a_path);
-        assert_eq!(meta.data(), a_meta);
+        assert_eq!(meta.value(), a_meta);
 
         let b_path = Path::new("x/y/b.txt");
         let b_data = "b".as_bytes().to_vec();
@@ -278,10 +311,10 @@ pub mod test {
 
         let asset = dir.get_asset(b_path).unwrap();
         assert_eq!(asset.path(), b_path);
-        assert_eq!(asset.data(), b_data);
+        assert_eq!(asset.value(), b_data);
 
         let meta = dir.get_metadata(b_path).unwrap();
         assert_eq!(meta.path(), b_path);
-        assert_eq!(meta.data(), b_meta);
+        assert_eq!(meta.value(), b_meta);
     }
 }
