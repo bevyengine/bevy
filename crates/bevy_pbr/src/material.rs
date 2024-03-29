@@ -659,25 +659,9 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
 
-            let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
-                OpaqueRendererMethod::Deferred => false,
-                OpaqueRendererMethod::Auto => unreachable!(),
-            };
-
-            let mut mesh_key = view_key;
-
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-            }
-
-            if material.properties.reads_view_transmission_texture {
-                mesh_key |= MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE;
-            }
-
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+            let mut mesh_key = view_key
+                | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                | material.properties.mesh_pipeline_key_bits;
 
             if render_lightmaps
                 .render_lightmaps
@@ -721,7 +705,7 @@ pub fn queue_material_meshes<M: Material>(
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
-                    } else if forward {
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         opaque_phase.add(Opaque3d {
                             entity: *visible_entity,
                             draw_function: draw_opaque_pbr,
@@ -745,7 +729,7 @@ pub fn queue_material_meshes<M: Material>(
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
-                    } else if forward {
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         alpha_mask_phase.add(AlphaMask3d {
                             entity: *visible_entity,
                             draw_function: draw_alpha_mask_pbr,
@@ -817,7 +801,7 @@ impl DefaultOpaqueRendererMethod {
 /// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained devices.
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
-#[derive(Default, Clone, Copy, Debug, Reflect)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
@@ -832,6 +816,11 @@ pub struct MaterialProperties {
     pub render_method: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
+    /// The bits in the [`MeshPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material_meshes`].
+    pub mesh_pipeline_key_bits: MeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
@@ -1055,6 +1044,14 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
+
+    let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
+    mesh_pipeline_key_bits.set(
+        MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
+        material.reads_view_transmission_texture(),
+    );
+    mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
+
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
@@ -1062,8 +1059,10 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            reads_view_transmission_texture: material.reads_view_transmission_texture(),
+            reads_view_transmission_texture: mesh_pipeline_key_bits
+                .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
             render_method: method,
+            mesh_pipeline_key_bits,
         },
     })
 }
