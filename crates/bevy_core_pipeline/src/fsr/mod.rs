@@ -3,12 +3,14 @@ mod util;
 
 use self::fsr_manager::FsrManager;
 use bevy_app::{App, Plugin};
-use bevy_render::{renderer::RenderDevice, RenderApp};
+use bevy_render::{renderer::RenderDevice, view::Msaa, RenderApp};
 
 pub struct FsrPlugin;
 
 impl Plugin for FsrPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.insert_resource(Msaa::Off);
+    }
 
     fn finish(&self, app: &mut App) {
         let render_device = app.world.resource::<RenderDevice>().clone();
