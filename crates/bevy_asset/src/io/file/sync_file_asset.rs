@@ -8,7 +8,7 @@ use crate::io::{
 
 use std::{
     fs::{read_dir, File},
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     path::{Path, PathBuf},
     pin::Pin,
     task::Poll,
