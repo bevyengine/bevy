@@ -1,4 +1,5 @@
-//! This example illustrates how to load and play different soundtracks
+//! This example illustrates how to load and play different soundtracks,
+//! transitioning between them as the game state changes.
 
 use bevy::prelude::*;
 
