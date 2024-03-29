@@ -86,7 +86,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This doesn't use `NopWorldQuery` as it loses filter functionality, for example
     /// `NopWorldQuery<Changed<T>>` is functionally equivalent to `With<T>`.
-    pub fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
+    pub(crate) fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `D` for table/archetype matching
         unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F>() }
@@ -241,6 +241,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 last_run,
                 this_run,
             )
+        }
+    }
+
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    #[inline]
+    pub fn contains(&self, entity: Entity, world: &World, last_run: Tick, this_run: Tick) -> bool {
+        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        unsafe {
+            self.as_nop()
+                .get_unchecked_manual(
+                    world.as_unsafe_world_cell_readonly(),
+                    entity,
+                    last_run,
+                    this_run,
+                )
+                .is_ok()
         }
     }
 
@@ -570,6 +588,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
@@ -642,6 +662,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_mut<'w>(
         &mut self,
@@ -733,6 +755,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// access to `self`.
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_manual<'w>(
         &self,
@@ -753,6 +777,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -769,6 +795,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -849,6 +877,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
