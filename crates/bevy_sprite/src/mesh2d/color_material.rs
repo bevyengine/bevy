@@ -1,7 +1,7 @@
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
+use bevy_color::{Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::Image};
@@ -27,7 +27,7 @@ impl Plugin for ColorMaterialPlugin {
         app.world.resource_mut::<Assets<ColorMaterial>>().insert(
             &Handle::<ColorMaterial>::default(),
             ColorMaterial {
-                color: Color::srgb(1.0, 0.0, 1.0),
+                color: LinearRgba::WHITE,
                 ..Default::default()
             },
         );
@@ -39,7 +39,7 @@ impl Plugin for ColorMaterialPlugin {
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
-    pub color: Color,
+    pub color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -48,16 +48,61 @@ pub struct ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             texture: None,
         }
     }
 }
 
-impl From<Color> for ColorMaterial {
-    fn from(color: Color) -> Self {
+impl From<LinearRgba> for ColorMaterial {
+    fn from(color: LinearRgba) -> Self {
         ColorMaterial {
             color,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Srgba> for ColorMaterial {
+    fn from(color: Srgba) -> Self {
+        ColorMaterial {
+            color: color.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Hsla> for ColorMaterial {
+    fn from(color: Hsla) -> Self {
+        ColorMaterial {
+            color: color.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Hsva> for ColorMaterial {
+    fn from(color: Hsva) -> Self {
+        ColorMaterial {
+            color: color.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Oklaba> for ColorMaterial {
+    fn from(color: Oklaba) -> Self {
+        ColorMaterial {
+            color: color.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Oklcha> for ColorMaterial {
+    fn from(color: Oklcha) -> Self {
+        ColorMaterial {
+            color: color.into(),
             ..Default::default()
         }
     }

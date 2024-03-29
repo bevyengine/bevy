@@ -450,7 +450,7 @@ fn spawn_primitive_2d(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
-    let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
+    let material: Handle<ColorMaterial> = materials.add(LinearRgba::WHITE);
     let camera_mode = CameraActive::Dim2;
     [
         Some(RECTANGLE.mesh()),

@@ -50,7 +50,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(Circle::new(100.)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
+        material: materials.add(Srgba::rgb(7.5, 0.0, 7.5)),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
         ..default()
     });
@@ -59,7 +59,7 @@ fn setup(
     commands.spawn(MaterialMesh2dBundle {
         mesh: meshes.add(RegularPolygon::new(100., 6)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
+        material: materials.add(Srgba::rgb(6.25, 9.4, 9.1)),
         transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
         ..default()
     });

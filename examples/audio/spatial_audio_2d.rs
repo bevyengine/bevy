@@ -36,7 +36,7 @@ fn setup(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(15.0)).into(),
-            material: materials.add(Color::from(BLUE)),
+            material: materials.add(BLUE),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
             ..default()
         },
