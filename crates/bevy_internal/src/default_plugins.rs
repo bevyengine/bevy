@@ -153,7 +153,9 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
-        if app.is_plugin_added::<bevy_animation::AnimationPlugin>() && app.is_plugin_added::<bevy_ui::UiPlugin>() {
+        if app.is_plugin_added::<bevy_animation::AnimationPlugin>()
+            && app.is_plugin_added::<bevy_ui::UiPlugin>()
+        {
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::advance_animations,

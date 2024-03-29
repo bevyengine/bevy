@@ -130,7 +130,6 @@ impl Plugin for GizmoPlugin {
 
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
-
         #[cfg(feature = "bevy_sprite")]
         if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
             app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
