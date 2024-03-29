@@ -288,7 +288,9 @@ impl<Param: SystemParam> SystemState<Param> {
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype in &archetypes[old_generation..] {
+        // Iterate in reverse to avoid reallocating the backing stores for accesses if there are a
+        // large number of new archetypes and components.
+        for archetype in archetypes[old_generation..].iter().rev() {
             Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
         }
     }
