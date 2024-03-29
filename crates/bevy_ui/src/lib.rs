@@ -42,8 +42,8 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        geometry::*, Interaction, node_bundles::*, ui_material::*, ui_node::*, UiMaterialPlugin,
-        UiScale, widget::Button, widget::Label,
+        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
+        Interaction, UiMaterialPlugin, UiScale,
     };
     // `bevy_sprite` re-exports for texture slicing
     #[doc(hidden)]

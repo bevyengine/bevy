@@ -13,8 +13,8 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, HashSet};
 use bevy_utils::tracing::warn;
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use ui_surface::UiSurface;
 
@@ -337,15 +337,15 @@ mod tests {
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{BuildWorldChildren, Children, despawn_with_children_recursive, Parent};
-    use bevy_math::{Rect, UVec2, vec2, Vec2};
+    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
     use bevy_transform::prelude::{GlobalTransform, Transform};
-    use bevy_utils::HashMap;
     use bevy_utils::prelude::default;
+    use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowCreated;
@@ -353,12 +353,12 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::ContentSize;
     use crate::layout::round_layout_coords;
     use crate::layout::ui_surface::UiSurface;
     use crate::prelude::*;
     use crate::ui_layout_system;
     use crate::update::update_target_camera_system;
+    use crate::ContentSize;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {

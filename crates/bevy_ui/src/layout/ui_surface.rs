@@ -10,8 +10,8 @@ use bevy_math::UVec2;
 use bevy_utils::default;
 use bevy_utils::tracing::warn;
 
-use crate::{LayoutContext, LayoutError, Style};
 use crate::layout::convert;
+use crate::{LayoutContext, LayoutError, Style};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
