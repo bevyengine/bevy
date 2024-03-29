@@ -32,9 +32,7 @@ struct SoundtrackPlayer {
 
 impl SoundtrackPlayer {
     fn new(track_list: Vec<Handle<AudioSource>>) -> Self {
-        Self {
-            track_list
-        }
+        Self { track_list }
     }
 }
 
@@ -49,7 +47,10 @@ struct FadeOut;
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     // Instantiate the game state resources
     commands.insert_resource(GameState::default());
-    commands.insert_resource(GameStateTimer(Timer::from_seconds(10.0, TimerMode::Repeating)));
+    commands.insert_resource(GameStateTimer(Timer::from_seconds(
+        10.0,
+        TimerMode::Repeating,
+    )));
 
     // Create the track list
     let track_1 = asset_server.load::<AudioSource>("sounds/Mysterious acoustic guitar.ogg");
@@ -58,7 +59,6 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(SoundtrackPlayer::new(track_list));
 }
 
-
 // Every time the GameState resource changes, this system is run to trigger the song change.
 fn change_track(
     mut commands: Commands,
@@ -66,41 +66,41 @@ fn change_track(
     soundtrack: Query<Entity, With<AudioSink>>,
     game_state: Res<GameState>,
 ) {
-    if game_state.is_changed(){
+    if game_state.is_changed() {
         // Fade out all currently running tracks
         for track in soundtrack.iter() {
             commands.entity(track).insert(FadeOut);
         }
 
-        // Spawn a new `AudioBundle` with the appropriate soundtrack based on 
+        // Spawn a new `AudioBundle` with the appropriate soundtrack based on
         // the game state.
         //
         // Volume is set to start at zero and is then increased by the fade_in system.
         match game_state.as_ref() {
             GameState::Peaceful => {
                 commands.spawn((
-                        AudioBundle {
-                            source: soundtrack_player.track_list.get(0).unwrap().clone(),
-                            settings: PlaybackSettings {
-                                mode: bevy::audio::PlaybackMode::Loop,
-                                volume: bevy::audio::Volume::ZERO,
-                                ..default()
-                            }
-                        }, 
-                        FadeIn,
+                    AudioBundle {
+                        source: soundtrack_player.track_list.get(0).unwrap().clone(),
+                        settings: PlaybackSettings {
+                            mode: bevy::audio::PlaybackMode::Loop,
+                            volume: bevy::audio::Volume::ZERO,
+                            ..default()
+                        },
+                    },
+                    FadeIn,
                 ));
             }
             GameState::Battle => {
                 commands.spawn((
-                        AudioBundle {
-                            source: soundtrack_player.track_list.get(1).unwrap().clone(),
-                            settings: PlaybackSettings {
-                                mode: bevy::audio::PlaybackMode::Loop,
-                                volume: bevy::audio::Volume::ZERO,
-                                ..default()
-                            }
-                        }, 
-                        FadeIn,
+                    AudioBundle {
+                        source: soundtrack_player.track_list.get(1).unwrap().clone(),
+                        settings: PlaybackSettings {
+                            mode: bevy::audio::PlaybackMode::Loop,
+                            volume: bevy::audio::Volume::ZERO,
+                            ..default()
+                        },
+                    },
+                    FadeIn,
                 ));
             }
         }
