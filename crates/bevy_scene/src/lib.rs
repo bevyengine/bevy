@@ -75,12 +75,10 @@ fn setup(world: &mut World) {
             let id = world.get::<Handle<DynamicScene>>(entity).unwrap().id();
             if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
                 let mut scene_spawner = world.resource_mut::<SceneSpawner>();
-                scene_spawner
-                    .spawned_dynamic_scenes
-                    .get_mut(&id)
-                    .map(|instance_ids| {
-                        instance_ids.remove(&scene_instance);
-                    });
+                if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
+                    instance_ids.remove(&scene_instance);
+                }
+                scene_spawner.despawn_instance(scene_instance);
             }
         });
 }

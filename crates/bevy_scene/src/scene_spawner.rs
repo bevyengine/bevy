@@ -61,7 +61,7 @@ impl InstanceId {
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
-    spawned_instances: HashMap<InstanceId, InstanceInfo>,
+    pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
