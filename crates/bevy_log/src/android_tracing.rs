@@ -92,8 +92,8 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
+                sanitize(meta.name()).as_ptr(),
                 sanitize(&recorder.0).as_ptr(),
-                sanitize(meta.tag()).as_ptr(),
             );
         }
     }
