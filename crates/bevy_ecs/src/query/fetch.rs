@@ -1809,7 +1809,7 @@ all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
-pub struct NopWorldQuery<D: QueryData>(PhantomData<D>);
+pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.

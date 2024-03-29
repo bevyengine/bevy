@@ -1,8 +1,4 @@
-use accesskit_winit::Adapter;
-use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
-    AccessibilityRequested,
-};
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
 use bevy_ecs::entity::EntityHashMap;
@@ -15,7 +11,7 @@ use winit::{
 };
 
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
+    accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
@@ -212,28 +208,14 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
         let name = window.title.clone();
-
-        let mut root_builder = NodeBuilder::new(Role::Window);
-        root_builder.set_name(name.into_boxed_str());
-        let root = root_builder.build(&mut NodeClassSet::lock_global());
-
-        let accesskit_window_id = NodeId(entity.to_bits());
-        let handler = WinitActionHandler::default();
-        let accessibility_requested = accessibility_requested.clone();
-        let adapter = Adapter::with_action_handler(
+        prepare_accessibility_for_window(
             &winit_window,
-            move || {
-                accessibility_requested.set(true);
-                TreeUpdate {
-                    nodes: vec![(accesskit_window_id, root)],
-                    tree: Some(Tree::new(accesskit_window_id)),
-                    focus: accesskit_window_id,
-                }
-            },
-            Box::new(handler.clone()),
+            entity,
+            name,
+            accessibility_requested.clone(),
+            adapters,
+            handlers,
         );
-        adapters.insert(entity, adapter);
-        handlers.insert(entity, handler);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor.grab_mode != CursorGrabMode::None {
