@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -22,7 +22,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 

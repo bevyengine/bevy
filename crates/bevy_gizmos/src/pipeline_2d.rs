@@ -14,6 +14,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
@@ -24,7 +25,6 @@ use bevy_render::{
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
-use bevy_utils::FloatOrd;
 
 pub struct LineGizmo2dPlugin;
 
@@ -41,7 +41,12 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos2d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(
+                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                    ),
             )
             .add_systems(
                 Render,
