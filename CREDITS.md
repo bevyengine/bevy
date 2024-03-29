@@ -28,7 +28,7 @@
 * FiraMono by The Mozilla Foundation and Telefonica S.A (SIL Open Font License, Version 1.1: assets/fonts/FiraMono-LICENSE)
 * Barycentric from [mk_bary_gltf](https://github.com/komadori/mk_bary_gltf) (MIT OR Apache-2.0)
 * `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
-* Mysterious accoustic guitar music sample from [florianreichelt](https://freesound.org/people/florianreichelt/sounds/412429/) (CC0 license)
+* Mysterious acoustic guitar music sample from [florianreichelt](https://freesound.org/people/florianreichelt/sounds/412429/) (CC0 license)
 * Epic orchestra music sample, modified to loop, from [Migfus20](https://freesound.org/people/Migfus20/sounds/560449/) ([CC BY 4.0 DEED](https://creativecommons.org/licenses/by/4.0/))
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest

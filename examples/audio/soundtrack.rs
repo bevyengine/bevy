@@ -7,7 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (cycle_game_state, fade_in, fade_out))
-        .add_systems(Update, change_track.run_if(resource_changed::<GameState>))
+        .add_systems(Update, change_track)
         .run();
 }
 
@@ -51,7 +51,7 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(GameStateTimer(Timer::from_seconds(10.0, TimerMode::Repeating)));
 
     // Create the track list
-    let track_1 = asset_server.load::<AudioSource>("sounds/Mysterious accoustic guitar.ogg");
+    let track_1 = asset_server.load::<AudioSource>("sounds/Mysterious acoustic guitar.ogg");
     let track_2 = asset_server.load::<AudioSource>("sounds/Epic orchestra music.ogg");
     let track_list = vec![track_1, track_2];
     commands.insert_resource(SoundtrackPlayer::new(track_list));
@@ -61,45 +61,47 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Every time the GameState resource changes, this system is run to trigger the song change.
 fn change_track(
     mut commands: Commands,
-    sountrack_player: Res<SoundtrackPlayer>,
+    soundtrack_player: Res<SoundtrackPlayer>,
     soundtrack: Query<Entity, With<AudioSink>>,
     game_state: Res<GameState>,
 ) {
-    // Fade out all currently running tracks
-    for track in soundtrack.iter() {
-        commands.entity(track).insert(FadeOut);
-    }
-
-    // Spawn a new `AudioBundle` with the appropriate soundtrack based on 
-    // the game state.
-    //
-    // Volume is set to start at zero and is then increased by the fade_in system.
-    match game_state.as_ref() {
-        GameState::Peaceful => {
-            commands.spawn((
-                    AudioBundle {
-                        source: sountrack_player.track_list.get(0).unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        }
-                    }, 
-                    FadeIn,
-            ));
+    if game_state.is_changed(){
+        // Fade out all currently running tracks
+        for track in soundtrack.iter() {
+            commands.entity(track).insert(FadeOut);
         }
-        GameState::Battle => {
-            commands.spawn((
-                    AudioBundle {
-                        source: sountrack_player.track_list.get(1).unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        }
-                    }, 
-                    FadeIn,
-            ));
+
+        // Spawn a new `AudioBundle` with the appropriate soundtrack based on 
+        // the game state.
+        //
+        // Volume is set to start at zero and is then increased by the fade_in system.
+        match game_state.as_ref() {
+            GameState::Peaceful => {
+                commands.spawn((
+                        AudioBundle {
+                            source: soundtrack_player.track_list.get(0).unwrap().clone(),
+                            settings: PlaybackSettings {
+                                mode: bevy::audio::PlaybackMode::Loop,
+                                volume: bevy::audio::Volume::ZERO,
+                                ..default()
+                            }
+                        }, 
+                        FadeIn,
+                ));
+            }
+            GameState::Battle => {
+                commands.spawn((
+                        AudioBundle {
+                            source: soundtrack_player.track_list.get(1).unwrap().clone(),
+                            settings: PlaybackSettings {
+                                mode: bevy::audio::PlaybackMode::Loop,
+                                volume: bevy::audio::Volume::ZERO,
+                                ..default()
+                            }
+                        }, 
+                        FadeIn,
+                ));
+            }
         }
     }
 }
