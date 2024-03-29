@@ -8,6 +8,7 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::Transparent2d,
+    math::FloatOrd,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute},
@@ -16,8 +17,9 @@ use bevy::{
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            PushConstantRange, RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline,
+            SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
@@ -28,7 +30,6 @@ use bevy::{
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
         RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
-    utils::FloatOrd,
 };
 use std::f32::consts::PI;
 
@@ -157,6 +158,18 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(
+            feature = "webgl2",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
@@ -184,7 +197,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ],
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),

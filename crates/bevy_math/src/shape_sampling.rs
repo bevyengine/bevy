@@ -1,6 +1,6 @@
 use std::f32::consts::{PI, TAU};
 
-use crate::{primitives::*, Vec2, Vec3};
+use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
@@ -139,6 +139,79 @@ impl ShapeSample for Cuboid {
         } else {
             Vec3::ZERO
         }
+    }
+}
+
+/// Interior sampling for triangles which doesn't depend on the ambient dimension.
+fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
+    vertices: [P; 3],
+    rng: &mut R,
+) -> P {
+    let [a, b, c] = vertices;
+    let ab = b - a;
+    let ac = c - a;
+
+    // Generate random points on a parallelipiped and reflect so that
+    // we can use the points that lie outside the triangle
+    let u = rng.gen_range(0.0..=1.0);
+    let v = rng.gen_range(0.0..=1.0);
+
+    if u + v > 1. {
+        let u1 = 1. - v;
+        let v1 = 1. - u;
+        a + (ab * u1 + ac * v1)
+    } else {
+        a + (ab * u + ac * v)
+    }
+}
+
+/// Boundary sampling for triangles which doesn't depend on the ambient dimension.
+fn sample_triangle_boundary<P: NormedVectorSpace, R: Rng + ?Sized>(
+    vertices: [P; 3],
+    rng: &mut R,
+) -> P {
+    let [a, b, c] = vertices;
+    let ab = b - a;
+    let ac = c - a;
+    let bc = c - b;
+
+    let t = rng.gen_range(0.0..=1.0);
+
+    if let Ok(dist) = WeightedIndex::new([ab.norm(), ac.norm(), bc.norm()]) {
+        match dist.sample(rng) {
+            0 => a.lerp(b, t),
+            1 => a.lerp(c, t),
+            2 => b.lerp(c, t),
+            _ => unreachable!(),
+        }
+    } else {
+        // This should only occur when the triangle is 0-dimensional degenerate
+        // so this is actually the correct result.
+        a
+    }
+}
+
+impl ShapeSample for Triangle2d {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        sample_triangle_interior(self.vertices, rng)
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        sample_triangle_boundary(self.vertices, rng)
+    }
+}
+
+impl ShapeSample for Triangle3d {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        sample_triangle_interior(self.vertices, rng)
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        sample_triangle_boundary(self.vertices, rng)
     }
 }
 
