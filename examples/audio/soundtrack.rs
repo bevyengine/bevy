@@ -80,7 +80,7 @@ fn change_track(
             GameState::Peaceful => {
                 commands.spawn((
                     AudioBundle {
-                        source: soundtrack_player.track_list.get(0).unwrap().clone(),
+                        source: soundtrack_player.track_list.first().unwrap().clone(),
                         settings: PlaybackSettings {
                             mode: bevy::audio::PlaybackMode::Loop,
                             volume: bevy::audio::Volume::ZERO,
