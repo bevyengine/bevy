@@ -1385,7 +1385,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.soundtrack]
 name = "Soundtrack"
-description = "Shows how to play different soundtracks"
+description = "Shows how to play different soundtracks based on game state"
 category = "Audio"
 wasm = true
 
