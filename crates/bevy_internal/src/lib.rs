@@ -60,11 +60,6 @@ pub mod log {
     pub use bevy_log::*;
 }
 
-pub mod panic_handler {
-    //! Platform-specific panic handlers
-    pub use bevy_panic_handler::*;
-}
-
 pub mod math {
     //! Math types (Vec3, Mat4, Quat, etc) and helpers.
     pub use bevy_math::*;
