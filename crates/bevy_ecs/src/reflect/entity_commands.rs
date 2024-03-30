@@ -54,8 +54,8 @@ pub trait ReflectCommandExt {
     ///     mut prefab: ResMut<Prefab>
     ///     ) {
     ///     // Create a set of new boxed reflect components to use
-    ///     let boxed_reflect_component_a: Box<dyn PartialReflect> = Box::new(ComponentA(916));
-    ///     let boxed_reflect_component_b: Box<dyn PartialReflect>  = Box::new(ComponentB("NineSixteen".to_string()));
+    ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
+    ///     let boxed_reflect_component_b: Box<dyn Reflect>  = Box::new(ComponentB("NineSixteen".to_string()));
     ///
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
     ///     prefab.component = boxed_reflect_component_a;
