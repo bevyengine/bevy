@@ -12,8 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::Duration;
-use bevy_utils::{tracing::info, HashMap};
+use bevy_utils::{Duration, tracing::{info, warn}, HashMap};
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
@@ -166,7 +165,7 @@ pub mod event {
         use bevy_ecs::event::Event;
         use bevy_reflect::Reflect;
 
-        /// A gamepad button input event.
+        /// Gamepad button digital state changed event.
         #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
         #[reflect(Debug, PartialEq)]
         #[cfg_attr(
@@ -174,7 +173,7 @@ pub mod event {
             derive(serde::Serialize, serde::Deserialize),
             reflect(Serialize, Deserialize)
         )]
-        pub struct GamepadButtonInput {
+        pub struct GamepadButtonStateChanged {
             /// The entity that represents this gamepad.
             pub entity: Entity,
             /// The gamepad id of this gamepad.
@@ -185,8 +184,8 @@ pub mod event {
             pub state: ButtonState,
         }
 
-        impl GamepadButtonInput {
-            /// Creates a new [`GamepadButtonInput`]
+        impl GamepadButtonStateChanged {
+            /// Creates a new [`GamepadButtonStateChanged`]
             pub fn new(
                 entity: Entity,
                 gamepad_id: impl AsRef<GamepadId>,
@@ -198,6 +197,46 @@ pub mod event {
                     gamepad_id: *gamepad_id.as_ref(),
                     button,
                     state,
+                }
+            }
+        }
+
+        /// Gamepad analog state changed event
+        #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
+        #[reflect(Debug, PartialEq)]
+        #[cfg_attr(
+        feature = "serialize",
+        derive(serde::Serialize, serde::Deserialize),
+        reflect(Serialize, Deserialize)
+        )]
+        pub struct GamepadButtonChanged {
+            /// The entity that represents this gamepad.
+            pub entity: Entity,
+            /// The gamepad id of this gamepad.
+            pub gamepad_id: GamepadId,
+            /// The gamepad button assigned to the event.
+            pub button: GamepadButtonType,
+            /// The pressed state of the button.
+            pub state: ButtonState,
+            /// The analog value of the button.
+            pub value: f32,
+        }
+
+        impl GamepadButtonChanged {
+            /// Creates a new [`GamepadButtonChanged`]
+            pub fn new(
+                entity: Entity,
+                gamepad_id: impl AsRef<GamepadId>,
+                button: GamepadButtonType,
+                state: ButtonState,
+                value: f32,
+            ) -> Self {
+                Self {
+                    entity,
+                    gamepad_id: *gamepad_id.as_ref(),
+                    button,
+                    state,
+                    value,
                 }
             }
         }
@@ -288,10 +327,6 @@ pub enum ButtonSettingsError {
         release_threshold: f32,
     },
 }
-
-#[cfg(feature = "serialize")]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::tracing::warn;
 
 /// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
 #[derive(Bundle)]
@@ -612,6 +647,11 @@ impl GamepadButtons {
         button_inputs
             .into_iter()
             .all(|button_type| self.just_released(button_type))
+    }
+
+    /// Returns the current state of the button.
+    pub fn pressed_state(&self, button: GamepadButtonType) -> ButtonState {
+        ButtonState::from(self.digital.pressed_state(button))
     }
 }
 
@@ -1374,24 +1414,34 @@ pub fn gamepad_connection_system(
         let id = connection_event.gamepad;
         match &connection_event.connection {
             GamepadConnection::Connected(info) => {
-                let settings = preserved_settings.get(&id).cloned().unwrap_or(GamepadSettings::default());
+                let settings = preserved_settings
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(GamepadSettings::default());
                 let entity = commands
-                    .spawn(MinimalGamepad::new(Gamepad {
-                        id,
-                        info: info.clone(),
-                    }, settings) )
+                    .spawn(MinimalGamepad::new(
+                        Gamepad {
+                            id,
+                            info: info.clone(),
+                        },
+                        settings,
+                    ))
                     .id();
                 gamepads.id_to_entity.insert(id, entity);
                 gamepads.entity_to_id.insert(entity, id);
                 info!("{:?} Connected", id);
             }
             GamepadConnection::Disconnected => {
-                let entity =
-                    gamepads.id_to_entity.get(&id).copied().expect(
-                        "GamepadId should exist in id_to_entity map",
-                    );
+                let entity = gamepads
+                    .id_to_entity
+                    .get(&id)
+                    .copied()
+                    .expect("GamepadId should exist in id_to_entity map");
                 // Preserve settings for reconnection event
-                let settings = gamepads_settings.get(entity).cloned().unwrap_or(GamepadSettings::default());
+                let settings = gamepads_settings
+                    .get(entity)
+                    .cloned()
+                    .unwrap_or(GamepadSettings::default());
                 preserved_settings.insert(id, settings);
                 gamepads.id_to_entity.remove(&id);
                 gamepads.entity_to_id.remove(&entity);
@@ -1453,15 +1503,14 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonInput`] [`event`](Event).
+/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonStateChanged`] [`event`](Event).
 pub fn gamepad_button_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads: Query<(&Gamepad, &mut GamepadButtons, &GamepadSettings)>,
     gamepads_map: Res<EntityGamepadMap>,
     mut raw_events: EventReader<RawGamepadButtonChangedEvent>,
-    // TODO?: This only contains digital data (press state), should we also send analog data?
-    // A different event for analog changes?
-    mut processed_events: EventWriter<GamepadButtonInput>,
+    mut processed_digital_events: EventWriter<GamepadButtonStateChanged>,
+    mut processed_analog_events: EventWriter<GamepadButtonChanged>,
 ) {
     for event in raw_events.read() {
         let button = event.button_type;
@@ -1482,8 +1531,8 @@ pub fn gamepad_button_event_system(
 
         if button_settings.is_released(filtered_value) {
             // Check if button was previously pressed
-            if buttons.digital.pressed(button) {
-                processed_events.send(GamepadButtonInput::new(
+            if buttons.pressed(button) {
+                processed_digital_events.send(GamepadButtonStateChanged::new(
                     entity,
                     gamepad,
                     button,
@@ -1495,8 +1544,8 @@ pub fn gamepad_button_event_system(
             buttons.digital.release(button);
         } else if button_settings.is_pressed(filtered_value) {
             // Check if button was previously not pressed
-            if !buttons.digital.pressed(button) {
-                processed_events.send(GamepadButtonInput::new(
+            if !buttons.pressed(button) {
+                processed_digital_events.send(GamepadButtonStateChanged::new(
                     entity,
                     gamepad,
                     button,
@@ -1505,6 +1554,13 @@ pub fn gamepad_button_event_system(
             }
             buttons.digital.press(button);
         };
+        processed_analog_events.send(GamepadButtonChanged::new(
+            entity,
+            gamepad,
+            button,
+            buttons.pressed_state(button),
+            filtered_value,
+        ));
     }
 }
 

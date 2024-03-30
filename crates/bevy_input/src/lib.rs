@@ -78,7 +78,8 @@ impl Plugin for InputPlugin {
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonInput>()
+            .add_event::<GamepadButtonChanged>()
+            .add_event::<GamepadButtonStateChanged>()
             .add_event::<GamepadAxisInput>()
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
@@ -111,7 +112,7 @@ impl Plugin for InputPlugin {
             .register_type::<TouchpadRotate>()
             .register_type::<TouchInput>()
             .register_type::<RawGamepadEvent>()
-            .register_type::<GamepadButtonInput>()
+            .register_type::<GamepadButtonStateChanged>()
             .register_type::<GamepadSettings>();
     }
 }
@@ -135,5 +136,14 @@ impl ButtonState {
     /// Is this button pressed?
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
+    }
+}
+
+impl From<InputState> for ButtonState {
+    fn from(state: InputState) -> Self {
+        match state {
+            InputState::Pressed => Self::Pressed,
+            InputState::Released => Self::Released,
+        }
     }
 }

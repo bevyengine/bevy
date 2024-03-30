@@ -223,6 +223,22 @@ where
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
+
+    /// Returns the current state of the input.
+    pub fn pressed_state(&self, input: T) -> InputState {
+        if self.pressed(input) {
+            return InputState::Pressed;
+        }
+        InputState::Released
+    }
+}
+
+/// State of the input
+pub enum InputState {
+    /// Input is pressed
+    Pressed,
+    /// Input is released
+    Released,
 }
 
 #[cfg(test)]

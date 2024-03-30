@@ -1,7 +1,7 @@
 //! Iterates and prints gamepad input and connection events.
 
 use bevy::{
-    input::gamepad::event::processed::GamepadButtonInput,
+    input::gamepad::event::processed::GamepadButtonStateChanged,
     input::gamepad::event::raw::{
         GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
         RawGamepadEvent,
@@ -26,7 +26,7 @@ fn gamepad_events(
     // defined by the thresholds in `GamepadSettings::button_settings` and measured by
     // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
     // this event is emitted.
-    mut button_input_events: EventReader<GamepadButtonInput>,
+    mut button_input_events: EventReader<GamepadButtonStateChanged>,
 ) {
     for connection_event in connection_events.read() {
         info!("{:?}", connection_event);
