@@ -24,6 +24,8 @@ use thiserror::Error;
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
+///
+/// This event type is not used by bevy_input.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1497,6 +1499,10 @@ pub fn gamepad_button_event_system(
     mut processed_digital_events: EventWriter<GamepadButtonStateChanged>,
     mut processed_analog_events: EventWriter<GamepadButtonChanged>,
 ) {
+    // Clear digital buttons state
+    for (_, mut gamepad_buttons,_) in gamepads.iter_mut() {
+        gamepad_buttons.bypass_change_detection().digital.clear();
+    }
     for event in raw_events.read() {
         let button = event.button_type;
         let Some(entity) = gamepads_map.id_to_entity.get(&event.gamepad).copied() else {
@@ -1549,8 +1555,8 @@ pub fn gamepad_button_event_system(
     }
 }
 
+/*
 /// Splits the [`RawGamepadEvent`] event stream into it's component events.
-// TODO: This could be moved to gilrs since we already do the match?
 pub fn gamepad_event_system(
     mut gamepads_buttons: Query<&mut GamepadButtons>,
     mut gamepad_events: EventReader<RawGamepadEvent>,
@@ -1575,6 +1581,7 @@ pub fn gamepad_event_system(
         }
     }
 }
+*/
 
 /// An array of every [`GamepadButtonType`] variant.
 pub const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
