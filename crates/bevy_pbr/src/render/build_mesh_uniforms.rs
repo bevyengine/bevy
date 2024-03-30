@@ -232,6 +232,8 @@ pub fn prepare_build_mesh_uniforms_pipeline(
     build_mesh_uniforms_pipeline.pipeline_id = Some(build_mesh_uniforms_pipeline_id);
 }
 
+/// A system that attaches the mesh uniform buffers to the bind group for the
+/// compute shader.
 pub fn prepare_build_mesh_uniforms_bind_group(
     render_device: Res<RenderDevice>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
