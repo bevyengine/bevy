@@ -126,7 +126,7 @@ fn update_accessibility_nodes(
     let Some(adapter) = adapters.get(&primary_window_entity) else {
         return;
     };
-    let Some(primary_window_id) = windows.entity_to_winit.get(&primary_window_entity) else {
+    let Some(&primary_window_id) = windows.entity_to_winit.get(&primary_window_entity) else {
         return;
     };
     if focus.is_changed() || !nodes.is_empty() {
@@ -136,7 +136,7 @@ fn update_accessibility_nodes(
                 nodes,
                 node_entities,
                 primary_window,
-                (*primary_window_id).into(),
+                primary_window_id.into(),
                 focus,
             )
         });
