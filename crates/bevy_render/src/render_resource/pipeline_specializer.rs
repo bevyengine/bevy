@@ -123,7 +123,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             ),
         };
 
-        #[inline(never)]
+        #[cold]
         fn specialize_slow<S>(
             vertex_layout_cache: &mut VertexLayoutCache<S>,
             cache: &PipelineCache,

@@ -7,10 +7,12 @@ use crate::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
-        Transparent3d,
+        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
+        Transmissive3d, Transparent3d,
     },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -541,10 +543,10 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transmissive3d>,
-        &mut RenderPhase<Transparent3d>,
+        &mut BinnedRenderPhase<Opaque3d>,
+        &mut BinnedRenderPhase<AlphaMask3d>,
+        &mut SortedRenderPhase<Transmissive3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -663,10 +665,11 @@ pub fn queue_material_meshes<M: Material>(
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | material.properties.mesh_pipeline_key_bits;
 
-            if render_lightmaps
+            let lightmap_image = render_lightmaps
                 .render_lightmaps
-                .contains_key(visible_entity)
-            {
+                .get(visible_entity)
+                .map(|lightmap| lightmap.image);
+            if lightmap_image.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -706,14 +709,14 @@ pub fn queue_material_meshes<M: Material>(
                             dynamic_offset: None,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        opaque_phase.add(Opaque3d {
-                            entity: *visible_entity,
+                        let bin_key = Opaque3dBinKey {
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                            lightmap_image,
+                        };
+                        opaque_phase.add(bin_key, *visible_entity, mesh_instance.should_batch());
                     }
                 }
                 AlphaMode::Mask(_) => {
@@ -730,14 +733,17 @@ pub fn queue_material_meshes<M: Material>(
                             dynamic_offset: None,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        alpha_mask_phase.add(AlphaMask3d {
-                            entity: *visible_entity,
+                        let bin_key = OpaqueNoLightmap3dBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                        };
+                        alpha_mask_phase.add(
+                            bin_key,
+                            *visible_entity,
+                            mesh_instance.should_batch(),
+                        );
                     }
                 }
                 AlphaMode::Blend
