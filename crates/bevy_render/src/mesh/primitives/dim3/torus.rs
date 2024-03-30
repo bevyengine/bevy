@@ -1,6 +1,6 @@
+use super::super::circle_iterator::*;
 use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
-use super::super::circle_iterator::*;
 
 use crate::{
     mesh::{Indices, Mesh, Meshable},
@@ -80,10 +80,8 @@ impl TorusMeshBuilder {
         let minor_iter = CircleIterator::new(self.minor_resolution, true);
 
         for (segment, theta) in major_iter.enumerate() {
-
             let minor_iter = minor_iter.clone();
             for (side, phi) in minor_iter.enumerate() {
-
                 let position = Vec3::new(
                     theta.x * (self.torus.major_radius + self.torus.minor_radius * phi.x),
                     self.torus.minor_radius * phi.y,

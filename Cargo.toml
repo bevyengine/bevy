@@ -562,6 +562,17 @@ description = "Showcases bounding volumes and intersection tests"
 category = "2D Rendering"
 wasm = true
 
+[[example]]
+name = "wireframe_2d"
+path = "examples/2d/wireframe_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.wireframe_2d]
+name = "2D Wireframe"
+description = "Showcases wireframes for 2d meshes"
+category = "2D Rendering"
+wasm = false
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -1375,6 +1386,17 @@ doc-scrape-examples = true
 [package.metadata.example.decodable]
 name = "Decodable"
 description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "soundtrack"
+path = "examples/audio/soundtrack.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.soundtrack]
+name = "Soundtrack"
+description = "Shows how to play different soundtracks based on game state"
 category = "Audio"
 wasm = true
 

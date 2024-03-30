@@ -1,3 +1,4 @@
+use super::super::circle_iterator::*;
 use crate::{
     mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
@@ -6,7 +7,6 @@ use bevy_math::primitives::Sphere;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
-use super::super::circle_iterator::*;
 
 /// An error when creating an icosphere [`Mesh`] from a [`SphereMeshBuilder`].
 #[derive(Clone, Copy, Debug, Error)]
@@ -189,7 +189,7 @@ impl SphereMeshBuilder {
         let stacks_f32 = stacks as f32;
         let length_inv = 1. / self.sphere.radius;
 
-        let stacks_iter = CircleIterator::new(stacks*2,false).take(stacks);
+        let stacks_iter = CircleIterator::new(stacks * 2, false).take(stacks);
         let sectors_iter = CircleIterator::new(sectors, true);
 
         for (i, stack_pos) in stacks_iter.enumerate() {

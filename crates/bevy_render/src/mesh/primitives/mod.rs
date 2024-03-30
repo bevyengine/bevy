@@ -22,8 +22,8 @@
 mod dim2;
 pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 
-mod dim3;
 mod circle_iterator;
+mod dim3;
 
 pub use dim3::*;
 

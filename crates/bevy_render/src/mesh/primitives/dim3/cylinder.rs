@@ -1,11 +1,11 @@
 use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
+use super::super::circle_iterator::*;
 use crate::{
     mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
 };
-use super::super::circle_iterator::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
 #[derive(Clone, Copy, Debug)]
@@ -87,7 +87,11 @@ impl CylinderMeshBuilder {
             let y = -self.cylinder.half_height + ring as f32 * step_y;
 
             for (segment, point) in ring_iter.clone().enumerate() {
-                positions.push([self.cylinder.radius * point.x, y, self.cylinder.radius * point.y]);
+                positions.push([
+                    self.cylinder.radius * point.x,
+                    y,
+                    self.cylinder.radius * point.y,
+                ]);
                 normals.push([point.x, 0., point.y]);
                 uvs.push([
                     segment as f32 / resolution as f32,
@@ -134,7 +138,11 @@ impl CylinderMeshBuilder {
 
             let cap_iter = CircleIterator::new(resolution as usize, false);
             for point in cap_iter {
-                positions.push([point.x * self.cylinder.radius, y, point.y * self.cylinder.radius]);
+                positions.push([
+                    point.x * self.cylinder.radius,
+                    y,
+                    point.y * self.cylinder.radius,
+                ]);
                 normals.push([0.0, normal_y, 0.0]);
                 uvs.push([0.5 * (point.x + 1.0), 1.0 - 0.5 * (point.y + 1.0)]);
             }

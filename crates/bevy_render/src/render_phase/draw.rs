@@ -39,7 +39,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
@@ -209,6 +209,7 @@ pub trait RenderCommand<P: PhaseItem> {
 }
 
 /// The result of a [`RenderCommand`].
+#[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
     Failure,
@@ -301,7 +302,7 @@ where
 /// Registers a [`RenderCommand`] as a [`Draw`] function.
 /// They are stored inside the [`DrawFunctions`] resource of the app.
 pub trait AddRenderCommand {
-    /// Adds the [`RenderCommand`] for the specified [`RenderPhase`](super::RenderPhase) to the app.
+    /// Adds the [`RenderCommand`] for the specified render phase to the app.
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
