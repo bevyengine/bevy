@@ -162,10 +162,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes camera association to root node
+    /// Shorthand for calling `replace_camera_association(root_node_entity, None)`
     fn mark_root_node_as_orphaned(&mut self, root_node_entity: &Entity) {
         self.replace_camera_association(*root_node_entity, None);
     }
 
+    /// `Some(camera_entity)` - Updates camera association to root node
+    /// `None` - Removes camera association to root node
+    /// Does not check to see if they are the same before performing operations
     fn replace_camera_association(
         &mut self,
         root_node_entity: Entity,
@@ -191,6 +196,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Creates or updates a root node
     fn create_or_update_root_node_data(
         &mut self,
         root_node_entity: &Entity,
@@ -203,7 +209,8 @@ without UI components as a child of an entity with UI components, results may be
         let mut added = false;
 
         // creates mutable borrow on self that lives as long as the result
-        let _ = self.root_node_data
+        let _ = self
+            .root_node_data
             .entry(ui_root_node_entity)
             .or_insert_with(|| {
                 added = true;
@@ -273,7 +280,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    // Compute the layout for each window entity's corresponding root node in the layout.
+    /// Compute the layout for each window entity's corresponding root node in the layout.
     pub fn compute_camera_layout(
         &mut self,
         camera_entity: &Entity,
