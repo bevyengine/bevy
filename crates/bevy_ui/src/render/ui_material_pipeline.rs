@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -22,7 +22,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
@@ -460,7 +460,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -691,6 +691,10 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, material) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match prepare_ui_material(
             &material,
             &render_device,
@@ -753,7 +757,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterials<M>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {

@@ -1,16 +1,21 @@
 use crate::{
-    Alpha, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
+    Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_reflect::prelude::*;
 
 /// Color in LAB color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Laba {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
@@ -23,6 +28,8 @@ pub struct Laba {
 }
 
 impl StandardColor for Laba {}
+
+impl_componentwise_vector_space!(Laba, [lightness, a, b, alpha]);
 
 impl Laba {
     /// Construct a new [`Laba`] color from components.
@@ -107,6 +114,24 @@ impl Alpha for Laba {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl ClampColor for Laba {
+    fn clamped(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.5),
+            a: self.a.clamp(-1.5, 1.5),
+            b: self.b.clamp(-1.5, 1.5),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.5).contains(&self.lightness)
+            && (-1.5..=1.5).contains(&self.a)
+            && (-1.5..=1.5).contains(&self.b)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -352,5 +377,22 @@ mod tests {
             }
             assert_approx_eq!(color.lab.alpha, laba.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Laba::lab(-1., 2., -2.);
+        let color_2 = Laba::lab(1., 1.5, -1.2);
+        let mut color_3 = Laba::lab(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Laba::lab(0., 1.5, -1.5));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Laba::lab(0., 1., 1.));
     }
 }

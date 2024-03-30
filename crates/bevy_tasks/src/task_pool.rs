@@ -334,6 +334,7 @@ impl TaskPool {
         })
     }
 
+    #[allow(unsafe_code)]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,

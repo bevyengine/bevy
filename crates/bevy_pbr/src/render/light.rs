@@ -1,9 +1,11 @@
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
+    diagnostic::RecordDiagnostics,
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
@@ -683,7 +685,7 @@ pub fn prepare_lights(
     mut light_meta: ResMut<LightMeta>,
     views: Query<
         (Entity, &ExtractedView, &ExtractedClusterConfig),
-        With<RenderPhase<Transparent3d>>,
+        With<SortedRenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
@@ -1056,7 +1058,7 @@ pub fn prepare_lights(
                             color_grading: Default::default(),
                         },
                         *frustum,
-                        RenderPhase::<Shadow>::default(),
+                        BinnedRenderPhase::<Shadow>::default(),
                         LightEntity::Point {
                             light_entity,
                             face_index,
@@ -1115,7 +1117,7 @@ pub fn prepare_lights(
                         color_grading: Default::default(),
                     },
                     *spot_light_frustum.unwrap(),
-                    RenderPhase::<Shadow>::default(),
+                    BinnedRenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
                 ))
                 .id();
@@ -1195,7 +1197,7 @@ pub fn prepare_lights(
                             color_grading: Default::default(),
                         },
                         frustum,
-                        RenderPhase::<Shadow>::default(),
+                        BinnedRenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,
                             cascade_index,
@@ -1547,7 +1549,7 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
-    views: Query<(Entity, &ExtractedClustersPointLights), With<RenderPhase<Transparent3d>>>,
+    views: Query<(Entity, &ExtractedClustersPointLights), With<SortedRenderPhase<Transparent3d>>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
@@ -1604,7 +1606,7 @@ pub fn queue_shadows<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut BinnedRenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
@@ -1707,52 +1709,48 @@ pub fn queue_shadows<M: Material>(
                     .material_bind_group_id
                     .set(material.get_bind_group_id());
 
-                shadow_phase.add(Shadow {
-                    draw_function: draw_shadow_mesh,
-                    pipeline: pipeline_id,
+                shadow_phase.add(
+                    ShadowBinKey {
+                        draw_function: draw_shadow_mesh,
+                        pipeline: pipeline_id,
+                        asset_id: mesh_instance.mesh_asset_id,
+                    },
                     entity,
-                    distance: 0.0, // TODO: sort front-to-back
-                    batch_range: 0..1,
-                    dynamic_offset: None,
-                });
+                    mesh_instance.should_batch(),
+                );
             }
         }
     }
 }
 
 pub struct Shadow {
-    pub distance: f32,
-    pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub key: ShadowBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
-impl PhaseItem for Shadow {
-    type SortKey = usize;
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ShadowBinKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
 
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+
+    /// The mesh.
+    pub asset_id: AssetId<Mesh>,
+}
+
+impl PhaseItem for Shadow {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.pipeline.id()
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        // The shadow phase is sorted by pipeline id for performance reasons.
-        // Grouping all draw commands using the same pipeline together performs
-        // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.sort_key());
+        self.key.draw_function
     }
 
     #[inline]
@@ -1776,16 +1774,35 @@ impl PhaseItem for Shadow {
     }
 }
 
+impl BinnedPhaseItem for Shadow {
+    type BinKey = ShadowBinKey;
+
+    #[inline]
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Shadow {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Shadow {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
 pub struct ShadowPassNode {
-    main_view_query: QueryState<&'static ViewLightEntities>,
-    view_light_query: QueryState<(&'static ShadowView, &'static RenderPhase<Shadow>)>,
+    main_view_query: QueryState<Read<ViewLightEntities>>,
+    view_light_query: QueryState<(Read<ShadowView>, Read<BinnedRenderPhase<Shadow>>)>,
 }
 
 impl ShadowPassNode {
@@ -1809,6 +1826,9 @@ impl Node for ShadowPassNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
@@ -1820,6 +1840,7 @@ impl Node for ShadowPassNode {
                 let depth_stencil_attachment =
                     Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
 
+                let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
                     let _shadow_pass_span = info_span!("shadow_pass").entered();
@@ -1836,15 +1857,21 @@ impl Node for ShadowPassNode {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
                     let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+                    let pass_span =
+                        diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
                     shadow_phase.render(&mut render_pass, world, view_light_entity);
 
+                    pass_span.end(&mut render_pass);
                     drop(render_pass);
                     command_encoder.finish()
                 });
             }
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

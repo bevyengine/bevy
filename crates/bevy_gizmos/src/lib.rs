@@ -1,3 +1,9 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -45,7 +51,10 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         aabb::{AabbGizmoConfigGroup, ShowAabbGizmo},
-        config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore},
+        config::{
+            DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
+            GizmoLineJoint, GizmoLineStyle,
+        },
         gizmos::Gizmos,
         light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
@@ -66,6 +75,7 @@ use bevy_ecs::{
         Commands, Res, ResMut, Resource, SystemParamItem,
     },
 };
+use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -84,15 +94,19 @@ use bevy_render::{
 use bevy_utils::TypeIdMap;
 use bytemuck::cast_slice;
 use config::{
-    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoMeshConfig,
+    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
+    GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+///
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -104,6 +118,12 @@ impl Plugin for GizmoPlugin {
         );
 
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            LINE_JOINT_SHADER_HANDLE,
+            "line_joints.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<GizmoConfig>()
             .register_type::<GizmoConfigStore>()
@@ -128,9 +148,17 @@ impl Plugin for GizmoPlugin {
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
+            app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+        }
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
+            app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+        }
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -139,7 +167,7 @@ impl Plugin for GizmoPlugin {
         };
 
         let render_device = render_app.world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(
+        let line_layout = render_device.create_bind_group_layout(
             "LineGizmoUniform layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX,
@@ -147,7 +175,9 @@ impl Plugin for GizmoPlugin {
             ),
         );
 
-        render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
+        render_app.insert_resource(LineGizmoUniformBindgroupLayout {
+            layout: line_layout,
+        });
     }
 }
 
@@ -231,6 +261,7 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage<T>>,
+    config_store: Res<GizmoConfigStore>,
 ) {
     if storage.list_positions.is_empty() {
         handles.list.insert(TypeId::of::<T>(), None);
@@ -253,6 +284,7 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
         }
     }
 
+    let (config, _) = config_store.config::<T>();
     if storage.strip_positions.is_empty() {
         handles.strip.insert(TypeId::of::<T>(), None);
     } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<T>()) {
@@ -261,9 +293,11 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
 
             strip.positions = mem::take(&mut storage.strip_positions);
             strip.colors = mem::take(&mut storage.strip_colors);
+            strip.joints = config.line_joints;
         } else {
             let mut strip = LineGizmo {
                 strip: true,
+                joints: config.line_joints,
                 ..Default::default()
             };
 
@@ -293,10 +327,17 @@ fn extract_gizmo_data(
             continue;
         };
 
+        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
+            resolution
+        } else {
+            0
+        };
+
         commands.spawn((
             LineGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
+                joints_resolution,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -310,17 +351,21 @@ fn extract_gizmo_data(
 struct LineGizmoUniform {
     line_width: f32,
     depth_bias: f32,
+    // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
+    joints_resolution: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: bevy_math::Vec2,
+    _padding: f32,
 }
 
 #[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
-    positions: Vec<[f32; 3]>,
+    positions: Vec<Vec3>,
     colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
     strip: bool,
+    /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
+    joints: GizmoLineJoint,
 }
 
 #[derive(Debug, Clone)]
@@ -329,6 +374,7 @@ struct GpuLineGizmo {
     color_buffer: Buffer,
     vertex_count: u32,
     strip: bool,
+    joints: GizmoLineJoint,
 }
 
 impl RenderAsset for LineGizmo {
@@ -362,6 +408,7 @@ impl RenderAsset for LineGizmo {
             color_buffer,
             vertex_count: self.positions.len() as u32,
             strip: self.strip,
+            joints: self.joints,
         })
     }
 }
@@ -445,15 +492,11 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         }
 
         let instances = if line_gizmo.strip {
-            let item_size = VertexFormat::Float32x3.size();
-            let buffer_size = line_gizmo.position_buffer.size() - item_size;
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
 
-            let item_size = VertexFormat::Float32x4.size();
-            let buffer_size = line_gizmo.color_buffer.size() - item_size;
-            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
+            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..));
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
 
             u32::max(line_gizmo.vertex_count, 1) - 1
         } else {
@@ -464,6 +507,58 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         };
 
         pass.draw(0..6, 0..instances);
+
+        RenderCommandResult::Success
+    }
+}
+
+struct DrawLineJointGizmo;
+impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
+    type Param = SRes<RenderAssets<LineGizmo>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<LineGizmo>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+            return RenderCommandResult::Failure;
+        };
+
+        if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {
+            return RenderCommandResult::Success;
+        };
+
+        if line_gizmo.joints == GizmoLineJoint::None {
+            return RenderCommandResult::Success;
+        };
+
+        let instances = {
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
+            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(..));
+
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
+
+            u32::max(line_gizmo.vertex_count, 2) - 2
+        };
+
+        let vertices = match line_gizmo.joints {
+            GizmoLineJoint::None => unreachable!(),
+            GizmoLineJoint::Miter => 6,
+            GizmoLineJoint::Round(resolution) => resolution * 3,
+            GizmoLineJoint::Bevel => 3,
+        };
+
+        pass.draw(0..vertices, 0..instances);
 
         RenderCommandResult::Success
     }
@@ -496,11 +591,13 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
             position_layout.clone(),
             {
                 position_layout.attributes[0].shader_location = 1;
+                position_layout.attributes[0].offset = Float32x3.size();
                 position_layout
             },
             color_layout.clone(),
             {
                 color_layout.attributes[0].shader_location = 3;
+                color_layout.attributes[0].offset = Float32x4.size();
                 color_layout
             },
         ]
@@ -521,4 +618,42 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
 
         vec![position_layout, color_layout]
     }
+}
+
+fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
+    use VertexFormat::*;
+    let mut position_layout = VertexBufferLayout {
+        array_stride: Float32x3.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x3,
+            offset: 0,
+            shader_location: 0,
+        }],
+    };
+
+    let color_layout = VertexBufferLayout {
+        array_stride: Float32x4.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x4,
+            offset: Float32x4.size(),
+            shader_location: 3,
+        }],
+    };
+
+    vec![
+        position_layout.clone(),
+        {
+            position_layout.attributes[0].shader_location = 1;
+            position_layout.attributes[0].offset = Float32x3.size();
+            position_layout.clone()
+        },
+        {
+            position_layout.attributes[0].shader_location = 2;
+            position_layout.attributes[0].offset = 2 * Float32x3.size();
+            position_layout
+        },
+        color_layout.clone(),
+    ]
 }

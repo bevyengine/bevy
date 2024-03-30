@@ -23,7 +23,7 @@ use thiserror::Error;
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
@@ -1424,6 +1424,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
+    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.
@@ -1590,7 +1591,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1616,7 +1617,7 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1796,7 +1797,7 @@ pub struct CalculatedClip {
 /// `ZIndex::Local(n)` and `ZIndex::Global(n)` for root nodes.
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
@@ -1809,6 +1810,268 @@ pub enum ZIndex {
 impl Default for ZIndex {
     fn default() -> Self {
         Self::Local(0)
+    }
+}
+
+/// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
+/// rounded corners or specify different radii for each corner. If a given radius exceeds half
+/// the length of the smallest dimension between the node's height or width, the radius will
+/// calculated as half the smallest dimension.
+///
+/// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
+/// dimension, either width or height.
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_color::palettes::basic::{BLUE};
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 border: UiRect::all(Val::Px(2.)),
+///                 ..Default::default()
+///             },
+///             background_color: BLUE.into(),
+///             border_radius: BorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
+///             ..Default::default()
+///         },
+///     ));
+/// }
+/// ```
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BorderRadius {
+    pub top_left: Val,
+    pub top_right: Val,
+    pub bottom_left: Val,
+    pub bottom_right: Val,
+}
+
+impl Default for BorderRadius {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl BorderRadius {
+    pub const DEFAULT: Self = Self::ZERO;
+
+    /// Zero curvature. All the corners will be right-angled.
+    pub const ZERO: Self = Self::all(Val::Px(0.));
+
+    /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
+    pub const MAX: Self = Self::all(Val::Px(f32::MAX));
+
+    #[inline]
+    /// Set all four corners to the same curvature.
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
+        }
+    }
+
+    #[inline]
+    pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to logical pixel values.
+    pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to percentage values.
+    pub const fn percent(
+        top_left: f32,
+        top_right: f32,
+        bottom_right: f32,
+        bottom_left: f32,
+    ) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
+    pub const fn top_left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top right corner.
+    /// Remaining corners will be right-angled.
+    pub const fn top_right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom right corner.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom_right(radius: Val) -> Self {
+        Self {
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom left corner.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom_left(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and bottom left corners.
+    /// Remaining corners will be right-angled.
+    pub const fn left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            bottom_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top right and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and top right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn top(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the bottom left and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
+    #[inline]
+    pub const fn with_top_left(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
+    #[inline]
+    pub const fn with_top_right(mut self, radius: Val) -> Self {
+        self.top_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
+    #[inline]
+    pub const fn with_bottom_right(mut self, radius: Val) -> Self {
+        self.bottom_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
+    #[inline]
+    pub const fn with_bottom_left(mut self, radius: Val) -> Self {
+        self.bottom_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
+    #[inline]
+    pub const fn with_left(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self.bottom_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
+    #[inline]
+    pub const fn with_right(mut self, radius: Val) -> Self {
+        self.top_right = radius;
+        self.bottom_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
+    #[inline]
+    pub const fn with_top(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self.top_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
+    #[inline]
+    pub const fn with_bottom(mut self, radius: Val) -> Self {
+        self.bottom_left = radius;
+        self.bottom_right = radius;
+        self
     }
 }
 

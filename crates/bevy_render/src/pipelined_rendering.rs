@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, Main, Plugin, SubApp};
+use bevy_app::{App, AppExit, AppLabel, Main, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
     system::Resource,
@@ -45,10 +45,11 @@ impl RenderAppChannels {
     }
 
     /// Receive the `render_app` from the rendering thread.
-    pub async fn recv(&mut self) -> SubApp {
-        let render_app = self.render_to_app_receiver.recv().await.unwrap();
+    /// Return `None` if the render thread has panicked.
+    pub async fn recv(&mut self) -> Option<SubApp> {
+        let render_app = self.render_to_app_receiver.recv().await.ok()?;
         self.render_app_in_render_thread = false;
-        render_app
+        Some(render_app)
     }
 }
 
@@ -180,16 +181,20 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
         world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
-            let mut render_app = ComputeTaskPool::get()
+            if let Some(mut render_app) = ComputeTaskPool::get()
                 .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
                     s.spawn(async { render_channels.recv().await });
                 })
                 .pop()
-                .unwrap();
+                .unwrap()
+            {
+                render_app.extract(world);
 
-            render_app.extract(world);
-
-            render_channels.send_blocking(render_app);
+                render_channels.send_blocking(render_app);
+            } else {
+                // Renderer thread panicked
+                world.send_event(AppExit);
+            }
         });
     });
 }

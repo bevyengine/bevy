@@ -1,3 +1,9 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,

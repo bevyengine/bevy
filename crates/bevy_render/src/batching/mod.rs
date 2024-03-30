@@ -5,9 +5,13 @@ use bevy_ecs::{
     system::{Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use nonmax::NonMaxU32;
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, RenderPhase},
+    render_phase::{
+        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
+        DrawFunctionId, SortedPhaseItem, SortedRenderPhase,
+    },
     render_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
 };
@@ -56,6 +60,8 @@ impl<T: PartialEq> BatchMeta<T> {
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
 pub trait GetBatchData {
+    /// The system parameters [`GetBatchData::get_batch_data`] needs in
+    /// order to compute the batch data.
     type Param: SystemParam + 'static;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
@@ -74,13 +80,35 @@ pub trait GetBatchData {
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
-/// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
-/// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+/// When implemented on a pipeline, this trait allows the batching logic to
+/// compute the per-batch data that will be uploaded to the GPU.
+///
+/// This includes things like the mesh transforms.
+pub trait GetBinnedBatchData {
+    /// The system parameters [`GetBinnedBatchData::get_batch_data`] needs
+    /// in order to compute the batch data.
+    type Param: SystemParam + 'static;
+    /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
+    /// containing these data for all instances.
+    type BufferData: GpuArrayBufferable + Sync + Send + 'static;
+
+    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
+    fn get_batch_data(
+        param: &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData>;
+}
+
+/// Batch the items in a sorted render phase. This means comparing metadata
+/// needed to draw each phase item and trying to combine the draws into a batch.
+pub fn batch_and_prepare_sorted_render_phase<I, F>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
-    mut views: Query<&mut RenderPhase<I>>,
+    mut views: Query<&mut SortedRenderPhase<I>>,
     param: StaticSystemParam<F::Param>,
-) {
+) where
+    I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
+    F: GetBatchData,
+{
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
@@ -112,6 +140,80 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
                 (range, batch_meta)
             }
         });
+    }
+}
+
+/// Sorts a render phase that uses bins.
+pub fn sort_binned_render_phase<BPI>(mut views: Query<&mut BinnedRenderPhase<BPI>>)
+where
+    BPI: BinnedPhaseItem,
+{
+    for mut phase in &mut views {
+        phase.batchable_keys.sort_unstable();
+        phase.unbatchable_keys.sort_unstable();
+    }
+}
+
+/// Creates batches for a render phase that uses bins.
+pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
+    gpu_array_buffer: ResMut<GpuArrayBuffer<GBBD::BufferData>>,
+    mut views: Query<&mut BinnedRenderPhase<BPI>>,
+    param: StaticSystemParam<GBBD::Param>,
+) where
+    BPI: BinnedPhaseItem,
+    GBBD: GetBinnedBatchData,
+{
+    let gpu_array_buffer = gpu_array_buffer.into_inner();
+    let system_param_item = param.into_inner();
+
+    for mut phase in &mut views {
+        let phase = &mut *phase; // Borrow checker.
+
+        // Prepare batchables.
+
+        for key in &phase.batchable_keys {
+            let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
+            for &entity in &phase.batchable_values[key] {
+                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
+                    continue;
+                };
+
+                let instance = gpu_array_buffer.push(buffer_data);
+
+                // If the dynamic offset has changed, flush the batch.
+                //
+                // This is the only time we ever have more than one batch per
+                // bin. Note that dynamic offsets are only used on platforms
+                // with no storage buffers.
+                if !batch_set.last().is_some_and(|batch| {
+                    batch.instance_range.end == instance.index
+                        && batch.dynamic_offset == instance.dynamic_offset
+                }) {
+                    batch_set.push(BinnedRenderPhaseBatch {
+                        representative_entity: entity,
+                        instance_range: instance.index..instance.index,
+                        dynamic_offset: instance.dynamic_offset,
+                    });
+                }
+
+                if let Some(batch) = batch_set.last_mut() {
+                    batch.instance_range.end = instance.index + 1;
+                }
+            }
+
+            phase.batch_sets.push(batch_set);
+        }
+
+        // Prepare unbatchables.
+        for key in &phase.unbatchable_keys {
+            let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
+            for &entity in &unbatchables.entities {
+                if let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) {
+                    let instance = gpu_array_buffer.push(buffer_data);
+                    unbatchables.buffer_indices.add(instance);
+                }
+            }
+        }
     }
 }
 

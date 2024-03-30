@@ -1,3 +1,10 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Provides scene definition, instantiation and serialization/deserialization.
 //!
 //! Scenes are collections of entities and their associated components that can be
