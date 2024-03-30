@@ -440,17 +440,14 @@ pub fn scene_spawner_system(world: &mut World) {
 mod tests {
     use bevy_app::App;
     use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::component::Component;
-    use bevy_ecs::entity::Entity;
     use bevy_ecs::event::EventReader;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::query::With;
-    use bevy_ecs::reflect::AppTypeRegistry;
     use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
-    use bevy_ecs::world::World;
+    use bevy_ecs::{component::Component, system::Query};
     use bevy_reflect::Reflect;
 
-    use crate::{DynamicScene, DynamicSceneBuilder, SceneInstanceReady, ScenePlugin, SceneSpawner};
+    use crate::{DynamicSceneBuilder, ScenePlugin};
 
     use super::*;
 
@@ -550,5 +547,48 @@ mod tests {
                 assert!(events.next().is_none(), "found more than one event");
             },
         );
+    }
+
+    #[test]
+    fn despawn_scene() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), ScenePlugin));
+        app.register_type::<ComponentA>();
+
+        let asset_server = app.world.resource::<AssetServer>();
+
+        // Build scene.
+        let scene = asset_server.add(DynamicScene::default());
+        let count = 10;
+
+        // Checks the number of scene instances stored in `SceneSpawner`.
+        let check = |world: &mut World, expected_count: usize| {
+            let scene_spawner = world.resource::<SceneSpawner>();
+            assert_eq!(
+                scene_spawner.spawned_dynamic_scenes[&scene.id()].len(),
+                expected_count
+            );
+            assert_eq!(scene_spawner.spawned_instances.len(), expected_count);
+        };
+
+        // Spawn scene.
+        for _ in 0..count {
+            app.world.spawn((ComponentA, scene.clone()));
+        }
+
+        app.update();
+        check(&mut app.world, count);
+
+        // Despawn scene.
+        app.world.run_system_once(
+            |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                for entity in query.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+            },
+        );
+
+        app.update();
+        check(&mut app.world, 0);
     }
 }
