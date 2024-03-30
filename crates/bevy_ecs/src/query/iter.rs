@@ -743,10 +743,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         let ids = self.storage_id_iter.clone();
         let remaining_matched: usize = if Self::IS_DENSE {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
-            unsafe { ids.map(|id| tables.get(id.table_id).debug_checked_unwrap().entity_count()).sum() }
+            unsafe {
+                ids.map(|id| {
+                    tables
+                        .get(id.table_id)
+                        .debug_checked_unwrap()
+                        .entity_count()
+                })
+                .sum()
+            }
         } else {
             // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
-            unsafe { ids.map(|id| archetypes.get(id.archetype_id).debug_checked_unwrap().len()).sum() }
+            unsafe {
+                ids.map(|id| archetypes.get(id.archetype_id).debug_checked_unwrap().len())
+                    .sum()
+            }
         };
         remaining_matched + self.current_len - self.current_row
     }

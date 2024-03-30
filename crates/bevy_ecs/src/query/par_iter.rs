@@ -168,7 +168,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             id_iter
                 // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                .map(|id| unsafe { tables.get(id.table_id).debug_checked_unwrap().entity_count() })
+                .map(|id| unsafe {
+                    tables
+                        .get(id.table_id)
+                        .debug_checked_unwrap()
+                        .entity_count()
+                })
                 .max()
         } else {
             let archetypes = &self.world.archetypes();
