@@ -33,9 +33,6 @@ pub struct RootNodeData {
     pub(super) camera_entity: Option<Entity>,
     // The implicit "viewport" node created by Bevy
     pub(super) implicit_viewport_node: taffy::node::Node,
-    #[deprecated]
-    // The root (parentless) node specified by the user
-    pub(super) user_root_node: taffy::node::Node,
 }
 
 #[derive(Resource)]
@@ -153,8 +150,9 @@ impl UiSurface {
                 .remove(root_node_data.implicit_viewport_node)
                 .unwrap();
             let parent_taffy = self.entity_to_taffy.get(parent_entity).unwrap();
+            let child_taffy = self.entity_to_taffy.get(target_entity).unwrap();
             self.taffy
-                .add_child(*parent_taffy, root_node_data.user_root_node)
+                .add_child(*parent_taffy, *child_taffy)
                 .unwrap();
         }
     }
@@ -171,7 +169,6 @@ impl UiSurface {
                 RootNodeData {
                     camera_entity: None,
                     implicit_viewport_node,
-                    user_root_node,
                 }
             });
     }
@@ -262,7 +259,6 @@ without UI components as a child of an entity with UI components, results may be
                 RootNodeData {
                     camera_entity: Some(camera_entity),
                     implicit_viewport_node,
-                    user_root_node,
                 }
             });
 
@@ -313,16 +309,17 @@ without UI components as a child of an entity with UI components, results may be
 
             // fix taffy relationships
             {
-                if let Some(parent) = self.taffy.parent(root_node_data.user_root_node) {
+                let taffy_node = *self.entity_to_taffy.get(&ui_entity).unwrap();
+                if let Some(parent) = self.taffy.parent(taffy_node) {
                     self.taffy
-                        .remove_child(parent, root_node_data.user_root_node)
+                        .remove_child(parent, taffy_node)
                         .unwrap();
                 }
 
                 self.taffy
                     .add_child(
                         root_node_data.implicit_viewport_node,
-                        root_node_data.user_root_node,
+                        taffy_node,
                     )
                     .unwrap();
             }
@@ -446,14 +443,19 @@ mod tests {
         max_size: 1.0,
     };
 
-    trait IsRootNodeDataValid {
-        fn is_root_node_data_valid(&self, root_node_data: &RootNodeData) -> bool;
+    trait HasValidRootNodeData {
+        fn has_valid_root_node_data(&self, root_node_entity: &Entity) -> bool;
     }
 
-    impl IsRootNodeDataValid for Taffy {
-        fn is_root_node_data_valid(&self, root_node_data: &RootNodeData) -> bool {
-            self.parent(root_node_data.user_root_node)
-                == Some(root_node_data.implicit_viewport_node)
+    impl HasValidRootNodeData for UiSurface {
+        fn has_valid_root_node_data(&self, root_node_entity: &Entity) -> bool {
+            let Some(&taffy_node) = self.entity_to_taffy.get(root_node_entity) else {
+                return false;
+            };
+            let Some(root_node_data) = self.root_node_data.get(root_node_entity) else {
+                return false;
+            };
+            self.taffy.parent(taffy_node) == Some(root_node_data.implicit_viewport_node)
         }
     }
 
@@ -484,10 +486,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should now exist
-        let root_node_data = ui_surface
-            .get_root_node_data(root_node_entity)
-            .expect("expected root node data");
-        assert!(ui_surface.taffy.is_root_node_data_valid(root_node_data));
+        assert!(ui_surface.has_valid_root_node_data(&root_node_entity));
 
         // test duplicate insert 2
         ui_surface.upsert_node(root_node_entity, &style, &DUMMY_LAYOUT_CONTEXT);
@@ -496,10 +495,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should be unaffected
-        let root_node_data = ui_surface
-            .get_root_node_data(root_node_entity)
-            .expect("expected root node data");
-        assert!(ui_surface.taffy.is_root_node_data_valid(root_node_data));
+        assert!(ui_surface.has_valid_root_node_data(&root_node_entity));
     }
 
     #[test]
