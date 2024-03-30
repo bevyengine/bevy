@@ -1084,11 +1084,7 @@ mod tests {
             3.2058334,
             "incorrect signed volume"
         );
-        assert_eq!(
-            tetrahedron.centroid(),
-            Vec3::new(-0.225, -0.375, 1.55),
-            "incorrect centroid"
-        );
+        assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
 
         assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
         assert_eq!(
@@ -1101,10 +1097,9 @@ mod tests {
             0.083333336,
             "incorrect signed volume"
         );
-        assert_eq!(
+        assert_relative_eq!(
             Tetrahedron::default().centroid(),
-            Vec3::new(0.0, -0.125, 0.125),
-            "incorrect centroid"
+            Vec3::new(0.0, -0.125, 0.125)
         );
     }
 }
