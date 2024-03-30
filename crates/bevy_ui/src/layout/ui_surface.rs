@@ -358,9 +358,11 @@ without UI components as a child of an entity with UI components, results may be
                 height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
             };
 
-            let Some(root_node_data) = self.root_node_data.get(&root_node_entity) else {
-                continue;
-            };
+            let root_node_data = self
+                .root_node_data
+                .get(&root_node_entity)
+                .expect("root_node_data missing");
+
             if root_node_data.camera_entity.is_none() {
                 panic!("internal map out of sync");
             }
