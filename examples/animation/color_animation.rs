@@ -1,10 +1,10 @@
 //! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
-use bevy::{math::cubic_splines::Point, prelude::*};
+use bevy::{math::VectorSpace, prelude::*};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
-trait CurveColor: Point + Into<Color> + Send + Sync + 'static {}
-impl<T: Point + Into<Color> + Send + Sync + 'static> CurveColor for T {}
+trait CurveColor: VectorSpace + Into<Color> + Send + Sync + 'static {}
+impl<T: VectorSpace + Into<Color> + Send + Sync + 'static> CurveColor for T {}
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
 trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
