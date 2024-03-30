@@ -129,12 +129,10 @@ impl UiSurface {
     }
 
     pub(super) fn demote_ui_node(&mut self, target_entity: &Entity, parent_entity: &Entity) {
-        if let Some(mut root_node_data) = self.root_node_data.remove(target_entity) {
-            if let Some(camera_entity) = root_node_data.camera_entity.take() {
-                if let Some(ui_set) = self.camera_root_nodes.get_mut(&camera_entity) {
-                    ui_set.remove(target_entity);
-                }
-            }
+        // remove camera association
+        self.mark_root_node_as_orphaned(target_entity);
+
+        if let Some(root_node_data) = self.root_node_data.remove(target_entity) {
             self.taffy
                 .remove(root_node_data.implicit_viewport_node)
                 .unwrap();
@@ -206,12 +204,30 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     fn mark_root_node_as_orphaned(&mut self, root_node_entity: &Entity) {
-        if let Some(root_node_data) = self.root_node_data.get_mut(root_node_entity) {
-            // mark it as orphaned
+        self.replace_camera_association(*root_node_entity, None);
+    }
+
+    fn replace_camera_association(
+        &mut self,
+        root_node_entity: Entity,
+        new_camera_entity_option: Option<Entity>,
+    ) {
+        if let Some(root_node_data) = self.root_node_data.get_mut(&root_node_entity) {
+            // Clear existing camera association, if any
             if let Some(old_camera_entity) = root_node_data.camera_entity.take() {
-                if let Some(root_nodes) = self.camera_root_nodes.get_mut(&old_camera_entity) {
-                    root_nodes.remove(root_node_entity);
+                let prev_camera_root_nodes = self.camera_root_nodes.get_mut(&old_camera_entity);
+                if let Some(prev_camera_root_nodes) = prev_camera_root_nodes {
+                    prev_camera_root_nodes.remove(&root_node_entity);
                 }
+            }
+
+            // Establish new camera association, if provided
+            if let Some(camera_entity) = new_camera_entity_option {
+                root_node_data.camera_entity.replace(camera_entity);
+                self.camera_root_nodes
+                    .entry(camera_entity)
+                    .or_default()
+                    .insert(root_node_entity);
             }
         }
     }
@@ -226,8 +242,9 @@ without UI components as a child of an entity with UI components, results may be
         let camera_entity = *camera_entity;
 
         let mut added = false;
-        let root_node_data = self
-            .root_node_data
+
+        // creates mutable borrow on self that lives as long as the result
+        let _ = self.root_node_data
             .entry(ui_root_node_entity)
             .or_insert_with(|| {
                 added = true;
@@ -250,25 +267,12 @@ without UI components as a child of an entity with UI components, results may be
             });
 
         if !added {
-            let option_old_camera_entity = root_node_data.camera_entity.replace(camera_entity);
-            // if we didn't insert, lets check to make the camera reference is the same
-            if Some(camera_entity) != option_old_camera_entity {
-                if let Some(old_camera_entity) = option_old_camera_entity {
-                    // camera reference is not the same so remove it from the old set
-                    if let Some(root_node_set) = self.camera_root_nodes.get_mut(&old_camera_entity)
-                    {
-                        root_node_set.remove(&ui_root_node_entity);
-                    }
-                }
-
-                self.camera_root_nodes
-                    .entry(camera_entity)
-                    .or_default()
-                    .insert(ui_root_node_entity);
-            }
+            self.replace_camera_association(ui_root_node_entity, Some(camera_entity));
         }
 
-        root_node_data
+        self.root_node_data
+            .get_mut(root_node_entity)
+            .unwrap_or_else(|| unreachable!("impossible"))
     }
 
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
@@ -281,18 +285,14 @@ without UI components as a child of an entity with UI components, results may be
         let mut removed_children = removed_children.clone();
 
         for ui_entity in children {
-            let root_node_data = self.create_or_update_root_node_data(&ui_entity, &camera_entity);
-
-            if let Some(old_camera) = root_node_data.camera_entity.replace(camera_entity) {
-                if old_camera != camera_entity {
-                    if let Some(old_siblings_set) = self.camera_root_nodes.get_mut(&old_camera) {
-                        old_siblings_set.remove(&ui_entity);
-                    }
-                }
-            }
-            let Some(root_node_data) = self.root_node_data.get_mut(&ui_entity) else {
-                unreachable!("impossible since root_node_data was created in create_or_update_root_node_data");
-            };
+            // creates mutable borrow on self that lives as long as the result
+            let _ = self.create_or_update_root_node_data(&ui_entity, &camera_entity);
+            
+            // drop the mutable borrow on self by re-fetching
+            let root_node_data = self
+                .root_node_data
+                .get(&ui_entity)
+                .unwrap_or_else(|| unreachable!("impossible"));
 
             // fix taffy relationships
             {
@@ -305,11 +305,6 @@ without UI components as a child of an entity with UI components, results may be
                     .add_child(root_node_data.implicit_viewport_node, taffy_node)
                     .unwrap();
             }
-
-            self.camera_root_nodes
-                .entry(camera_entity)
-                .or_default()
-                .insert(ui_entity);
 
             removed_children.remove(&ui_entity);
         }
