@@ -73,6 +73,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_ui?/serialize",
+  "bevy_color?/serialize",
 ]
 multi-threaded = [
   "bevy_asset?/multi-threaded",
@@ -158,6 +159,12 @@ bevy_debug_stepping = [
   "bevy_app/bevy_debug_stepping",
 ]
 
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["bevy_pbr?/meshlet"]
+
+# Enables processing meshes into meshlet meshes for bevy_pbr
+meshlet_processor = ["bevy_pbr?/meshlet_processor"]
+
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
@@ -175,7 +182,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
-bevy_panic_handler = { path = "../bevy_panic_handler", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [

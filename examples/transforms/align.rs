@@ -54,6 +54,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin

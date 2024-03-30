@@ -1424,6 +1424,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
+    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.

@@ -4,7 +4,6 @@ use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
-use bevy_utils::FloatOrd;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {

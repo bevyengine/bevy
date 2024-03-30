@@ -1,17 +1,21 @@
 use crate::{
-    impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix,
-    Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
+    Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// Color in LAB color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Laba {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
@@ -25,7 +29,7 @@ pub struct Laba {
 
 impl StandardColor for Laba {}
 
-impl_componentwise_point!(Laba, [lightness, a, b, alpha]);
+impl_componentwise_vector_space!(Laba, [lightness, a, b, alpha]);
 
 impl Laba {
     /// Construct a new [`Laba`] color from components.
