@@ -5,6 +5,7 @@ use crate::{
     mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
 };
+use super::super::circle_iterator::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
 #[derive(Clone, Copy, Debug)]
@@ -81,23 +82,19 @@ impl CylinderMeshBuilder {
         let step_y = 2.0 * self.cylinder.half_height / segments as f32;
 
         // rings
-
+        let ring_iter = CircleIterator::new(resolution as usize, true);
         for ring in 0..num_rings {
             let y = -self.cylinder.half_height + ring as f32 * step_y;
 
-            for segment in 0..=resolution {
-                let theta = segment as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([self.cylinder.radius * cos, y, self.cylinder.radius * sin]);
-                normals.push([cos, 0., sin]);
+            for (segment, point) in ring_iter.clone().enumerate() {
+                positions.push([self.cylinder.radius * point.x, y, self.cylinder.radius * point.y]);
+                normals.push([point.x, 0., point.y]);
                 uvs.push([
                     segment as f32 / resolution as f32,
                     ring as f32 / segments as f32,
                 ]);
             }
         }
-
         // barrel skin
 
         for i in 0..segments {
@@ -133,6 +130,13 @@ impl CylinderMeshBuilder {
                 positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
                 normals.push([0.0, normal_y, 0.0]);
                 uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+            }
+
+            let cap_iter = CircleIterator::new(resolution as usize, false);
+            for point in cap_iter {
+                positions.push([point.x * self.cylinder.radius, y, point.y * self.cylinder.radius]);
+                normals.push([0.0, normal_y, 0.0]);
+                uvs.push([0.5 * (point.x + 1.0), 1.0 - 0.5 * (point.y + 1.0)]);
             }
 
             for i in 1..(self.resolution - 1) {

@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use crate::{
     mesh::{Indices, Mesh, Meshable},
     render_asset::RenderAssetUsages,
@@ -8,6 +6,7 @@ use bevy_math::primitives::Sphere;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
+use super::super::circle_iterator::*;
 
 /// An error when creating an icosphere [`Mesh`] from a [`SphereMeshBuilder`].
 #[derive(Clone, Copy, Debug, Error)]
@@ -181,27 +180,25 @@ impl SphereMeshBuilder {
     /// A good default is `32` sectors and `18` stacks.
     pub fn uv(&self, sectors: usize, stacks: usize) -> Mesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
-
-        let sectors_f32 = sectors as f32;
-        let stacks_f32 = stacks as f32;
-        let length_inv = 1. / self.sphere.radius;
-        let sector_step = 2. * PI / sectors_f32;
-        let stack_step = PI / stacks_f32;
-
         let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(stacks * sectors);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(stacks * sectors);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(stacks * sectors);
         let mut indices: Vec<u32> = Vec::with_capacity(stacks * sectors * 2 * 3);
 
-        for i in 0..stacks + 1 {
-            let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = self.sphere.radius * stack_angle.cos();
-            let z = self.sphere.radius * stack_angle.sin();
+        let sectors_f32 = sectors as f32;
+        let stacks_f32 = stacks as f32;
+        let length_inv = 1. / self.sphere.radius;
 
-            for j in 0..sectors + 1 {
-                let sector_angle = (j as f32) * sector_step;
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
+        let stacks_iter = CircleIterator::new(stacks*2,false).take(stacks);
+        let sectors_iter = CircleIterator::new(sectors, true);
+
+        for (i, stack_pos) in stacks_iter.enumerate() {
+            //sin/cos results flipped around to properly orient stack position
+            let xy = self.sphere.radius * stack_pos.y;
+            let z = self.sphere.radius * stack_pos.x;
+            for (j, sector_pos) in sectors_iter.clone().enumerate() {
+                let x = xy * sector_pos.x;
+                let y = xy * sector_pos.y;
 
                 vertices.push([x, y, z]);
                 normals.push([x * length_inv, y * length_inv, z * length_inv]);

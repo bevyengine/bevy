@@ -23,6 +23,8 @@ mod dim2;
 pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 
 mod dim3;
+mod circle_iterator;
+
 pub use dim3::*;
 
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
