@@ -291,8 +291,8 @@ pub fn handle_input_stream(
     if let Some(stream) = stream {
         for event in stream.iter() {
             let new_buffer = Vec::with_capacity(event.samples.len());
-            if let Err(_) = stream.sender.try_send(new_buffer) {
-                warn!("Audio Input Error: Could not provide Sample Buffer")
+            if stream.sender.try_send(new_buffer).is_err() {
+                warn!("Audio Input Error: Could not provide Sample Buffer");
             }
             writer.send(event);
         }
