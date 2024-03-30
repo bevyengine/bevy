@@ -78,12 +78,7 @@ impl Default for UiSurface {
 impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
     /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
-    pub fn upsert_node(
-        &mut self,
-        ui_node_entity: Entity,
-        style: &Style,
-        context: &LayoutContext,
-    ) {
+    pub fn upsert_node(&mut self, ui_node_entity: Entity, style: &Style, context: &LayoutContext) {
         let mut added = false;
         let taffy_node = *self
             .entity_to_taffy
@@ -121,9 +116,7 @@ impl UiSurface {
                     root_node_entities.remove(root_node_entity);
                 }
             }
-            self.taffy
-                .remove(removed.implicit_viewport_node)
-                .unwrap();
+            self.taffy.remove(removed.implicit_viewport_node).unwrap();
         }
     }
 
@@ -151,9 +144,7 @@ impl UiSurface {
                 .unwrap();
             let parent_taffy = self.entity_to_taffy.get(parent_entity).unwrap();
             let child_taffy = self.entity_to_taffy.get(target_entity).unwrap();
-            self.taffy
-                .add_child(*parent_taffy, *child_taffy)
-                .unwrap();
+            self.taffy.add_child(*parent_taffy, *child_taffy).unwrap();
         }
     }
 
@@ -311,16 +302,11 @@ without UI components as a child of an entity with UI components, results may be
             {
                 let taffy_node = *self.entity_to_taffy.get(&ui_entity).unwrap();
                 if let Some(parent) = self.taffy.parent(taffy_node) {
-                    self.taffy
-                        .remove_child(parent, taffy_node)
-                        .unwrap();
+                    self.taffy.remove_child(parent, taffy_node).unwrap();
                 }
 
                 self.taffy
-                    .add_child(
-                        root_node_data.implicit_viewport_node,
-                        taffy_node,
-                    )
+                    .add_child(root_node_data.implicit_viewport_node, taffy_node)
                     .unwrap();
             }
 
@@ -367,10 +353,7 @@ without UI components as a child of an entity with UI components, results may be
             }
 
             self.taffy
-                .compute_layout(
-                    root_node_data.implicit_viewport_node,
-                    available_space,
-                )
+                .compute_layout(root_node_data.implicit_viewport_node, available_space)
                 .unwrap();
         }
     }
@@ -510,12 +493,8 @@ mod tests {
         // assign root node to camera
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
 
-        assert!(ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
-        assert!(ui_surface
-            .root_node_data
-            .contains_key(&root_node_entity));
+        assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
+        assert!(ui_surface.root_node_data.contains_key(&root_node_entity));
         let _root_node_data = ui_surface
             .get_root_node_data(root_node_entity)
             .expect("expected root node data");
@@ -531,10 +510,8 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
 
         // `camera_roots` and `camera_entity_to_taffy` should no longer contain entries for `camera_entity`
-        assert!(!ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
-        
+        assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
+
         assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
 
         // root node data should be removed
@@ -559,9 +536,7 @@ mod tests {
             .get(&camera_entity)
             .unwrap()
             .contains(&root_node_entity));
-        let _root_node_data = ui_surface
-            .get_root_node_data(root_node_entity)
-            .unwrap();
+        let _root_node_data = ui_surface.get_root_node_data(root_node_entity).unwrap();
 
         ui_surface.remove_entities([root_node_entity]);
         assert!(!ui_surface.entity_to_taffy.contains_key(&root_node_entity));

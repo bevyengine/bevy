@@ -507,9 +507,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
+        assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
         assert_eq!(ui_surface.camera_root_nodes.len(), 1);
 
         world.despawn(ui_entity);
@@ -519,9 +517,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        assert!(!ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
+        assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
         assert!(ui_surface.camera_root_nodes.is_empty());
     }
 
