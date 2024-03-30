@@ -218,6 +218,9 @@ impl WindowSurfaces {
     }
 }
 
+#[cfg(target_os = "linux")]
+const NVIDIA_VENDOR_ID: u32 = 0x10DE;
+
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
@@ -311,7 +314,7 @@ pub fn prepare_windows(
             render_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .iter()
-                .any(|adapter| adapter.get_info().name.starts_with("NVIDIA"))
+                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
         };
 
         let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
