@@ -105,15 +105,15 @@
 //! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these methods.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, ReflectRef};
-//! let my_tuple: Box<dyn Reflect> = Box::new((1, 2, 3));
+//! # use bevy_reflect::{PartialReflect, ReflectRef};
+//! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
 //! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
-//! And to go back to a general-purpose `dyn Reflect`,
-//! we can just use the matching [`PartialReflect::as_reflect`], [`PartialReflect::as_reflect_mut`],
-//! or [`PartialReflect::into_reflect`] methods.
+//! And to go back to a general-purpose `dyn PartialReflect`,
+//! we can just use the matching [`PartialReflect::as_partial_reflect`], [`PartialReflect::as_partial_reflect_mut`],
+//! or [`PartialReflect::into_partial_reflect`] methods.
 //!
 //! ## Value Types
 //!

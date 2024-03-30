@@ -50,7 +50,7 @@ macro_rules! impl_reflect_enum {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -68,7 +68,7 @@ impl_reflect_enum!(ReflectRef<'_>);
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -86,7 +86,7 @@ impl_reflect_enum!(ReflectMut<'_>);
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -101,7 +101,7 @@ impl_reflect_enum!(ReflectOwned);
 
 /// A zero-sized enumuration of the "kinds" of a reflected type.
 ///
-/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
+/// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ReflectKind {

@@ -452,7 +452,7 @@ impl ContainerAttributes {
         &self.type_path_attrs
     }
 
-    /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::reflect_hash` as a `TokenStream`.
     ///
     /// If `Hash` was not registered, returns `None`.
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
@@ -475,7 +475,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `Reflect::reflect_partial_eq` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::reflect_partial_eq` as a `TokenStream`.
     ///
     /// If `PartialEq` was not registered, returns `None`.
     pub fn get_partial_eq_impl(
@@ -502,7 +502,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
+    /// Returns the implementation of `PartialReflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {

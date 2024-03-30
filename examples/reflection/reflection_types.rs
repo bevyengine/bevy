@@ -41,8 +41,9 @@ enum D {
 }
 
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::reflect_hash()`, `Reflect::reflect_partial_eq()`, and
-/// `Reflect::serializable()`. You can force these implementations to use the actual trait
+/// These are exposed via methods like `PartialReflect::reflect_hash()`,
+/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
+/// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
 #[reflect(Hash, Serialize, PartialEq)]

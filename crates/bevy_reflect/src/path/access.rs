@@ -10,7 +10,7 @@ type InnerResult<T> = Result<T, AccessErrorKind>;
 /// A singular element access within a path.
 /// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
 ///
-/// Can be applied to a [`dyn Reflect`](Reflect) to get a reference to the targeted element.
+/// Can be applied to a [`dyn Reflect`](crate::Reflect) to get a reference to the targeted element.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access<'a> {
     /// A name-based field access on a struct.
