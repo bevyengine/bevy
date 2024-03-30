@@ -30,6 +30,14 @@ pub struct LayoutContext {
 }
 
 impl LayoutContext {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.0,
+            physical_size: Vec2::ZERO,
+            min_size: 0.0,
+            max_size: 0.0,
+        }
+    }
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
@@ -55,6 +63,7 @@ pub struct UiSurface {
     camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
+    no_camera: bool,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -82,6 +91,7 @@ impl Default for UiSurface {
             camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
+            no_camera: false,
         }
     }
 }
@@ -330,6 +340,7 @@ pub fn ui_layout_system(
                     );
                     continue;
                 };
+                ui_surface.no_camera = false;
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
                     .or_insert_with(|| calculate_camera_layout_info(camera));
@@ -337,7 +348,10 @@ pub fn ui_layout_system(
             }
             None => {
                 if cameras.is_empty() {
-                    warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                    if !ui_surface.no_camera {
+                        ui_surface.no_camera = true;
+                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                    }
                 } else {
                     warn!(
                         "Multiple cameras found, causing UI target ambiguity. \
@@ -366,6 +380,8 @@ pub fn ui_layout_system(
                 );
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
+        } else {
+            ui_surface.upsert_node(entity, &Style::default(), &LayoutContext::default());
         }
     }
     scale_factor_events.clear();
@@ -1208,5 +1224,66 @@ mod tests {
                 s += r;
             }
         }
+    }
+
+    #[test]
+    fn no_camera_ui() {
+        let mut world = World::new();
+        world.init_resource::<UiScale>();
+        world.init_resource::<UiSurface>();
+        world.init_resource::<Events<WindowScaleFactorChanged>>();
+        world.init_resource::<Events<WindowResized>>();
+        // Required for the camera system
+        world.init_resource::<Events<WindowCreated>>();
+        world.init_resource::<Events<AssetEvent<Image>>>();
+        world.init_resource::<Assets<Image>>();
+        world.init_resource::<ManualTextureViews>();
+
+        // spawn a dummy primary window and camera
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+
+        let mut ui_schedule = Schedule::default();
+        ui_schedule.add_systems(
+            (
+                // UI is driven by calculated camera target info, so we need to run the camera system first
+                bevy_render::camera::camera_system::<OrthographicProjection>,
+                update_target_camera_system,
+                apply_deferred,
+                ui_layout_system,
+            )
+                .chain(),
+        );
+
+        let ui_root = world
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+
+        let ui_child = world
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+
+        world.entity_mut(ui_root).add_child(ui_child);
+
+        ui_schedule.run(&mut world);
     }
 }
