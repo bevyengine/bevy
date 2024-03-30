@@ -1,5 +1,8 @@
 mod fsr_manager;
+mod settings;
 mod util;
+
+pub use self::settings::{FsrBundle, FsrQualityMode, FsrSettings};
 
 use self::fsr_manager::FsrManager;
 use crate::{
@@ -12,17 +15,13 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_core::FrameCount;
 use bevy_ecs::{
-    bundle::Bundle,
-    component::Component,
     entity::Entity,
     query::{QueryItem, With},
-    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut},
     world::World,
 };
 use bevy_math::Vec4Swizzles;
-use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, MipBias, Projection, TemporalJitter},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -66,45 +65,6 @@ impl Plugin for FsrPlugin {
                 ),
             );
     }
-}
-
-#[derive(Bundle, Default)]
-pub struct FsrBundle {
-    pub settings: FsrSettings,
-    pub jitter: TemporalJitter,
-    pub mip_bias: MipBias,
-    pub depth_prepass: DepthPrepass,
-    pub motion_vector_prepass: MotionVectorPrepass,
-}
-
-#[derive(Component, Reflect, Clone)]
-#[reflect(Component)]
-pub struct FsrSettings {
-    pub quality_mode: FsrQualityMode,
-    pub reset: bool,
-}
-
-impl Default for FsrSettings {
-    fn default() -> Self {
-        Self {
-            quality_mode: FsrQualityMode::Balanced,
-            reset: false,
-        }
-    }
-}
-
-#[derive(Reflect, Clone, Copy, Debug)]
-pub enum FsrQualityMode {
-    /// No upscaling, just antialiasing.
-    Native,
-    /// Upscale by 1.5x.
-    Quality,
-    /// Upscale by 1.7x.
-    Balanced,
-    /// Upscale by 2.0x.
-    Peformance,
-    /// Upscale by 3.0x.
-    UltraPerformance,
 }
 
 fn extract_fsr_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
