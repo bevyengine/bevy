@@ -2,12 +2,11 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::render_phase::TrackedRenderPass;
+use bevy_render::render_phase::{BinnedRenderPhase, TrackedRenderPass};
 use bevy_render::render_resource::{CommandEncoderDescriptor, StoreOp};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewDepthTexture,
@@ -28,8 +27,8 @@ pub struct DeferredGBufferPrepassNode;
 impl ViewNode for DeferredGBufferPrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3dDeferred>,
-        &'static RenderPhase<AlphaMask3dDeferred>,
+        &'static BinnedRenderPhase<Opaque3dDeferred>,
+        &'static BinnedRenderPhase<AlphaMask3dDeferred>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
     );
@@ -138,14 +137,16 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.items.is_empty() {
+            if !opaque_deferred_phase.batchable_keys.is_empty()
+                || !opaque_deferred_phase.unbatchable_keys.is_empty()
+            {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_deferred").entered();
                 opaque_deferred_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha masked draws
-            if !alpha_mask_deferred_phase.items.is_empty() {
+            if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
                 alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity);
