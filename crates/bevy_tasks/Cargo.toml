@@ -13,7 +13,7 @@ multi-threaded = []
 
 [dependencies]
 futures-lite = "2.0.1"
-async-executor = "1.9.0"
+async-executor = "1.9.1"
 async-channel = "2.2.0"
 async-io = { version = "2.0.0", optional = true }
 async-task = "4.4.0"
