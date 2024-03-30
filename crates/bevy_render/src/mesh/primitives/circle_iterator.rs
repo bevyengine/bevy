@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn check_distances() {
+    fn circle_iterator_vertices_are_equidistant() {
         let epsilon = 0.00001;
         let mut vertices : Vec<Vec2> = CircleIterator::new(6, true).collect();
         let center = Vec2::new(0.0, 0.0);
