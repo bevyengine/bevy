@@ -1,8 +1,14 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;

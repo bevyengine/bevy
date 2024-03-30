@@ -12,18 +12,25 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, mouse_scroll)
-        .run();
+        .add_systems(Update, mouse_scroll);
+
+    #[cfg(feature = "bevy_dev_tools")]
+    {
+        app.add_plugins(bevy::dev_tools::ui_debug_overlay::DebugUiPlugin)
+            .add_systems(Update, toggle_overlay);
+    }
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
 
     // root node
     commands
@@ -54,6 +61,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(NodeBundle {
                             style: Style {
                                 width: Val::Percent(100.),
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect::all(Val::Px(5.)),
+                                row_gap: Val::Px(5.),
                                 ..default()
                             },
                             background_color: Color::srgb(0.15, 0.15, 0.15).into(),
@@ -69,14 +79,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         font_size: 30.0,
                                         ..default()
                                     },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
-                                    ..default()
-                                }),
+                                ),
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
+                                Label,
+                            ));
+
+                            #[cfg(feature = "bevy_dev_tools")]
+                            // Debug overlay text
+                            parent.spawn((
+                                TextBundle::from_section(
+                                    "Press Space to enable debug outlines.",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 20.,
+                                        ..Default::default()
+                                    },
+                                ),
+                                Label,
+                            ));
+
+                            #[cfg(not(feature = "bevy_dev_tools"))]
+                            parent.spawn((
+                                TextBundle::from_section(
+                                    "Try enabling feature \"bevy_dev_tools\".",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 20.,
+                                        ..Default::default()
+                                    },
+                                ),
                                 Label,
                             ));
                         });
@@ -332,5 +365,18 @@ fn mouse_scroll(
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
             style.top = Val::Px(scrolling_list.position);
         }
+    }
+}
+
+#[cfg(feature = "bevy_dev_tools")]
+// The system that will enable/disable the debug outlines around the nodes
+fn toggle_overlay(
+    input: Res<ButtonInput<KeyCode>>,
+    mut options: ResMut<bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
+) {
+    info_once!("The debug outlines are enabled, press Space to turn them on/off");
+    if input.just_pressed(KeyCode::Space) {
+        // The toggle method will enable the debug_overlay if disabled and disable if enabled
+        options.toggle();
     }
 }

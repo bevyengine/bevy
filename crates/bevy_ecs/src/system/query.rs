@@ -552,7 +552,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Example
     ///
@@ -813,6 +813,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter` resource.
@@ -931,6 +933,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1044,6 +1048,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1208,6 +1214,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns `true` if there are no query items.
     ///
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
+    ///
     /// # Example
     ///
     /// Here, the score is increased only if an entity with a `Player` component is present in the world:
@@ -1226,6 +1237,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(update_score_system);
     /// ```
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self) -> bool {
         // SAFETY:
@@ -1239,6 +1253,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
@@ -1325,12 +1341,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Besides removing parameters from the query, you can also
     /// make limited changes to the types of parameters.
     ///
-    /// * Can always add/remove `Entity`
+    /// * Can always add/remove [`Entity`]
+    /// * Can always add/remove [`EntityLocation`]
+    /// * Can always add/remove [`&Archetype`]
     /// * `Ref<T>` <-> `&T`
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///    
+    ///  
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`&Archetype`]: crate::archetype::Archetype
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }

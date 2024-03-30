@@ -22,6 +22,17 @@ use super::{
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
+///
+/// This data is cached between system runs, and is used to:
+/// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched" means
+/// that the query will iterate over the data in the matched table/archetype.
+/// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data
+/// from a specific [`Table`] or [`Archetype`]
+/// - build iterators that can iterate over the query results
+///
+/// [`State`]: crate::query::world_query::WorldQuery::State
+/// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
+/// [`Table`]: crate::storage::Table
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
@@ -29,9 +40,12 @@ use super::{
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
+    /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
     pub(crate) matched_tables: FixedBitSet,
+    /// Metadata about the [`Archetype`]s matched by this query.
     pub(crate) matched_archetypes: FixedBitSet,
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
+    /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
+    /// this query can run in parallel with.
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
     pub(crate) matched_table_ids: Vec<TableId>,
@@ -72,7 +86,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This doesn't use `NopWorldQuery` as it loses filter functionality, for example
     /// `NopWorldQuery<Changed<T>>` is functionally equivalent to `With<T>`.
-    pub fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
+    pub(crate) fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `D` for table/archetype matching
         unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F>() }
@@ -96,11 +110,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
-    /// Returns the archetype components accessed by this query.
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
     /// Returns the components accessed by this query.
     pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
         &self.component_access
@@ -120,6 +129,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
+        let mut state = Self::new_uninitialized(world);
+        state.update_archetypes(world);
+        state
+    }
+
+    /// Identical to `new`, but it populates the provided `access` with the matched results.
+    pub(crate) fn new_with_access(
+        world: &mut World,
+        access: &mut Access<ArchetypeComponentId>,
+    ) -> Self {
+        let mut state = Self::new_uninitialized(world);
+        for archetype in world.archetypes.iter() {
+            if state.new_archetype_internal(archetype) {
+                state.update_archetype_component_access(archetype, access);
+            }
+        }
+        state.archetype_generation = world.archetypes.generation();
+        state
+    }
+
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and it's variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
@@ -136,7 +170,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        let mut state = Self {
+        Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -146,16 +180,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 query = std::any::type_name::<D>(),
                 filter = std::any::type_name::<F>(),
             ),
-        };
-        state.update_archetypes(world);
-        state
+        }
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits it's [`FilteredAccess`].
@@ -174,7 +205,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: builder.access().clone(),
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
-            archetype_component_access: Default::default(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -188,9 +218,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     ///
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
+    ///
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());
@@ -203,6 +241,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 last_run,
                 this_run,
             )
+        }
+    }
+
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    #[inline]
+    pub fn contains(&self, entity: Entity, world: &World, last_run: Tick, this_run: Tick) -> bool {
+        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        unsafe {
+            self.as_nop()
+                .get_unchecked_manual(
+                    world.as_unsafe_world_cell_readonly(),
+                    entity,
+                    last_run,
+                    this_run,
+                )
+                .is_ok()
         }
     }
 
@@ -268,7 +324,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype(archetype);
+            self.new_archetype_internal(archetype);
         }
     }
 
@@ -295,25 +351,41 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
-    pub fn new_archetype(&mut self, archetype: &Archetype) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn new_archetype(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        if self.new_archetype_internal(archetype) {
+            self.update_archetype_component_access(archetype, access);
+        }
+    }
+
+    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
+    /// and [`Archetype`]s that are matched by this query.
+    ///
+    /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
+    /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
+    fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
         {
-            self.update_archetype_component_access(archetype);
-
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
-                self.matched_archetypes.grow(archetype_index + 1);
-                self.matched_archetypes.set(archetype_index, true);
+                self.matched_archetypes.grow_and_insert(archetype_index);
                 self.matched_archetype_ids.push(archetype.id());
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
-                self.matched_tables.grow(table_index + 1);
-                self.matched_tables.set(table_index, true);
+                self.matched_tables.grow_and_insert(table_index);
                 self.matched_table_ids.push(archetype.table_id());
             }
+            true
+        } else {
+            false
         }
     }
 
@@ -331,15 +403,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    pub fn update_archetype_component_access(&mut self, archetype: &Archetype) {
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    pub fn update_archetype_component_access(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
         self.component_access.access.reads().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_read(id);
+                access.add_read(id);
             }
         });
         self.component_access.access.writes().for_each(|id| {
             if let Some(id) = archetype.get_archetype_component_id(id) {
-                self.archetype_component_access.add_write(id);
+                access.add_write(id);
             }
         });
     }
@@ -391,7 +469,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
-            archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -499,7 +576,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: joined_component_access,
             matched_tables,
             matched_archetypes,
-            archetype_component_access: self.archetype_component_access.clone(),
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
@@ -512,6 +588,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
@@ -584,6 +662,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_mut<'w>(
         &mut self,
@@ -675,6 +755,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// access to `self`.
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_manual<'w>(
         &self,
@@ -695,6 +777,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -711,6 +795,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -791,6 +877,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///

@@ -1,6 +1,6 @@
 mod parallel_scope;
 
-use super::{Deferred, Resource};
+use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -520,6 +520,72 @@ impl<'w, 's> Commands<'w, 's> {
             .push(RunSystemWithInput::new_with_input(id, input));
     }
 
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a push-based fashion.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// If you want to prevent Commands from registering the same system multiple times, consider using [`Local`](crate::system::Local)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    ///
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(mut local_system: Local<Option<SystemId>>, mut commands: Commands) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         *local_system = Some(commands.register_one_shot_system(increment_counter));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   commands.register_one_shot_system(increment_counter)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
+    pub fn register_one_shot_system<
+        I: 'static + Send,
+        O: 'static + Send,
+        M,
+        S: IntoSystem<I, O, M> + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        let entity = self.spawn_empty().id();
+        self.queue.push(RegisterSystem::new(system, entity));
+        SystemId {
+            entity,
+            marker: std::marker::PhantomData,
+        }
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
@@ -764,13 +830,13 @@ impl EntityCommands<'_> {
     ///   commands.entity(player.entity)
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
-    ///     
+    ///
     ///    // You can also insert tuples of components:
     ///     .try_insert(CombatBundle {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///     });
-    ///    
+    ///
     ///    // Suppose this occurs in a parallel adjacent system or process
     ///    commands.entity(player.entity)
     ///      .despawn();
@@ -1092,6 +1158,7 @@ mod tests {
         Arc,
     };
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);

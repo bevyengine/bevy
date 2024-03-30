@@ -18,7 +18,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
@@ -181,10 +182,10 @@ struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
     quad: Mesh2dHandle,
-    color_rng: StdRng,
-    material_rng: StdRng,
-    velocity_rng: StdRng,
-    transform_rng: StdRng,
+    color_rng: ChaCha8Rng,
+    material_rng: ChaCha8Rng,
+    velocity_rng: ChaCha8Rng,
+    transform_rng: ChaCha8Rng,
 }
 
 #[derive(Component)]
@@ -221,10 +222,12 @@ fn setup(
         quad: meshes
             .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
-        color_rng: StdRng::seed_from_u64(42),
-        material_rng: StdRng::seed_from_u64(42),
-        velocity_rng: StdRng::seed_from_u64(42),
-        transform_rng: StdRng::seed_from_u64(42),
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        color_rng: ChaCha8Rng::seed_from_u64(42),
+        material_rng: ChaCha8Rng::seed_from_u64(42),
+        velocity_rng: ChaCha8Rng::seed_from_u64(42),
+        transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
     let text_section = move |color: Srgba, value: &str| {
@@ -300,11 +303,13 @@ fn mouse_handler(
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
-    mut rng: Local<Option<StdRng>>,
+    mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
     if rng.is_none() {
-        *rng = Some(StdRng::seed_from_u64(42));
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
     let window = windows.single();
@@ -332,7 +337,7 @@ fn mouse_handler(
 fn bird_velocity_transform(
     half_extents: Vec2,
     mut translation: Vec3,
-    velocity_rng: &mut StdRng,
+    velocity_rng: &mut ChaCha8Rng,
     waves: Option<usize>,
     dt: f32,
 ) -> (Transform, Vec3) {
@@ -537,7 +542,9 @@ fn counter_system(
 }
 
 fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
-    let mut color_rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     while textures.len() < args.material_texture_count {
         let pixel = [color_rng.gen(), color_rng.gen(), color_rng.gen(), 255];
         textures.push(images.add(Image::new_fill(
@@ -572,8 +579,10 @@ fn init_materials(
         texture: textures.first().cloned(),
     }));
 
-    let mut color_rng = StdRng::seed_from_u64(42);
-    let mut texture_rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {

@@ -6,6 +6,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -14,13 +15,12 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::FloatOrd;
 use nonmax::NonMaxU32;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<
         (
-            &'static RenderPhase<TransparentUi>,
+            &'static SortedRenderPhase<TransparentUi>,
             &'static ViewTarget,
             &'static ExtractedCamera,
         ),
@@ -96,26 +96,14 @@ pub struct TransparentUi {
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
     }
 
     #[inline]
@@ -136,6 +124,20 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl SortedPhaseItem for TransparentUi {
+    type SortKey = (FloatOrd, u32);
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
     }
 }
 
@@ -215,8 +217,17 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             return RenderCommandResult::Failure;
         };
 
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        let ui_meta = ui_meta.into_inner();
+        // Store the vertices
+        pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
+        // Define how to "connect" the vertices
+        pass.set_index_buffer(
+            ui_meta.indices.buffer().unwrap().slice(..),
+            0,
+            bevy_render::render_resource::IndexFormat::Uint32,
+        );
+        // Draw the vertices
+        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }
