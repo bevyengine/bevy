@@ -1,6 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![allow(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
@@ -11,6 +16,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod deterministic;
+pub mod diagnostic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -57,6 +63,7 @@ use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::deterministic::DeterministicRenderingConfig;
+use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
@@ -87,7 +94,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
@@ -103,13 +110,15 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
-    /// ready for sorting
+    /// Queue drawable entities as phase items in render phases ready for
+    /// sorting (if necessary)
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
-    /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
+    // TODO: This could probably be moved in favor of a system ordering
+    // abstraction in `Render` or `Queue`
+    /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
+    /// [`BinKey`](render_phase::BinnedPhaseItem::BinKey)s here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
@@ -300,7 +309,7 @@ impl Plugin for RenderPlugin {
                             queue,
                             adapter_info,
                             render_adapter,
-                            RenderInstance(Arc::new(instance)),
+                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution

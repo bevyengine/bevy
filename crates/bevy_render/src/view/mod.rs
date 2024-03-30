@@ -90,7 +90,7 @@ impl Plugin for ViewPlugin {
 #[derive(
     Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
 )]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,

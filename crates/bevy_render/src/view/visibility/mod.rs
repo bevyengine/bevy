@@ -168,7 +168,7 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
@@ -357,12 +357,12 @@ fn propagate_recursive(
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
 fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    for mut view_visibility in &mut query {
+    query.iter_mut().for_each(|mut view_visibility| {
         // NOTE: We do not use `set_if_neq` here, as we don't care about
         // change detection for view visibility, and adding a branch to every
         // loop iteration would pessimize performance.
-        *view_visibility = ViewVisibility::HIDDEN;
-    }
+        *view_visibility.bypass_change_detection() = ViewVisibility::HIDDEN;
+    });
 }
 
 /// System updating the visibility of entities each frame.
