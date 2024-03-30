@@ -2,7 +2,7 @@ mod prepass_bindings;
 
 use bevy_render::batching::{
     allocate_batch_buffer, batch_and_prepare_binned_render_phase, clear_batch_buffer,
-    reserve_batch_buffer, sort_binned_render_phase,
+    reserve_binned_batch_buffer, sort_binned_render_phase,
 };
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_resource::binding_types::uniform_buffer;
@@ -166,8 +166,8 @@ where
                         (
                             prepare_previous_view_projection_uniforms,
                             (
-                                reserve_batch_buffer::<Opaque3dPrepass, MeshPipeline>,
-                                reserve_batch_buffer::<AlphaMask3dPrepass, MeshPipeline>,
+                                reserve_binned_batch_buffer::<Opaque3dPrepass, MeshPipeline>,
+                                reserve_binned_batch_buffer::<AlphaMask3dPrepass, MeshPipeline>,
                             )
                                 .before(allocate_batch_buffer::<MeshPipeline>)
                                 .after(clear_batch_buffer::<MeshPipeline>),

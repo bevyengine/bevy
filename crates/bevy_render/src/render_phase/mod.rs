@@ -99,6 +99,8 @@ where
     /// The unbatchable entities immediately follow the batches in the storage
     /// buffers.
     pub(crate) batch_sets: Vec<SmallVec<[BinnedRenderPhaseBatch; 1]>>,
+
+    pub reserved_range: Option<BufferPoolSlice>,
 }
 
 /// Information about a single batch of entities rendered using binned phase
@@ -273,6 +275,21 @@ where
         }
     }
 
+    /// Gets the total number of enqueued items.
+    pub fn len(&self) -> usize {
+        let batched: usize = self
+            .batchable_values
+            .values()
+            .map(|batch| batch.len())
+            .sum();
+        let unbatched: usize = self
+            .unbatchable_values
+            .values()
+            .map(|set| set.entities.len())
+            .sum();
+        batched + unbatched
+    }
+
     pub fn is_empty(&self) -> bool {
         self.batchable_keys.is_empty() && self.unbatchable_keys.is_empty()
     }
@@ -289,6 +306,7 @@ where
             unbatchable_keys: vec![],
             unbatchable_values: HashMap::default(),
             batch_sets: vec![],
+            reserved_range: None,
         }
     }
 }

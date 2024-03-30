@@ -86,9 +86,19 @@ pub fn clear_batch_buffer<F: GetBatchData>(
     gpu_array_buffer.clear();
 }
 
-pub fn reserve_batch_buffer<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+pub fn reserve_binned_batch_buffer<I: BinnedPhaseItem, F: GetBatchData>(
     mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
-    mut views: Query<&mut RenderPhase<I>>,
+    mut views: Query<&mut BinnedRenderPhase<I>>,
+) {
+    for mut phase in &mut views {
+        phase.reserved_range =
+            wgpu::BufferSize::new(phase.len() as u64).map(|size| gpu_array_buffer.reserve(size));
+    }
+}
+
+pub fn reserve_sorted_batch_buffer<I: SortedPhaseItem, F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    mut views: Query<&mut SortedRenderPhase<I>>,
 ) {
     for mut phase in &mut views {
         phase.reserved_range = wgpu::BufferSize::new(phase.items.len() as u64)
@@ -132,6 +142,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, F>(
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     F: GetBatchData,
+    for<'w, 's> <<F as GetBatchData>::Param as SystemParam>::Item<'w, 's>: Sync,
 {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
@@ -187,18 +198,26 @@ where
 
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
-    gpu_array_buffer: ResMut<GpuArrayBuffer<GBBD::BufferData>>,
+    gpu_array_buffer: ResMut<GpuArrayBufferPool<GBBD::BufferData>>,
     mut views: Query<&mut BinnedRenderPhase<BPI>>,
+    render_queue: Res<RenderQueue>,
     param: StaticSystemParam<GBBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
     GBBD: GetBinnedBatchData,
+    for<'w, 's> <<GBBD as GetBinnedBatchData>::Param as SystemParam>::Item<'w, 's>: Sync,
 {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    for mut phase in &mut views {
+    views.par_iter_mut().for_each(|mut phase| {
         let phase = &mut *phase; // Borrow checker.
+        let Some(slice) = phase.reserved_range else {
+            return;
+        };
+        let mut writer = gpu_array_buffer
+            .get_writer(slice, &render_queue)
+            .expect("GPU Array Buffer was not allocated.");
 
         // Prepare batchables.
 
@@ -209,7 +228,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
                     continue;
                 };
 
-                let instance = gpu_array_buffer.push(buffer_data);
+                let instance = writer.write(buffer_data);
 
                 // If the dynamic offset has changed, flush the batch.
                 //
@@ -240,10 +259,10 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
                 if let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) {
-                    let instance = gpu_array_buffer.push(buffer_data);
+                    let instance = writer.write(buffer_data);
                     unbatchables.buffer_indices.add(instance);
                 }
             }
         }
-    }
+    });
 }

@@ -14,8 +14,9 @@ use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
         allocate_batch_buffer, batch_and_prepare_binned_render_phase,
-        batch_and_prepare_sorted_render_phase, clear_batch_buffer, reserve_batch_buffer,
-        sort_binned_render_phase, GetBatchData, NoAutomaticBatching, NoAutomaticBatching,
+        batch_and_prepare_sorted_render_phase, clear_batch_buffer, reserve_binned_batch_buffer,
+        reserve_sorted_batch_buffer, sort_binned_render_phase, GetBatchData, GetBinnedBatchData,
+        NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -127,13 +128,13 @@ impl Plugin for MeshRenderPlugin {
                     (
                         clear_batch_buffer::<MeshPipeline>,
                         (
-                            reserve_batch_buffer::<Opaque3d, MeshPipeline>,
-                            reserve_batch_buffer::<Transmissive3d, MeshPipeline>,
-                            reserve_batch_buffer::<Transparent3d, MeshPipeline>,
-                            reserve_batch_buffer::<AlphaMask3d, MeshPipeline>,
-                            reserve_batch_buffer::<Shadow, MeshPipeline>,
-                            reserve_batch_buffer::<Opaque3dDeferred, MeshPipeline>,
-                            reserve_batch_buffer::<AlphaMask3dDeferred, MeshPipeline>,
+                            reserve_binned_batch_buffer::<Opaque3d, MeshPipeline>,
+                            reserve_sorted_batch_buffer::<Transmissive3d, MeshPipeline>,
+                            reserve_sorted_batch_buffer::<Transparent3d, MeshPipeline>,
+                            reserve_binned_batch_buffer::<AlphaMask3d, MeshPipeline>,
+                            reserve_binned_batch_buffer::<Shadow, MeshPipeline>,
+                            reserve_binned_batch_buffer::<Opaque3dDeferred, MeshPipeline>,
+                            reserve_binned_batch_buffer::<AlphaMask3dDeferred, MeshPipeline>,
                         )
                             .in_set(RenderSet::PrepareResources)
                             .before(allocate_batch_buffer::<MeshPipeline>)
