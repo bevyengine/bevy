@@ -48,7 +48,7 @@ impl Iterator for CircleIterator {
 
 mod tests {
     #[test]
-    fn check_count() {
+    fn circle_iterator_has_correct_length() {
         let vertices: Vec<Vec2> = CircleIterator::new(6, false).collect();
         assert_eq!(vertices.len(), 6);
         let vertices: Vec<Vec2> = CircleIterator::new(6, true).collect();
