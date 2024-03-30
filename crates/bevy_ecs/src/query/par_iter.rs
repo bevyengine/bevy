@@ -128,7 +128,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             let (batch_size, sum) = self.get_batch_size(thread_count);
             if sum == 0 {
-                return;
+                // Do nothing if there is no work to be done
             } else if thread_count <= 1 || sum <= self.batching_strategy.batch_size_limits.start {
                 // SAFETY: See the safety comment above.
                 unsafe {
