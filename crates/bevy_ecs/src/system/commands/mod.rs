@@ -854,7 +854,7 @@ impl EntityCommands<'_> {
 
     /// Adds a dynamic component to the entity.
     ///
-    /// This whill overwrite any previous value(s) of the same component type.
+    /// This will overwrite any previous value(s) of the same component type.
     ///
     /// # Example
     ///
@@ -876,7 +876,7 @@ impl EntityCommands<'_> {
 
     /// Attempts to add a dynamic component to the entity.
     ///
-    /// This whill overwrite any previous value(s) of the same component type.
+    /// This will overwrite any previous value(s) of the same component type.
     ///
     /// # Example
     ///
