@@ -4,10 +4,9 @@
 
 use bevy::{
     prelude::*,
-    reflect::{DynamicList, ReflectRef},
+    reflect::{DynamicList, PartialReflect, ReflectRef},
     utils::HashMap,
 };
-use bevy_internal::reflect::PartialReflect;
 use serde::{Deserialize, Serialize};
 
 fn main() {
