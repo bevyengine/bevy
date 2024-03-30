@@ -272,14 +272,7 @@ without UI components as a child of an entity with UI components, results may be
         }
 
         for orphan in removed_children.iter() {
-            if let Some(root_node_data) = self.root_node_data.get_mut(orphan) {
-                // mark as orphan
-                if let Some(camera_entity) = root_node_data.camera_entity.take() {
-                    if let Some(children_set) = self.camera_root_nodes.get_mut(&camera_entity) {
-                        children_set.remove(orphan);
-                    }
-                }
-            }
+            self.mark_root_node_as_orphaned(orphan);
         }
     }
 
