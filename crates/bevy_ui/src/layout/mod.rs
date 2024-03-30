@@ -4,7 +4,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
-    query::{With, Without},
+    query::{Added, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, SystemParam},
     world::Ref,
@@ -73,6 +73,7 @@ pub fn ui_layout_system(
     style_query: Query<(Entity, Ref<Style>, Option<&TargetCamera>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    demoted_root_node_query: Query<(Entity, Ref<Parent>), (With<Node>, Added<Parent>)>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
@@ -167,6 +168,12 @@ pub fn ui_layout_system(
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.try_update_measure(entity, measure_func);
+        }
+    }
+    // When a root node is added as a child to another ui node
+    for (entity, parent) in &demoted_root_node_query {
+        if parent.is_added() {
+            ui_surface.demote_ui_node(&entity, &parent.get());
         }
     }
 
@@ -337,7 +344,10 @@ mod tests {
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{
+        despawn_with_children_recursive, BuildChildren, BuildWorldChildren, Children,
+        DespawnRecursiveExt, Parent,
+    };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
@@ -540,6 +550,37 @@ mod tests {
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
         assert!(ui_surface.root_node_data.contains_key(&ui_entity));
         assert_eq!(ui_surface.root_node_data.len(), 1);
+    }
+
+    #[test]
+    /// test to make sure the ui updates when root nodes become children of other nodes during runtime
+    fn ui_demotion_from_root_to_child() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_entity1 = world.spawn(NodeBundle::default()).id();
+        let ui_entity2 = world.spawn(NodeBundle::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+        let taffy_parent = ui_surface.entity_to_taffy.get(&ui_entity1).unwrap();
+        let taffy_child = ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(*taffy_child).unwrap(),
+            *taffy_parent
+        );
     }
 
     #[test]
