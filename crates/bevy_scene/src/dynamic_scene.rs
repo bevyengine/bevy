@@ -5,11 +5,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-<<<<<<< HEAD
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistryArc};
-=======
-use bevy_reflect::{Reflect, TypePath, TypeRegistry};
->>>>>>> 286bc8cce52add44e6f6f9c8cd778d26eaa1a761
+use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
@@ -94,11 +90,7 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-<<<<<<< HEAD
-            reflect_resource.apply_or_insert(world, resource.as_partial_reflect());
-=======
-            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
->>>>>>> 286bc8cce52add44e6f6f9c8cd778d26eaa1a761
+            reflect_resource.apply_or_insert(world, resource.as_partial_reflect(), &type_registry);
         }
 
         // For each component types that reference other entities, we keep track

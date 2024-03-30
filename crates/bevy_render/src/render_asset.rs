@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;

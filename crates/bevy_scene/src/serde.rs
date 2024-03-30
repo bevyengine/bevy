@@ -6,7 +6,7 @@ use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::PartialReflect;
 use bevy_reflect::{
     serde::{ReflectDeserializer, TypeRegistrationDeserializer},
-    Reflect, TypeRegistry, TypeRegistryArc,
+    TypeRegistry,
 };
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;

@@ -572,7 +572,7 @@ impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for Reflec
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
-                    .or_else(|| T::from_reflect(value).map(|value| Serializable::Owned(Box::new(value))))
+                    .or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value))))
                     .unwrap_or_else(|| {
                         panic!(
                             "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
