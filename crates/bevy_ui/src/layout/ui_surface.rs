@@ -108,7 +108,7 @@ impl UiSurface {
     }
 
     /// Disassociates the root node from the assigned camera (if any) and removes the viewport node from taffy
-    /// Removes entry in root_node_data
+    /// Removes entry in `root_node_data`
     pub(super) fn remove_root_node_viewport(&mut self, root_node_entity: &Entity) {
         self.mark_root_node_as_orphaned(root_node_entity);
         if let Some(removed) = self.root_node_data.remove(root_node_entity) {
@@ -116,7 +116,7 @@ impl UiSurface {
         }
     }
 
-    /// Removes the ui node from the taffy tree, and if it's a root node it also calls remove_root_node_viewport
+    /// Removes the ui node from the taffy tree, and if it's a root node it also calls `remove_root_node_viewport`
     pub(super) fn remove_ui_node(&mut self, ui_node_entity: &Entity) {
         self.remove_root_node_viewport(ui_node_entity);
         if let Some(taffy_node) = self.entity_to_taffy.remove(ui_node_entity) {
@@ -128,6 +128,7 @@ impl UiSurface {
         }
     }
 
+    /// Demotes root node to a child node of the specified parent
     pub(super) fn demote_ui_node(&mut self, target_entity: &Entity, parent_entity: &Entity) {
         // remove camera association
         self.mark_root_node_as_orphaned(target_entity);
@@ -142,6 +143,7 @@ impl UiSurface {
         }
     }
 
+    /// Converts ui node to root node
     pub(super) fn promote_ui_node(&mut self, target_entity: &Entity) {
         self.root_node_data
             .entry(*target_entity)
@@ -203,10 +205,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes camera association to root node
+    /// Shorthand for calling `replace_camera_association(root_node_entity, None)`
     fn mark_root_node_as_orphaned(&mut self, root_node_entity: &Entity) {
         self.replace_camera_association(*root_node_entity, None);
     }
 
+    /// `Some(camera_entity)` - Updates camera association to root node
+    /// `None` - Removes camera association to root node
+    /// Does not check to see if they are the same before performing operations
     fn replace_camera_association(
         &mut self,
         root_node_entity: Entity,
@@ -232,6 +239,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Creates or updates a root node
     fn create_or_update_root_node_data(
         &mut self,
         root_node_entity: &Entity,
@@ -244,7 +252,8 @@ without UI components as a child of an entity with UI components, results may be
         let mut added = false;
 
         // creates mutable borrow on self that lives as long as the result
-        let _ = self.root_node_data
+        let _ = self
+            .root_node_data
             .entry(ui_root_node_entity)
             .or_insert_with(|| {
                 added = true;
@@ -314,7 +323,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    // Compute the layout for each window entity's corresponding root node in the layout.
+    /// Compute the layout for each window entity's corresponding root node in the layout.
     pub fn compute_camera_layout(
         &mut self,
         camera_entity: &Entity,
