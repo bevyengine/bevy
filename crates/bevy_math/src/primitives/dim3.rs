@@ -873,11 +873,21 @@ impl Tetrahedron {
     /// Get the volume of the tetrahedron.
     #[inline(always)]
     pub fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+
+    /// Get the signed volume of the tetrahedron.
+    ///
+    /// If it's negative, the normal vector of the face defined by
+    /// the first three points using the right-hand rule points
+    /// away from the fourth vertex.
+    #[inline(always)]
+    pub fn signed_volume(&self) -> f32 {
         let [a, b, c, d] = self.vertices;
         let ab = b - a;
         let ac = c - a;
         let ad = d - a;
-        Mat3::from_cols(ab, ac, ad).determinant().abs() / 6.0
+        Mat3::from_cols(ab, ac, ad).determinant() / 6.0
     }
 }
 
@@ -1057,10 +1067,16 @@ mod tests {
         };
         assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
         assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+        assert_eq!(tetrahedron.signed_volume(), 3.2058334, "incorrect volume");
 
         assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
         assert_eq!(
             Tetrahedron::default().volume(),
+            0.083333336,
+            "incorrect volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().signed_volume(),
             0.083333336,
             "incorrect volume"
         );
