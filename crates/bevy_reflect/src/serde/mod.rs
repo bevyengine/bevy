@@ -10,7 +10,7 @@ pub use type_data::*;
 mod tests {
     use crate::{self as bevy_reflect, DynamicTupleStruct, PartialReflect, Struct};
     use crate::{
-        serde::{ReflectSerializer, UntypedReflectDeserializer},
+        serde::{ReflectDeserializer, ReflectSerializer},
         type_registry::TypeRegistry,
         DynamicStruct, FromReflect, Reflect,
     };
@@ -52,7 +52,7 @@ mod tests {
             ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let mut expected = DynamicStruct::default();
@@ -113,7 +113,7 @@ mod tests {
             ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let mut expected = DynamicTupleStruct::default();
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(expected, result);
 
         let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
 
         let expected = value.clone_value();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();

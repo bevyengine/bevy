@@ -14,7 +14,8 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -122,7 +123,9 @@ fn setup(
 
     let mesh = meshes.add(mesh);
 
-    let mut rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
 
     for i in -5..5 {
         // Create joint entities
@@ -147,7 +150,7 @@ fn setup(
         commands.spawn((
             PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(Color::rgb(
+                material: materials.add(Color::srgb(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),

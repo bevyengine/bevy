@@ -1,6 +1,6 @@
 [package]
 name = "bevy_dynamic_plugin"
-version = "0.13.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides dynamic plugin loading capabilities for non-wasm platforms"
 homepage = "https://bevyengine.org"
@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.13.0" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 
 # other
 libloading = { version = "0.8" }
@@ -18,3 +18,7 @@ thiserror = "1.0"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

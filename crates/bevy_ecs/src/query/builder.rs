@@ -204,13 +204,13 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         self
     }
 
-    /// Returns a reference to the the [`FilteredAccess`] that will be provided to the built [`Query`].
+    /// Returns a reference to the [`FilteredAccess`] that will be provided to the built [`Query`].
     pub fn access(&self) -> &FilteredAccess<ComponentId> {
         &self.access
     }
 
     /// Transmute the existing builder adding required accesses.
-    /// This will maintain all exisiting accesses.
+    /// This will maintain all existing accesses.
     ///
     /// If including a filter type see [`Self::transmute_filtered`]
     pub fn transmute<NewD: QueryData>(&mut self) -> &mut QueryBuilder<'w, NewD> {
@@ -233,7 +233,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
         self.extend_access(access);
         // SAFETY:
-        // - We have included all required acceses for NewQ and NewF
+        // - We have included all required accesses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
         unsafe { std::mem::transmute(self) }
     }

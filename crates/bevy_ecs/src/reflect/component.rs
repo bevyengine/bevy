@@ -57,9 +57,7 @@
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
 
-use std::any::TypeId;
-
-use super::ReflectFromWorld;
+use super::from_reflect_or_world;
 use crate::{
     change_detection::Mut,
     component::Component,
@@ -194,7 +192,7 @@ impl ReflectComponent {
         entity: UnsafeEntityCell<'a>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
-        (self.0.reflect_unchecked_mut)(entity)
+        unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }
 
     /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
@@ -313,48 +311,4 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             },
         })
     }
-}
-
-/// Creates a `T` from a `&dyn Reflect`.
-///
-/// The first approach uses `T`'s implementation of `FromReflect`.
-/// If this fails, it falls back to default-initializing a new instance of `T` using its
-/// `ReflectFromWorld` data from the `world`'s `AppTypeRegistry` and `apply`ing the
-/// `&dyn Reflect` on it.
-///
-/// Panics if both approaches fail.
-fn from_reflect_or_world<T: FromReflect>(
-    reflected: &dyn PartialReflect,
-    world: &mut World,
-    registry: &TypeRegistry,
-) -> T {
-    if let Some(value) = T::from_reflect(reflected) {
-        return value;
-    }
-
-    // Clone the `ReflectFromWorld` because it's cheap and "frees"
-    // the borrow of `world` so that it can be passed to `from_world`.
-    let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
-    else {
-        panic!(
-            "`FromReflect` failed and no `ReflectFromWorld` registration found for `{}`",
-            // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
-        );
-    };
-
-    let Ok(mut value) = reflect_from_world
-        .from_world(world)
-        .into_any()
-        .downcast::<T>()
-    else {
-        panic!(
-            "the `ReflectFromWorld` registration for `{}` produced a value of a different type",
-            // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
-        );
-    };
-
-    value.apply(reflected);
-    *value
 }

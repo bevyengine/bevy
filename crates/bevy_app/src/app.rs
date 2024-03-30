@@ -3,16 +3,17 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, StateTransitionEvent,
+        common_conditions::run_once as run_once_condition, run_enter_schedule,
+        InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel,
     },
+    system::SystemId,
 };
-use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap, HashSet};
+use bevy_utils::{intern::Interned, tracing::debug, HashMap, HashSet};
 use std::{
     fmt::Debug,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
+use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -79,7 +80,7 @@ pub struct App {
     pub main_schedule_label: InternedScheduleLabel,
     sub_apps: HashMap<InternedAppLabel, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
-    plugin_name_added: HashSet<String>,
+    plugin_name_added: HashSet<Box<str>>,
     /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
     building_plugin_depth: usize,
     plugins_state: PluginsState,
@@ -188,11 +189,6 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
 
         app.add_event::<AppExit>();
-
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
 
         app
     }
@@ -458,6 +454,22 @@ impl App {
         self
     }
 
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a push-based fashion.
+    /// Using a [`Schedule`] is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        self.world.register_system(system)
+    }
+
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets(
@@ -643,7 +655,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().into()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -671,9 +683,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_registry.iter().any(|p| p.is::<T>())
     }
 
     /// Returns a vector of references to any plugins of type `T` that have been added.
@@ -1007,8 +1017,8 @@ impl App {
     /// (conflicting access but indeterminate order) with systems in `set`.
     ///
     /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
-    /// However, sometimes two independant plugins `A` and `B` are reported as ambiguous, which you
-    /// can only supress as the consumer of both.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
     #[track_caller]
     pub fn ignore_ambiguity<M1, M2, S1, S2>(
         &mut self,

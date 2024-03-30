@@ -22,7 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
+    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -35,7 +35,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -48,7 +48,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
 
@@ -183,7 +183,7 @@ pub fn _embedded_asset_path(
 /// # use bevy_asset::{Asset, AssetServer};
 /// # use bevy_reflect::TypePath;
 /// # let asset_server: AssetServer = panic!();
-/// #[derive(Asset, TypePath)]
+/// # #[derive(Asset, TypePath)]
 /// # struct Shader;
 /// let shader = asset_server.load::<Shader>("embedded://bevy_rock/render/rock.wgsl");
 /// ```
@@ -219,7 +219,7 @@ pub fn _embedded_asset_path(
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: ident, $path: expr) => {{
-        embedded_asset!($app, "src", $path)
+        $crate::embedded_asset!($app, "src", $path)
     }};
 
     ($app: ident, $source_path: expr, $path: expr) => {{
@@ -254,7 +254,7 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -266,7 +266,7 @@ macro_rules! load_internal_asset {
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -284,7 +284,7 @@ macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.insert(
-            $handle,
+            $handle.id(),
             ($loader)(
                 include_bytes!($path_str).as_ref(),
                 std::path::Path::new(file!())

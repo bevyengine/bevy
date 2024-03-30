@@ -3,7 +3,7 @@
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
 
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use std::{f32::consts::*, fmt};
@@ -37,6 +37,7 @@ pub struct CameraController {
     pub keyboard_key_toggle_cursor_grab: KeyCode,
     pub walk_speed: f32,
     pub run_speed: f32,
+    pub scroll_factor: f32,
     pub friction: f32,
     pub pitch: f32,
     pub yaw: f32,
@@ -60,6 +61,7 @@ impl Default for CameraController {
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
             walk_speed: 5.0,
             run_speed: 15.0,
+            scroll_factor: 0.1,
             friction: 0.5,
             pitch: 0.0,
             yaw: 0.0,
@@ -75,6 +77,7 @@ impl fmt::Display for CameraController {
             "
 Freecam Controls:
     Mouse\t- Move camera orientation
+    Scroll\t- Adjust movement speed
     {:?}\t- Hold to grab cursor
     {:?}\t- Toggle cursor grab
     {:?} & {:?}\t- Fly forward & backwards
@@ -99,6 +102,7 @@ fn run_camera_controller(
     time: Res<Time>,
     mut windows: Query<&mut Window>,
     mut mouse_events: EventReader<MouseMotion>,
+    mut scroll_events: EventReader<MouseWheel>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
@@ -119,6 +123,17 @@ fn run_camera_controller(
             mouse_events.clear();
             return;
         }
+
+        let mut scroll = 0.0;
+        for scroll_event in scroll_events.read() {
+            let amount = match scroll_event.unit {
+                MouseScrollUnit::Line => scroll_event.y,
+                MouseScrollUnit::Pixel => scroll_event.y / 16.0,
+            };
+            scroll += amount;
+        }
+        controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
+        controller.run_speed = controller.walk_speed * 3.0;
 
         // Handle key input
         let mut axis_input = Vec3::ZERO;

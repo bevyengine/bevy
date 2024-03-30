@@ -19,7 +19,7 @@ pub mod graph {
         Tonemapping,
         Fxaa,
         Upscaling,
-        ConstrastAdaptiveSharpening,
+        ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
     }
 }
@@ -31,18 +31,19 @@ pub use main_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        RenderPhase,
+        SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use nonmax::NonMaxU32;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -95,27 +96,14 @@ pub struct Transparent2d {
 }
 
 impl PhaseItem for Transparent2d {
-    type SortKey = FloatOrd;
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        radsort::sort_by_key(items, |item| item.sort_key().0);
     }
 
     #[inline]
@@ -139,6 +127,21 @@ impl PhaseItem for Transparent2d {
     }
 }
 
+impl SortedPhaseItem for Transparent2d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
+        radsort::sort_by_key(items, |item| item.sort_key().0);
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
@@ -154,7 +157,7 @@ pub fn extract_core_2d_camera_phases(
         if camera.is_active {
             commands
                 .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2d>::default());
+                .insert(SortedRenderPhase::<Transparent2d>::default());
         }
     }
 }

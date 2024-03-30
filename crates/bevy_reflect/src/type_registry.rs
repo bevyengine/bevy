@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, TypePath, Typed};
+use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
@@ -56,8 +56,15 @@ impl Debug for TypeRegistryArc {
 /// See the [crate-level documentation] for more information on type registration.
 ///
 /// [crate-level documentation]: crate
-pub trait GetTypeRegistration {
+pub trait GetTypeRegistration: 'static {
+    /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
+    /// Registers other types needed by this type.
+    ///
+    /// This method is called by [`TypeRegistry::register`] to register any other required types.
+    /// Often, this is done for fields of structs and enum variants to ensure all types are properly registered.
+    #[allow(unused_variables)]
+    fn register_type_dependencies(registry: &mut TypeRegistry) {}
 }
 
 impl Default for TypeRegistry {
@@ -100,39 +107,132 @@ impl TypeRegistry {
         registry
     }
 
-    /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
-    /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
-    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
-    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// Attempts to register the type `T` if it has not yet been registered already.
+    ///
+    /// This will also recursively register any type dependencies as specified by [`GetTypeRegistration::register_type_dependencies`].
+    /// When deriving `Reflect`, this will generally be all the fields of the struct or enum variant.
+    /// As with any type registration, these type dependencies will not be registered more than once.
+    ///
+    /// If the registration for type `T` already exists, it will not be registered again and neither will its type dependencies.
+    /// To register the type, overwriting any existing registration, use [register](Self::overwrite_registration) instead.
+    ///
+    /// Additionally, this will add any reflect [type data](TypeData) as specified in the [`Reflect`] derive.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::any::TypeId;
+    /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
+    /// #[derive(Reflect, Default)]
+    /// #[reflect(Default)]
+    /// struct Foo {
+    ///   name: Option<String>,
+    ///   value: i32
+    /// }
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    ///
+    /// type_registry.register::<Foo>();
+    ///
+    /// // The main type
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    ///
+    /// // Its type dependencies
+    /// assert!(type_registry.contains(TypeId::of::<Option<String>>()));
+    /// assert!(type_registry.contains(TypeId::of::<i32>()));
+    ///
+    /// // Its type data
+    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
     /// ```
     pub fn register<T>(&mut self)
     where
         T: GetTypeRegistration,
     {
-        self.add_registration(T::get_type_registration());
+        if self.register_internal(TypeId::of::<T>(), T::get_type_registration) {
+            T::register_type_dependencies(self);
+        }
+    }
+
+    /// Attempts to register the type described by `registration`.
+    ///
+    /// If the registration for the type already exists, it will not be registered again.
+    ///
+    /// To forcibly register the type, overwriting any existing registration, use the
+    /// [`overwrite_registration`](Self::overwrite_registration) method instead.
+    ///
+    /// This method will _not_ register type dependencies.
+    /// Use [`register`](Self::register) to register a type with its dependencies.
+    ///
+    /// Returns `true` if the registration was added and `false` if it already exists.
+    pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
+        let type_id = registration.type_id();
+        self.register_internal(type_id, || registration)
     }
 
     /// Registers the type described by `registration`.
-    pub fn add_registration(&mut self, registration: TypeRegistration) {
-        if self.registrations.contains_key(&registration.type_id()) {
-            return;
-        }
-
-        let short_name = registration.type_info().type_path_table().short_path();
-        if self.short_path_to_id.contains_key(short_name)
-            || self.ambiguous_names.contains(short_name)
-        {
-            // name is ambiguous. fall back to long names for all ambiguous types
-            self.short_path_to_id.remove(short_name);
-            self.ambiguous_names.insert(short_name);
-        } else {
-            self.short_path_to_id
-                .insert(short_name, registration.type_id());
-        }
-        self.type_path_to_id
-            .insert(registration.type_info().type_path(), registration.type_id());
+    ///
+    /// If the registration for the type already exists, it will be overwritten.
+    ///
+    /// To avoid overwriting existing registrations, it's recommended to use the
+    /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods instead.
+    ///
+    /// This method will _not_ register type dependencies.
+    /// Use [`register`](Self::register) to register a type with its dependencies.
+    pub fn overwrite_registration(&mut self, registration: TypeRegistration) {
+        Self::update_registration_indices(
+            &registration,
+            &mut self.short_path_to_id,
+            &mut self.type_path_to_id,
+            &mut self.ambiguous_names,
+        );
         self.registrations
             .insert(registration.type_id(), registration);
+    }
+
+    /// Internal method to register a type with a given [`TypeId`] and [`TypeRegistration`].
+    ///
+    /// By using this method, we are able to reduce the number of `TypeId` hashes and lookups needed
+    /// to register a type.
+    ///
+    /// This method is internal to prevent users from accidentally registering a type with a `TypeId`
+    /// that does not match the type in the `TypeRegistration`.
+    fn register_internal(
+        &mut self,
+        type_id: TypeId,
+        get_registration: impl FnOnce() -> TypeRegistration,
+    ) -> bool {
+        match self.registrations.entry(type_id) {
+            bevy_utils::Entry::Occupied(_) => false,
+            bevy_utils::Entry::Vacant(entry) => {
+                let registration = get_registration();
+                Self::update_registration_indices(
+                    &registration,
+                    &mut self.short_path_to_id,
+                    &mut self.type_path_to_id,
+                    &mut self.ambiguous_names,
+                );
+                entry.insert(registration);
+                true
+            }
+        }
+    }
+
+    /// Internal method to register additional lookups for a given [`TypeRegistration`].
+    fn update_registration_indices(
+        registration: &TypeRegistration,
+        short_path_to_id: &mut HashMap<&'static str, TypeId>,
+        type_path_to_id: &mut HashMap<&'static str, TypeId>,
+        ambiguous_names: &mut HashSet<&'static str>,
+    ) {
+        let short_name = registration.type_info().type_path_table().short_path();
+        if short_path_to_id.contains_key(short_name) || ambiguous_names.contains(short_name) {
+            // name is ambiguous. fall back to long names for all ambiguous types
+            short_path_to_id.remove(short_name);
+            ambiguous_names.insert(short_name);
+        } else {
+            short_path_to_id.insert(short_name, registration.type_id());
+        }
+        type_path_to_id.insert(registration.type_info().type_path(), registration.type_id());
     }
 
     /// Registers the type data `D` for type `T`.
@@ -160,6 +260,10 @@ impl TypeRegistry {
             )
         });
         data.insert(D::from_type());
+    }
+
+    pub fn contains(&self, type_id: TypeId) -> bool {
+        self.registrations.contains_key(&type_id)
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
@@ -211,7 +315,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [type path]: TypePath::short_type_path
+    /// [short type path]: TypePath::short_type_path
     pub fn get_with_short_type_path(&self, short_type_path: &str) -> Option<&TypeRegistration> {
         self.short_path_to_id
             .get(short_type_path)
@@ -224,7 +328,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [type path]: TypePath::short_type_path
+    /// [short type path]: TypePath::short_type_path
     pub fn get_with_short_type_path_mut(
         &mut self,
         short_type_path: &str,
@@ -232,6 +336,32 @@ impl TypeRegistry {
         self.short_path_to_id
             .get(short_type_path)
             .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns `true` if the given [short type path] is ambiguous, that is, it matches multiple registered types.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    /// # mod foo {
+    /// #     use bevy_reflect::Reflect;
+    /// #     #[derive(Reflect)]
+    /// #     pub struct MyType;
+    /// # }
+    /// # mod bar {
+    /// #     use bevy_reflect::Reflect;
+    /// #     #[derive(Reflect)]
+    /// #     pub struct MyType;
+    /// # }
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<foo::MyType>();
+    /// type_registry.register::<bar::MyType>();
+    /// assert_eq!(type_registry.is_ambiguous("MyType"), true);
+    /// ```
+    ///
+    /// [short type path]: TypePath::short_type_path
+    pub fn is_ambiguous(&self, short_type_path: &str) -> bool {
+        self.ambiguous_names.contains(short_type_path)
     }
 
     /// Returns a reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].
@@ -435,14 +565,20 @@ pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
 }
 
-impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
-                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.reflect_type_path(), std::any::type_name::<T>())
-                });
-                Serializable::Borrowed(value)
+                value
+                    .downcast_ref::<T>()
+                    .map(|value| Serializable::Borrowed(value))
+                    .or_else(|| T::from_reflect(value).map(|value| Serializable::Owned(Box::new(value))))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
+                            T::type_path(),
+                        );
+                    })
             },
         }
     }
@@ -527,6 +663,7 @@ pub struct ReflectFromPtr {
     from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
+#[allow(unsafe_code)]
 impl ReflectFromPtr {
     /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for.
     pub fn type_id(&self) -> TypeId {
@@ -578,6 +715,7 @@ impl ReflectFromPtr {
     }
 }
 
+#[allow(unsafe_code)]
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
@@ -597,6 +735,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod test {
     use crate::{GetTypeRegistration, ReflectFromPtr};
     use bevy_ptr::{Ptr, PtrMut};

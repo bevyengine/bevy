@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use bevy_ecs::prelude::Component;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,

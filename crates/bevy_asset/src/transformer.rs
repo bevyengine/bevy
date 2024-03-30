@@ -1,5 +1,5 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{BoxedFuture, CowArc, HashMap};
+use bevy_utils::{ConditionalSendFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
@@ -18,14 +18,14 @@ pub trait AssetTransformer: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
     type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
-    /// Transformes the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
+    /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
     /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
         &'a self,
         asset: TransformedAsset<Self::AssetInput>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
+    ) -> impl ConditionalSendFuture<Output = Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
 }
 
 /// An [`Asset`] (and any "sub assets") intended to be transformed
@@ -58,7 +58,7 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
-    /// Creates a new [`TransformedAsset`] from `asset`, transfering the `labeled_assets` from this [`TransformedAsset`] to the new one
+    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
             value: asset,

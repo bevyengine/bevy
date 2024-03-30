@@ -1,5 +1,4 @@
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::smallvec;
 use smallvec::SmallVec;
 
 use std::any::Any;
@@ -184,7 +183,7 @@ where
     }
 }
 
-impl_type_path!(::bevy_utils::smallvec::SmallVec<T: smallvec::Array>);
+impl_type_path!(::smallvec::SmallVec<T: smallvec::Array>);
 
 impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where

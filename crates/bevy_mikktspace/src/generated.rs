@@ -41,7 +41,8 @@
     non_upper_case_globals,
     unused_mut,
     unused_assignments,
-    unused_variables
+    unused_variables,
+    unsafe_code
 )]
 
 use std::ptr::null_mut;
@@ -133,7 +134,7 @@ impl STriInfo {
 pub struct SGroup {
     pub iNrFaces: i32,
     pub pFaceIndices: *mut i32,
-    pub iVertexRepresentitive: i32,
+    pub iVertexRepresentative: i32,
     pub bOrientPreservering: bool,
 }
 
@@ -142,7 +143,7 @@ impl SGroup {
         Self {
             iNrFaces: 0,
             pFaceIndices: null_mut(),
-            iVertexRepresentitive: 0,
+            iVertexRepresentative: 0,
             bOrientPreservering: false,
         }
     }
@@ -560,7 +561,7 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                     piTriListIn,
                     pTriInfos,
                     geometry,
-                    (*pGroup).iVertexRepresentitive,
+                    (*pGroup).iVertexRepresentative,
                 );
                 iUniqueSubGroups += 1
             }
@@ -634,7 +635,7 @@ unsafe fn EvalTspace<I: Geometry>(
     mut piTriListIn: *const i32,
     mut pTriInfos: *const STriInfo,
     geometry: &mut I,
-    iVertexRepresentitive: i32,
+    iVertexRepresentative: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
         vOs: Vec3::new(0.0, 0.0, 0.0),
@@ -675,11 +676,11 @@ unsafe fn EvalTspace<I: Geometry>(
             let mut i0: i32 = -1i32;
             let mut i1: i32 = -1i32;
             let mut i2: i32 = -1i32;
-            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
+            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentative {
                 i = 0i32
-            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentative {
                 i = 1i32
-            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentative {
                 i = 2i32
             }
             index = *piTriListIn.offset((3i32 * f + i) as isize);
@@ -831,7 +832,7 @@ unsafe fn Build4RuleGroups(
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
                 *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
-                    .iVertexRepresentitive = vert_index;
+                    .iVertexRepresentative = vert_index;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
                     (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
@@ -897,7 +898,7 @@ unsafe fn AssignRecur(
     let mut pMyTriInfo: *mut STriInfo =
         &mut *psTriInfos.offset(iMyTriIndex as isize) as *mut STriInfo;
     // track down vertex
-    let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
+    let iVertRep: i32 = (*pGroup).iVertexRepresentative;
     let mut pVerts: *const i32 =
         &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
     let mut i: i32 = -1i32;

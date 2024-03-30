@@ -1,11 +1,10 @@
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::Image};
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3253086872234592509);
@@ -26,9 +25,9 @@ impl Plugin for ColorMaterialPlugin {
             .register_asset_reflect::<ColorMaterial>();
 
         app.world.resource_mut::<Assets<ColorMaterial>>().insert(
-            Handle::<ColorMaterial>::default(),
+            &Handle::<ColorMaterial>::default(),
             ColorMaterial {
-                color: Color::rgb(1.0, 0.0, 1.0),
+                color: Color::srgb(1.0, 0.0, 1.0),
                 ..Default::default()
             },
         );
@@ -98,7 +97,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         }
 
         ColorMaterialUniform {
-            color: self.color.as_linear_rgba_f32().into(),
+            color: LinearRgba::from(self.color).to_f32_array().into(),
             flags: flags.bits(),
         }
     }

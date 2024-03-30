@@ -5,7 +5,11 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
+<<<<<<< HEAD
 use bevy_reflect::{PartialReflect, TypePath, TypeRegistryArc};
+=======
+use bevy_reflect::{Reflect, TypePath, TypeRegistry};
+>>>>>>> 286bc8cce52add44e6f6f9c8cd778d26eaa1a761
 use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
@@ -90,7 +94,11 @@ impl DynamicScene {
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
+<<<<<<< HEAD
             reflect_resource.apply_or_insert(world, resource.as_partial_reflect());
+=======
+            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
+>>>>>>> 286bc8cce52add44e6f6f9c8cd778d26eaa1a761
         }
 
         // For each component types that reference other entities, we keep track
@@ -175,9 +183,15 @@ impl DynamicScene {
     }
 
     // TODO: move to AssetSaver when it is implemented
-    /// Serialize this dynamic scene into rust object notation (ron).
+    /// Serialize this dynamic scene into the official Bevy scene format (`.scn` / `.scn.ron`).
+    ///
+    /// The Bevy scene format is based on [Rusty Object Notation (RON)]. It describes the scene
+    /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
+    ///
+    /// [`SceneLoader`]: crate::SceneLoader
+    /// [Rusty Object Notation (RON)]: https://crates.io/crates/ron
     #[cfg(feature = "serialize")]
-    pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
+    pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
@@ -197,7 +211,7 @@ where
 #[cfg(test)]
 mod tests {
     use bevy_ecs::entity::EntityHashMap;
-    use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
+    use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
     use bevy_hierarchy::{Parent, PushChild};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;

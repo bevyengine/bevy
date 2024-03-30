@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use libloading::{Library, Symbol};
 use std::ffi::OsStr;
 use thiserror::Error;
@@ -7,8 +9,10 @@ use bevy_app::{App, CreatePlugin, Plugin};
 /// Errors that can occur when loading a dynamic plugin
 #[derive(Debug, Error)]
 pub enum DynamicPluginLoadError {
+    /// An error occurred when loading a dynamic library.
     #[error("cannot load library for dynamic plugin: {0}")]
     Library(#[source] libloading::Error),
+    /// An error occurred when loading a library without a valid Bevy plugin.
     #[error("dynamic library does not contain a valid Bevy dynamic plugin")]
     Plugin(#[source] libloading::Error),
 }
@@ -18,22 +22,22 @@ pub enum DynamicPluginLoadError {
 ///
 /// # Safety
 ///
-/// The specified plugin must be linked against the exact same libbevy.so as this program.
+/// The specified plugin must be linked against the exact same `libbevy.so` as this program.
 /// In addition the `_bevy_create_plugin` symbol must not be manually created, but instead created
 /// by deriving `DynamicPlugin` on a unit struct implementing [`Plugin`].
 ///
-/// Dynamically loading plugins is orchestrated through dynamic linking. When linking against foreign
-/// code, initialization routines may be run (as well as termination routines when the program exits).
-/// The caller of this function is responsible for ensuring these routines are sound. For more
-/// information, please see the safety section of [`libloading::Library::new`].
+/// Dynamically loading plugins is orchestrated through dynamic linking. When linking against
+/// foreign code, initialization routines may be run (as well as termination routines when the
+/// program exits). The caller of this function is responsible for ensuring these routines are
+/// sound. For more information, please see the safety section of [`libloading::Library::new`].
 pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     path: P,
 ) -> Result<(Library, Box<dyn Plugin>), DynamicPluginLoadError> {
     // SAFETY: Caller must follow the safety requirements of Library::new.
     let lib = unsafe { Library::new(path).map_err(DynamicPluginLoadError::Library)? };
 
-    // SAFETY: Loaded plugins are not allowed to specify `_bevy_create_plugin` symbol manually, but must
-    // instead automatically generate it through `DynamicPlugin`.
+    // SAFETY: Loaded plugins are not allowed to specify `_bevy_create_plugin` symbol manually, but
+    // must instead automatically generate it through `DynamicPlugin`.
     let func: Symbol<CreatePlugin> = unsafe {
         lib.get(b"_bevy_create_plugin")
             .map_err(DynamicPluginLoadError::Plugin)?
@@ -46,10 +50,15 @@ pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     Ok((lib, plugin))
 }
 
+/// An extension trait for [`App`] that allows loading dynamic plugins.
 pub trait DynamicPluginExt {
+    /// Dynamically links a plugin at the given path, registering the plugin.
+    ///
+    /// For more details, see [`dynamically_load_plugin`].
+    ///
     /// # Safety
     ///
-    /// Same as [`dynamically_load_plugin`].
+    /// See [`dynamically_load_plugin`]'s safety section.
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
 }
 
