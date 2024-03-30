@@ -47,6 +47,8 @@ impl Iterator for CircleIterator {
 }
 
 mod tests {
+    use bevy_math::Vec2;
+    use super::CircleIterator;
     #[test]
     fn circle_iterator_has_correct_length() {
         let vertices: Vec<Vec2> = CircleIterator::new(6, false).collect();
