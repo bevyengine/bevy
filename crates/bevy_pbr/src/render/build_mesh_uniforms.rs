@@ -20,9 +20,10 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only},
-        BindGroupEntries, BindGroupLayout, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, DynamicBindGroupLayoutEntries, PipelineCache, Shader,
-        ShaderStages, SpecializedComputePipeline, SpecializedComputePipelines,
+        BindGroup, BindGroupEntries, BindGroupLayout, CachedComputePipelineId,
+        ComputePassDescriptor, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
+        PipelineCache, Shader, ShaderStages, SpecializedComputePipeline,
+        SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice},
     Render, RenderApp, RenderSet,
@@ -59,6 +60,10 @@ pub struct BuildMeshUniformsPipeline {
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 
+/// The compute shader bind group for the mesh uniform building pass.
+#[derive(Resource, Default)]
+pub struct BuildMeshUniformsBindGroup(Option<BindGroup>);
+
 impl Plugin for BuildMeshUniformsPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -74,7 +79,10 @@ impl Plugin for BuildMeshUniformsPlugin {
 
         render_app.add_systems(
             Render,
-            prepare_build_mesh_uniforms_pipeline.in_set(RenderSet::Prepare),
+            (
+                prepare_build_mesh_uniforms_pipeline.in_set(RenderSet::Prepare),
+                prepare_build_mesh_uniforms_bind_group.in_set(RenderSet::PrepareBindGroups),
+            ),
         );
     }
 
@@ -98,6 +106,7 @@ impl Plugin for BuildMeshUniformsPlugin {
                 ),
             )
             .init_resource::<BuildMeshUniformsPipeline>()
+            .init_resource::<BuildMeshUniformsBindGroup>()
             .init_resource::<SpecializedComputePipelines<BuildMeshUniformsPipeline>>();
     }
 }
@@ -112,19 +121,21 @@ impl ViewNode for BuildMeshUniformsNode {
         _: QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh uniform
-        let BatchedInstanceBuffers::GpuBuilt {
-            data_buffer: ref data_buffer_vec,
-            index_buffer: ref index_buffer_vec,
-            current_input_buffer: ref current_input_buffer_vec,
-            previous_input_buffer: ref previous_input_buffer_vec,
-            index_count,
-        } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+        // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh
+        // uniform building, bail out.
+        let BatchedInstanceBuffers::GpuBuilt { index_count, .. } =
+            world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
         else {
             error!(
-                "Attempted to build mesh uniforms on GPU, but `GpuBuilt` batched instance \
-                buffers weren't available"
+                "Attempted to build mesh uniforms on GPU, but `GpuBuilt` batched instance buffers \
+                weren't available"
             );
+            return Ok(());
+        };
+
+        // Grab the bind group.
+        let Some(ref bind_group) = world.resource::<BuildMeshUniformsBindGroup>().0 else {
+            error!("Attempted to build mesh uniforms on GPU, but the bind group wasn't available");
             return Ok(());
         };
 
@@ -143,35 +154,6 @@ impl ViewNode for BuildMeshUniformsNode {
             return Ok(());
         };
 
-        let Some(current_input_buffer) = current_input_buffer_vec.buffer() else {
-            warn!("The current input buffer wasn't uploaded");
-            return Ok(());
-        };
-        let Some(previous_input_buffer) = previous_input_buffer_vec.buffer() else {
-            // This will happen on the first frame and is fine.
-            return Ok(());
-        };
-        let Some(index_buffer) = index_buffer_vec.buffer() else {
-            warn!("The index buffer wasn't uploaded");
-            return Ok(());
-        };
-        let Some(data_buffer) = data_buffer_vec.buffer() else {
-            warn!("The data buffer wasn't uploaded");
-            return Ok(());
-        };
-
-        // TODO: Do this in a separate system and cache it.
-        let bind_group = render_context.render_device().create_bind_group(
-            "build_mesh_uniforms_bind_group",
-            &build_mesh_uniforms_pipeline.bind_group_layout,
-            &BindGroupEntries::sequential((
-                current_input_buffer.as_entire_binding(),
-                previous_input_buffer.as_entire_binding(),
-                index_buffer.as_entire_binding(),
-                data_buffer.as_entire_binding(),
-            )),
-        );
-
         let mut compute_pass =
             render_context
                 .command_encoder()
@@ -181,7 +163,7 @@ impl ViewNode for BuildMeshUniformsNode {
                 });
 
         compute_pass.set_pipeline(view_build_mesh_uniforms_pipeline);
-        compute_pass.set_bind_group(0, &bind_group, &[]);
+        compute_pass.set_bind_group(0, bind_group, &[]);
         let workgroup_count = div_round_up(*index_count, WORKGROUP_SIZE);
         compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
 
@@ -248,6 +230,52 @@ pub fn prepare_build_mesh_uniforms_pipeline(
     let build_mesh_uniforms_pipeline_id =
         pipelines.specialize(&pipeline_cache, &build_mesh_uniforms_pipeline, ());
     build_mesh_uniforms_pipeline.pipeline_id = Some(build_mesh_uniforms_pipeline_id);
+}
+
+pub fn prepare_build_mesh_uniforms_bind_group(
+    render_device: Res<RenderDevice>,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    pipeline: Res<BuildMeshUniformsPipeline>,
+    mut bind_group: ResMut<BuildMeshUniformsBindGroup>,
+) {
+    // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh
+    // uniform building, bail out.
+    let BatchedInstanceBuffers::GpuBuilt {
+        data_buffer: ref data_buffer_vec,
+        index_buffer: ref index_buffer_vec,
+        current_input_buffer: ref current_input_buffer_vec,
+        previous_input_buffer: ref previous_input_buffer_vec,
+        index_count: _,
+    } = *batched_instance_buffers
+    else {
+        return;
+    };
+
+    let (
+        Some(current_input_buffer),
+        Some(previous_input_buffer),
+        Some(index_buffer),
+        Some(data_buffer),
+    ) = (
+        current_input_buffer_vec.buffer(),
+        previous_input_buffer_vec.buffer(),
+        index_buffer_vec.buffer(),
+        data_buffer_vec.buffer(),
+    )
+    else {
+        return;
+    };
+
+    bind_group.0 = Some(render_device.create_bind_group(
+        "build_mesh_uniforms_bind_group",
+        &pipeline.bind_group_layout,
+        &BindGroupEntries::sequential((
+            current_input_buffer.as_entire_binding(),
+            previous_input_buffer.as_entire_binding(),
+            index_buffer.as_entire_binding(),
+            data_buffer.as_entire_binding(),
+        )),
+    ));
 }
 
 /// Returns `a / b`, rounded toward positive infinity.
