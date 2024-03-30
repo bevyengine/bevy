@@ -25,6 +25,8 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
+use crate::WinitWindows;
+
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
@@ -57,7 +59,7 @@ pub(crate) fn prepare_accessibility_for_window(
     root_builder.set_name(name.into_boxed_str());
     let root = root_builder.build(&mut NodeClassSet::lock_global());
 
-    let accesskit_window_id = NodeId(entity.to_bits());
+    let accesskit_window_id = NodeId(winit_window.id().into());
     let handler = WinitActionHandler::default();
     let adapter = Adapter::with_action_handler(
         winit_window,
@@ -107,6 +109,7 @@ fn should_update_accessibility_nodes(
 
 fn update_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
+    windows: NonSend<WinitWindows>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
@@ -117,19 +120,23 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
+    let Ok((primary_window_entity, primary_window)) = primary_window.get_single() else {
         return;
     };
-    let Some(adapter) = adapters.get(&primary_window_id) else {
+    let Some(adapter) = adapters.get(&primary_window_entity) else {
+        return;
+    };
+    let Some(primary_window_id) = windows.entity_to_winit.get(&primary_window_entity) else {
         return;
     };
     if focus.is_changed() || !nodes.is_empty() {
         adapter.update_if_active(|| {
             update_adapter(
+                &windows,
                 nodes,
                 node_entities,
                 primary_window,
-                primary_window_id,
+                (*primary_window_id).into(),
                 focus,
             )
         });
@@ -137,6 +144,7 @@ fn update_accessibility_nodes(
 }
 
 fn update_adapter(
+    windows: &WinitWindows,
     nodes: Query<(
         Entity,
         &AccessibilityNode,
@@ -145,7 +153,7 @@ fn update_adapter(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
-    primary_window_id: Entity,
+    primary_window_id: u64,
     focus: Res<Focus>,
 ) -> TreeUpdate {
     let mut to_update = vec![];
@@ -165,13 +173,21 @@ fn update_adapter(
     }
     window_node.set_children(window_children);
     let window_node = window_node.build(&mut NodeClassSet::lock_global());
-    let node_id = NodeId(primary_window_id.to_bits());
+    let node_id = NodeId(primary_window_id);
     let window_update = (node_id, window_node);
     to_update.insert(0, window_update);
+    let focus = focus.map(|f| {
+        windows
+            .entity_to_winit
+            .get(&f)
+            .copied()
+            .map(u64::from)
+            .unwrap_or(f.to_bits())
+    });
     TreeUpdate {
         nodes: to_update,
         tree: None,
-        focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
+        focus: NodeId(focus.unwrap_or(primary_window_id)),
     }
 }
 
