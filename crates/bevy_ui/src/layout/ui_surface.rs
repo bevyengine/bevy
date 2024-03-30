@@ -198,7 +198,7 @@ impl UiSurface {
         // if it's not added we want to re-assign the parent we cleared above
         if !added {
             let Some(root_node_data) = self.root_node_data.get(target_entity) else {
-                unreachable!("impossible");
+                unreachable!();
             };
             let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
             self.taffy
@@ -329,7 +329,7 @@ without UI components as a child of an entity with UI components, results may be
 
         self.root_node_data
             .get_mut(root_node_entity)
-            .unwrap_or_else(|| unreachable!("impossible"))
+            .unwrap_or_else(|| unreachable!())
     }
 
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
@@ -349,7 +349,7 @@ without UI components as a child of an entity with UI components, results may be
             let root_node_data = self
                 .root_node_data
                 .get(&ui_entity)
-                .unwrap_or_else(|| unreachable!("impossible"));
+                .unwrap_or_else(|| unreachable!());
 
             // fix taffy relationships
             {
