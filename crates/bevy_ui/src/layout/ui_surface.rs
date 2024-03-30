@@ -110,12 +110,8 @@ impl UiSurface {
     /// Disassociates the root node from the assigned camera (if any) and removes the viewport node from taffy
     /// Removes entry in root_node_data
     pub(super) fn remove_root_node_viewport(&mut self, root_node_entity: &Entity) {
-        if let Some(mut removed) = self.root_node_data.remove(root_node_entity) {
-            if let Some(camera_entity) = removed.camera_entity.take() {
-                if let Some(root_node_entities) = self.camera_root_nodes.get_mut(&camera_entity) {
-                    root_node_entities.remove(root_node_entity);
-                }
-            }
+        self.mark_root_node_as_orphaned(root_node_entity);
+        if let Some(removed) = self.root_node_data.remove(root_node_entity) {
             self.taffy.remove(removed.implicit_viewport_node).unwrap();
         }
     }
@@ -319,14 +315,7 @@ without UI components as a child of an entity with UI components, results may be
         }
 
         for orphan in removed_children.iter() {
-            if let Some(root_node_data) = self.root_node_data.get_mut(orphan) {
-                // mark as orphan
-                if let Some(camera_entity) = root_node_data.camera_entity.take() {
-                    if let Some(children_set) = self.camera_root_nodes.get_mut(&camera_entity) {
-                        children_set.remove(orphan);
-                    }
-                }
-            }
+            self.mark_root_node_as_orphaned(orphan);
         }
     }
 
