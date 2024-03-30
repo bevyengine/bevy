@@ -104,6 +104,7 @@ pub trait Typed: Reflect + TypePath {
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+/// [`PartialReflect::get_represented_type_info`]: crate::PartialReflect::get_represented_type_info
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
