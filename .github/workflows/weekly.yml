@@ -85,11 +85,12 @@ jobs:
       - name: Create issue
         run: |
           previous_issue_number=$(gh issue list \
-            --title "$TITLE" \
+            --search "$TITLE in:title" \
             --json number \
             --jq '.[0].number')
           if [[ -n $previous_issue_number ]]; then
-            echo "issue already exists: $previous_issue_number"
+            gh issue comment $previous_issue_number \
+              --body "Weekly pipeline still fails: $FAILED_RUN" 
           else
             gh issue create \
               --title "$TITLE" \
@@ -101,8 +102,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TITLE: Main branch fails to compile on Rust beta.
           LABELS: C-Bug,S-Needs-Triage
-          BODY: |
+          FAILED_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BODY: | 
             ## Weekly CI run has failed.
-            [The offending run.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-
+            [The offending run.]($FAILED_RUN)
