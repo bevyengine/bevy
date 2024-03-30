@@ -69,7 +69,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let field = value.field("a").unwrap();
 
     // But values introspected via `PartialReflect` will not return `dyn Reflect` trait objects
-    // (even if the contianing type does implement `Reflect`), so we need to convert them:
+    // (even if the containing type does implement `Reflect`), so we need to convert them:
     let fully_reflected_field = field.try_as_reflect().unwrap();
 
     // Now, you can downcast your `Reflect` value like this:
