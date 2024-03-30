@@ -2,11 +2,10 @@
 //! pressed.
 
 use bevy::{
-    input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest},
+    input::gamepad::{Gamepad, GamepadButtons, GamepadRumbleIntensity, GamepadRumbleRequest},
     prelude::*,
     utils::Duration,
 };
-use bevy_internal::input::gamepad::{Gamepad, GamepadButtons};
 
 fn main() {
     App::new()

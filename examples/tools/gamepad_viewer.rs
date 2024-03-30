@@ -3,15 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::event::raw::{
-        GamepadConnectionEvent, RawGamepadButtonChangedEvent,
+    input::gamepad::{
+        Gamepad, GamepadConnectionEvent, RawGamepadButtonChangedEvent, GamepadButtons, GamepadSettings, GamepadAxisChanged
     },
-    input::gamepad::{GamepadButtons, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
-use bevy_internal::input::gamepad::event::processed::GamepadAxisInput;
-use bevy_internal::input::gamepad::Gamepad;
 
 const BUTTON_RADIUS: f32 = 25.;
 const BUTTON_CLUSTER_RADIUS: f32 = 50.;
@@ -482,7 +479,7 @@ fn update_button_values(
 }
 
 fn update_axes(
-    mut axis_events: EventReader<GamepadAxisInput>,
+    mut axis_events: EventReader<GamepadAxisChanged>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {

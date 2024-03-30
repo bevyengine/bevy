@@ -6,11 +6,10 @@ use bevy_ecs::event::EventWriter;
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
 use bevy_ecs::system::ResMut;
-use bevy_input::gamepad::event::raw::{
+use bevy_input::gamepad::{
     GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
-    RawGamepadEvent,
+    RawGamepadEvent, GamepadConnection, GamepadInfo
 };
-use bevy_input::gamepad::{GamepadConnection, GamepadInfo};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(

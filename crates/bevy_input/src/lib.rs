@@ -44,11 +44,12 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
-    event::processed::*, event::raw::*, gamepad_axis_event_system, gamepad_button_event_system,
-    gamepad_connection_system, gamepad_event_system, GamepadRumbleRequest, GamepadSettings,
+    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
+    gamepad_event_system, EntityGamepadMap, GamepadAxisChanged, GamepadButtonChanged,
+    GamepadButtonStateChanged, GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings,
+    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
-use crate::gamepad::EntityGamepadMap;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -80,7 +81,7 @@ impl Plugin for InputPlugin {
             .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadButtonChanged>()
             .add_event::<GamepadButtonStateChanged>()
-            .add_event::<GamepadAxisInput>()
+            .add_event::<GamepadAxisChanged>()
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()

@@ -12,263 +12,248 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::{Duration, tracing::{info, warn}, HashMap};
+use bevy_utils::{
+    tracing::{info, warn},
+    Duration, HashMap,
+};
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
-use event::{processed::*, raw::*};
+/// A gamepad event.
+///
+/// This event type is used over the [`GamepadConnectionEvent`],
+/// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
+/// the in-frame relative ordering of events is important.
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RawGamepadEvent {
+    /// A gamepad has been connected or disconnected.
+    Connection(GamepadConnectionEvent),
+    /// A button of the gamepad has been triggered.
+    Button(RawGamepadButtonChangedEvent),
+    /// An axis of the gamepad has been triggered.
+    Axis(RawGamepadAxisChangedEvent),
+}
 
-pub mod event {
-    pub mod raw {
-        use crate::gamepad::{GamepadAxisType, GamepadButtonType, GamepadConnection, GamepadId};
-        use bevy_ecs::event::Event;
-        use bevy_reflect::Reflect;
+impl From<GamepadConnectionEvent> for RawGamepadEvent {
+    fn from(value: GamepadConnectionEvent) -> Self {
+        Self::Connection(value)
+    }
+}
 
-        /// A gamepad event.
-        ///
-        /// This event type is used over the [`GamepadConnectionEvent`],
-        /// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
-        /// the in-frame relative ordering of events is important.
-        #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-            feature = "serialize",
-            derive(serde::Serialize, serde::Deserialize),
-            reflect(Serialize, Deserialize)
-        )]
-        pub enum RawGamepadEvent {
-            /// A gamepad has been connected or disconnected.
-            Connection(GamepadConnectionEvent),
-            /// A button of the gamepad has been triggered.
-            Button(RawGamepadButtonChangedEvent),
-            /// An axis of the gamepad has been triggered.
-            Axis(RawGamepadAxisChangedEvent),
+impl From<RawGamepadButtonChangedEvent> for RawGamepadEvent {
+    fn from(value: RawGamepadButtonChangedEvent) -> Self {
+        Self::Button(value)
+    }
+}
+
+impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
+    fn from(value: RawGamepadAxisChangedEvent) -> Self {
+        Self::Axis(value)
+    }
+}
+
+/// Gamepad event for when the "value" (amount of pressure) on the button
+/// changes by an amount larger than the threshold defined in [`GamepadSettings`].
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RawGamepadButtonChangedEvent {
+    /// The gamepad on which the button is triggered.
+    pub gamepad: GamepadId,
+    /// The type of the triggered button.
+    pub button_type: GamepadButtonType,
+    /// The value of the button.
+    pub value: f32,
+}
+
+impl RawGamepadButtonChangedEvent {
+    /// Creates a [`RawGamepadButtonChangedEvent`].
+    pub fn new(gamepad: GamepadId, button_type: GamepadButtonType, value: f32) -> Self {
+        Self {
+            gamepad,
+            button_type,
+            value,
         }
+    }
+}
 
-        impl From<GamepadConnectionEvent> for RawGamepadEvent {
-            fn from(value: GamepadConnectionEvent) -> Self {
-                Self::Connection(value)
-            }
+/// Gamepad event for when the "value" on the axis changes
+/// by an amount larger than the threshold defined in [`GamepadSettings`].
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RawGamepadAxisChangedEvent {
+    /// The gamepad on which the axis is triggered.
+    pub gamepad: GamepadId,
+    /// The type of the triggered axis.
+    pub axis_type: GamepadAxisType,
+    /// The value of the axis.
+    pub value: f32,
+}
+
+impl RawGamepadAxisChangedEvent {
+    /// Creates a [`RawGamepadAxisChangedEvent`].
+    pub fn new(gamepad: GamepadId, axis_type: GamepadAxisType, value: f32) -> Self {
+        Self {
+            gamepad,
+            axis_type,
+            value,
         }
+    }
+}
 
-        impl From<RawGamepadButtonChangedEvent> for RawGamepadEvent {
-            fn from(value: RawGamepadButtonChangedEvent) -> Self {
-                Self::Button(value)
-            }
-        }
+/// A Gamepad connection event. Created when a connection to a gamepad
+/// is established and when a gamepad is disconnected.
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GamepadConnectionEvent {
+    /// The gamepad whose connection status changed.
+    pub gamepad: GamepadId,
+    /// The change in the gamepads connection.
+    pub connection: GamepadConnection,
+}
 
-        impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
-            fn from(value: RawGamepadAxisChangedEvent) -> Self {
-                Self::Axis(value)
-            }
-        }
-
-        /// Gamepad event for when the "value" (amount of pressure) on the button
-        /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-        #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-            feature = "serialize",
-            derive(serde::Serialize, serde::Deserialize),
-            reflect(Serialize, Deserialize)
-        )]
-        pub struct RawGamepadButtonChangedEvent {
-            /// The gamepad on which the button is triggered.
-            pub gamepad: GamepadId,
-            /// The type of the triggered button.
-            pub button_type: GamepadButtonType,
-            /// The value of the button.
-            pub value: f32,
-        }
-
-        impl RawGamepadButtonChangedEvent {
-            /// Creates a [`RawGamepadButtonChangedEvent`].
-            pub fn new(gamepad: GamepadId, button_type: GamepadButtonType, value: f32) -> Self {
-                Self {
-                    gamepad,
-                    button_type,
-                    value,
-                }
-            }
-        }
-
-        /// Gamepad event for when the "value" on the axis changes
-        /// by an amount larger than the threshold defined in [`GamepadSettings`].
-        #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-            feature = "serialize",
-            derive(serde::Serialize, serde::Deserialize),
-            reflect(Serialize, Deserialize)
-        )]
-        pub struct RawGamepadAxisChangedEvent {
-            /// The gamepad on which the axis is triggered.
-            pub gamepad: GamepadId,
-            /// The type of the triggered axis.
-            pub axis_type: GamepadAxisType,
-            /// The value of the axis.
-            pub value: f32,
-        }
-
-        impl RawGamepadAxisChangedEvent {
-            /// Creates a [`RawGamepadAxisChangedEvent`].
-            pub fn new(gamepad: GamepadId, axis_type: GamepadAxisType, value: f32) -> Self {
-                Self {
-                    gamepad,
-                    axis_type,
-                    value,
-                }
-            }
-        }
-
-        /// A Gamepad connection event. Created when a connection to a gamepad
-        /// is established and when a gamepad is disconnected.
-        #[derive(Event, Debug, Clone, PartialEq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-            feature = "serialize",
-            derive(serde::Serialize, serde::Deserialize),
-            reflect(Serialize, Deserialize)
-        )]
-        pub struct GamepadConnectionEvent {
-            /// The gamepad whose connection status changed.
-            pub gamepad: GamepadId,
-            /// The change in the gamepads connection.
-            pub connection: GamepadConnection,
-        }
-
-        impl GamepadConnectionEvent {
-            /// Creates a [`GamepadConnectionEvent`].
-            pub fn new(gamepad: GamepadId, connection: GamepadConnection) -> Self {
-                Self {
-                    gamepad,
-                    connection,
-                }
-            }
-
-            /// Is the gamepad connected?
-            pub fn connected(&self) -> bool {
-                matches!(self.connection, GamepadConnection::Connected(_))
-            }
-
-            /// Is the gamepad disconnected?
-            pub fn disconnected(&self) -> bool {
-                !self.connected()
-            }
+impl GamepadConnectionEvent {
+    /// Creates a [`GamepadConnectionEvent`].
+    pub fn new(gamepad: GamepadId, connection: GamepadConnection) -> Self {
+        Self {
+            gamepad,
+            connection,
         }
     }
 
-    pub mod processed {
-        use crate::gamepad::{GamepadAxisType, GamepadButtonType, GamepadId};
-        use crate::ButtonState;
-        use bevy_ecs::entity::Entity;
-        use bevy_ecs::event::Event;
-        use bevy_reflect::Reflect;
+    /// Is the gamepad connected?
+    pub fn connected(&self) -> bool {
+        matches!(self.connection, GamepadConnection::Connected(_))
+    }
 
-        /// Gamepad button digital state changed event.
-        #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-            feature = "serialize",
-            derive(serde::Serialize, serde::Deserialize),
-            reflect(Serialize, Deserialize)
-        )]
-        pub struct GamepadButtonStateChanged {
-            /// The entity that represents this gamepad.
-            pub entity: Entity,
-            /// The gamepad id of this gamepad.
-            pub gamepad_id: GamepadId,
-            /// The gamepad button assigned to the event.
-            pub button: GamepadButtonType,
-            /// The pressed state of the button.
-            pub state: ButtonState,
+    /// Is the gamepad disconnected?
+    pub fn disconnected(&self) -> bool {
+        !self.connected()
+    }
+}
+
+/// Gamepad button digital state changed event.
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GamepadButtonStateChanged {
+    /// The entity that represents this gamepad.
+    pub entity: Entity,
+    /// The gamepad id of this gamepad.
+    pub gamepad_id: GamepadId,
+    /// The gamepad button assigned to the event.
+    pub button: GamepadButtonType,
+    /// The pressed state of the button.
+    pub state: ButtonState,
+}
+
+impl GamepadButtonStateChanged {
+    /// Creates a new [`GamepadButtonStateChanged`]
+    pub fn new(
+        entity: Entity,
+        gamepad_id: impl AsRef<GamepadId>,
+        button: GamepadButtonType,
+        state: ButtonState,
+    ) -> Self {
+        Self {
+            entity,
+            gamepad_id: *gamepad_id.as_ref(),
+            button,
+            state,
         }
+    }
+}
 
-        impl GamepadButtonStateChanged {
-            /// Creates a new [`GamepadButtonStateChanged`]
-            pub fn new(
-                entity: Entity,
-                gamepad_id: impl AsRef<GamepadId>,
-                button: GamepadButtonType,
-                state: ButtonState,
-            ) -> Self {
-                Self {
-                    entity,
-                    gamepad_id: *gamepad_id.as_ref(),
-                    button,
-                    state,
-                }
-            }
+/// Gamepad analog state changed event
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GamepadButtonChanged {
+    /// The entity that represents this gamepad.
+    pub entity: Entity,
+    /// The gamepad id of this gamepad.
+    pub gamepad_id: GamepadId,
+    /// The gamepad button assigned to the event.
+    pub button: GamepadButtonType,
+    /// The pressed state of the button.
+    pub state: ButtonState,
+    /// The analog value of the button.
+    pub value: f32,
+}
+
+impl GamepadButtonChanged {
+    /// Creates a new [`GamepadButtonChanged`]
+    pub fn new(
+        entity: Entity,
+        gamepad_id: impl AsRef<GamepadId>,
+        button: GamepadButtonType,
+        state: ButtonState,
+        value: f32,
+    ) -> Self {
+        Self {
+            entity,
+            gamepad_id: *gamepad_id.as_ref(),
+            button,
+            state,
+            value,
         }
+    }
+}
 
-        /// Gamepad analog state changed event
-        #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-        #[reflect(Debug, PartialEq)]
-        #[cfg_attr(
-        feature = "serialize",
-        derive(serde::Serialize, serde::Deserialize),
-        reflect(Serialize, Deserialize)
-        )]
-        pub struct GamepadButtonChanged {
-            /// The entity that represents this gamepad.
-            pub entity: Entity,
-            /// The gamepad id of this gamepad.
-            pub gamepad_id: GamepadId,
-            /// The gamepad button assigned to the event.
-            pub button: GamepadButtonType,
-            /// The pressed state of the button.
-            pub state: ButtonState,
-            /// The analog value of the button.
-            pub value: f32,
-        }
+/// A gamepad axis event.
+#[derive(Event, Debug, Clone, Copy, PartialEq)]
+pub struct GamepadAxisChanged {
+    /// The entity that represents this gamepad.
+    pub entity: Entity,
+    /// The gamepad id of this gamepad.
+    pub gamepad_id: GamepadId,
+    /// The gamepad axis assigned to the event.
+    pub axis: GamepadAxisType,
+    /// The value of this axis.
+    pub value: f32,
+}
 
-        impl GamepadButtonChanged {
-            /// Creates a new [`GamepadButtonChanged`]
-            pub fn new(
-                entity: Entity,
-                gamepad_id: impl AsRef<GamepadId>,
-                button: GamepadButtonType,
-                state: ButtonState,
-                value: f32,
-            ) -> Self {
-                Self {
-                    entity,
-                    gamepad_id: *gamepad_id.as_ref(),
-                    button,
-                    state,
-                    value,
-                }
-            }
-        }
-
-        /// A gamepad axis event.
-        #[derive(Event, Debug, Clone, Copy, PartialEq)]
-        pub struct GamepadAxisInput {
-            /// The entity that represents this gamepad.
-            pub entity: Entity,
-            /// The gamepad id of this gamepad.
-            pub gamepad_id: GamepadId,
-            /// The gamepad axis assigned to the event.
-            pub axis: GamepadAxisType,
-            /// The value of this axis.
-            pub value: f32,
-        }
-
-        impl GamepadAxisInput {
-            /// Creates a new [`GamepadAxisInput`]
-            pub fn new(
-                entity: Entity,
-                gamepad_id: impl AsRef<GamepadId>,
-                axis: GamepadAxisType,
-                value: f32,
-            ) -> Self {
-                Self {
-                    entity,
-                    gamepad_id: *gamepad_id.as_ref(),
-                    axis,
-                    value,
-                }
-            }
+impl GamepadAxisChanged {
+    /// Creates a new [`GamepadAxisChanged`]
+    pub fn new(
+        entity: Entity,
+        gamepad_id: impl AsRef<GamepadId>,
+        axis: GamepadAxisType,
+        value: f32,
+    ) -> Self {
+        Self {
+            entity,
+            gamepad_id: *gamepad_id.as_ref(),
+            axis,
+            value,
         }
     }
 }
@@ -1471,13 +1456,13 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisInput`] [`event`](Event).
+/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChanged`] [`event`](Event).
 pub fn gamepad_axis_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads_axis: Query<(&mut GamepadAxes, &GamepadSettings)>,
     gamepads_map: Res<EntityGamepadMap>,
     mut raw_events: EventReader<RawGamepadAxisChangedEvent>,
-    mut filtered_events: EventWriter<GamepadAxisInput>,
+    mut filtered_events: EventWriter<GamepadAxisChanged>,
 ) {
     for axis_event in raw_events.read() {
         let Some(entity) = gamepads_map.id_to_entity.get(&axis_event.gamepad).copied() else {
@@ -1494,7 +1479,7 @@ pub fn gamepad_axis_event_system(
         };
 
         gamepad_axis.axis.set(axis_event.axis_type, filtered_value);
-        filtered_events.send(GamepadAxisInput::new(
+        filtered_events.send(GamepadAxisChanged::new(
             entity,
             axis_event.gamepad,
             axis_event.axis_type,

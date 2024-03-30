@@ -1,7 +1,7 @@
 //! Shows handling of gamepad input, connections, and disconnections.
 
 use bevy::prelude::*;
-use bevy_internal::input::gamepad::{Gamepad, GamepadAxes, GamepadButtons};
+use bevy::input::gamepad::{Gamepad, GamepadAxes, GamepadButtons};
 
 fn main() {
     App::new()
