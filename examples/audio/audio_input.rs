@@ -16,7 +16,7 @@ fn push_to_listen(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCod
         // This will use the default audio input device.
         // To choose a different device, see AudioInputOptions.
         commands.start_recording_audio();
-    } else if !keyboard_input.pressed(KeyCode::Space) {
+    } else if keyboard_input.just_released(KeyCode::Space) {
         commands.stop_recording_audio();
     }
 }
