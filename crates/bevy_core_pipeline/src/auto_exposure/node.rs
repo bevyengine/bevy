@@ -63,12 +63,12 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let histogram_pipeline = pipeline_cache
-            .get_compute_pipeline(auto_exposure.histogram_pipeline)
-            .unwrap();
-        let average_pipeline = pipeline_cache
-            .get_compute_pipeline(auto_exposure.mean_luminance_pipeline)
-            .unwrap();
+        let (Some(histogram_pipeline), Some(average_pipeline)) = (
+            pipeline_cache.get_compute_pipeline(auto_exposure.histogram_pipeline),
+            pipeline_cache.get_compute_pipeline(auto_exposure.mean_luminance_pipeline),
+        ) else {
+            return Ok(());
+        };
 
         let source = view_target.main_texture_view();
 
