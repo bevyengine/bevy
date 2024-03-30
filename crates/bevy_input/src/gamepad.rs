@@ -5,7 +5,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
-use bevy_ecs::system::{Commands, Query};
+use bevy_ecs::system::{Commands, Local, Query};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
@@ -308,10 +308,10 @@ pub struct MinimalGamepad {
 
 impl MinimalGamepad {
     /// Creates a new minimal gamepad
-    pub fn new(gamepad: Gamepad) -> Self {
+    pub fn new(gamepad: Gamepad, settings: GamepadSettings) -> Self {
         Self {
             gamepad,
-            settings: GamepadSettings::default(),
+            settings,
             buttons: GamepadButtons::default(),
             axis: GamepadAxes::default(),
         }
@@ -720,7 +720,7 @@ impl GamepadAxes {
 /// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`RawGamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Debug, Default)]
 pub struct GamepadSettings {
     /// The default button settings.
@@ -1365,34 +1365,43 @@ impl ButtonAxisSettings {
 /// Whenever a [`GamepadId`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
 pub fn gamepad_connection_system(
     mut commands: Commands,
+    gamepads_settings: Query<&GamepadSettings>,
     mut gamepads: ResMut<EntityGamepadMap>,
     mut connection_events: EventReader<GamepadConnectionEvent>,
+    mut preserved_settings: Local<HashMap<GamepadId, GamepadSettings>>,
 ) {
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
-        if let GamepadConnection::Connected(info) = &connection_event.connection {
-            let entity = commands
-                .spawn(MinimalGamepad::new(Gamepad {
-                    id,
-                    info: info.clone(),
-                }))
-                .id();
-            gamepads.id_to_entity.insert(id, entity);
-            gamepads.entity_to_id.insert(entity, id);
-            info!("{:?} Connected", id);
-        } else {
-            let entity =
-                gamepads.id_to_entity.get(&id).copied().expect(
-                    "GamepadId doesn't exist in id_to_entity map. We are in a broken state.",
-                );
-            if let Some(mut entity_commands) = commands.get_entity(entity) {
-                entity_commands.despawn();
-            } else {
-                warn!("Disconnecting gamepad entity was already de-spawned. We can still proceed.");
+        match &connection_event.connection {
+            GamepadConnection::Connected(info) => {
+                let settings = preserved_settings.get(&id).cloned().unwrap_or(GamepadSettings::default());
+                let entity = commands
+                    .spawn(MinimalGamepad::new(Gamepad {
+                        id,
+                        info: info.clone(),
+                    }, settings) )
+                    .id();
+                gamepads.id_to_entity.insert(id, entity);
+                gamepads.entity_to_id.insert(entity, id);
+                info!("{:?} Connected", id);
             }
-            gamepads.id_to_entity.remove(&id);
-            gamepads.entity_to_id.remove(&entity);
-            info!("{:?} Disconnected", id);
+            GamepadConnection::Disconnected => {
+                let entity =
+                    gamepads.id_to_entity.get(&id).copied().expect(
+                        "GamepadId should exist in id_to_entity map",
+                    );
+                // Preserve settings for reconnection event
+                let settings = gamepads_settings.get(entity).cloned().unwrap_or(GamepadSettings::default());
+                preserved_settings.insert(id, settings);
+                gamepads.id_to_entity.remove(&id);
+                gamepads.entity_to_id.remove(&entity);
+                if let Some(mut entity_commands) = commands.get_entity(entity) {
+                    entity_commands.despawn();
+                } else {
+                    warn!("Gamepad entity was already de-spawned.");
+                }
+                info!("{:?} Disconnected", id);
+            }
         }
     }
 }
