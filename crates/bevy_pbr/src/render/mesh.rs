@@ -15,8 +15,9 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, BatchedInstanceBuffers,
-        GetBatchData, NoAutomaticBatching,
+        batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+        sort_binned_render_phase, write_batched_instance_buffer, BatchedInstanceBuffers,
+        GetBatchData, GetBinnedBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -139,13 +140,24 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            sort_binned_render_phase::<Opaque3d>,
+                            sort_binned_render_phase::<AlphaMask3d>,
+                            sort_binned_render_phase::<Shadow>,
+                            sort_binned_render_phase::<Opaque3dDeferred>,
+                            sort_binned_render_phase::<AlphaMask3dDeferred>,
+                        )
+                            .in_set(RenderSet::PhaseSort),
+                        (
+                            batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transmissive3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<
+                                AlphaMask3dDeferred,
+                                MeshPipeline,
+                            >,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
@@ -836,6 +848,10 @@ impl GetBatchData for MeshPipeline {
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_batch_data` should never be called in GPU mesh uniform \
+                building mode"
+            );
             return None;
         };
         let mesh_instance = mesh_instances.get(&entity)?;
@@ -878,6 +894,52 @@ impl GetBatchData for MeshPipeline {
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         ))
+    }
+}
+
+impl GetBinnedBatchData for MeshPipeline {
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+
+    type BufferData = MeshUniform;
+
+    type BufferInputData = MeshInputUniform;
+
+    fn get_batch_data(
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_batch_data` should never be called in GPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+
+        Some(MeshUniform::new(
+            &mesh_instance.transforms,
+            maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+        ))
+    }
+
+    fn get_batch_index(
+        (mesh_instances, _): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<u32> {
+        // This should only be called during GPU building.
+        let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_batch_index` should never be called in CPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+
+        mesh_instances
+            .get(&entity)
+            .map(|entity| entity.current_uniform_index)
     }
 }
 

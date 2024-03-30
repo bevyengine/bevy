@@ -148,7 +148,7 @@ impl ViewNode for BuildMeshUniformsNode {
             return Ok(());
         };
         let Some(previous_input_buffer) = previous_input_buffer_vec.buffer() else {
-            warn!("The previous input buffer wasn't uploaded");
+            // This will happen on the first frame and is fine.
             return Ok(());
         };
         let Some(index_buffer) = index_buffer_vec.buffer() else {
