@@ -14,7 +14,7 @@
 //! * Clicking anywhere moves the object.
 
 use bevy::color::palettes::css::*;
-use bevy::core_pipeline::Skybox;
+use bevy::core_pipeline::{Skybox, SkyboxTextureLayout};
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
@@ -241,6 +241,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
+            skybox_texture_layout: SkyboxTextureLayout::Cubemap,
         });
 }
 
