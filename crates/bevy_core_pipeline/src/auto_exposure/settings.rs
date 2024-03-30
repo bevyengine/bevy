@@ -2,7 +2,7 @@ use std::ops::RangeInclusive;
 
 use super::compensation_curve::AutoExposureCompensationCurve;
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_render::{extract_component::ExtractComponent, texture::Image};
 use bevy_utils::default;
@@ -21,7 +21,7 @@ use bevy_utils::default;
 ///
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
 ///
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, ExtractComponent)]
 #[reflect(Component)]
 pub struct AutoExposureSettings {
     /// The range of exposure values for the histogram.
@@ -96,15 +96,5 @@ impl Default for AutoExposureSettings {
             metering_mask: default(),
             compensation_curve: default(),
         }
-    }
-}
-
-impl ExtractComponent for AutoExposureSettings {
-    type QueryData = &'static Self;
-    type QueryFilter = ();
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(item.clone())
     }
 }
