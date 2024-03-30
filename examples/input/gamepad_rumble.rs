@@ -64,7 +64,9 @@ fn gamepad_system(
 
         if buttons.just_pressed(GamepadButtonType::Start) {
             info!("Start button: Interrupt the current rumble");
-            rumble_requests.send(GamepadRumbleRequest::Stop { gamepad: gamepad.id() });
+            rumble_requests.send(GamepadRumbleRequest::Stop {
+                gamepad: gamepad.id(),
+            });
         }
     }
 }

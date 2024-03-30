@@ -2,8 +2,8 @@
 
 use bevy::{
     input::gamepad::{
-        GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
-        RawGamepadEvent,GamepadButtonStateChanged
+        GamepadButtonStateChanged, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
+        RawGamepadButtonChangedEvent, RawGamepadEvent,
     },
     prelude::*,
 };

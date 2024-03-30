@@ -45,9 +45,9 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    EntityGamepadMap, GamepadAxisChanged, GamepadButtonChanged,
-    GamepadButtonStateChanged, GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings,
-    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
+    EntityGamepadMap, GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged,
+    GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
+    RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
 #[cfg(feature = "serialize")]
@@ -90,10 +90,8 @@ impl Plugin for InputPlugin {
                 PreUpdate,
                 (
                     gamepad_connection_system,
-                    gamepad_button_event_system
-                        .after(gamepad_connection_system),
-                    gamepad_axis_event_system
-                        .after(gamepad_connection_system),
+                    gamepad_button_event_system.after(gamepad_connection_system),
+                    gamepad_axis_event_system.after(gamepad_connection_system),
                 )
                     .in_set(InputSystem),
             )

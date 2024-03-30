@@ -1500,7 +1500,7 @@ pub fn gamepad_button_event_system(
     mut processed_analog_events: EventWriter<GamepadButtonChanged>,
 ) {
     // Clear digital buttons state
-    for (_, mut gamepad_buttons,_) in gamepads.iter_mut() {
+    for (_, mut gamepad_buttons, _) in gamepads.iter_mut() {
         gamepad_buttons.bypass_change_detection().digital.clear();
     }
     for event in raw_events.read() {
