@@ -139,18 +139,18 @@ impl UiSurface {
         }
     }
 
+    #[cfg(test)]
     /// Converts ui node to root node
     /// Should only be used for testing - does not set `TargetCamera`
-    #[cfg(test)]
     pub(super) fn promote_ui_node(&mut self, target_entity: &Entity, camera_entity: &Entity) {
         let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
-        
+
         // clear the parent - new_with_children doesn't seem to notify the old parent its children have changed
         if let Some(parent) = self.taffy.parent(*taffy_node) {
             self.taffy.remove_child(parent, *taffy_node).unwrap();
         }
-        
-        let mut added = false;        
+
+        let mut added = false;
         self.root_node_data
             .entry(*target_entity)
             .or_insert_with(|| {
@@ -165,13 +165,13 @@ impl UiSurface {
                     implicit_viewport_node,
                 }
             });
-        
+
         self.replace_camera_association(*target_entity, Some(*camera_entity));
-        
+
         // if it's not added we want to re-assign the parent we cleared above
         if !added {
             let Some(root_node_data) = self.root_node_data.get(target_entity) else {
-              unreachable!("impossible");  
+              unreachable!("impossible");
             };
             let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
             self.taffy.add_child(root_node_data.implicit_viewport_node, *taffy_node).unwrap();
@@ -314,7 +314,7 @@ without UI components as a child of an entity with UI components, results may be
         for ui_entity in children {
             // creates mutable borrow on self that lives as long as the result
             let _ = self.create_or_update_root_node_data(&ui_entity, &camera_entity);
-            
+
             // drop the mutable borrow on self by re-fetching
             let root_node_data = self
                 .root_node_data
@@ -729,7 +729,7 @@ mod tests {
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
-    
+
     #[test]
     fn test_promotion() {
         let mut ui_surface = UiSurface::default();
@@ -742,15 +742,15 @@ mod tests {
         ui_surface.upsert_node(child_entity, &style, &TEST_LAYOUT_CONTEXT);
         ui_surface.update_children(root_node_entity, &[child_entity]);
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
-        
+
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
         assert_eq!(ui_surface.taffy.total_node_count(), 3);
-        
-        
+
+
         ui_surface.promote_ui_node(&child_entity, &camera_entity);
         assert_eq!(ui_surface.taffy.total_node_count(), 4);
         assert_eq!(ui_surface.get_associated_camera_entity(child_entity), Some(camera_entity));
-        
+
         let root_node_entity_taffy = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_entity_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
         assert!(!ui_surface.taffy.children(*root_node_entity_taffy).unwrap().contains(child_entity_taffy));
