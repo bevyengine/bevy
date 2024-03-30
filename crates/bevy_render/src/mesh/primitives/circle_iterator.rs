@@ -1,7 +1,7 @@
 use bevy_math::Vec2;
 use std::f32::consts::TAU;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(crate) struct CircleIterator {
     count: usize,
     theta: f32,
