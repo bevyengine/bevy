@@ -22,9 +22,9 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 .root_node_data
                 .get(&root_node_entity)
                 .map(|rnd| rnd.implicit_viewport_node)
-                else {
-                    continue;
-                };
+            else {
+                continue;
+            };
             let mut out = String::new();
             print_node(
                 ui_surface,
