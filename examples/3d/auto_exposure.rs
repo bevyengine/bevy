@@ -35,6 +35,8 @@ fn setup(
     mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
     asset_server: Res<AssetServer>,
 ) {
+    let metering_mask = asset_server.load("textures/basic_metering_mask.png");
+
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
@@ -44,14 +46,15 @@ fn setup(
             transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        AutoExposureSettings::default(),
+        AutoExposureSettings {
+            metering_mask: metering_mask.clone(),
+            ..default()
+        },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
         },
     ));
-
-    let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
     commands.insert_resource(ExampleResources {
         basic_compensation_curve: compensation_curves.add(
