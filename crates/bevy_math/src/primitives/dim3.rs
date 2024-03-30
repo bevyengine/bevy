@@ -891,6 +891,16 @@ impl Tetrahedron {
         let ad = d - a;
         Mat3::from_cols(ab, ac, ad).determinant() / 6.0
     }
+
+    /// Get the centroid of the tetrahedron.
+    ///
+    /// This function finds the geometric center of the tetrahedron
+    /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
 }
 
 #[cfg(test)]
@@ -1069,7 +1079,16 @@ mod tests {
         };
         assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
         assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
-        assert_eq!(tetrahedron.signed_volume(), 3.2058334, "incorrect volume");
+        assert_eq!(
+            tetrahedron.signed_volume(),
+            3.2058334,
+            "incorrect signed volume"
+        );
+        assert_eq!(
+            tetrahedron.centroid(),
+            Vec3::new(-0.225, -0.375, 1.55),
+            "incorrect centroid"
+        );
 
         assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
         assert_eq!(
@@ -1080,7 +1099,12 @@ mod tests {
         assert_eq!(
             Tetrahedron::default().signed_volume(),
             0.083333336,
-            "incorrect volume"
+            "incorrect signed volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().centroid(),
+            Vec3::new(0.0, -0.125, 0.125),
+            "incorrect centroid"
         );
     }
 }
