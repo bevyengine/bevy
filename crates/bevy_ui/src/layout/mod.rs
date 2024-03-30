@@ -516,6 +516,7 @@ mod tests {
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
         assert!(!ui_surface.root_node_data.contains_key(&ui_entity));
         assert!(ui_surface.root_node_data.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 1);
     }
 
     #[test]
@@ -533,6 +534,7 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.is_empty());
         assert!(!ui_surface.root_node_data.contains_key(&ui_entity));
         assert!(ui_surface.root_node_data.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     #[test]
@@ -550,6 +552,7 @@ mod tests {
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
         assert!(ui_surface.root_node_data.contains_key(&ui_entity));
         assert_eq!(ui_surface.root_node_data.len(), 1);
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
     }
 
     #[test]
@@ -678,6 +681,7 @@ mod tests {
 
         // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
         let _ = ui_surface.taffy.style(ui_node);
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     #[test]
@@ -780,6 +784,7 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     /// regression test for >=0.13.1 root node layouts
