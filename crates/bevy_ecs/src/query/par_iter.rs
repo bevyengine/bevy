@@ -158,16 +158,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             self.state
-                .matched_table_ids
+                .matched_storage_ids
                 .iter()
-                .map(|id| tables[*id].entity_count())
+                // SAFETY: The if check ensures that matched_storage_ids stores TableIds
+                .map(|id| unsafe { tables[id.table_id].entity_count() })
                 .fold((0, 0), |(max, sum), value| (max.max(value), sum + value))
         } else {
             let archetypes = &self.world.archetypes();
             self.state
-                .matched_archetype_ids
+                .matched_storage_ids
                 .iter()
-                .map(|id| archetypes[*id].len())
+                // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
+                .map(|id| unsafe { archetypes[id.archetype_id].len() })
                 .fold((0, 0), |(max, sum), value| (max.max(value), sum + value))
         };
 
