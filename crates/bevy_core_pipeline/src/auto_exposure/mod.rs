@@ -57,7 +57,7 @@ impl Plugin for AutoExposurePlugin {
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(Handle::default(), AutoExposureCompensationCurve::default());
+            .insert(&Handle::default(), AutoExposureCompensationCurve::default());
 
         app.register_type::<AutoExposureSettings>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
