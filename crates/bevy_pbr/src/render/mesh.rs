@@ -390,6 +390,16 @@ pub struct RenderMeshInstanceGpuBuilder {
     pub shared: RenderMeshInstanceShared,
     /// The current transform.
     pub transform: Affine3,
+    /// Four 16-bit unsigned normalized UV values packed into a [`UVec2`]:
+    ///
+    ///                         <--- MSB                   LSB --->
+    ///                         +---- min v ----+ +---- min u ----+
+    ///     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
+    ///                         +---- max v ----+ +---- max u ----+
+    ///     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
+    ///
+    /// (MSB: most significant bit; LSB: least significant bit.)
+    pub lightmap_uv_rect: UVec2,
     /// Various flags.
     pub mesh_flags: MeshFlags,
 }
@@ -593,6 +603,7 @@ pub fn extract_meshes_for_gpu_building(
             &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
+            Option<&Lightmap>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
@@ -607,6 +618,7 @@ pub fn extract_meshes_for_gpu_building(
             view_visibility,
             transform,
             previous_transform,
+            lightmap,
             handle,
             not_shadow_receiver,
             transmitted_receiver,
@@ -627,12 +639,16 @@ pub fn extract_meshes_for_gpu_building(
                 no_automatic_batching,
             );
 
+            let lightmap_uv_rect =
+                lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+
             render_mesh_instance_queues.scope(|queue| {
                 queue.push((
                     entity,
                     RenderMeshInstanceGpuBuilder {
                         shared,
                         transform: (&transform.affine()).into(),
+                        lightmap_uv_rect,
                         mesh_flags,
                     },
                 ));
@@ -697,8 +713,7 @@ fn collect_meshes_for_gpu_building(
             // Push the mesh input uniform.
             let current_uniform_index = current_input_buffer.push(MeshInputUniform {
                 transform: builder.transform.to_transpose(),
-                // TODO: Track this.
-                lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(None),
+                lightmap_uv_rect: builder.lightmap_uv_rect,
                 flags: builder.mesh_flags.bits(),
                 previous_input_index: previous_input_index.unwrap_or(!0),
             });
