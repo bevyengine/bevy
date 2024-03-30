@@ -325,6 +325,45 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Converts ui node to root node
+    /// Should only be used for testing - does not set `TargetCamera`
+    #[cfg(test)]
+    pub(super) fn promote_ui_node(&mut self, target_entity: &Entity, camera_entity: &Entity) {
+        let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
+        
+        // clear the parent - new_with_children doesn't seem to notify the old parent its children have changed
+        if let Some(parent) = self.taffy.parent(*taffy_node) {
+            self.taffy.remove_child(parent, *taffy_node).unwrap();
+        }
+        
+        let mut added = false;        
+        self.root_node_data
+            .entry(*target_entity)
+            .or_insert_with(|| {
+                added = true;
+                let user_root_node = *self.entity_to_taffy.get(target_entity).unwrap();
+                let implicit_viewport_node = self
+                    .taffy
+                    .new_with_children(default_viewport_style(), &[user_root_node])
+                    .unwrap();
+                RootNodeData {
+                    camera_entity: None,
+                    implicit_viewport_node,
+                }
+            });
+        
+        self.replace_camera_association(*target_entity, Some(*camera_entity));
+        
+        // if it's not added we want to re-assign the parent we cleared above
+        if !added {
+            let Some(root_node_data) = self.root_node_data.get(target_entity) else {
+              unreachable!("impossible");  
+            };
+            let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
+            self.taffy.add_child(root_node_data.implicit_viewport_node, *taffy_node).unwrap();
+        }
+    }
+
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
     /// Removes entry in camera_root_nodes
     pub(super) fn remove_camera(&mut self, camera_entity: &Entity) {
