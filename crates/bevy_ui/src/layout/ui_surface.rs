@@ -171,10 +171,12 @@ impl UiSurface {
         // if it's not added we want to re-assign the parent we cleared above
         if !added {
             let Some(root_node_data) = self.root_node_data.get(target_entity) else {
-              unreachable!("impossible");
+                unreachable!("impossible");
             };
             let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
-            self.taffy.add_child(root_node_data.implicit_viewport_node, *taffy_node).unwrap();
+            self.taffy
+                .add_child(root_node_data.implicit_viewport_node, *taffy_node)
+                .unwrap();
         }
     }
 
@@ -746,13 +748,19 @@ mod tests {
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
         assert_eq!(ui_surface.taffy.total_node_count(), 3);
 
-
         ui_surface.promote_ui_node(&child_entity, &camera_entity);
         assert_eq!(ui_surface.taffy.total_node_count(), 4);
-        assert_eq!(ui_surface.get_associated_camera_entity(child_entity), Some(camera_entity));
+        assert_eq!(
+            ui_surface.get_associated_camera_entity(child_entity),
+            Some(camera_entity)
+        );
 
         let root_node_entity_taffy = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_entity_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-        assert!(!ui_surface.taffy.children(*root_node_entity_taffy).unwrap().contains(child_entity_taffy));
+        assert!(!ui_surface
+            .taffy
+            .children(*root_node_entity_taffy)
+            .unwrap()
+            .contains(child_entity_taffy));
     }
 }
