@@ -21,15 +21,15 @@ pub struct FunctionSubFeature<Marker, F: SubFeatureFunction<Marker>> {
 }
 
 pub trait SubFeatureFunction<Marker>: Send + Sync + 'static {
-    type Sig: RenderSignature<false>;
+    type Sig: RenderSignature;
     type Param: SystemParam;
 
     fn run(
         &mut self,
         view_entity: Entity,
-        input: RenderIOItem<'_, true, <Self::Sig as RenderSignature<false>>::In>,
+        input: RenderIOItem<'_, <Self::Sig as RenderSignature>::In>,
         param: SystemParamItem<Self::Param>,
-    ) -> <Self::Sig as RenderSignature<false>>::Out;
+    ) -> <Self::Sig as RenderSignature>::Out;
 }
 
 impl<Marker: 'static, F: SubFeatureFunction<Marker>>
@@ -54,7 +54,7 @@ impl<Marker: 'static, F: SubFeatureFunction<Marker>> SubFeature for FunctionSubF
     fn run<'w, 's>(
         &'s mut self,
         view_entity: Entity,
-        input: RenderIOItem<'w, true, SubFeatureInput<Self>>,
+        input: RenderIOItem<'w, SubFeatureInput<Self>>,
         param: SystemParamItem<'w, 's, Self::Param>,
     ) -> SubFeatureOutput<Self> {
         F::run(&mut self.fun, view_entity, input, param)
@@ -66,8 +66,8 @@ macro_rules! impl_sub_feature_function {
         impl<Out, In, Func: Send + Sync + 'static, $($P: SystemParam),*>
             SubFeatureFunction<fn(Entity, In, $($P),*) -> Out> for Func
         where
-            In: RenderIO<true>,
-            Out: RenderIO<false>,
+            In: RenderIO,
+            Out: RenderIO,
             for<'a, 'w> &'a mut Func: FnMut(Entity, In::Item<'w>, $($P),*) -> Out
                 + FnMut(Entity, In::Item<'w>, $(SystemParamItem<$P>),*) -> Out,
         {
@@ -80,12 +80,13 @@ macro_rules! impl_sub_feature_function {
                 view_entity: Entity,
                 input: In::Item<'_>,
                 ($($p,)*): SystemParamItem<Self::Param>,
-            ) -> <Self::Sig as RenderSignature<false>>::Out {
+            ) -> <Self::Sig as RenderSignature>::Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<In: RenderIO<true>, Out, $($P),*>(
+                #[inline]
+                fn call_inner<In: RenderIO, Out, $($P),*>(
                     mut f: impl for<'w> FnMut(Entity, In::Item<'w>, $($P),*) -> Out,
                     view_entity: Entity,
                     input: In::Item<'_>,

@@ -20,7 +20,7 @@ use bevy_render::render_graph::{Node, NodeRunError, RenderGraphContext, RenderSu
 use bevy_utils::all_tuples;
 
 pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
-    type Sig: RenderSignature<true>;
+    type Sig: RenderSignature;
     type CompatibilityKey;
 
     fn check_compatibility(
@@ -35,7 +35,7 @@ pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
         &'s self,
         _compatibility: Self::CompatibilityKey,
         mut _builder: FeatureDependencyBuilder<'b, G, Self>,
-    ) -> RenderHandles<'b, true, FeatureInput<G, Self>> {
+    ) -> RenderHandles<'b, FeatureInput<G, Self>> {
         FeatureInput::<G, Self>::default_render_handles::<'b>()
     }
 
@@ -43,8 +43,8 @@ pub trait Feature<G: RenderSubGraph>: Sized + Send + Sync + 'static {
         &'s self,
         compatibility: Self::CompatibilityKey,
         builder: &'b mut FeatureBuilder<'b, G, Self>,
-        inputs: RenderHandles<'b, true, FeatureInput<G, Self>>,
-    ) -> RenderHandles<'b, true, FeatureOutput<G, Self>>;
+        inputs: RenderHandles<'b, FeatureInput<G, Self>>,
+    ) -> RenderHandles<'b, FeatureOutput<G, Self>>;
 }
 
 pub enum Compatibility<T> {
@@ -53,19 +53,19 @@ pub enum Compatibility<T> {
     None,
 }
 
-pub struct RenderHandle<'a, A: RenderIO<false>> {
+pub struct RenderHandle<'a, A: Send + Sync + 'static> {
     internal: RenderHandleInternal<A>,
     data: PhantomData<fn() -> &'a A>,
 }
 
-impl<'a, A: RenderIO<false>> Copy for RenderHandle<'a, A> {}
-impl<'a, A: RenderIO<false>> Clone for RenderHandle<'a, A> {
+impl<'a, A: Send + Sync + 'static> Copy for RenderHandle<'a, A> {}
+impl<'a, A: Send + Sync + 'static> Clone for RenderHandle<'a, A> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-enum RenderHandleInternal<A: RenderIO<false>> {
+enum RenderHandleInternal<A: Send + Sync + 'static> {
     Hole,
     From {
         source: InternedSystemSet,
@@ -73,14 +73,14 @@ enum RenderHandleInternal<A: RenderIO<false>> {
     },
 }
 
-impl<A: RenderIO<false>> Copy for RenderHandleInternal<A> {}
-impl<A: RenderIO<false>> Clone for RenderHandleInternal<A> {
+impl<A: Send + Sync + 'static> Copy for RenderHandleInternal<A> {}
+impl<A: Send + Sync + 'static> Clone for RenderHandleInternal<A> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, A: RenderIO<false>> RenderHandle<'a, A> {
+impl<'a, A: Send + Sync + 'static> RenderHandle<'a, A> {
     pub fn hole() -> Self {
         Self {
             internal: RenderHandleInternal::Hole,
@@ -107,9 +107,9 @@ pub struct FeatureBuilder<'w, G: RenderSubGraph, F: Feature<G>> {
 impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
     pub fn add_sub_feature<'a, M, S: IntoSubFeature<M>>(
         &'a mut self,
-        input: RenderHandles<'a, true, SubFeatureInput<S::SubFeature>>,
+        input: RenderHandles<'a, SubFeatureInput<S::SubFeature>>,
         sub_feature: S,
-    ) -> RenderHandles<'a, false, SubFeatureOutput<S::SubFeature>> {
+    ) -> RenderHandles<'a, SubFeatureOutput<S::SubFeature>> {
         todo!()
     }
 
@@ -146,15 +146,15 @@ impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureBuilder<'w, G, F> {
     // }
 }
 
-pub type RenderHandles<'a, const MULT: bool, A> = <A as RenderIO<MULT>>::Handles<'a>;
-type ComponentIds<const MULT: bool, A> = <A as RenderIO<MULT>>::ComponentIds;
-pub type RenderIOItem<'w, const MULT: bool, T> = <T as RenderIO<MULT>>::Item<'w>;
+pub type RenderHandles<'a, A> = <A as RenderIO>::Handles<'a>;
+type ComponentIds<A> = <A as RenderIO>::ComponentIds;
+pub type RenderIOItem<'w, T> = <T as RenderIO>::Item<'w>;
 
 pub struct RenderDependencyError {
     holes: Vec<(u8, TypeId)>,
 }
 
-pub trait RenderIO<const MULT: bool>: Sized + Send + Sync + 'static {
+pub trait RenderIO: Sized + Send + Sync + 'static {
     type ComponentIds: Send + Sync + 'static;
     type Handles<'a>: Send + Sync + 'a;
     type Item<'w>: Send + Sync + 'w;
@@ -163,7 +163,7 @@ pub trait RenderIO<const MULT: bool>: Sized + Send + Sync + 'static {
     fn feature_io_get_from_entity(
         entity: EntityRef<'_>,
         ids: Self::ComponentIds,
-    ) -> Option<<Self as RenderIO<MULT>>::Item<'_>>;
+    ) -> Option<<Self as RenderIO>::Item<'_>>;
 
     fn default_render_handles<'a>() -> Self::Handles<'a>;
 
@@ -172,37 +172,9 @@ pub trait RenderIO<const MULT: bool>: Sized + Send + Sync + 'static {
     ) -> Result<Self::ComponentIds, RenderDependencyError>;
 }
 
-impl<A: Send + Sync + 'static> RenderIO<false> for A {
-    type ComponentIds = RenderComponentId<A>;
-    type Handles<'a> = RenderHandle<'a, A>;
-    type Item<'w> = &'w A;
-
-    fn feature_io_get_from_entity(
-        entity: EntityRef<'_>,
-        ids: Self::ComponentIds,
-    ) -> Option<<Self as RenderIO<false>>::Item<'_>> {
-        ids.get_from_ref(entity)
-    }
-
-    fn default_render_handles<'a>() -> Self::Handles<'a> {
-        RenderHandle::<A>::hole()
-    }
-
-    fn ids_from_handles(
-        handles: Self::Handles<'_>,
-    ) -> Result<Self::ComponentIds, RenderDependencyError> {
-        match handles.internal {
-            RenderHandleInternal::From { component_id, .. } => Ok(component_id),
-            RenderHandleInternal::Hole => Err(RenderDependencyError {
-                holes: vec![(0, TypeId::of::<A>())],
-            }),
-        }
-    }
-}
-
 macro_rules! impl_feature_io {
     ($(($T: ident, $r: ident, $h: ident)),*) => {
-        impl <$($T: RenderIO<false>),*> RenderIO<true> for ($($T,)*) {
+        impl <$($T: Send + Sync + 'static),*> RenderIO for ($($T,)*) {
             type ComponentIds = ($(RenderComponentId<$T>,)*);
             type Handles<'a> = ($(RenderHandle<'a, $T>,)*);
             type Item<'w> = ($(&'w $T,)*);
@@ -211,7 +183,7 @@ macro_rules! impl_feature_io {
             fn feature_io_get_from_entity(
                 entity: EntityRef<'_>,
                 ($($h,)*): Self::ComponentIds,
-            ) -> Option<<Self as RenderIO<true>>::Item<'_>> {
+            ) -> Option<RenderIOItem<'_, Self>> {
                 match ($($h.get_from_ref(entity),)*) {
                     ($(Some($r),)*) => Some(($($r,)*)),
                     _ => None,
@@ -248,42 +220,38 @@ macro_rules! impl_feature_io {
 
 all_tuples!(impl_feature_io, 0, 16, T, r, h);
 
-pub trait RenderSignature<const MULTI_OUTPUT: bool>: 'static {
-    type In: RenderIO<true>;
-    type Out: RenderIO<MULTI_OUTPUT>;
+pub trait RenderSignature: 'static {
+    type In: RenderIO;
+    type Out: RenderIO;
 }
 
-pub struct FeatureSigData<I, O>(PhantomData<fn(I) -> O>);
-
-impl<const MULTI_OUTPUT: bool, I: RenderIO<true>, O: RenderIO<MULTI_OUTPUT>>
-    RenderSignature<MULTI_OUTPUT> for FeatureSigData<I, O>
-{
+impl<I: RenderIO, O: RenderIO> RenderSignature for (I, O) {
     type In = I;
     type Out = O;
 }
 
 #[macro_export]
-macro_rules! FeatureSig_Macro {
+macro_rules! RenderSig_Macro {
     [$i: ty => $o: ty] => {
-        $crate::render_feature::FeatureSigData<$i, $o>
+        ($i, $o)
     };
 }
 
-pub use FeatureSig_Macro as Sig;
+pub use RenderSig_Macro as Sig;
 
-type FeatureInput<G, F> = <<F as Feature<G>>::Sig as RenderSignature<true>>::In;
-type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as RenderSignature<true>>::Out;
-type SubFeatureInput<F> = <<F as SubFeature>::Sig as RenderSignature<false>>::In;
-type SubFeatureOutput<F> = <<F as SubFeature>::Sig as RenderSignature<false>>::Out;
+type FeatureInput<G, F> = <<F as Feature<G>>::Sig as RenderSignature>::In;
+type FeatureOutput<G, F> = <<F as Feature<G>>::Sig as RenderSignature>::Out;
+type SubFeatureInput<F> = <<F as SubFeature>::Sig as RenderSignature>::In;
+type SubFeatureOutput<F> = <<F as SubFeature>::Sig as RenderSignature>::Out;
 
 pub trait SubFeature: Send + Sync + 'static {
-    type Sig: RenderSignature<false>;
+    type Sig: RenderSignature;
     type Param: SystemParam;
 
     fn run<'w, 's>(
         &'s mut self,
         view_entity: Entity,
-        input: RenderIOItem<'w, true, SubFeatureInput<Self>>,
+        input: RenderIOItem<'w, SubFeatureInput<Self>>,
         param: SystemParamItem<'w, 's, Self::Param>,
     ) -> SubFeatureOutput<Self>;
 }
@@ -327,19 +295,19 @@ pub struct FeatureDependencyBuilder<'w, G: RenderSubGraph, F: Feature<G>> {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RenderComponentId<T: RenderIO<false>> {
+pub struct RenderComponentId<T: Send + Sync + 'static> {
     id: ComponentId,
     data: PhantomData<fn() -> T>,
 }
 
-impl<A: RenderIO<false>> Copy for RenderComponentId<A> {}
-impl<A: RenderIO<false>> Clone for RenderComponentId<A> {
+impl<A: Send + Sync + 'static> Copy for RenderComponentId<A> {}
+impl<A: Send + Sync + 'static> Clone for RenderComponentId<A> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: RenderIO<false>> RenderComponentId<T> {
+impl<T: Send + Sync + 'static> RenderComponentId<T> {
     pub fn new(world: &mut World, component: T) -> Self {
         // let id =
         //     world.init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<T>>());
@@ -367,12 +335,12 @@ impl<T: RenderIO<false>> RenderComponentId<T> {
     }
 }
 
-struct InsertRenderComponent<T: RenderIO<false>> {
+struct InsertRenderComponent<T: Send + Sync + 'static> {
     pub component_id: RenderComponentId<T>,
     pub component: T,
 }
 
-impl<T: RenderIO<false>> EntityCommand for InsertRenderComponent<T> {
+impl<T: RenderIO> EntityCommand for InsertRenderComponent<T> {
     fn apply(self, id: Entity, world: &mut World) {
         let mut entity_mut = world.entity_mut(id);
         self.component_id
@@ -452,31 +420,29 @@ impl<T: RenderIO<false>> EntityCommand for InsertRenderComponent<T> {
 // }
 
 impl<'w, G: RenderSubGraph, F: Feature<G>> FeatureDependencyBuilder<'w, G, F> {
-    pub fn with_dep<'a: 'w, O: Feature<G>>(
-        &'a mut self,
-    ) -> RenderHandles<'a, true, FeatureOutput<G, O>> {
-        todo!()
-    }
-
-    pub fn map<'a, A: RenderIO<false>, B: RenderIO<false>>(
-        &'a mut self,
-        handles: RenderHandles<'a, false, A>,
-        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
-    ) -> RenderHandle<'a, B> {
-        todo!()
-    }
-
-    pub fn map_many<'a, A: RenderIO<true>, B: RenderIO<false>>(
-        &'a mut self,
-        handles: RenderHandles<'a, true, A>,
-        f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
-    ) -> RenderHandle<'a, B> {
-        // self.app
-        //     .world
-        //     .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
-        //register system to map from input to output;
-        todo!()
-    }
+    // pub fn with_dep<'a: 'w, O: Feature<G>>(&'a mut self) -> RenderHandles<'a, FeatureOutput<G, O>> {
+    //     todo!()
+    // }
+    //
+    // pub fn map<'a, A: RenderIO, B: RenderIO>(
+    //     &'a mut self,
+    //     handles: RenderHandles<'a, A>,
+    //     f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
+    // ) -> RenderHandle<'a, B> {
+    //     todo!()
+    // }
+    //
+    // pub fn map_many<'a, A: RenderIO, B: RenderIO>(
+    //     &'a mut self,
+    //     handles: RenderHandles<'a, A>,
+    //     f: impl for<'_w> FnMut(A::Item<'_w>) -> B,
+    // ) -> RenderHandle<'a, B> {
+    //     // self.app
+    //     //     .world
+    //     //     .init_component_with_descriptor(ComponentDescriptor::new::<FeatureComponent<B>>());
+    //     //register system to map from input to output;
+    //     todo!()
+    // }
 }
 
 #[macro_export]
