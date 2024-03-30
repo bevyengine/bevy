@@ -60,7 +60,7 @@ impl<T: PartialEq> BatchMeta<T> {
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
 pub trait GetBatchData {
-    /// Whatever system parameters [`GetBatchData::get_batch_data`] needs in
+    /// The system parameters [`GetBatchData::get_batch_data`] needs in
     /// order to compute the batch data.
     type Param: SystemParam + 'static;
     /// Data used for comparison between phase items. If the pipeline id, draw
@@ -85,7 +85,7 @@ pub trait GetBatchData {
 ///
 /// This includes things like the mesh transforms.
 pub trait GetBinnedBatchData {
-    /// Whatever system parameters [`GetBinnedBatchData::get_batch_data`] needs
+    /// The system parameters [`GetBinnedBatchData::get_batch_data`] needs
     /// in order to compute the batch data.
     type Param: SystemParam + 'static;
     /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
