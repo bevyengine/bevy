@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -41,7 +41,12 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos2d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(
+                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                    ),
             )
             .add_systems(
                 Render,
@@ -251,7 +256,7 @@ fn queue_line_gizmos_2d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
@@ -304,7 +309,7 @@ fn queue_line_joint_gizmos_2d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
