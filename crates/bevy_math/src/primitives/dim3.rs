@@ -863,10 +863,12 @@ impl Tetrahedron {
         let ab = b - a;
         let ac = c - a;
         let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
         (ab.cross(ac).length()
             + ab.cross(ad).length()
             + ac.cross(ad).length()
-            + (ac - ab).cross(ad - ab).length())
+            + bc.cross(bd).length())
             / 2.0
     }
 
