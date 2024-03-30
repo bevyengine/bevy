@@ -122,10 +122,6 @@ impl UiSurface {
         if let Some(taffy_node) = self.entity_to_taffy.remove(ui_node_entity) {
             self.taffy.remove(taffy_node).unwrap();
         }
-        // remove root node entry if this is a root node
-        if self.root_node_data.contains_key(ui_node_entity) {
-            self.remove_root_node_viewport(ui_node_entity);
-        }
     }
 
     /// Demotes root node to a child node of the specified parent
