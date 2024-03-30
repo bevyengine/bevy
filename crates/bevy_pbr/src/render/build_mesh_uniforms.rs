@@ -139,7 +139,7 @@ impl ViewNode for BuildMeshUniformsNode {
         let Some(view_build_mesh_uniforms_pipeline) =
             pipeline_cache.get_compute_pipeline(build_mesh_uniforms_pipeline_id)
         else {
-            warn!("The view build mesh uniforms pipeline wasn't present in the pipeline cache");
+            // This will happen while the pipeline is being compiled and is fine.
             return Ok(());
         };
 
