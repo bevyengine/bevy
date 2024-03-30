@@ -56,15 +56,15 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        RenderPhase,
+        sort_phase_system, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
+        DrawFunctionId, DrawFunctions, PhaseItem, SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
+        Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, ColorAttachment, TextureCache},
+    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -80,8 +80,8 @@ use crate::{
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT,
-        NORMAL_PREPASS_FORMAT,
+        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
+        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -117,14 +117,8 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<Opaque3dDeferred>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<AlphaMask3dDeferred>.in_set(RenderSet::PhaseSort),
                     prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
                     prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSet::PrepareResources),
@@ -180,37 +174,49 @@ impl Plugin for Core3dPlugin {
     }
 }
 
+/// Opaque 3D [`BinnedPhaseItem`]s.
 pub struct Opaque3d {
-    pub asset_id: AssetId<Mesh>,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    /// The key, which determines which can be batched.
+    pub key: Opaque3dBinKey,
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
+    pub representative_entity: Entity,
+    /// The ranges of instances.
     pub batch_range: Range<u32>,
+    /// The dynamic offset.
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
-impl PhaseItem for Opaque3d {
-    type SortKey = (usize, AssetId<Mesh>);
+/// Data that must be identical in order to batch meshes together.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Opaque3dBinKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
 
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+
+    /// The mesh.
+    pub asset_id: AssetId<Mesh>,
+
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupId`.
+    pub material_bind_group_id: Option<BindGroupId>,
+
+    /// The lightmap, if present.
+    pub lightmap_image: Option<AssetId<Image>>,
+}
+
+impl PhaseItem for Opaque3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline.id(), self.asset_id)
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+        self.key.draw_function
     }
 
     #[inline]
@@ -231,47 +237,51 @@ impl PhaseItem for Opaque3d {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl BinnedPhaseItem for Opaque3d {
+    type BinKey = Opaque3dBinKey;
+
+    #[inline]
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Opaque3d {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
 pub struct AlphaMask3d {
-    pub asset_id: AssetId<Mesh>,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    pub key: OpaqueNoLightmap3dBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for AlphaMask3d {
-    type SortKey = (usize, AssetId<Mesh>);
-
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline.id(), self.asset_id)
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+        self.key.draw_function
     }
 
     #[inline]
@@ -295,10 +305,29 @@ impl PhaseItem for AlphaMask3d {
     }
 }
 
+impl BinnedPhaseItem for AlphaMask3d {
+    type BinKey = OpaqueNoLightmap3dBinKey;
+
+    #[inline]
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
@@ -312,9 +341,6 @@ pub struct Transmissive3d {
 }
 
 impl PhaseItem for Transmissive3d {
-    // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
-    type SortKey = FloatOrd;
-
     /// For now, automatic batching is disabled for transmissive items because their rendering is
     /// split into multiple steps depending on [`Camera3d::screen_space_specular_transmission_steps`],
     /// which the batching system doesn't currently know about.
@@ -332,18 +358,8 @@ impl PhaseItem for Transmissive3d {
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
     }
 
     #[inline]
@@ -364,6 +380,21 @@ impl PhaseItem for Transmissive3d {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl SortedPhaseItem for Transmissive3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        FloatOrd(self.distance)
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 
@@ -384,27 +415,14 @@ pub struct Transparent3d {
 }
 
 impl PhaseItem for Transparent3d {
-    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
-    type SortKey = FloatOrd;
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
     }
 
     #[inline]
@@ -428,6 +446,21 @@ impl PhaseItem for Transparent3d {
     }
 }
 
+impl SortedPhaseItem for Transparent3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        FloatOrd(self.distance)
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
@@ -442,10 +475,10 @@ pub fn extract_core_3d_camera_phases(
     for (entity, camera) in &cameras_3d {
         if camera.is_active {
             commands.get_or_spawn(entity).insert((
-                RenderPhase::<Opaque3d>::default(),
-                RenderPhase::<AlphaMask3d>::default(),
-                RenderPhase::<Transmissive3d>::default(),
-                RenderPhase::<Transparent3d>::default(),
+                BinnedRenderPhase::<Opaque3d>::default(),
+                BinnedRenderPhase::<AlphaMask3d>::default(),
+                SortedRenderPhase::<Transmissive3d>::default(),
+                SortedRenderPhase::<Transparent3d>::default(),
             ));
         }
     }
@@ -476,15 +509,15 @@ pub fn extract_camera_prepass_phase(
 
             if depth_prepass || normal_prepass || motion_vector_prepass {
                 entity.insert((
-                    RenderPhase::<Opaque3dPrepass>::default(),
-                    RenderPhase::<AlphaMask3dPrepass>::default(),
+                    BinnedRenderPhase::<Opaque3dPrepass>::default(),
+                    BinnedRenderPhase::<AlphaMask3dPrepass>::default(),
                 ));
             }
 
             if deferred_prepass {
                 entity.insert((
-                    RenderPhase::<Opaque3dDeferred>::default(),
-                    RenderPhase::<AlphaMask3dDeferred>::default(),
+                    BinnedRenderPhase::<Opaque3dDeferred>::default(),
+                    BinnedRenderPhase::<AlphaMask3dDeferred>::default(),
                 ));
             }
 
@@ -512,10 +545,10 @@ pub fn prepare_core_3d_depth_textures(
     views_3d: Query<
         (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
         (
-            With<RenderPhase<Opaque3d>>,
-            With<RenderPhase<AlphaMask3d>>,
-            With<RenderPhase<Transmissive3d>>,
-            With<RenderPhase<Transparent3d>>,
+            With<BinnedRenderPhase<Opaque3d>>,
+            With<BinnedRenderPhase<AlphaMask3d>>,
+            With<SortedRenderPhase<Transmissive3d>>,
+            With<SortedRenderPhase<Transparent3d>>,
         ),
     >,
 ) {
@@ -595,12 +628,12 @@ pub fn prepare_core_3d_transmission_textures(
             &ExtractedCamera,
             &Camera3d,
             &ExtractedView,
-            &RenderPhase<Transmissive3d>,
+            &SortedRenderPhase<Transmissive3d>,
         ),
         (
-            With<RenderPhase<Opaque3d>>,
-            With<RenderPhase<AlphaMask3d>>,
-            With<RenderPhase<Transparent3d>>,
+            With<BinnedRenderPhase<Opaque3d>>,
+            With<BinnedRenderPhase<AlphaMask3d>>,
+            With<SortedRenderPhase<Transparent3d>>,
         ),
     >,
 ) {
@@ -700,10 +733,10 @@ pub fn prepare_prepass_textures(
             Has<DeferredPrepass>,
         ),
         Or<(
-            With<RenderPhase<Opaque3dPrepass>>,
-            With<RenderPhase<AlphaMask3dPrepass>>,
-            With<RenderPhase<Opaque3dDeferred>>,
-            With<RenderPhase<AlphaMask3dDeferred>>,
+            With<BinnedRenderPhase<Opaque3dPrepass>>,
+            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
+            With<BinnedRenderPhase<Opaque3dDeferred>>,
+            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
         )>,
     >,
 ) {
