@@ -57,18 +57,60 @@ impl<T: PartialEq> BatchMeta<T> {
     }
 }
 
+/// The GPU buffers holding the data needed to render batches.
+///
+/// For example, in the 3D PBR pipeline this holds `MeshUniform`s, which are the
+/// `BD` type parameter in that mode.
+///
+/// There are two setups here, one for CPU uniform building and one for GPU
+/// uniform building. The CPU uniform setup is simple: there's one *buffer data*
+/// (`BD`) type per instance. GPU uniform building has a separate *buffer data
+/// input* type (`BDI`), which a compute shader is expected to expand to the
+/// full buffer data (`BD`) type. GPU uniform building is generally faster and
+/// uses less GPU bus bandwidth, but only implemented for some pipelines (for
+/// example, not in the 2D pipeline at present) and only when compute shader is
+/// available.
 #[derive(Resource)]
 pub enum BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
     BDI: Pod,
 {
+    /// The single buffer containing instances, used when GPU uniform building
+    /// isn't available.
     CpuBuilt(GpuArrayBuffer<BD>),
+
+    /// The buffers containing per-instance data used when GPU uniform building
+    /// is in use.
     GpuBuilt {
+        /// A storage area for the buffer data that the GPU compute shader is
+        /// expected to write to.
+        ///
+        /// There will be one entry for each index.
         data_buffer: UninitBufferVec<BD>,
+
+        /// The index of the buffer data in the current input buffer that
+        /// corresponds to each instance.
+        ///
+        /// It's entirely possible for indices to be duplicated in this list.
+        /// This typically occurs when an entity is visible from multiple views:
+        /// e.g. the main camera plus a shadow map.
         index_buffer: BufferVec<u32>,
+
+        /// The uniform data inputs for the current frame.
+        ///
+        /// These are uploaded during the extraction phase.
         current_input_buffer: BufferVec<BDI>,
+
+        /// The uniform data inputs for the previous frame.
+        ///
+        /// The indices don't generally line up between `current_input_buffer`
+        /// and `previous_input_buffer`, because, among other reasons, entities
+        /// can spawn or despawn between frames. Instead, each current buffer
+        /// data input uniform is expected to contain the index of the
+        /// corresponding buffer data input uniform in this list.
         previous_input_buffer: BufferVec<BDI>,
+
         /// The number of indices this frame.
         ///
         /// This is different from `index_buffer.len()` because `index_buffer`
@@ -82,6 +124,7 @@ where
     BD: GpuArrayBufferable + Sync + Send + 'static,
     BDI: Pod,
 {
+    /// Creates new buffers.
     pub fn new(render_device: &RenderDevice, using_gpu_uniform_builder: bool) -> Self {
         if !using_gpu_uniform_builder {
             return BatchedInstanceBuffers::CpuBuilt(GpuArrayBuffer::new(render_device));
@@ -96,6 +139,11 @@ where
         }
     }
 
+    /// Returns the binding of the uniform buffer that contains the per-instance
+    /// data.
+    ///
+    /// If we're in the GPU uniform building mode, this buffer needs to be
+    /// filled in via a compute shader.
     pub fn uniform_binding(&self) -> Option<BindingResource> {
         match *self {
             BatchedInstanceBuffers::CpuBuilt(ref buffer) => buffer.binding(),
@@ -119,16 +167,31 @@ pub trait GetBatchData {
     /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
     /// containing these data for all instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
+    /// The per-instance data that was inserted into the [`BufferVec`] during
+    /// extraction.
+    ///
+    /// This is only used when building uniforms on GPU. If this pipeline
+    /// doesn't support GPU uniform building (e.g. the 2D mesh pipeline), this
+    /// can safely be `()`.
     type BufferInputData: Pod + Sync + Send;
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
     /// If the instance can be batched, also return the data used for
     /// comparison when deciding whether draws can be batched, else return None
     /// for the `CompareData`.
+    ///
+    /// This is only called when building uniforms on CPU. In the GPU uniform
+    /// building path, we use [`GetBatchData::get_batch_index`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
-    /// Same as the above, but for GPU uniform building.
+    /// Returns the index of the mesh instance in the buffer, if GPU uniform
+    /// building is in use.
+    ///
+    /// This needs only the index, because we already inserted the
+    /// [`GetBatchData::BufferInputData`] during the extraction phase before we
+    /// got here. If CPU uniform building is in use, this function will never be
+    /// called.
     fn get_batch_index(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -221,7 +284,11 @@ pub fn write_batched_instance_buffer<F: GetBatchData>(
         } => {
             data_buffer.write_buffer(&render_device);
             index_buffer.write_buffer(&render_device, &render_queue);
+
+            // Save the index count before we clear it out. Rendering will need
+            // it.
             *index_count = index_buffer.len();
+
             current_input_buffer.write_buffer(&render_device, &render_queue);
             // There's no need to write `previous_input_buffer`, as we wrote
             // that on the previous frame, and it hasn't changed.

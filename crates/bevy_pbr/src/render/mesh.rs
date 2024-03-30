@@ -46,7 +46,11 @@ use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 use super::skin::SkinIndices;
 
+/// Provides support for rendering PBR meshes.
 pub struct MeshRenderPlugin {
+    /// Whether we're building [`MeshUniform`]s on GPU.
+    ///
+    /// If this is false, we're building them on CPU.
     pub using_gpu_uniform_builder: bool,
 }
 
@@ -229,13 +233,31 @@ pub struct MeshUniform {
     pub lightmap_uv_rect: UVec2,
 }
 
+/// Information that has to be transferred from CPU to GPU in order to produce
+/// the full [`MeshUniform`].
+///
+/// This is essentially a subset of the fields in [`MeshUniform`] above.
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct MeshInputUniform {
-    // Affine 4x3 matrix transposed to 3x4
+    /// Affine 4x3 matrix transposed to 3x4.
     pub transform: [Vec4; 3],
+    /// Four 16-bit unsigned normalized UV values packed into a `UVec2`:
+    ///
+    ///                         <--- MSB                   LSB --->
+    ///                         +---- min v ----+ +---- min u ----+
+    ///     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
+    ///                         +---- max v ----+ +---- max u ----+
+    ///     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
+    ///
+    /// (MSB: most significant bit; LSB: least significant bit.)
     pub lightmap_uv_rect: UVec2,
+    /// Various [`MeshFlags`].
     pub flags: u32,
+    /// The index of this mesh's [`MeshInputUniform`] in the previous frame's
+    /// buffer, if applicable.
+    ///
+    /// This is used for TAA. If not present, this will be `!0`.
     pub previous_input_index: u32,
 }
 
@@ -268,43 +290,126 @@ bitflags::bitflags! {
     }
 }
 
+impl MeshFlags {
+    fn from_components(
+        transform: &GlobalTransform,
+        not_shadow_receiver: bool,
+        transmitted_receiver: bool,
+    ) -> MeshFlags {
+        let mut mesh_flags = if not_shadow_receiver {
+            MeshFlags::empty()
+        } else {
+            MeshFlags::SHADOW_RECEIVER
+        };
+        if transmitted_receiver {
+            mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+        }
+        if transform.affine().matrix3.determinant().is_sign_positive() {
+            mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
+
+        mesh_flags
+    }
+}
+
 bitflags::bitflags! {
+    /// Various useful flags for [`RenderMeshInstance`]s.
     #[derive(Clone, Copy)]
     pub struct RenderMeshInstanceFlags: u8 {
+        /// The mesh casts shadows.
         const SHADOW_CASTER           = 1 << 0;
+        /// The mesh can participate in automatic batching.
         const AUTOMATIC_BATCHING      = 1 << 1;
+        /// The mesh had a transform last frame and so is eligible for TAA.
         const HAVE_PREVIOUS_TRANSFORM = 1 << 2;
     }
 }
 
+/// CPU data that the render world keeps for each entity, when *not* using GPU
+/// mesh uniform building.
 #[derive(Deref)]
 pub struct RenderMeshInstanceCpu {
+    /// Data shared between both the CPU mesh uniform building and the GPU mesh
+    /// uniform building paths.
     #[deref]
     pub shared: RenderMeshInstanceShared,
+    /// The transform of the mesh.
+    ///
+    /// This will be written into the [`MeshUniform`] at the appropriate time.
     pub transforms: MeshTransforms,
 }
 
+/// CPU data that the render world needs to keep for each entity that contains a
+/// mesh when using GPU mesh uniform building.
 #[derive(Deref)]
 pub struct RenderMeshInstanceGpu {
+    /// Data shared between both the CPU mesh uniform building and the GPU mesh
+    /// uniform building paths.
     #[deref]
     pub shared: RenderMeshInstanceShared,
+    /// The translation of the mesh.
+    ///
+    /// This is the only part of the transform that we have to keep on CPU (for
+    /// distance sorting).
     pub translation: Vec3,
+    /// The index of the [`MeshInputUniform`] in the buffer.
     pub current_uniform_index: u32,
 }
 
+/// CPU data that the render world needs to keep about each entity that contains
+/// a mesh.
 pub struct RenderMeshInstanceShared {
+    /// The [`AssetId`] of the mesh.
     pub mesh_asset_id: AssetId<Mesh>,
+    /// A slot for the material bind group ID.
+    ///
+    /// This is filled in during [`crate::material::queue_material_meshes`].
     pub material_bind_group_id: AtomicMaterialBindGroupId,
+    /// Various flags.
     pub flags: RenderMeshInstanceFlags,
 }
 
+/// Information that is gathered during the parallel portion of mesh extraction
+/// when GPU mesh uniform building is enabled.
+///
+/// From this, the [`MeshInputUniform`] and [`RenderMeshInstance`] are prepared.
 pub struct RenderMeshInstanceGpuBuilder {
+    /// Data that will be placed on the [`RenderMeshInstance`].
     pub shared: RenderMeshInstanceShared,
+    /// The current transform.
     pub transform: Affine3,
+    /// Various flags.
     pub mesh_flags: MeshFlags,
 }
 
 impl RenderMeshInstanceShared {
+    fn from_components(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        handle: &Handle<Mesh>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
+        mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
+        mesh_instance_flags.set(
+            RenderMeshInstanceFlags::AUTOMATIC_BATCHING,
+            !no_automatic_batching,
+        );
+        mesh_instance_flags.set(
+            RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
+            previous_transform.is_some(),
+        );
+
+        RenderMeshInstanceShared {
+            mesh_asset_id: handle.id(),
+
+            flags: mesh_instance_flags,
+            material_bind_group_id: AtomicMaterialBindGroupId::default(),
+        }
+    }
+
+    /// Returns true if this entity is eligible to participate in automatic
+    /// batching.
     pub fn should_batch(&self) -> bool {
         self.flags
             .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
@@ -312,9 +417,16 @@ impl RenderMeshInstanceShared {
     }
 }
 
+/// Information that the render world keeps about each entity that contains a
+/// mesh.
+///
+/// The set of information needed is different depending on whether CPU or GPU
+/// [`MeshUniform`] building is in use.
 #[derive(Resource)]
 pub enum RenderMeshInstances {
+    /// Information needed when using CPU mesh uniform building.
     CpuBuilding(EntityHashMap<RenderMeshInstanceCpu>),
+    /// Information needed when using GPU mesh uniform building.
     GpuBuilding(EntityHashMap<RenderMeshInstanceGpu>),
 }
 
@@ -327,6 +439,7 @@ impl RenderMeshInstances {
         }
     }
 
+    /// Returns the ID of the mesh asset attached to the given entity, if any.
     pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances
@@ -338,6 +451,8 @@ impl RenderMeshInstances {
         }
     }
 
+    /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
+    /// mesh attached.
     pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
@@ -356,13 +471,22 @@ impl RenderMeshInstances {
     }
 }
 
+/// Data that [`crate::material::queue_material_meshes`] and similar systems
+/// need in order to place entities that contain meshes in the right batch.
 #[derive(Deref)]
 pub struct RenderMeshQueueData<'a> {
+    /// General information about the mesh instance.
     #[deref]
     pub shared: &'a RenderMeshInstanceShared,
+    /// The translation of the mesh instance.
     pub translation: Vec3,
 }
 
+/// Extracts meshes from the main world into the render world, populating the
+/// [`RenderMeshInstances`].
+///
+/// This is the variant of the system that runs when we're *not* using GPU
+/// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
@@ -395,38 +519,19 @@ pub fn extract_meshes_for_cpu_building(
             if !view_visibility.get() {
                 return;
             }
-            let transform = transform.affine();
-            let mut mesh_flags = if not_shadow_receiver {
-                MeshFlags::empty()
-            } else {
-                MeshFlags::SHADOW_RECEIVER
-            };
-            if transmitted_receiver {
-                mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
-            }
-            if transform.matrix3.determinant().is_sign_positive() {
-                mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-            }
 
-            let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
-            mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
-            mesh_instance_flags.set(
-                RenderMeshInstanceFlags::AUTOMATIC_BATCHING,
-                !no_automatic_batching,
-            );
-            mesh_instance_flags.set(
-                RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
-                previous_transform.is_some(),
+            let mesh_flags =
+                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+
+            let shared = RenderMeshInstanceShared::from_components(
+                previous_transform,
+                handle,
+                not_shadow_caster,
+                no_automatic_batching,
             );
 
             render_mesh_instance_queues.scope(|queue| {
-                let shared = RenderMeshInstanceShared {
-                    mesh_asset_id: handle.id(),
-
-                    flags: mesh_instance_flags,
-                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                };
-
+                let transform = transform.affine();
                 queue.push((
                     entity,
                     RenderMeshInstanceCpu {
@@ -460,6 +565,11 @@ pub fn extract_meshes_for_cpu_building(
     }
 }
 
+/// Extracts meshes from the main world into the render world and queues
+/// [`MeshInputUniform`]s to be uploaded to the GPU.
+///
+/// This is the variant of the system that runs when we're using GPU
+/// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut batched_instance_buffers: ResMut<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
@@ -494,42 +604,23 @@ pub fn extract_meshes_for_gpu_building(
             if !view_visibility.get() {
                 return;
             }
-            let transform = transform.affine();
-            let mut mesh_flags = if not_shadow_receiver {
-                MeshFlags::empty()
-            } else {
-                MeshFlags::SHADOW_RECEIVER
-            };
-            if transmitted_receiver {
-                mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
-            }
-            if transform.matrix3.determinant().is_sign_positive() {
-                mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-            }
 
-            let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
-            mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
-            mesh_instance_flags.set(
-                RenderMeshInstanceFlags::AUTOMATIC_BATCHING,
-                !no_automatic_batching,
-            );
-            mesh_instance_flags.set(
-                RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
-                previous_transform.is_some(),
+            let mesh_flags =
+                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+
+            let shared = RenderMeshInstanceShared::from_components(
+                previous_transform,
+                handle,
+                not_shadow_caster,
+                no_automatic_batching,
             );
 
             render_mesh_instance_queues.scope(|queue| {
-                let shared = RenderMeshInstanceShared {
-                    mesh_asset_id: handle.id(),
-
-                    flags: mesh_instance_flags,
-                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                };
                 queue.push((
                     entity,
                     RenderMeshInstanceGpuBuilder {
                         shared,
-                        transform: (&transform).into(),
+                        transform: (&transform.affine()).into(),
                         mesh_flags,
                     },
                 ));
@@ -537,14 +628,31 @@ pub fn extract_meshes_for_gpu_building(
         },
     );
 
+    collect_meshes_for_gpu_building(
+        &mut render_mesh_instances,
+        &mut batched_instance_buffers,
+        &mut render_mesh_instance_queues,
+        &mut prev_render_mesh_instances,
+    );
+}
+
+/// Creates the [`RenderMeshInstance`]s and [`MeshInputUniform`]s when GPU mesh
+/// uniforms are built.
+fn collect_meshes_for_gpu_building(
+    render_mesh_instances: &mut RenderMeshInstances,
+    batched_instance_buffers: &mut BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
+    render_mesh_instance_queues: &mut Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>,
+    prev_render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
+) {
     // Collect render mesh instances. Build up the uniform buffer.
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
     else {
         panic!(
-            "`extract_meshes_for_gpu_building` should only be called if we're using GPU \
-            `MeshUniform` building"
+            "`collect_render_mesh_instances_for_gpu_building` should only be called if we're \
+            using GPU `MeshUniform` building"
         );
     };
+
     let BatchedInstanceBuffers::GpuBuilt {
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
@@ -556,8 +664,9 @@ pub fn extract_meshes_for_gpu_building(
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
-    mem::swap(render_mesh_instances, &mut prev_render_mesh_instances);
+    mem::swap(render_mesh_instances, prev_render_mesh_instances);
 
+    // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
         for (entity, builder) in queue.drain(..) {
@@ -573,6 +682,7 @@ pub fn extract_meshes_for_gpu_building(
                 None
             };
 
+            // Push the mesh input uniform.
             let current_uniform_index = current_input_buffer.push(MeshInputUniform {
                 transform: builder.transform.to_transpose(),
                 // TODO: Track this.
@@ -581,6 +691,7 @@ pub fn extract_meshes_for_gpu_building(
                 previous_input_index: previous_input_index.unwrap_or(!0),
             });
 
+            // Record the [`RenderMeshInstance`].
             render_mesh_instances.insert(
                 entity,
                 RenderMeshInstanceGpu {
@@ -747,9 +858,15 @@ impl GetBatchData for MeshPipeline {
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)> {
+        // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_batch_index` should never be called in CPU mesh uniform \
+                building mode"
+            );
             return None;
         };
+
         let mesh_instance = mesh_instances.get(&entity)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
 

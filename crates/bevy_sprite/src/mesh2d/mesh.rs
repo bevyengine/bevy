@@ -34,7 +34,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::error;
-use bytemuck::{Pod, Zeroable};
 
 use crate::Material2dBindGroupId;
 
@@ -157,7 +156,7 @@ pub struct Mesh2dTransforms {
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone, Pod, Copy, Zeroable)]
+#[derive(ShaderType, Clone)]
 #[repr(C)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
@@ -169,7 +168,6 @@ pub struct Mesh2dUniform {
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
     pub flags: u32,
-    pub pad: [u32; 2],
 }
 
 impl From<&Mesh2dTransforms> for Mesh2dUniform {
@@ -181,7 +179,6 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
-            pad: [0; 2],
         }
     }
 }

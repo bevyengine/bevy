@@ -165,6 +165,14 @@ impl<T: Pod> Extend<T> for BufferVec<T> {
     }
 }
 
+/// Like a [`BufferVec`], but only reserves space on the GPU for elements
+/// instead of initializing them CPU-side.
+///
+/// This type is useful when you're accumulating "output slots" for a GPU
+/// compute shader to write into.
+///
+/// The type `T` need not be [`Pod`], unlike [`BufferVec`]; it only has to be
+/// [`GpuArrayBufferable`].
 pub struct UninitBufferVec<T>
 where
     T: GpuArrayBufferable,
@@ -183,6 +191,7 @@ impl<T> UninitBufferVec<T>
 where
     T: GpuArrayBufferable,
 {
+    /// Creates a new [`UninitBufferVec`] with the given [`BufferUsages`].
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             len: 0,
@@ -196,25 +205,33 @@ where
         }
     }
 
+    /// Returns the buffer, if allocated.
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
     }
 
+    /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
         let index = self.len;
         self.len += 1;
         index
     }
 
+    /// Returns true if no elements have been added to this [`UninitBufferVec`].
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Removes all elements from the buffer.
     pub fn clear(&mut self) {
         self.len = 0;
     }
 
+    /// Materializes the buffer on the GPU with space for `capacity` elements.
+    ///
+    /// If the buffer is already big enough, this function doesn't reallocate
+    /// the buffer.
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
         if capacity <= self.capacity && !self.label_changed {
             return;
@@ -232,6 +249,8 @@ where
         self.label_changed = false;
     }
 
+    /// Materializes the buffer on the GPU, with an appropriate size for the
+    /// elements that have been pushed so far.
     pub fn write_buffer(&mut self, device: &RenderDevice) {
         if !self.is_empty() {
             self.reserve(self.len, device);

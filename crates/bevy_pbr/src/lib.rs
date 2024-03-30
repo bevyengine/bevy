@@ -79,6 +79,7 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the compute shader mesh uniforms building pass.
         BuildMeshUniforms,
     }
 }
@@ -136,6 +137,8 @@ pub struct PbrPlugin {
     /// Controls if [`DeferredPbrLightingPlugin`] is added.
     pub add_default_deferred_lighting_plugin: bool,
     /// Controls if GPU [`MeshUniform`] building is enabled.
+    ///
+    /// This requires compute shader support.
     pub using_gpu_uniform_builder: bool,
 }
 
@@ -144,7 +147,14 @@ impl Default for PbrPlugin {
         Self {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
-            using_gpu_uniform_builder: true,
+
+            // The GPU uniform builder requires compute shaders, which aren't
+            // available on any version of WebGL.
+            using_gpu_uniform_builder: cfg!(any(
+                feature = "webgpu",
+                not(feature = "webgl"),
+                not(target_arch = "wasm32"),
+            )),
         }
     }
 }

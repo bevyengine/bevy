@@ -156,14 +156,8 @@ where
                     Render,
                     (
                         prepare_previous_view_projection_uniforms,
-                        batch_and_prepare_render_phase::<
-                            Opaque3dPrepass,
-                            MeshPipeline,
-                        >,
-                        batch_and_prepare_render_phase::<
-                            AlphaMask3dPrepass,
-                            MeshPipeline,
-                        >,
+                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
                     )
                         .in_set(RenderSet::PrepareResources),
                 );

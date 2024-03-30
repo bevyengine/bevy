@@ -1,4 +1,10 @@
-//! Build mesh uniforms.
+//! GPU mesh uniform building.
+//!
+//! This is an optional pass that uses a compute shader to reduce the amount of
+//! data that has to be transferred from the CPU to the GPU. When enabled,
+//! instead of transferring [`MeshUniform`]s to the GPU, we transfer the smaller
+//! [`MeshInputUniform`]s instead and use the GPU to calculate the remaining
+//! derived fields in [`MeshUniform`].
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -21,23 +27,34 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use bevy_utils::tracing::{error, warn};
 
 use crate::{graph::NodePbr, MeshInputUniform, MeshUniform};
 
+/// The handle to the `build_mesh_uniforms.wgsl` compute shader.
 pub const BUILD_MESH_UNIFORMS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(16991728318640779533);
 
+/// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;
 
+/// A plugin that builds mesh uniforms on GPU.
+///
+/// This will only be added if the platform supports compute shaders (e.g. not
+/// on WebGL 2).
 pub struct BuildMeshUniformsPlugin;
 
+/// The render node for the mesh uniform building pass.
 #[derive(Default)]
 pub struct BuildMeshUniformsNode;
 
+/// The compute shader pipeline for the mesh uniform building pass.
 #[derive(Resource)]
 pub struct BuildMeshUniformsPipeline {
+    /// The single bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The pipeline ID for the compute shader.
+    ///
     /// This gets filled in in `prepare_build_mesh_uniforms_pipeline`.
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
@@ -66,6 +83,7 @@ impl Plugin for BuildMeshUniformsPlugin {
             return;
         };
 
+        // Stitch the node in.
         render_app
             .add_render_graph_node::<ViewNodeRunner<BuildMeshUniformsNode>>(
                 Core3d,
@@ -94,6 +112,7 @@ impl ViewNode for BuildMeshUniformsNode {
         _: QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh uniform
         let BatchedInstanceBuffers::GpuBuilt {
             data_buffer: ref data_buffer_vec,
             index_buffer: ref index_buffer_vec,
@@ -102,6 +121,10 @@ impl ViewNode for BuildMeshUniformsNode {
             index_count,
         } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
         else {
+            error!(
+                "Attempted to build mesh uniforms on GPU, but `GpuBuilt` batched instance \
+                buffers weren't available"
+            );
             return Ok(());
         };
 
@@ -188,9 +211,13 @@ impl FromWorld for BuildMeshUniformsPipeline {
         let bind_group_layout_entries = DynamicBindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
+                // `current_input`
                 storage_buffer_read_only::<MeshInputUniform>(/*has_dynamic_offset=*/ false),
+                // `previous_input`
                 storage_buffer_read_only::<MeshInputUniform>(/*has_dynamic_offset=*/ false),
+                // `indices`
                 storage_buffer_read_only::<u32>(/*has_dynamic_offset=*/ false),
+                // `output`
                 storage_buffer::<MeshUniform>(/*has_dynamic_offset=*/ false),
             ),
         );
@@ -207,6 +234,8 @@ impl FromWorld for BuildMeshUniformsPipeline {
     }
 }
 
+/// A system that specializes the `build_mesh_uniforms.wgsl` pipeline if
+/// necessary.
 pub fn prepare_build_mesh_uniforms_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedComputePipelines<BuildMeshUniformsPipeline>>,
@@ -221,6 +250,7 @@ pub fn prepare_build_mesh_uniforms_pipeline(
     build_mesh_uniforms_pipeline.pipeline_id = Some(build_mesh_uniforms_pipeline_id);
 }
 
+/// Returns `a / b`, rounded toward positive infinity.
 fn div_round_up(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
