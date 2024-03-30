@@ -175,7 +175,7 @@ macro_rules! define_label {
 
             fn ref_eq(&self, other: &Self) -> bool {
                 if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
-                    (self as *const Self as *const ()) == (other as *const Self as *const ())
+                    (self as *const Self).cast::<()>() == (other as *const Self).cast::<()>()
                 } else {
                     false
                 }
@@ -184,7 +184,7 @@ macro_rules! define_label {
             fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
                 use ::std::hash::Hash;
                 self.as_dyn_eq().type_id().hash(state);
-                (self as *const Self as *const ()).hash(state);
+                (self as *const Self).cast::<()>().hash(state);
             }
         }
 
