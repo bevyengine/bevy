@@ -101,44 +101,20 @@ impl Node for AutoExposureNode {
         let compute_bind_group = render_context.render_device().create_bind_group(
             None,
             &pipeline.histogram_layout,
-            &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: uniform.as_entire_binding(),
+            &BindGroupEntries::sequential((
+                uniform.as_entire_buffer_binding(),
+                source,
+                mask,
+                &compensation_curve.texture_view,
+                compensation_curve.extents.as_entire_buffer_binding(),
+                resources.histogram.as_entire_buffer_binding(),
+                auto_exposure.state.as_entire_buffer_binding(),
+                BufferBinding {
+                    buffer: view_uniforms_buffer,
+                    size: Some(ViewUniform::min_size()),
+                    offset: 0,
                 },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(source),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(mask),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::TextureView(&compensation_curve.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: compensation_curve.extents.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: resources.histogram.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: auto_exposure.state.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: BindingResource::Buffer(BufferBinding {
-                        buffer: view_uniforms_buffer,
-                        size: Some(ViewUniform::min_size()),
-                        offset: 0,
-                    }),
-                },
-            ],
+            )),
         );
 
         let mut compute_pass =
