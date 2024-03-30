@@ -11,8 +11,10 @@ fn main() {
         .run();
 }
 
-fn push_to_listen(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
+fn push_to_listen(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
+        // This will use the default audio input device.
+        // To choose a different device, see AudioInputOptions.
         commands.start_recording_audio();
     } else if !keyboard_input.pressed(KeyCode::Space) {
         commands.stop_recording_audio();
@@ -23,14 +25,12 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn(
-        TextBundle::from_section("Hold the Spacebar to Record!", default())
-            .with_text_alignment(TextAlignment::Left)
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            }),
+        TextBundle::from_section("Hold the Spacebar to Record!", default()).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
+            ..default()
+        }),
     );
 }
 
@@ -66,7 +66,7 @@ fn oscilloscope(
                     )
                 });
 
-            gizmos.linestrip_2d(nodes, Color::GREEN);
+            gizmos.linestrip_2d(nodes, Srgba::GREEN);
         }
     }
 }

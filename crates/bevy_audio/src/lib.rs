@@ -110,11 +110,8 @@ impl Plugin for AudioPlugin {
         }
 
         #[cfg(feature = "input")]
-        if let Some(audio_input_stream) = AudioInputStream::try_default() {
-            app.insert_non_send_resource(audio_input_stream)
-                .add_event::<AudioInputEvent>()
-                .add_systems(PostUpdate, handle_input_stream.before(AudioPlaySet));
-        }
+        app.add_event::<AudioInputEvent>()
+            .add_systems(PostUpdate, handle_input_stream.before(AudioPlaySet));
 
         app.add_audio_source::<Pitch>();
     }
