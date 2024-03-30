@@ -47,11 +47,6 @@ pub trait VectorSpace:
     }
 }
 
-// This is cursed and we should probably remove Quat from these.
-impl VectorSpace for Quat {
-    const ZERO: Self = Quat::from_xyzw(0., 0., 0., 0.);
-}
-
 impl VectorSpace for Vec4 {
     const ZERO: Self = Vec4::ZERO;
 }
