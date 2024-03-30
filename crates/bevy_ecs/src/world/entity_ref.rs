@@ -2,7 +2,9 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, StorageType, TypedComponentId,
+    },
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
@@ -13,7 +15,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref, WorldId};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -51,6 +53,12 @@ impl<'w> EntityRef<'w> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.0.id()
+    }
+
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.0.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -152,6 +160,18 @@ impl<'w> EntityRef<'w> {
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_by_id(component_id) }
+    }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityRef::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic<T: Send + Sync + 'static>(
+        &self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'w T> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_dynamic(component_id) }
     }
 }
 
@@ -290,6 +310,12 @@ impl<'w> EntityMut<'w> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.0.id()
+    }
+
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.0.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -467,6 +493,42 @@ impl<'w> EntityMut<'w> {
         // consuming `self` ensures that no references exist to this entity's components.
         unsafe { self.0.get_mut_by_id(component_id) }
     }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityMut::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic<T: Send + Sync + 'static>(
+        &self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'w T> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_dynamic(component_id) }
+    }
+
+    /// Gets a mutable reference to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityMut::get_mut`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic_mut<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'w, T>> {
+        // SAFETY: We have mutable access to all components of this entity.
+        unsafe { self.0.get_dynamic_mut(component_id) }
+    }
+
+    /// Consumes `Self` and gets a mutable reference to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityMut::into_mut`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn into_dynamic_mut<T: Send + Sync + 'static>(
+        self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'w, T>> {
+        // SAFETY: We have mutable access to all components of this entity.
+        unsafe { self.0.get_dynamic_mut(component_id) }
+    }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
@@ -579,6 +641,12 @@ impl<'w> EntityWorldMut<'w> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
+    }
+
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.world.id
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -754,6 +822,60 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // consuming `self` ensures that no references exist to this entity's components.
         unsafe { self.into_unsafe_entity_cell().get_mut_by_id(component_id) }
+    }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityWorldMut::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic<T: Send + Sync + 'static>(
+        &self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'_ T> {
+        EntityRef::from(self).get_dynamic(component_id)
+    }
+
+    /// Gets a mutable reference to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityWorldMut::get_mut`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic_mut<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'_, T>> {
+        // SAFETY: we have mutable access to all components in the World
+        unsafe { self.as_unsafe_entity_cell().get_dynamic_mut(component_id) }
+    }
+
+    /// Consumes `Self` and gets a mutable reference to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`EntityWorldMut::into_mut`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn into_dynamic_mut<T: Send + Sync + 'static>(
+        self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'w, T>> {
+        // SAFETY: We have mutable access to all components of this entity.
+        unsafe { self.into_unsafe_entity_cell().get_dynamic_mut(component_id) }
+    }
+
+    /// Inserts a dynamic component into the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    pub fn insert_dynamic<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+        component: T,
+    ) -> &mut Self {
+        if self.world_id() != component_id.world_id {
+            panic!("Attempted to insert a dynamic component into the wrong World");
+        }
+        //SAFETY: we check the world id matches and the component ID has the correct layout by
+        //construction
+        OwningPtr::make(component, |ptr| unsafe {
+            self.insert_by_id(component_id.id, ptr)
+        });
+        self
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -1729,6 +1851,11 @@ impl<'w> FilteredEntityRef<'w> {
         self.entity.id()
     }
 
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
+    }
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
@@ -1856,6 +1983,20 @@ impl<'w> FilteredEntityRef<'w> {
             // SAFETY: We have read access so we must have the component
             .then(|| unsafe { self.entity.get_by_id(component_id).debug_checked_unwrap() })
     }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`FilteredEntityRef::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic<T: Send + Sync + 'static>(
+        &self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'w T> {
+        self.access
+            .has_read(component_id.id)
+            // SAFETY: We have read access so we must have the component.
+            .then(|| unsafe { self.entity.get_dynamic(component_id).debug_checked_unwrap() })
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -1981,6 +2122,12 @@ impl<'w> FilteredEntityMut<'w> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -2118,6 +2265,38 @@ impl<'w> FilteredEntityMut<'w> {
                 .get_mut_by_id(component_id)
                 .debug_checked_unwrap()
         })
+    }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`FilteredEntityRef::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic<T: Send + Sync + 'static>(
+        &self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'w T> {
+        self.access
+            .has_read(component_id.id)
+            // SAFETY: We have read access so we must have the component.
+            .then(|| unsafe { self.entity.get_dynamic(component_id).debug_checked_unwrap() })
+    }
+
+    /// Gets a mutable access to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// You should prefer [`FilteredEntityRef::get`] where possible, this is a niche method
+    /// for accessing dynamic components whose types are known at compile time.
+    pub fn get_dynamic_mut<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'w, T>> {
+        self.access
+            .has_read(component_id.id)
+            // SAFETY: We have read access so we must have the component.
+            .then(|| unsafe {
+                self.entity
+                    .get_dynamic_mut(component_id)
+                    .debug_checked_unwrap()
+            })
     }
 }
 

@@ -8,6 +8,7 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+use crate::component::{StorageType, TypedComponentId};
 pub use crate::world::command_queue::CommandQueue;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
@@ -38,6 +39,7 @@ use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     fmt,
+    marker::PhantomData,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -260,6 +262,23 @@ impl World {
     ) -> ComponentId {
         self.components
             .init_component_with_descriptor(&mut self.storages, descriptor)
+    }
+
+    /// Initializes a new dynamic component type with the given storage type.
+    ///
+    /// Every call to this method will return a new unique [`TypedComponentId`]
+    /// which allows for accessing values of this component without unsafe code.
+    pub fn init_dynamic_component<T: Send + Sync + 'static>(
+        &mut self,
+        storage_type: StorageType,
+    ) -> TypedComponentId<T> {
+        let descriptor = ComponentDescriptor::new_dynamic::<T>(storage_type);
+        let id = self.init_component_with_descriptor(descriptor);
+        TypedComponentId {
+            id,
+            world_id: self.id,
+            data: PhantomData,
+        }
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
