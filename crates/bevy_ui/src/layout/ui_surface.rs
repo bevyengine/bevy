@@ -121,7 +121,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
+    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
         camera_id: Entity,
