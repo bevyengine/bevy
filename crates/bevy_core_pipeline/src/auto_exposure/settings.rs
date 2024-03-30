@@ -45,7 +45,7 @@ pub struct AutoExposureSettings {
 
     /// The distance in F-stops from the target exposure from where to transition from animating
     /// in linear fashion to animating exponentially. This helps against jittering when the
-    /// target exposure keeps on changing slightly from frame to frame, while still maintinaing
+    /// target exposure keeps on changing slightly from frame to frame, while still maintaining
     /// a relatively slow animation for big changes in scene brightness.
     ///
     /// ```text

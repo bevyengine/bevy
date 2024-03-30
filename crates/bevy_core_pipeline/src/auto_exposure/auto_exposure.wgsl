@@ -53,7 +53,7 @@ fn color_to_bin(hdr: vec3<f32>) -> u32 {
     // where 0.0 represents the minimum luminance, and 1.0 represents the max.
     let log_lum = saturate((log2(lum) - settings.min_log_lum) * settings.inv_log_lum_range);
 
-    // Map [0, 1] to [1, 62]. The zeroth bin is handled by the epsilon check above.
+    // Map [0, 1] to [1, 63]. The zeroth bin is handled by the epsilon check above.
     return u32(log_lum * 62.0 + 1.0);
 }
 
@@ -95,7 +95,7 @@ fn compute_histogram(
     workgroupBarrier();
 
     // Accumulate the workgroup histogram into the global histogram.
-    // Note that the global histogram was not cleared at te beginning,
+    // Note that the global histogram was not cleared at the beginning,
     // as it will be cleared in compute_average.
     atomicAdd(&histogram[local_invocation_index], histogram_shared[local_invocation_index]);
 }
