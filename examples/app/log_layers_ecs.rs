@@ -32,7 +32,7 @@ pub struct LogEvent {
 #[derive(Deref, DerefMut)]
 pub struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
-/// Transfers information from the `LCogEvents` resource to [`Events<LogEvent>`](LogEvent).
+/// Transfers information from the `LogEvents` resource to [`Events<LogEvent>`](LogEvent).
 pub fn transfer_log_events(
     receiver: NonSend<CapturedLogEvents>,
     mut log_events: EventWriter<LogEvent>,
