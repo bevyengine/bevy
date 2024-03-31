@@ -19,6 +19,7 @@ ios_simulator = ["bevy_render/ios_simulator"]
 meshlet = []
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
+  "meshlet",
   "dep:meshopt",
   "dep:metis",
   "dep:itertools",
