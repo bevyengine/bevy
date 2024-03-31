@@ -6,10 +6,7 @@
 
 #[cfg(target_os = "macos")]
 use bevy::window::CompositeAlphaMode;
-use bevy::{
-    prelude::*,
-    window::{Window, WindowPlugin},
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

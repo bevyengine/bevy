@@ -14,7 +14,6 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
-    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
