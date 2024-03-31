@@ -225,32 +225,30 @@ fn main() {
 
     if checks.contains(Check::DOC_CHECK) {
         // Check that building docs work and does not emit warnings
-        let mut args = vec![
-            "--workspace",
-            "--all-features",
-            "--no-deps",
-            "-Zunstable-options",
-            "-Zrustdoc-scrape-examples",
-        ];
+        let mut args = vec!["--workspace", "--all-features", "--no-deps"];
+        let mut rust_doc_flags = "-D warnings";
+        let mut docs_type = vec!["doc"];
+
+        if flags.contains(Flag::DEPLOY_DOCS) {
+            // Nightly
+            docs_type.insert(0, "+nightly");
+            rust_doc_flags = "-D warnings -Zunstable-options --cfg=docsrs";
+            args.remove(args.iter().position(|&arg| arg == "--workspace").unwrap());
+            args.push("-Zunstable-options");
+            args.push("-Zrustdoc-scrape-examples");
+        }
+
         if flags.contains(Flag::KEEP_GOING) {
             args.push("--keep-going");
-        }
-        if flags.contains(Flag::DEPLOY_DOCS) {
-            args.remove(args.iter().position(|&arg| arg == "--workspace").unwrap());
-            args.push("-p");
-            args.push("bevy");
         }
 
         test_suite.insert(
             Check::DOC_CHECK,
             vec![CITest {
-                command: cmd!(sh, "cargo +nightly doc {args...}"),
+                command: cmd!(sh, "cargo {docs_type...} {args...}"),
                 failure_message: "Please fix doc warnings in output above.",
                 subdir: None,
-                env_vars: vec![(
-                    "RUSTDOCFLAGS",
-                    "-D warnings -Zunstable-options --cfg=docsrs",
-                )],
+                env_vars: vec![("RUSTDOCFLAGS", rust_doc_flags)],
             }],
         );
     }
