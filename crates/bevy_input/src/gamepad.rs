@@ -63,7 +63,7 @@ impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -92,7 +92,7 @@ impl RawGamepadButtonChangedEvent {
 
 /// Gamepad event for when the "value" on the axis changes
 /// by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -232,7 +232,13 @@ impl GamepadButtonChanged {
 }
 
 /// A gamepad axis event.
-#[derive(Event, Debug, Clone, Copy, PartialEq)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GamepadAxisChanged {
     /// The entity that represents this gamepad.
     pub entity: Entity,
@@ -317,7 +323,7 @@ pub enum ButtonSettingsError {
 }
 
 /// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
-#[derive(Bundle)]
+#[derive(Bundle, Debug)]
 pub struct MinimalGamepad {
     /// The [`Gamepad`] component
     pub gamepad: Gamepad,
@@ -396,7 +402,13 @@ impl Display for GamepadId {
 ///     }
 /// }
 /// ```
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Gamepad {
     id: GamepadId,
     info: GamepadInfo,
@@ -442,8 +454,13 @@ pub struct GamepadInfo {
 }
 
 /// A [`resource`](Resource) with the mapping of connected [`GamepadId`] and their [`Entity`].
-// TODO: Members private and manually provide safe methods.
-#[derive(Default, Resource)]
+#[derive(Debug, Default, Resource, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Gamepads {
     /// Mapping of [`Entity`] to [`GamepadId`].
     pub(crate) entity_to_id: EntityHashMap<GamepadId>,
@@ -548,7 +565,7 @@ pub enum GamepadButtonType {
 ///     }
 /// }
 /// ```
-#[derive(Component, Default)]
+#[derive(Component, Debug, Default)]
 pub struct GamepadButtons {
     // TODO: Change digital to 2 fixedbitsets?
     /// [`ButtonInput`] of [`GamepadButtonType`] representing their digital state
@@ -710,7 +727,7 @@ pub enum GamepadAxisType {
 ///     }
 /// }
 /// ```
-#[derive(Component, Default)]
+#[derive(Component, Debug, Default)]
 pub struct GamepadAxes {
     axis: Axis<GamepadAxisType>,
 }

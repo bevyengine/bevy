@@ -51,6 +51,7 @@ use gamepad::{
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
+use crate::gamepad::{Gamepad, GamepadConnection, GamepadId, GamepadInfo};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -109,7 +110,17 @@ impl Plugin for InputPlugin {
             .register_type::<TouchpadRotate>()
             .register_type::<TouchInput>()
             .register_type::<RawGamepadEvent>()
+            .register_type::<RawGamepadAxisChangedEvent>()
+            .register_type::<RawGamepadButtonChangedEvent>()
+            .register_type::<GamepadConnectionEvent>()
+            .register_type::<GamepadButtonChanged>()
+            .register_type::<GamepadAxisChanged>()
             .register_type::<GamepadButtonStateChanged>()
+            .register_type::<Gamepads>()
+            .register_type::<Gamepad>()
+            .register_type::<GamepadId>()
+            .register_type::<GamepadInfo>()
+            .register_type::<GamepadConnection>()
             .register_type::<GamepadSettings>();
     }
 }
