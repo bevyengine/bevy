@@ -74,8 +74,8 @@ impl AudioInput {
         trace!("Got Audio Input Device: {:?}: {:?}", input.name(), config);
 
         // Sync Channel ensures no allocation during transmission of buffers
-        let (tx, receiver) = sync_channel(event_capacity);
-        let (sender, rx) = sync_channel::<Vec<f32>>(event_capacity);
+        let (audio_tx, audio_rx) = sync_channel(event_capacity);
+        let (buffers_tx, buffers_rx) = sync_channel::<Vec<f32>>(event_capacity);
 
         // Pre-allocate buffers which samples can be stored in.
         let buffer_size = if let BufferSize::Fixed(size) = config.buffer_size {
