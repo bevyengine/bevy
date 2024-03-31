@@ -512,18 +512,18 @@ mod tests {
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
 
         app.register_type::<ComponentA>();
-        app.world.spawn(ComponentA);
-        app.world.spawn(ComponentA);
+        app.world_mut().spawn(ComponentA);
+        app.world_mut().spawn(ComponentA);
 
         // Build scene.
         let scene =
-            app.world
+            app.world_mut()
                 .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
                     asset_server.add(DynamicScene::from_world(world))
                 });
 
         // Spawn scene.
-        let scene_entity = app.world.run_system_once(
+        let scene_entity = app.world_mut().run_system_once(
             move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
                 let scene_entity = commands.spawn_empty().id();
                 scene_spawner.spawn_dynamic_as_child(scene.clone(), scene_entity);
@@ -533,7 +533,7 @@ mod tests {
 
         // Check for event arrival.
         app.update();
-        app.world.run_system_once(
+        app.world_mut().run_system_once(
             move |mut ev_scene: EventReader<'_, '_, SceneInstanceReady>| {
                 let mut events = ev_scene.read();
 
@@ -555,7 +555,7 @@ mod tests {
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
         app.register_type::<ComponentA>();
 
-        let asset_server = app.world.resource::<AssetServer>();
+        let asset_server = app.world().resource::<AssetServer>();
 
         // Build scene.
         let scene = asset_server.add(DynamicScene::default());
@@ -573,14 +573,14 @@ mod tests {
 
         // Spawn scene.
         for _ in 0..count {
-            app.world.spawn((ComponentA, scene.clone()));
+            app.world_mut().spawn((ComponentA, scene.clone()));
         }
 
         app.update();
-        check(&mut app.world, count);
+        check(app.world_mut(), count);
 
         // Despawn scene.
-        app.world.run_system_once(
+        app.world_mut().run_system_once(
             |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
                 for entity in query.iter() {
                     commands.entity(entity).despawn_recursive();
@@ -589,6 +589,6 @@ mod tests {
         );
 
         app.update();
-        check(&mut app.world, 0);
+        check(app.world_mut(), 0);
     }
 }

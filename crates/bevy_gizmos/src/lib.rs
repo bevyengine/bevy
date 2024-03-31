@@ -136,7 +136,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(AabbGizmoPlugin)
             .add_plugins(LightGizmoPlugin);
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -162,11 +162,11 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let render_device = render_app.world().resource::<RenderDevice>();
         let line_layout = render_device.create_bind_group_layout(
             "LineGizmoUniform layout",
             &BindGroupLayoutEntries::single(
@@ -200,12 +200,12 @@ pub trait AppGizmoBuilder {
 
 impl AppGizmoBuilder for App {
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self {
-        if self.world.contains_resource::<GizmoStorage<T>>() {
+        if self.world().contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         let mut handles = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);
@@ -213,7 +213,7 @@ impl AppGizmoBuilder for App {
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
 
-        self.world
+        self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
 
@@ -225,16 +225,16 @@ impl AppGizmoBuilder for App {
         group: T,
         config: GizmoConfig,
     ) -> &mut Self {
-        self.world
+        self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .insert(config, group);
 
-        if self.world.contains_resource::<GizmoStorage<T>>() {
+        if self.world().contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         let mut handles = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);
