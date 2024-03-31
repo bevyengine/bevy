@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_reflect::{GetField, Reflect};
 
 #[derive(Reflect)]

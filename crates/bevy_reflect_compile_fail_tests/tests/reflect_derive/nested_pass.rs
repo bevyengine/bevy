@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_reflect::Reflect;
 
 mod nested_generics {
@@ -12,5 +13,3 @@ mod nested_generics {
     #[derive(Reflect)]
     struct Baz<T>(Bar<Foo<T>>);
 }
-
-fn main() {}

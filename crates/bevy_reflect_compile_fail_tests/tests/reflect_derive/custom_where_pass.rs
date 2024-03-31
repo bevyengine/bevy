@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_reflect::{FromType, Reflect};
 use std::marker::PhantomData;
 
@@ -34,5 +35,3 @@ pub struct Baz<T> {
     #[reflect(ignore)]
     _marker: PhantomData<T>,
 }
-
-fn main() {}

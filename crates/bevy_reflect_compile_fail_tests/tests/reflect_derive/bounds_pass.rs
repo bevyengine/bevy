@@ -1,6 +1,5 @@
+//@check-pass
 use bevy_reflect::prelude::*;
-
-fn main() {}
 
 #[derive(Default)]
 struct NonReflect;

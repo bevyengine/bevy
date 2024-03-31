@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_reflect::{FromReflect, Reflect};
 
 #[derive(Reflect)]
@@ -19,5 +20,3 @@ struct Bar {
 struct Baz {
     value: String,
 }
-
-fn main() {}
