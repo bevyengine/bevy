@@ -117,13 +117,7 @@ impl AudioInput {
 
                     let InputStreamTimestamp { capture, callback } = info.timestamp();
 
-                    if start.is_none() {
-                        start = Some(capture);
-                    }
-
-                    let Some(start) = start else {
-                        unreachable!("Set as Some(...) above")
-                    };
+                    let start = start.unwrap_or(capture);
 
                     let capture = capture.duration_since(&start).unwrap_or_default();
                     let callback = callback.duration_since(&start).unwrap_or_default();
