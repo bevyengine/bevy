@@ -15,12 +15,12 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
+use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
+        SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -37,7 +37,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -448,7 +448,7 @@ pub fn queue_sprites(
     msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
     mut views: Query<(
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
@@ -534,7 +534,7 @@ pub fn prepare_sprites(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     extracted_sprites: Res<ExtractedSprites>,
-    mut phases: Query<&mut RenderPhase<Transparent2d>>,
+    mut phases: Query<&mut SortedRenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed

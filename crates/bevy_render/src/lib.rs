@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![allow(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -109,13 +110,15 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
-    /// ready for sorting
+    /// Queue drawable entities as phase items in render phases ready for
+    /// sorting (if necessary)
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
-    /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
+    // TODO: This could probably be moved in favor of a system ordering
+    // abstraction in `Render` or `Queue`
+    /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
+    /// [`BinKey`](render_phase::BinnedPhaseItem::BinKey)s here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.

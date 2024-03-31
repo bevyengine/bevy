@@ -10,13 +10,14 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayoutRef},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -30,7 +31,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -387,7 +388,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
