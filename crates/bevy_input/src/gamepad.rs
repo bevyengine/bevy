@@ -2082,7 +2082,7 @@ mod tests {
             .add_event::<GamepadConnectionEvent>()
             .add_systems(PreUpdate, gamepad_connection_system);
 
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2090,7 +2090,7 @@ mod tests {
                     name: String::from("Gamepad test"),
                 }),
             ));
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 1 },
@@ -2100,16 +2100,16 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             2
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 2);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 2);
         // Connection event on existing gamepadid should be safely ignored
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2119,14 +2119,14 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             2
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 2);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 2);
     }
 
     #[test]
@@ -2138,7 +2138,7 @@ mod tests {
             .add_systems(PreUpdate, gamepad_connection_system);
 
         // Spawn test entities
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2146,7 +2146,7 @@ mod tests {
                     name: String::from("Gamepad test"),
                 }),
             ));
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 1 },
@@ -2156,17 +2156,17 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             2
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 2);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 2);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 2);
 
         // Despawn one gamepad
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2174,17 +2174,17 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             1
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 1);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 1);
 
         // Disconnection event on non-existent gamepad should be safely ignored
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2192,14 +2192,14 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             1
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 1);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 1);
     }
 
     #[test]
@@ -2211,7 +2211,7 @@ mod tests {
             .add_systems(PreUpdate, gamepad_connection_system);
 
         // Connect and disconnect on the same frame
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2219,7 +2219,7 @@ mod tests {
                     name: String::from("Gamepad test"),
                 }),
             ));
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
@@ -2227,48 +2227,44 @@ mod tests {
             ));
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             0
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 0);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 0);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 0);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 0);
 
         // Reconnect on the same frame
-        app.world
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
+        let events = [
+            GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
-            ));
-        app.world
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
-                Disconnected,
-            ));
-        app.world
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
+            ),
+            GamepadConnectionEvent::new(GamepadId { id: 0 }, Disconnected),
+            GamepadConnectionEvent::new(
                 GamepadId { id: 0 },
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
-            ));
+            ),
+        ];
+        app.world_mut()
+            .resource_mut::<Events<GamepadConnectionEvent>>()
+            .send_batch(events);
         app.update();
         assert_eq!(
-            app.world
+            app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world)
+                .iter(&app.world())
                 .len(),
             1
         );
-        assert_eq!(app.world.resource::<Gamepads>().entity_to_id.len(), 1);
-        assert_eq!(app.world.resource::<Gamepads>().id_to_entity.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().entity_to_id.len(), 1);
+        assert_eq!(app.world().resource::<Gamepads>().id_to_entity.len(), 1);
     }
 
     #[test]
@@ -2287,7 +2283,7 @@ mod tests {
         // Create test gamepad
         let id = GamepadId { id: 0 };
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 id,
@@ -2303,12 +2299,15 @@ mod tests {
             RawGamepadAxisChangedEvent::new(id, GamepadAxisType::RightZ, -0.4),
             RawGamepadAxisChangedEvent::new(id, GamepadAxisType::RightStickY, -0.8),
         ];
-        app.world
+        app.world_mut()
             .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
             .send_batch(raw_events);
         app.update();
-        assert_eq!(app.world.resource::<Events<GamepadAxisChanged>>().len(), 4);
-        app.world
+        assert_eq!(
+            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            4
+        );
+        app.world_mut()
             .resource_mut::<Events<GamepadAxisChanged>>()
             .clear();
 
@@ -2361,11 +2360,14 @@ mod tests {
                 settings.deadzone_upperbound - 0.01,
             ),
         ];
-        app.world
+        app.world_mut()
             .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
             .send_batch(raw_event_set);
         app.update();
-        assert_eq!(app.world.resource::<Events<GamepadAxisChanged>>().len(), 7);
+        assert_eq!(
+            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            7
+        );
     }
 
     #[test]
@@ -2386,7 +2388,7 @@ mod tests {
         let id = GamepadId { id: 0 };
         let digital_settings = GamepadSettings::default().default_button_settings;
         let analog_settings = GamepadSettings::default().default_button_axis_settings;
-        app.world
+        app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
                 id,
@@ -2441,18 +2443,18 @@ mod tests {
                 digital_settings.release_threshold - (analog_settings.threshold * 2.02),
             ),
         ];
-        app.world
+        app.world_mut()
             .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
             .send_batch(raw_events);
         app.update();
         assert_eq!(
-            app.world
+            app.world()
                 .resource::<Events<GamepadButtonStateChanged>>()
                 .len(),
             5
         );
         assert_eq!(
-            app.world.resource::<Events<GamepadButtonChanged>>().len(),
+            app.world().resource::<Events<GamepadButtonChanged>>().len(),
             7
         );
     }

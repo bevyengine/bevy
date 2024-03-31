@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::RenderPhase,
+    render_phase::SortedRenderPhase,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -16,7 +16,7 @@ pub struct MainPass2dNode {
     query: QueryState<
         (
             &'static ExtractedCamera,
-            &'static RenderPhase<Transparent2d>,
+            &'static SortedRenderPhase<Transparent2d>,
             &'static ViewTarget,
         ),
         With<ExtractedView>,

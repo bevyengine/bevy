@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_point, Alpha, ClampColor, Hsla, Hsva,
-    Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Hsla,
+    Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
@@ -29,7 +29,7 @@ pub struct Oklaba {
 
 impl StandardColor for Oklaba {}
 
-impl_componentwise_point!(Oklaba, [lightness, a, b, alpha]);
+impl_componentwise_vector_space!(Oklaba, [lightness, a, b, alpha]);
 
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
