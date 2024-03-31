@@ -72,12 +72,13 @@ pub(crate) trait UnsafeVecExtensions<T> {
 }
 
 impl<T> UnsafeVecExtensions<T> for Vec<T> {
+    /// # Safety
+    /// `index` must be in the bounds `0 <= index < self.len()`.
     unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T {
         let len = self.len();
+        // SAFETY: Caller guarantees that `index` is in bounds. We replace self[index] with the last element.
+        // If index is in bounds, there must be a last element (which can be self[index] itself).
         unsafe {
-            // We replace self[index] with the last element. Note that if the
-            // bounds check above succeeds there must be a last element (which
-            // can be self[index] itself).
             let value = std::ptr::read(self.as_ptr().add(index));
             let base_ptr = self.as_mut_ptr();
             std::ptr::copy(base_ptr.add(len - 1), base_ptr.add(index), 1);

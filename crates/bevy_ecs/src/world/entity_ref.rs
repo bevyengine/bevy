@@ -900,6 +900,8 @@ impl<'w> EntityWorldMut<'w> {
 
         let entity = self.entity;
         let (old_archetype, bundle_info, mut deferred_world) = {
+            // SAFETY: The entity's location for `UnsafeEntityCell` must always be valid, thus
+            // the location's archetype ID must be in bounds.
             let archetype: *const Archetype = unsafe {
                 world
                     .archetypes
@@ -1051,6 +1053,8 @@ impl<'w> EntityWorldMut<'w> {
                         table_row: old_location.table_row,
                     },
                 );
+                // SAFETY: The location sourced from Entities must always be valid, thus
+                // the locations's archetype ID must be in bounds.
                 unsafe {
                     archetypes
                         .get_unchecked_mut(swapped_location.archetype_id)
