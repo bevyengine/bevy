@@ -45,8 +45,8 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    Gamepads, GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged,
-    GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
+    GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged, GamepadConnectionEvent,
+    GamepadRumbleRequest, GamepadSettings, Gamepads, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 

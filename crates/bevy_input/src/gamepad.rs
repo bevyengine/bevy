@@ -1,17 +1,18 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_ecs::bundle::Bundle;
-use bevy_ecs::component::Component;
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::event::{Event, EventReader, EventWriter};
-use bevy_ecs::system::{Commands, Local, Query};
 use bevy_ecs::{
+    bundle::Bundle,
     change_detection::DetectChangesMut,
-    system::{Res, ResMut, Resource},
+    component::Component,
+    entity::{Entity, EntityHashMap},
+    event::{Event, EventReader, EventWriter},
+    system::{Commands, Local, Query, Res, ResMut, Resource},
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{
     tracing::{info, warn},
     Duration, HashMap,
@@ -25,7 +26,7 @@ use thiserror::Error;
 /// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
 ///
-/// This event type is not used by bevy_input.
+/// This event type is not used by `bevy_input`.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -365,7 +366,7 @@ pub struct GamepadId {
 
 impl AsRef<GamepadId> for GamepadId {
     fn as_ref(&self) -> &GamepadId {
-        &self
+        self
     }
 }
 
