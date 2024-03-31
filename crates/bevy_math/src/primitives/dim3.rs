@@ -828,7 +828,6 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
