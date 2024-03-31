@@ -365,10 +365,7 @@ impl MinimalGamepad {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GamepadId {
-    /// The `ID` of the gamepad.
-    pub id: usize,
-}
+pub struct GamepadId(pub usize);
 
 impl AsRef<GamepadId> for GamepadId {
     fn as_ref(&self) -> &GamepadId {
@@ -378,7 +375,7 @@ impl AsRef<GamepadId> for GamepadId {
 
 impl Display for GamepadId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.id)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -2102,7 +2099,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
@@ -2110,7 +2107,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 1 },
+                GamepadId(1),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test 1"),
                 }),
@@ -2129,7 +2126,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
@@ -2158,7 +2155,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
@@ -2166,7 +2163,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 1 },
+                GamepadId(1),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test 1"),
                 }),
@@ -2185,10 +2182,7 @@ mod tests {
         // Despawn one gamepad
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
-                Disconnected,
-            ));
+            .send(GamepadConnectionEvent::new(GamepadId(0), Disconnected));
         app.update();
         assert_eq!(
             app.world_mut()
@@ -2203,10 +2197,7 @@ mod tests {
         // Disconnection event on non-existent gamepad should be safely ignored
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
-                Disconnected,
-            ));
+            .send(GamepadConnectionEvent::new(GamepadId(0), Disconnected));
         app.update();
         assert_eq!(
             app.world_mut()
@@ -2231,17 +2222,14 @@ mod tests {
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
             .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
             ));
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
-                Disconnected,
-            ));
+            .send(GamepadConnectionEvent::new(GamepadId(0), Disconnected));
         app.update();
         assert_eq!(
             app.world_mut()
@@ -2256,14 +2244,14 @@ mod tests {
         // Reconnect on the same frame
         let events = [
             GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
             ),
-            GamepadConnectionEvent::new(GamepadId { id: 0 }, Disconnected),
+            GamepadConnectionEvent::new(GamepadId(0), Disconnected),
             GamepadConnectionEvent::new(
-                GamepadId { id: 0 },
+                GamepadId(0),
                 Connected(GamepadInfo {
                     name: String::from("Gamepad test"),
                 }),
@@ -2298,7 +2286,7 @@ mod tests {
             );
 
         // Create test gamepad
-        let id = GamepadId { id: 0 };
+        let id = GamepadId(0);
         let settings = GamepadSettings::default().default_axis_settings;
         app.world_mut()
             .resource_mut::<Events<GamepadConnectionEvent>>()
@@ -2402,7 +2390,7 @@ mod tests {
             );
 
         // Create test gamepad
-        let id = GamepadId { id: 0 };
+        let id = GamepadId(0);
         let digital_settings = GamepadSettings::default().default_button_settings;
         let analog_settings = GamepadSettings::default().default_button_axis_settings;
         app.world_mut()
