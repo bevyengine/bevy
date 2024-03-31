@@ -854,18 +854,8 @@ impl EntityCommands<'_> {
 
     /// Adds a dynamic component to the entity.
     ///
-    /// This will overwrite any previous value(s) of the same component type.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// // Note: this is a fairly contrived example, mostly because most uses of dynamic components are
-    /// // complex and abstract
-    ///
-    /// let my_u64_component: TypedComponentId<u64> = world.init_dynamic_component::<u64>();
-    /// // later in the app, in a system:
-    /// commands.insert_dynamic(my_u64_component, 145);
-    /// ```
+    /// This will overwrite any previous value(s) of the same component type. The typed component
+    /// id is necessary to identity which dynamic component to write to.
     pub fn insert_dynamic<T: Send + Sync + 'static>(
         &mut self,
         component_id: TypedComponentId<T>,
@@ -876,18 +866,8 @@ impl EntityCommands<'_> {
 
     /// Attempts to add a dynamic component to the entity.
     ///
-    /// This will overwrite any previous value(s) of the same component type.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// // Note: this is a fairly contrived example, mostly because most uses of dynamic components are
-    /// // complex and abstract
-    ///
-    /// let my_u64_component: TypedComponentId<u64> = world.init_dynamic_component::<u64>();
-    /// // later in the app, in a system:
-    /// commands.try_insert_dynamic(my_u64_component, 145);
-    /// ```
+    /// This will overwrite any previous value(s) of the same component type. The typed component
+    /// id is necessary to identity which dynamic component to write to.
     pub fn try_insert_dynamic<T: Send + Sync + 'static>(
         &mut self,
         component_id: TypedComponentId<T>,
