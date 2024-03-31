@@ -8,6 +8,13 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 publish = false
 
+[dependencies]
+# ui_test dies if we don't specify the version. See oli-obk/ui_test#211
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+
 [dev-dependencies]
-bevy_ecs = { path = "../bevy_ecs" }
-trybuild = "1.0.71"
+bevy_compile_test_utils = { path = "../bevy_compile_test_utils" }
+
+[[test]]
+name = "ui"
+harness = false
