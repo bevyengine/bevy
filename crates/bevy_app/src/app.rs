@@ -858,7 +858,7 @@ fn run_once(mut app: App) {
     app.update();
 }
 
-/// An event that indicates the [`App`]  should exit. If one or more of these are present at the
+/// An event that indicates the [`App`] should exit. If one or more of these are present at the
 /// end of an update, the [runner](App::set_runner) will end and ([maybe](App::run)) return
 /// control to the caller.
 ///
