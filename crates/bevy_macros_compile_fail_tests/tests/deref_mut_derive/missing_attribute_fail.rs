@@ -2,7 +2,8 @@ use bevy_derive::DerefMut;
 use std::ops::Deref;
 
 #[derive(DerefMut)]
-struct TupleStruct(#[deref] usize, String);
+//~^ ERROR: requires one field to have
+struct TupleStruct(usize, String);
 
 impl Deref for TupleStruct {
     type Target = String;
@@ -13,8 +14,8 @@ impl Deref for TupleStruct {
 }
 
 #[derive(DerefMut)]
+//~^ ERROR: requires one field to have
 struct Struct {
-    #[deref]
     foo: usize,
     bar: String,
 }
@@ -26,5 +27,3 @@ impl Deref for Struct {
         &self.bar
     }
 }
-
-fn main() {}

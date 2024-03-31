@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_derive::Deref;
 
 #[derive(Deref)]

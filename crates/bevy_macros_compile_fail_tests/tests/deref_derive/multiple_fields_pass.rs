@@ -1,3 +1,4 @@
+//@check-pass
 use bevy_derive::Deref;
 
 #[derive(Deref)]
@@ -17,6 +18,7 @@ struct Struct {
 fn main() {
     let value = TupleStruct(123, "Hello world!".to_string());
     let _: &String = &*value;
+    let _ = value.0;
 
     let value = Struct {
         #[cfg(test)]
@@ -25,4 +27,5 @@ fn main() {
         baz: 321,
     };
     let _: &String = &*value;
+    let _ = value.baz;
 }

@@ -2,7 +2,11 @@ use bevy_derive::DerefMut;
 use std::ops::Deref;
 
 #[derive(DerefMut)]
-struct TupleStruct(usize, String);
+struct TupleStruct(
+    #[deref] usize,
+    #[deref] String
+    //~^ ERROR: can only be used on a single field
+);
 
 impl Deref for TupleStruct {
     type Target = String;
@@ -14,7 +18,10 @@ impl Deref for TupleStruct {
 
 #[derive(DerefMut)]
 struct Struct {
+    #[deref]
     foo: usize,
+    #[deref]
+    //~^ ERROR: can only be used on a single field
     bar: String,
 }
 
@@ -25,5 +32,3 @@ impl Deref for Struct {
         &self.bar
     }
 }
-
-fn main() {}

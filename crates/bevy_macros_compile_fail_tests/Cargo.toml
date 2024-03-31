@@ -9,5 +9,12 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-bevy_derive = { path = "../bevy_derive" }
-trybuild = "1.0.71"
+# ui_test dies if we don't specify the version. See oli-obk/ui_test#211
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+
+[dev-dependencies]
+bevy_compile_test_utils = { path = "../bevy_compile_test_utils" }
+
+[[test]]
+name = "derive"
+harness = false

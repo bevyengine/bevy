@@ -1,10 +1,9 @@
 use bevy_derive::DerefMut;
 use std::ops::Deref;
 
-// Reason: `#[deref]` doesn't take any arguments
-
 #[derive(DerefMut)]
-struct TupleStruct(usize, #[deref()] String);
+//~^ E0308
+struct TupleStruct(#[deref] usize, String);
 
 impl Deref for TupleStruct {
     type Target = String;
@@ -15,9 +14,10 @@ impl Deref for TupleStruct {
 }
 
 #[derive(DerefMut)]
+//~^ E0308
 struct Struct {
+    #[deref]
     foo: usize,
-    #[deref()]
     bar: String,
 }
 
@@ -28,5 +28,3 @@ impl Deref for Struct {
         &self.bar
     }
 }
-
-fn main() {}
