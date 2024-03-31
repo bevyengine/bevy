@@ -45,7 +45,7 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    EntityGamepadMap, GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged,
+    Gamepads, GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged,
     GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
@@ -85,7 +85,7 @@ impl Plugin for InputPlugin {
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
-            .init_resource::<EntityGamepadMap>()
+            .init_resource::<Gamepads>()
             .add_systems(
                 PreUpdate,
                 (
