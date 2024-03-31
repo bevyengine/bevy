@@ -331,7 +331,7 @@ pub struct MinimalGamepad {
     pub settings: GamepadSettings,
     /// The [`GamepadButtons`] component
     pub buttons: GamepadButtons,
-    /// The [`GamepadAxis`] component
+    /// The [`GamepadAxes`] component
     pub axis: GamepadAxes,
 }
 
@@ -477,14 +477,12 @@ impl Gamepads {
     }
 }
 
-/// A type of a [`GamepadButton`].
+/// A type of gamepad button.
 ///
 /// ## Usage
 ///
-/// This is used to determine which button has changed its value when receiving a
-/// [`RawGamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
-/// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
-/// [`Axis<GamepadButton>`] `bevy` resources.
+/// This is used to determine which button has changed its value when receiving gamepad button events
+/// It is also used in the [`GamepadButtons`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -669,13 +667,12 @@ impl GamepadButtons {
     }
 }
 
-/// A type of a [`GamepadAxis`].
+/// A type of gamepad axis.
 ///
 /// ## Usage
 ///
 /// This is used to determine which axis has changed its value when receiving a
-/// [`RawGamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
-/// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
+/// gamepad axis event. It is also used in the [`GamepadAxes`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -761,19 +758,19 @@ impl GamepadAxes {
     }
 }
 
-/// Settings for all [`GamepadId`]s.
+/// Gamepad settings component.
 ///
 /// ## Usage
 ///
-/// It is used to create a `bevy` resource that stores the settings of every [`GamepadButton`] and
-/// [`GamepadAxis`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
+/// It is used to create a `bevy` component that stores the settings of [`GamepadButtonType`] in [`GamepadButtons`]
+/// and [`GamepadAxisType`] in [`GamepadAxes`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
 /// are defined, the default settings of each are used as a fallback accordingly.
 ///
 /// ## Note
 ///
-/// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
-/// should register as a [`RawGamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
-/// will not register. To modify these settings, mutate the corresponding resource.
+/// The [`GamepadSettings`] are used inside `bevy_input` to determine when raw gamepad events
+/// should register. Events that don't meet the change thresholds defined in [`GamepadSettings`]
+/// will not register. To modify these settings, mutate the corresponding component.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Debug, Default)]
 pub struct GamepadSettings {
@@ -1003,9 +1000,9 @@ impl ButtonSettings {
     }
 }
 
-/// Settings for a [`GamepadAxis`].
+/// Settings for a [`GamepadAxisType`].
 ///
-/// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
+/// It is used inside the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for an axis.
 /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
 /// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
@@ -1330,9 +1327,9 @@ impl AxisSettings {
     }
 }
 
-/// Settings for a [`GamepadButton`].
+/// Settings for a [`GamepadButtonType`].
 ///
-/// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
+/// It is used inside the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for a button axis.
 ///
 /// ## Logic
@@ -1342,10 +1339,6 @@ impl AxisSettings {
 /// - Otherwise, values will not be rounded.
 ///
 /// The valid range is from 0.0 to 1.0, inclusive.
-///
-/// ## Updating
-///
-/// The current value of a button is received through the [`RawGamepadButtonChangedEvent`].
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Default)]
 pub struct ButtonAxisSettings {
