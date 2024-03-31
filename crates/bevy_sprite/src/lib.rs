@@ -106,7 +106,7 @@ impl Plugin for SpritePlugin {
                 ),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
@@ -134,7 +134,7 @@ impl Plugin for SpritePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpritePipeline>();
         }
     }
@@ -211,11 +211,14 @@ mod test {
         app.add_systems(Update, calculate_bounds_2d);
 
         // Add entities
-        let entity = app.world.spawn((Sprite::default(), image_handle)).id();
+        let entity = app
+            .world_mut()
+            .spawn((Sprite::default(), image_handle))
+            .id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -225,7 +228,7 @@ mod test {
 
         // Verify the AABB exists
         assert!(app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -250,7 +253,7 @@ mod test {
 
         // Add entities
         let entity = app
-            .world
+            .world_mut()
             .spawn((
                 Sprite {
                     custom_size: Some(Vec2::ZERO),
@@ -265,7 +268,7 @@ mod test {
 
         // Get the initial AABB
         let first_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
@@ -273,7 +276,7 @@ mod test {
 
         // Change `custom_size` of sprite
         let mut binding = app
-            .world
+            .world_mut()
             .get_entity_mut(entity)
             .expect("Could not find entity");
         let mut sprite = binding
@@ -286,7 +289,7 @@ mod test {
 
         // Get the re-calculated AABB
         let second_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
