@@ -290,7 +290,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- doc-check --deploy-docs
+        run: cargo run -p ci -- doc-check --nightly
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0"

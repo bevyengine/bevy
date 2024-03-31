@@ -24,8 +24,9 @@ bitflags! {
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Flag: u32 {
-        const KEEP_GOING = 0b00000001;
-        const DEPLOY_DOCS = 0b00000010;
+        const NIGHTLY = 0b00000001;
+        const KEEP_GOING = 0b00000010;
+        const DEPLOY_DOCS = 0b00000100;
     }
 }
 
@@ -70,6 +71,7 @@ fn main() {
     ];
 
     let flag_arguments = [
+        ("--nightly", Flag::KEEP_GOING),
         ("--keep-going", Flag::KEEP_GOING),
         ("--deploy-docs", Flag::DEPLOY_DOCS),
     ];
@@ -229,12 +231,17 @@ fn main() {
         let mut rust_doc_flags = "-D warnings";
         let mut docs_type = vec!["doc"];
 
-        if flags.contains(Flag::DEPLOY_DOCS) {
-            // Nightly
+        if flags.contains(Flag::NIGHTLY) {
             docs_type.insert(0, "+nightly");
             rust_doc_flags = "-D warnings -Zunstable-options --cfg=docsrs";
             args.push("-Zunstable-options");
             args.push("-Zrustdoc-scrape-examples");
+        }
+
+        if flags.contains(Flag::DEPLOY_DOCS) {
+            args.remove(args.iter().position(|&arg| arg == "--workspace").unwrap());
+            args.push("-p");
+            args.push("bevy");
         }
 
         if flags.contains(Flag::KEEP_GOING) {
@@ -306,7 +313,7 @@ fn main() {
         );
     }
 
-    if checks.contains(Check::CFG_CHECK) {
+    if checks.contains(Check::CFG_CHECK) && flags.contains(Flag::NIGHTLY) {
         // Check cfg and imports
         let mut args = vec!["-Zcheck-cfg", "--workspace"];
         if flags.contains(Flag::KEEP_GOING) {

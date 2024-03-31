@@ -49,7 +49,7 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        run: cargo run -p ci -- doc-check --deploy-docs
+        run: cargo run -p ci -- doc-check --nightly --deploy-docs
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
