@@ -240,8 +240,7 @@ pub struct AudioInputStream {
 /// A frame of samples from an audio input source.
 #[derive(Event, Clone)]
 pub struct AudioInputEvent {
-    /// Interleaved samples recorded during this frame of audio input. Please check [`config`](`Self::config`)
-    /// for channel information and sample rate.
+    /// Interleaved samples recorded during this frame of audio input.
     pub samples: Vec<f32>,
     /// When this sample was captured by the audio input device relative to the first capture instant.
     pub capture: Duration,
