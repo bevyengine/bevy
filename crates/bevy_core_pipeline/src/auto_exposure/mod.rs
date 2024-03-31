@@ -55,14 +55,14 @@ impl Plugin for AutoExposurePlugin {
             .register_type::<AutoExposureCompensationCurve>()
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
-        app.world
+        app.world_mut()
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
             .insert(&Handle::default(), AutoExposureCompensationCurve::default());
 
         app.register_type::<AutoExposureSettings>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -85,7 +85,7 @@ impl Plugin for AutoExposurePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
