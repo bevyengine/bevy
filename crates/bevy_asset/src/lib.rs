@@ -162,7 +162,7 @@ impl Plugin for AssetPlugin {
             );
             embedded.register_source(&mut sources);
         }
-        if !app.world.contains_resource::<AssetServer>() {
+        if !app.world().contains_resource::<AssetServer>() {
             let mut watch = cfg!(feature = "watch");
             if let Some(watch_override) = self.watch_for_changes_override {
                 watch = watch_override;
