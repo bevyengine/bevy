@@ -431,7 +431,7 @@ impl BundleInfo {
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         {
-            // SAFETY:  Caller guarentees that archetype_id is valid.
+            // SAFETY:  Caller guarantees that archetype_id is valid.
             let current_archetype = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() };
             if let Some(add_bundle_id) = current_archetype.edges().get_add_bundle(self.id) {
                 return add_bundle_id;
@@ -441,7 +441,7 @@ impl BundleInfo {
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
 
-        // SAFETY:  Caller guarentees that archetype_id is valid.
+        // SAFETY:  Caller guarantees that archetype_id is valid.
         let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
         for component_id in self.component_ids.iter().cloned() {
             if current_archetype.contains(component_id) {
@@ -468,7 +468,7 @@ impl BundleInfo {
             let sparse_set_components;
             // the archetype changes when we add this bundle. prepare the new archetype and storages
             {
-                // SAFETY:  Caller guarentees that archetype_id is valid.
+                // SAFETY:  Caller guarantees that archetype_id is valid.
                 let current_archetype =
                     unsafe { archetypes.get(archetype_id).debug_checked_unwrap() };
                 table_components = if new_table_components.is_empty() {
@@ -507,7 +507,7 @@ impl BundleInfo {
             );
 
             // add an edge from the old archetype to the new archetype
-            // SAFETY:  Caller guarentees that archetype_id is valid.
+            // SAFETY:  Caller guarantees that archetype_id is valid.
             unsafe {
                 archetypes
                     .get_unchecked_mut(archetype_id)

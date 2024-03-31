@@ -993,7 +993,7 @@ impl<'w> EntityWorldMut<'w> {
         storages: &mut Storages,
         new_archetype_id: ArchetypeId,
     ) {
-        // SAFETY: Caller guarentees that old_archetype ID is valid.
+        // SAFETY: Caller guarantees that old_archetype ID is valid.
         let old_archetype = unsafe { archetypes.get_unchecked_mut(old_archetype_id) };
         let remove_result = old_archetype.swap_remove_unchecked(old_location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
@@ -1013,7 +1013,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
-        // SAFETY: Caller guarentees that old_archetype ID is valid.
+        // SAFETY: Caller guarantees that old_archetype ID is valid.
         let new_archetype = unsafe { archetypes.get_unchecked_mut(new_archetype_id) };
 
         let new_location = if old_table_id == new_archetype.table_id() {
@@ -1102,7 +1102,7 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let (old_archetype, bundle_info, mut deferred_world) = {
-            // SAFETY: The caller guarentees that old_location is valid, so the archetype at it's
+            // SAFETY: The caller guarantees that old_location is valid, so the archetype at it's
             // archetype ID must exist.
             let archetype: *const Archetype = unsafe {
                 world
