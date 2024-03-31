@@ -149,7 +149,7 @@ mod tests {
         ));
         app.update();
 
-        let frame_count = app.world.resource::<FrameCount>();
+        let frame_count = app.world().resource::<FrameCount>();
         assert_eq!(1, frame_count.0);
     }
 }

@@ -105,7 +105,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             Shader::from_wgsl
         );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -130,7 +130,7 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

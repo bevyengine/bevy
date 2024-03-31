@@ -109,7 +109,7 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
@@ -160,9 +160,9 @@ impl Plugin for MeshRenderPlugin {
     fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world().resource::<RenderDevice>(),
             ) {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -172,7 +172,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world().resource::<RenderDevice>(),
                 ))
                 .init_resource::<MeshPipeline>();
         }
