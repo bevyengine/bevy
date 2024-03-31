@@ -2102,7 +2102,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             2
         );
@@ -2121,7 +2121,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             2
         );
@@ -2158,7 +2158,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             2
         );
@@ -2176,7 +2176,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             1
         );
@@ -2194,7 +2194,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             1
         );
@@ -2229,7 +2229,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             0
         );
@@ -2259,7 +2259,7 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<(&Gamepad, &GamepadButtons, &GamepadAxes)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .len(),
             1
         );
