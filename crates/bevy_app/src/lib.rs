@@ -9,6 +9,7 @@
 
 mod app;
 mod main_schedule;
+mod panic_handler;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
@@ -16,6 +17,7 @@ mod schedule_runner;
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
 pub use main_schedule::*;
+pub use panic_handler::*;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;

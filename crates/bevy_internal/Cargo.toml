@@ -185,7 +185,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
-bevy_panic_handler = { path = "../bevy_panic_handler", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
