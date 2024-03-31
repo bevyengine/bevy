@@ -728,6 +728,9 @@ impl Table {
 
             for column in self.columns.values_mut() {
                 column.reserve_exact(new_capacity - column.len());
+                debug_assert!(self.entities.capacity() <= column.data.capacity());
+                debug_assert!(self.entities.capacity() <= column.added_ticks.capacity());
+                debug_assert!(self.entities.capacity() <= column.changed_ticks.capacity());
             }
         }
     }
@@ -736,14 +739,19 @@ impl Table {
     ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
+    /// including component ticks.
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
         let index = self.entities.len();
         self.entities.push(entity);
+        let len = self.entities.len();
         for column in self.columns.values_mut() {
-            column.data.set_len(self.entities.len());
-            column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
+            column.data.set_len(len);
+            column.added_ticks.set_len(len);
+            column.changed_ticks.set_len(len);
+            debug_assert!(self.entities.capacity() >= column.data.len());
+            debug_assert!(self.entities.capacity() >= column.added_ticks.len());
+            debug_assert!(self.entities.capacity() >= column.changed_ticks.len());
         }
         TableRow::from_usize(index)
     }
