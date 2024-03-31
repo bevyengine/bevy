@@ -104,7 +104,7 @@ impl Plugin for TextPlugin {
                 ),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),

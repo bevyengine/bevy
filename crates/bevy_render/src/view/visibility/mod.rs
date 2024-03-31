@@ -357,12 +357,12 @@ fn propagate_recursive(
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
 fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    for mut view_visibility in &mut query {
+    query.iter_mut().for_each(|mut view_visibility| {
         // NOTE: We do not use `set_if_neq` here, as we don't care about
         // change detection for view visibility, and adding a branch to every
         // loop iteration would pessimize performance.
-        *view_visibility = ViewVisibility::HIDDEN;
-    }
+        *view_visibility.bypass_change_detection() = ViewVisibility::HIDDEN;
+    });
 }
 
 /// System updating the visibility of entities each frame.
@@ -475,42 +475,51 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root1_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root1_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root1_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root1_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
+        let root1 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root1_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1_child2 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root1)
             .push_children(&[root1_child1, root1_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child1)
             .push_children(&[root1_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
-        let root2 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root2_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
+        let root2 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child2 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root2_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root2)
             .push_children(&[root2_child1, root2_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root2_child1)
             .push_children(&[root2_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root2_child2)
             .push_children(&[root2_child2_grandchild1]);
 
         app.update();
 
         let is_visible = |e: Entity| {
-            app.world
+            app.world()
                 .entity(e)
                 .get::<InheritedVisibility>()
                 .unwrap()
@@ -566,29 +575,29 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world.spawn(visibility_bundle(Visible)).id();
-        let root1_child1 = app.world.spawn(visibility_bundle(Inherited)).id();
-        let root1_child2 = app.world.spawn(visibility_bundle(Hidden)).id();
-        let root1_child1_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
-        let root1_child2_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
+        let root1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1_child1 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
+        let root1_child2 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
 
-        let root2 = app.world.spawn(visibility_bundle(Inherited)).id();
-        let root3 = app.world.spawn(visibility_bundle(Hidden)).id();
+        let root2 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
+        let root3 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root1)
             .push_children(&[root1_child1, root1_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child1)
             .push_children(&[root1_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
         app.update();
 
         let is_visible = |e: Entity| {
-            app.world
+            app.world()
                 .entity(e)
                 .get::<InheritedVisibility>()
                 .unwrap()
