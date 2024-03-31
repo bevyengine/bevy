@@ -233,7 +233,6 @@ fn main() {
             // Nightly
             docs_type.insert(0, "+nightly");
             rust_doc_flags = "-D warnings -Zunstable-options --cfg=docsrs";
-            args.remove(args.iter().position(|&arg| arg == "--workspace").unwrap());
             args.push("-Zunstable-options");
             args.push("-Zrustdoc-scrape-examples");
         }
