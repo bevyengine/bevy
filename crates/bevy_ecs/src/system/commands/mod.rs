@@ -1122,16 +1122,16 @@ fn init_resource<R: Resource + FromWorld>(world: &mut World) {
     world.init_resource::<R>();
 }
 
-/// A [`Command`] that removes the [resource](Resource) `R` from the world.
-fn remove_resource<R: Resource>(world: &mut World) {
-    world.remove_resource::<R>();
-}
-
 /// A [`Command`] that inserts a [`Resource`] into the world.
 fn insert_resource<R: Resource>(resource: R) -> impl Command {
     move |world: &mut World| {
         world.insert_resource(resource);
     }
+}
+
+/// A [`Command`] that removes the [resource](Resource) `R` from the world.
+fn remove_resource<R: Resource>(world: &mut World) {
+    world.remove_resource::<R>();
 }
 
 /// [`EntityCommand`] to log the components of a given entity. See [`EntityCommands::log_components`].
