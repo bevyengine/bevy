@@ -36,6 +36,7 @@ pub mod settings;
 mod spatial_bundle;
 pub mod texture;
 pub mod view;
+pub mod render_graph_v2;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
