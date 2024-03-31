@@ -8,14 +8,11 @@ use bevy_utils::{
     tracing::{error, trace, warn},
     Duration,
 };
-use rodio::{
-    cpal::{
-        self,
-        traits::{DeviceTrait, HostTrait, StreamTrait},
-        BufferSize, InputCallbackInfo, PauseStreamError, PlayStreamError, SampleRate, Stream,
-        StreamConfig,
-    },
-    Device,
+use rodio::cpal::{
+    self,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    BufferSize, Device, InputCallbackInfo, InputStreamTimestamp, PauseStreamError, PlayStreamError,
+    SampleRate, Stream, StreamConfig,
 };
 
 /// Platform agnostic representation of an audio input device.
@@ -80,21 +77,24 @@ impl AudioInput {
         let (tx, receiver) = sync_channel(event_capacity);
         let (sender, rx) = sync_channel::<Vec<f32>>(event_capacity);
 
-        let sample_buffer_vec = if let BufferSize::Fixed(size) = config.buffer_size {
-            Vec::with_capacity(size as usize)
+        // Pre-allocate buffers which samples can be stored in.
+        let buffer_size = if let BufferSize::Fixed(size) = config.buffer_size {
+            size as usize
         } else {
             // Over-allocate 1 second of buffer initially
-            Vec::with_capacity(config.channels as usize * config.sample_rate.0 as usize)
+            config.channels as usize * config.sample_rate.0 as usize
         };
 
-        for _ in 0..event_capacity {
-            let Ok(()) = sender.try_send(sample_buffer_vec.clone()) else {
-                break;
-            };
+        // Sending a zero-filled vector to permit use of copy_from_slice
+        let sample_buffer_vec = std::iter::repeat(0.).take(buffer_size).collect::<Vec<_>>();
+
+        while let Ok(()) = sender.try_send(sample_buffer_vec.clone()) {
+            // Space left intentionally blank
         }
 
         // Create a clone of the configuration for the callback
         let config_clone = config.clone();
+        let mut start = None;
 
         let stream = input
             .build_input_stream(
@@ -105,12 +105,35 @@ impl AudioInput {
                         return;
                     };
 
-                    sample_buffer.extend_from_slice(data);
+                    if sample_buffer.len() >= data.len() {
+                        // If handed an appropriate length buffer, can use memcpy...
+                        sample_buffer.truncate(data.len());
+                        sample_buffer.copy_from_slice(data);
+                    } else {
+                        // ...otherwise clear and use extension.
+                        sample_buffer.clear();
+                        sample_buffer.extend_from_slice(data);
+                    }
+
+                    let InputStreamTimestamp { capture, callback } = info.timestamp();
+
+                    if start.is_none() {
+                        start = Some(capture);
+                    }
+
+                    let Some(start) = start else {
+                        unreachable!("Set as Some(...) above")
+                    };
+
+                    let capture = capture.duration_since(&start).unwrap_or_default();
+                    let callback = callback.duration_since(&start).unwrap_or_default();
 
                     let event = AudioInputEvent {
                         samples: sample_buffer,
-                        info: info.clone(),
-                        config: config_clone.clone(),
+                        capture,
+                        callback,
+                        channels: config_clone.channels,
+                        sample_rate: config_clone.sample_rate.0,
                     };
 
                     if let Err(error) = tx.try_send(event) {
@@ -220,10 +243,14 @@ pub struct AudioInputEvent {
     /// Interleaved samples recorded during this frame of audio input. Please check [`config`](`Self::config`)
     /// for channel information and sample rate.
     pub samples: Vec<f32>,
-    /// Information about this sample frame as provided by [`cpal`].
-    pub info: InputCallbackInfo,
-    /// Configuration used for the input device which recorded this sample frame.
-    pub config: StreamConfig,
+    /// When this sample was captured by the audio input device relative to the first capture instant.
+    pub capture: Duration,
+    /// When this sample was processed by the audio subsystem relative to the first capture instant.
+    pub callback: Duration,
+    /// Number of channels recorded.
+    pub channels: u16,
+    /// Sample Rate.
+    pub sample_rate: u32,
 }
 
 impl AudioInputStream {
@@ -259,7 +286,7 @@ impl AudioInputStream {
 impl AudioInputEvent {
     /// Iterate over each sample, and each channel within that sample.
     pub fn iter(&self) -> impl Iterator<Item = &[f32]> {
-        self.samples.chunks_exact(self.config.channels as usize)
+        self.samples.chunks_exact(self.channels as usize)
     }
 
     /// Iterate over all samples for a particular channel.
@@ -269,7 +296,7 @@ impl AudioInputEvent {
 
     /// Gets the number of samples collected during this input frame.
     pub fn len(&self) -> usize {
-        self.samples.len() / self.config.channels as usize
+        self.samples.len() / self.channels as usize
     }
 
     /// Returns `true` if this input frame recorded no samples.
@@ -279,7 +306,7 @@ impl AudioInputEvent {
 
     /// Gets the amount of time this input frame represents.
     pub fn duration(&self) -> Duration {
-        Duration::from_secs(self.len() as u64).div_f32(self.config.sample_rate.0 as f32)
+        Duration::from_secs(self.len() as u64).div_f32(self.sample_rate as f32)
     }
 }
 
@@ -289,12 +316,19 @@ pub fn handle_input_stream(
     stream: Option<NonSendMut<AudioInputStream>>,
 ) {
     if let Some(stream) = stream {
+        let mut new_buffer_size = 0;
+
         for event in stream.iter() {
-            let new_buffer = Vec::with_capacity(event.samples.len());
-            if stream.sender.try_send(new_buffer).is_err() {
-                warn!("Audio Input Error: Could not provide Sample Buffer");
-            }
+            new_buffer_size = new_buffer_size.max(event.samples.len());
             writer.send(event);
+        }
+
+        let new_buffer = std::iter::repeat(0.)
+            .take(new_buffer_size)
+            .collect::<Vec<_>>();
+
+        while let Ok(()) = stream.sender.try_send(new_buffer.clone()) {
+            // Space left intentionally blank
         }
     }
 }

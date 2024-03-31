@@ -46,7 +46,7 @@ fn oscilloscope(
 
     for input in inputs.read() {
         let length = input.iter().count() as f32;
-        let channels = input.config.channels as usize;
+        let channels = input.channels as usize;
 
         let channel_height = height / (2.0 + channels as f32);
 
