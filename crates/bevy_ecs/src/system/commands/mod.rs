@@ -493,6 +493,102 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(remove_resource::<R>);
     }
 
+    /// Pushes a [`Command`] to the queue for inserting a non-[`Send`] resource in the [`World`] with an inferred value.
+    ///
+    /// See [`World::init_non_send_resource`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// #
+    /// struct MyNonSend(*const u8);
+    ///
+    /// impl Default for MyNonSend {
+    ///     fn default() -> Self {
+    ///         MyNonSend(std::ptr::null())
+    ///     }
+    /// }
+    ///
+    /// fn create_my_non_send(mut commands: Commands) {
+    ///     commands.init_non_send_resource::<MyNonSend>();
+    /// }
+    /// #
+    /// # App::new()
+    /// #     .add_systems(Startup, (create_my_non_send, check).chain())
+    /// #     .run();
+    /// #
+    /// # fn check(my_non_send: NonSend<MyNonSend>) {
+    /// #     assert!(my_non_send.0.is_null());
+    /// # }
+    /// ```
+    pub fn init_non_send_resource<R: FromWorld + 'static>(&mut self) {
+        self.queue.push(init_non_send_resource::<R>);
+    }
+
+    /// Pushes a [`Command`] to the queue for inserting a non-[`Send`] resource in the [`World`] with an specific value.
+    ///
+    /// Note that this command takes a closure, not a value. This closure is executed on the main thread and should return
+    /// the value of the non-[`Send`] resource. The closure itself must be [`Send`], but its returned value does not need to be.
+    ///
+    /// See [`World::insert_non_send_resource`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// #
+    /// struct MyNonSend(*const u8);
+    ///
+    /// fn create_my_non_send(mut commands: Commands) {
+    ///     // Note that this is a closure:
+    ///     commands.insert_non_send_resource(|| {
+    ///         MyNonSend(std::ptr::null())
+    ///     });
+    /// }
+    /// #
+    /// # App::new()
+    /// #     .add_systems(Startup, (create_my_non_send, check).chain())
+    /// #     .run();
+    /// #
+    /// # fn check(my_non_send: NonSend<MyNonSend>) {
+    /// #     assert!(my_non_send.0.is_null());
+    /// # }
+    /// ```
+    pub fn insert_non_send_resource<F, R>(&mut self, func: F)
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: 'static,
+    {
+        self.queue.push(insert_non_send_resource(func));
+    }
+
+    /// Pushes a [`Command`] to the queue for removing a non-[`Send`] resource from the [`World`].
+    ///
+    /// See [`World::remove_non_send_resource`] for more details.
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// #
+    /// struct MyNonSend(*const u8);
+    ///
+    /// fn remove_my_non_send(mut commands: Commands) {
+    ///     commands.remove_non_send_resource::<MyNonSend>();
+    /// }
+    /// #
+    /// # App::new()
+    /// #     .insert_non_send_resource(MyNonSend(std::ptr::null()))
+    /// #     .add_systems(Startup, (remove_my_non_send, check).chain())
+    /// #     .run();
+    /// #
+    /// # fn check(my_non_send: Option<NonSend<MyNonSend>>) {
+    /// #     assert!(my_non_send.is_none());
+    /// # }
+    /// ```
+    pub fn remove_non_send_resource<R: 'static>(&mut self) {
+        self.queue.push(remove_non_send_resource::<R>);
+    }
+
     /// Runs the system corresponding to the given [`SystemId`].
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
@@ -1132,6 +1228,30 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
 /// A [`Command`] that removes the [resource](Resource) `R` from the world.
 fn remove_resource<R: Resource>(world: &mut World) {
     world.remove_resource::<R>();
+}
+
+/// A [`Command`] that inserts a non-[`Send`] resource `R` into the world using
+/// a value created with the [`FromWorld`] trait.
+fn init_non_send_resource<R: FromWorld + 'static>(world: &mut World) {
+    world.init_non_send_resource::<R>();
+}
+
+/// A [`Command`] that removes a non-[`Send`] resource `R` from the world.
+fn remove_non_send_resource<R: 'static>(world: &mut World) {
+    world.remove_non_send_resource::<R>();
+}
+
+/// A [`Command`] that inserts a non-[`Send`] resource into the world by calling
+/// `func` on the main thread and inserting its returned value.
+fn insert_non_send_resource<F, R>(func: F) -> impl Command
+where
+    // `R` is not `Send`, but the function is!
+    F: FnOnce() -> R + Send + 'static,
+    R: 'static,
+{
+    move |world: &mut World| {
+        world.insert_non_send_resource((func)());
+    }
 }
 
 /// [`EntityCommand`] to log the components of a given entity. See [`EntityCommands::log_components`].
