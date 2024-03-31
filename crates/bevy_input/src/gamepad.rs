@@ -1699,7 +1699,7 @@ impl GamepadRumbleIntensity {
 /// ) {
 ///     for gamepad in gamepads.iter() {
 ///         rumble_requests.send(GamepadRumbleRequest::Add {
-///             gamepad: *gamepad.id(),
+///             gamepad: gamepad.id(),
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration: Duration::from_secs_f32(0.5),
 ///         });
