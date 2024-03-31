@@ -83,7 +83,7 @@ impl RemovedComponentEvents {
         }
     }
 
-    /// Returns iterator over components and their entity events.
+    /// Returns an iterator over components and their entity events.
     pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
         self.event_sets.iter()
     }
