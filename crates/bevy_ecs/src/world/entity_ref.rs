@@ -1992,10 +1992,12 @@ impl<'w> FilteredEntityRef<'w> {
         &self,
         component_id: TypedComponentId<T>,
     ) -> Option<&'w T> {
-        self.access
-            .has_read(component_id.id)
-            // SAFETY: We have read access so we must have the component.
-            .then(|| unsafe { self.entity.get_dynamic(component_id).debug_checked_unwrap() })
+        if self.access.has_read(component_id.id) {
+            // SAFETY: We have readonly access to all components on the entity
+            unsafe { self.entity.get_dynamic(component_id) }
+        } else {
+            None
+        }
     }
 }
 
@@ -2275,10 +2277,12 @@ impl<'w> FilteredEntityMut<'w> {
         &self,
         component_id: TypedComponentId<T>,
     ) -> Option<&'w T> {
-        self.access
-            .has_read(component_id.id)
-            // SAFETY: We have read access so we must have the component.
-            .then(|| unsafe { self.entity.get_dynamic(component_id).debug_checked_unwrap() })
+        if self.access.has_read(component_id.id) {
+            // SAFETY: We have readonly access to all components on the entity
+            unsafe { self.entity.get_dynamic(component_id) }
+        } else {
+            None
+        }
     }
 
     /// Gets a mutable access to the component of the given [`TypedComponentId`] from the entity.
@@ -2289,14 +2293,12 @@ impl<'w> FilteredEntityMut<'w> {
         &mut self,
         component_id: TypedComponentId<T>,
     ) -> Option<Mut<'w, T>> {
-        self.access
-            .has_read(component_id.id)
-            // SAFETY: We have read access so we must have the component.
-            .then(|| unsafe {
-                self.entity
-                    .get_dynamic_mut(component_id)
-                    .debug_checked_unwrap()
-            })
+        if self.access.has_read(component_id.id) {
+            // SAFETY: We have mutable access to all components on the entity
+            unsafe { self.entity.get_dynamic_mut(component_id) }
+        } else {
+            None
+        }
     }
 }
 
