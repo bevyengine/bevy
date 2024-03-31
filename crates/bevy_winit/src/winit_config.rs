@@ -58,6 +58,7 @@ impl Default for WinitSettings {
     }
 }
 
+// rustdoc mistakenly thinks `App` does not need an explicit link.
 #[allow(rustdoc::redundant_explicit_links)]
 /// Determines how frequently an [`App`](bevy_app::App) should update.
 ///
