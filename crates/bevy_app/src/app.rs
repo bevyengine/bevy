@@ -143,8 +143,6 @@ impl App {
     /// # Panics
     ///
     /// Panics if not all plugins have been built.
-    ///
-    /// [`WinitSettings::return_from_run`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
