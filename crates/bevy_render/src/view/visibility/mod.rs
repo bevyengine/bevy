@@ -11,7 +11,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::Parallel;
 
-use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -387,7 +386,6 @@ pub fn check_visibility(
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
-    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
@@ -446,11 +444,6 @@ pub fn check_visibility(
 
         visible_entities.entities.clear();
         thread_queues.drain_into(&mut visible_entities.entities);
-        if deterministic_rendering_config.stable_sort_z_fighting {
-            // We can use the faster unstable sort here because
-            // the values (`Entity`) are guaranteed to be unique.
-            visible_entities.entities.sort_unstable();
-        }
     }
 }
 
