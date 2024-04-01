@@ -1,7 +1,7 @@
 mod compute_pass;
+mod configurator;
 mod node;
 mod resource;
-mod view;
 
 use self::{
     node::RenderGraphNode,
@@ -36,11 +36,11 @@ impl RenderGraph {
         self.nodes.push(node.into());
     }
 
-    pub fn build(&mut self, render_device: &RenderDevice) {
+    pub(crate) fn build(&mut self, render_device: &RenderDevice) {
         // TODO: Create bind group layouts, pipelines, textures/buffers, and bind groups
     }
 
-    pub fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    pub(crate) fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
     }
 }
