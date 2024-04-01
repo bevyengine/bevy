@@ -1028,9 +1028,11 @@ impl PointLightAssignmentData {
 
 // SAFETY: `PointLightAssignmentData` is only used in `assign_lights_to_clusters`, where it is not reused
 // between system calls.
+#[allow(unsafe_code)]
 unsafe impl Send for PointLightAssignmentData {}
 // SAFETY: `PointLightAssignmentData` is only used in `assign_lights_to_clusters`, where it is not reused
 // between system calls.
+#[allow(unsafe_code)]
 unsafe impl Sync for PointLightAssignmentData {}
 
 #[derive(Resource, Default)]
@@ -1428,6 +1430,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // check if the light groups overlap the view groups
                 // SAFETY: `lights` is cleared at the start of this system call, and is populated from
                 // immutable queries.
+                #[allow(unsafe_code)]
                 let light_renderlayers = unsafe { light.render_layers.get() };
                 if !view_layer.intersects(light_renderlayers) {
                     continue;
@@ -2152,6 +2155,7 @@ fn derive_render_layers_ptr_for_light(
 ) -> RenderLayersPtr {
     let render_layers = derive_render_layers_ptr(maybe_inherited, maybe_layers);
     // SAFETY: The pointer points to references within the lifetime of this function.
+    #[allow(unsafe_code)]
     let len = unsafe { render_layers.get().len() };
     if len > 1 {
         warn_once!(

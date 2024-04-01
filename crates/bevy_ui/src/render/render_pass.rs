@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::DefaultCameraLayer;
+use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -26,7 +26,7 @@ pub struct UiPassNode {
         ),
         With<ExtractedView>,
     >,
-    default_camera_view_query: QueryState<&'static DefaultCameraLayer>,
+    default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
 impl UiPassNode {
