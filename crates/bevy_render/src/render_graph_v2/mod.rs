@@ -12,6 +12,16 @@ use bevy_ecs::system::{ResMut, Resource};
 use bevy_utils::HashMap;
 use wgpu::TextureDescriptor;
 
+// Roadmap:
+// 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
+// 2. Run the graph in the correct order (figure out how the API should handle command encoders/buffers)
+// 3. Buffer and sampler support
+// 4. Allow importing external textures
+// 5. Temporal resources
+// 6. Start porting the engine as a proof of concept/demo, and fill in missing features (e.g. raster nodes)
+// 7. Auto-insert CPU profiling, GPU profiling, and GPU debug markers (probably need some concept of a group of render nodes)
+// 8. Documentation, write an example, and cleanup
+
 #[derive(Resource)]
 pub struct RenderGraph {
     next_id: u16,
