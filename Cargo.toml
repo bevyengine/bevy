@@ -19,6 +19,7 @@ exclude = [
   "crates/bevy_ecs_compile_fail_tests",
   "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_compile_test_utils",
 ]
 members = [
   "crates/*",
