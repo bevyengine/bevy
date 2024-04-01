@@ -540,6 +540,23 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(insert_my_non_send);
     /// ```
+    /// 
+    /// Note that the value must be constructed inside of the closure. Moving it will fail to compile:
+    /// 
+    /// ```compile_fail,E0277
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # struct MyNonSend(*const u8);
+    /// #
+    /// # fn insert_my_non_send(mut commands: Commands) {
+    /// let my_non_send = MyNonSend(std::ptr::null());
+    /// 
+    /// commands.insert_non_send_resource(move || {
+    ///     my_non_send
+    /// });
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(insert_my_non_send);
+    /// ```
     pub fn insert_non_send_resource<F, R>(&mut self, func: F)
     where
         F: FnOnce() -> R + Send + 'static,
@@ -1479,28 +1496,6 @@ mod tests {
             queue.apply(&mut world);
 
             assert!(!world.contains_non_send::<MyNonSend>());
-        }
-
-        #[test]
-        fn is_in_fact_not_being_sent() {
-            use std::thread::{self, ThreadId};
-
-            let mut world = World::default();
-            let mut queue = CommandQueue::default();
-
-            thread::scope(|s| {
-                s.spawn(|| {
-                    let mut commands = Commands::new(&mut queue, &world);
-                    commands.insert_non_send_resource(|| thread::current().id());
-                });
-            });
-
-            queue.apply(&mut world);
-
-            assert_eq!(
-                *world.non_send_resource::<ThreadId>(),
-                std::thread::current().id()
-            );
         }
     }
 }
