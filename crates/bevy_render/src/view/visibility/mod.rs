@@ -14,7 +14,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
 
-use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -437,7 +436,6 @@ pub fn check_visibility<QF>(
         ),
         QF,
     >,
-    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) where
     QF: QueryFilter + 'static,
 {
@@ -497,11 +495,6 @@ pub fn check_visibility<QF>(
 
         visible_entities.clear::<QF>();
         thread_queues.drain_into(visible_entities.get_mut::<QF>());
-        if deterministic_rendering_config.stable_sort_z_fighting {
-            // We can use the faster unstable sort here because
-            // the values (`Entity`) are guaranteed to be unique.
-            visible_entities.get_mut::<QF>().sort_unstable();
-        }
     }
 }
 
