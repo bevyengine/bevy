@@ -1,8 +1,8 @@
 /// Handle to a resource for use within a [`super::RenderGraph`].
 pub struct RenderGraphResource {
-    /// Unique ID within a render graph.
+    /// Uniquely identifies a resource within the render graph.
     pub(crate) id: RenderGraphResourceId,
-    /// Counter starting at 0 that gets increment every time the resource is used.
+    /// Counter starting at 0 that gets incremented every time the resource is used.
     pub(crate) generation: u16,
 }
 
