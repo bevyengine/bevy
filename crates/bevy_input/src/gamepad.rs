@@ -2510,7 +2510,6 @@ mod tests {
 
         // Set of events to ensure they are being properly filtered
         let events = [
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, 0.0),
             // Event below deadzone upperbound should be filtered
             RawGamepadAxisChangedEvent::new(
                 id,
@@ -2530,7 +2529,7 @@ mod tests {
         app.update();
         assert_eq!(
             app.world().resource::<Events<GamepadAxisChanged>>().len(),
-            1
+            0
         );
     }
 
@@ -2672,21 +2671,20 @@ mod tests {
 
         // Set of events to ensure they are being properly filtered
         let events = [
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, 0.0),
             // Event above livezone upperbound should be rounded to 1
             RawGamepadAxisChangedEvent::new(
                 id,
                 GamepadAxisType::LeftStickX,
                 settings.livezone_upperbound + 0.01,
             ),
-            // Event below livezone lowerbound should be rounded to 1
+            // Event below livezone lowerbound should be rounded to -1
             RawGamepadAxisChangedEvent::new(
                 id,
                 GamepadAxisType::LeftStickX,
                 settings.livezone_lowerbound - 0.01,
             ),
         ];
-        let results = [0.0, 1.0, -1.0];
+        let results = [1.0, -1.0];
         app.world_mut()
             .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
             .send_batch(events);
@@ -2699,7 +2697,7 @@ mod tests {
         }
         assert_eq!(
             app.world().resource::<Events<GamepadAxisChanged>>().len(),
-            3
+            2
         );
     }
 
