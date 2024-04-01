@@ -1599,7 +1599,7 @@ pub fn queue_shadows<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -1653,7 +1653,7 @@ pub fn queue_shadows<M: Material>(
                 let Some(material_asset_id) = render_material_instances.get(&entity) else {
                     continue;
                 };
-                let Some(material) = render_materials.get(material_asset_id) else {
+                let Some(material) = render_materials.get(*material_asset_id) else {
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {

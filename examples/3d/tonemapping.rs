@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssetUsages,
+        render_asset::{AssetUsages, RenderAssetUsages},
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
         view::ColorGrading,
@@ -685,6 +685,13 @@ fn uv_debug_texture() -> Image {
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
     img
+}
+
+impl AssetUsages for ColorGradientMaterial {
+    #[inline]
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
 }
 
 impl Material for ColorGradientMaterial {

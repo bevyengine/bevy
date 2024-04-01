@@ -8,7 +8,10 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        render_asset::{AssetUsages, RenderAssetUsages},
+        render_resource::{AsBindGroup, ShaderRef},
+    },
 };
 
 fn main() {
@@ -69,6 +72,13 @@ struct FallbackTestMaterial {
     #[texture(10, dimension = "3d")]
     #[sampler(11)]
     image_3d: Option<Handle<Image>>,
+}
+
+impl AssetUsages for FallbackTestMaterial {
+    #[inline]
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
 }
 
 impl Material for FallbackTestMaterial {

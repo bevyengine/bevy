@@ -369,6 +369,7 @@ struct GpuLineGizmo {
 }
 
 impl AssetUsages for LineGizmo {
+    #[inline]
     fn asset_usage(&self) -> RenderAssetUsages {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }

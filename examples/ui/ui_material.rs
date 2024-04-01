@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
+use bevy::render::render_asset::{AssetUsages, RenderAssetUsages};
 use bevy::render::render_resource::*;
 
 fn main() {
@@ -56,6 +57,13 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
 struct CustomUiMaterial {
     #[uniform(0)]
     color: Vec4,
+}
+
+impl AssetUsages for CustomUiMaterial {
+    #[inline]
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
 }
 
 impl UiMaterial for CustomUiMaterial {

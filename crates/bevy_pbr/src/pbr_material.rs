@@ -2,6 +2,7 @@ use bevy_asset::Asset;
 use bevy_color::Alpha;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_asset::{AssetUsages, RenderAssetUsages};
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
@@ -779,6 +780,13 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             diffuse_transmission: material.diffuse_transmission > 0.0,
             specular_transmission: material.specular_transmission > 0.0,
         }
+    }
+}
+
+impl AssetUsages for StandardMaterial {
+    #[inline]
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
 

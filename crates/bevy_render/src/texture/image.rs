@@ -827,6 +827,7 @@ pub struct GpuImage {
 }
 
 impl AssetUsages for Image {
+    #[inline]
     fn asset_usage(&self) -> RenderAssetUsages {
         self.asset_usage
     }
