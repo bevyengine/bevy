@@ -37,9 +37,9 @@ impl ComputePass {
         self
     }
 
-    pub fn read_texture(mut self, texture: &mut RenderGraphResource) -> Self {
+    pub fn read_texture(mut self, texture: &RenderGraphResource) -> Self {
         self.resource_usages.push(RenderGraphResourceUsage {
-            resource: texture.increment(),
+            resource: texture.clone(),
             usage_type: RenderGraphResourceUsageType::ReadTexture,
         });
         self

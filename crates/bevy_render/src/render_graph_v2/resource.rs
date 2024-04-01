@@ -1,8 +1,9 @@
 /// Handle to a resource for use within a [`super::RenderGraph`].
+#[derive(Clone)] // TODO: Should this be Copy?
 pub struct RenderGraphResource {
     /// Uniquely identifies a resource within the render graph.
     pub(crate) id: RenderGraphResourceId,
-    /// Counter starting at 0 that gets incremented every time the resource is used.
+    /// Counter starting at 0 that gets incremented every time the resource is modified.
     pub(crate) generation: u16,
 }
 
@@ -10,10 +11,7 @@ impl RenderGraphResource {
     /// Increment this resource's generation and return a new copy.
     pub(crate) fn increment(&mut self) -> Self {
         self.generation += 1;
-        Self {
-            id: self.id,
-            generation: self.generation,
-        }
+        self.clone()
     }
 }
 
