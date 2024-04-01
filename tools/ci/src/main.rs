@@ -8,24 +8,24 @@ use xshell::{cmd, Cmd, Shell};
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct Check: u32 {
-        const FORMAT = 0b00000001;
-        const CLIPPY = 0b00000010;
-        const COMPILE_FAIL = 0b00000100;
-        const TEST = 0b00001000;
-        const DOC_TEST = 0b00010000;
-        const DOC_CHECK = 0b00100000;
-        const BENCH_CHECK = 0b01000000;
-        const EXAMPLE_CHECK = 0b10000000;
-        const COMPILE_CHECK = 0b100000000;
-        const CFG_CHECK = 0b1000000000;
-        const TEST_CHECK = 0b10000000000;
+        const FORMAT = 1 << 0;
+        const CLIPPY = 1 << 1;
+        const COMPILE_FAIL = 1 << 2;
+        const TEST = 1 << 3;
+        const DOC_TEST = 1 << 4;
+        const DOC_CHECK = 1 << 5;
+        const BENCH_CHECK = 1 << 6;
+        const EXAMPLE_CHECK = 1 << 7;
+        const COMPILE_CHECK = 1 << 8;
+        const CFG_CHECK = 1 << 9;
+        const TEST_CHECK = 1 << 10;
     }
 }
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Flag: u32 {
-        const KEEP_GOING = 0b00000001;
+        const KEEP_GOING = 1 << 0;
     }
 }
 
