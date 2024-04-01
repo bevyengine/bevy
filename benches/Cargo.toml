@@ -68,6 +68,7 @@ name = "torus"
 path = "benches/bevy_render/torus.rs"
 harness = false
 
+
 [[bench]]
 name = "entity_hash"
 path = "benches/bevy_ecs/world/entity_hash.rs"
