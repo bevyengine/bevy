@@ -81,15 +81,17 @@ fn main() {
     // to include.
     let (mut checks, mut flags) = (Check::empty(), Flag::empty());
     for arg in std::env::args().skip(1) {
-        if let Some((_, flag)) = flag_arguments.iter().find(|(flag_arg, _)| *flag_arg == arg) {
-            flags.insert(*flag);
-            continue;
-        }
         if let Some((_, check)) = arguments.iter().find(|(check_arg, _)| *check_arg == arg) {
             // Note that this actually adds all of the constituent checks to the test suite.
             checks.insert(*check);
             continue;
         }
+
+        if let Some((_, flag)) = flag_arguments.iter().find(|(flag_arg, _)| *flag_arg == arg) {
+            flags.insert(*flag);
+            continue;
+        }
+
         // We encountered an invalid parameter:
         println!(
             "Invalid argument: {arg:?}.\n\
@@ -100,6 +102,7 @@ fn main() {
                 .chain(flag_arguments.iter().map(|(s, _)| s))
                 .fold(arguments[0].0.to_owned(), |c, v| c + ", " + v)
         );
+
         return;
     }
 
