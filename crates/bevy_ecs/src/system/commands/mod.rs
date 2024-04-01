@@ -500,27 +500,20 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
-    /// struct MyNonSend(*const u8);
-    ///
-    /// impl Default for MyNonSend {
-    ///     fn default() -> Self {
-    ///         MyNonSend(std::ptr::null())
-    ///     }
-    /// }
-    ///
-    /// fn create_my_non_send(mut commands: Commands) {
-    ///     commands.init_non_send_resource::<MyNonSend>();
-    /// }
+    /// # struct MyNonSend(*const u8);
     /// #
-    /// # App::new()
-    /// #     .add_systems(Startup, (create_my_non_send, check).chain())
-    /// #     .run();
-    /// #
-    /// # fn check(my_non_send: NonSend<MyNonSend>) {
-    /// #     assert!(my_non_send.0.is_null());
+    /// # impl Default for MyNonSend {
+    /// #     fn default() -> Self {
+    /// #         MyNonSend(std::ptr::null())
+    /// #     }
     /// # }
+    /// #
+    /// # fn init_my_non_send(mut commands: Commands) {
+    /// commands.init_non_send_resource::<MyNonSend>();
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(init_my_non_send);
     /// ```
     pub fn init_non_send_resource<R: FromWorld + 'static>(&mut self) {
         self.queue.push(init_non_send_resource::<R>);
@@ -536,24 +529,16 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
-    /// struct MyNonSend(*const u8);
-    ///
-    /// fn create_my_non_send(mut commands: Commands) {
-    ///     // Note that this is a closure:
-    ///     commands.insert_non_send_resource(|| {
-    ///         MyNonSend(std::ptr::null())
-    ///     });
-    /// }
+    /// # struct MyNonSend(*const u8);
     /// #
-    /// # App::new()
-    /// #     .add_systems(Startup, (create_my_non_send, check).chain())
-    /// #     .run();
-    /// #
-    /// # fn check(my_non_send: NonSend<MyNonSend>) {
-    /// #     assert!(my_non_send.0.is_null());
+    /// # fn insert_my_non_send(mut commands: Commands) {
+    /// commands.insert_non_send_resource(|| {
+    ///     MyNonSend(std::ptr::null())
+    /// });
     /// # }
+    /// # bevy_ecs::system::assert_is_system(insert_my_non_send);
     /// ```
     pub fn insert_non_send_resource<F, R>(&mut self, func: F)
     where
@@ -568,22 +553,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// See [`World::remove_non_send_resource`] for more details.
     ///
     /// ```
-    /// # use bevy::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
-    /// struct MyNonSend(*const u8);
-    ///
-    /// fn remove_my_non_send(mut commands: Commands) {
-    ///     commands.remove_non_send_resource::<MyNonSend>();
-    /// }
+    /// # struct MyNonSend(*const u8);
     /// #
-    /// # App::new()
-    /// #     .insert_non_send_resource(MyNonSend(std::ptr::null()))
-    /// #     .add_systems(Startup, (remove_my_non_send, check).chain())
-    /// #     .run();
-    /// #
-    /// # fn check(my_non_send: Option<NonSend<MyNonSend>>) {
-    /// #     assert!(my_non_send.is_none());
+    /// # fn remove_my_non_send(mut commands: Commands) {
+    /// commands.remove_non_send_resource::<MyNonSend>();
     /// # }
+    /// # bevy_ecs::system::assert_is_system(remove_my_non_send);
     /// ```
     pub fn remove_non_send_resource<R: 'static>(&mut self) {
         self.queue.push(remove_non_send_resource::<R>);
