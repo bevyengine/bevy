@@ -1,12 +1,10 @@
 use crate::{
-     Main,  MainSchedulePlugin,  PlaceholderPlugin, Plugin, 
-    Plugins,  PluginsState, SubApp, SubApps,
+    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    schedule::{ FreelyMutableState, ScheduleBuildSettings, ScheduleLabel,
-    },
+    schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
@@ -255,9 +253,9 @@ impl App {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`] in [`ManualStateTransitions`] with a
-    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`]  so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_preludeschedule::<S>`][`bevy_ecs::schedule::run_enter_schedule::<S>`] in [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] with a
+    /// [`run_once`][`bevy_ecs::schedule::common_conditions::run_once`] condition to run the on enter schedule of the
     /// initial state.
     ///
     /// If you would like to control how other systems run based on the current state, you can
@@ -275,9 +273,10 @@ impl App {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`] in [`ManualStateTransitions`] with a
-    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`][`bevy_ecs::schedule::run_enter_schedule::<S>`] in
+    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] with a
+    /// [`run_once`][`bevy_ecs::prelude::run_once`] condition to run the on enter schedule of the
     /// initial state.
     ///
     /// If you would like to control how other systems run based on the current state, you can
