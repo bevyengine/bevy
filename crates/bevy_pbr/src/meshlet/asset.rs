@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// The current version of the [`MeshletMesh`] asset format.
-pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
