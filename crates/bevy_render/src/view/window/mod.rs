@@ -341,7 +341,7 @@ pub fn prepare_windows(
                 Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
                     warn_once!(
                         "Couldn't get swap chain texture. This often happens with \
-                        the Nvidia 550 driver. It can be safely ignored."
+                        the NVIDIA drivers on Linux. It can be safely ignored."
                     );
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
