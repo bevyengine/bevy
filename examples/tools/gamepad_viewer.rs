@@ -4,8 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     input::gamepad::{
-        Gamepad, GamepadAxisChanged, GamepadButtons, GamepadConnectionEvent, GamepadSettings,
-        RawGamepadButtonChangedEvent,
+        GamepadAxisChanged, GamepadConnectionEvent, RawGamepadButtonChangedEvent,
     },
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
