@@ -2801,8 +2801,8 @@ mod tests {
 
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource2>());
-        // SAFETY: We know that the resource is of type `TestResource2`
         assert_eq!(
+            // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
             &"Hello, world!".to_string()
         );
