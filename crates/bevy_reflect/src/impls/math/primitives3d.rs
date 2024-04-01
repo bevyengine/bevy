@@ -97,3 +97,11 @@ impl_reflect!(
         major_radius: f32,
     }
 );
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
+    struct Tetrahedron {
+        vertices: [Vec3; 4],
+    }
+);
