@@ -106,6 +106,8 @@ const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(74148126892380
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+///
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -135,7 +137,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(AabbGizmoPlugin)
             .add_plugins(LightGizmoPlugin);
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -147,17 +149,25 @@ impl Plugin for GizmoPlugin {
         render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         #[cfg(feature = "bevy_sprite")]
-        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
+            app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+        }
         #[cfg(feature = "bevy_pbr")]
-        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
+            app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        } else {
+            bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+        }
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let render_device = render_app.world().resource::<RenderDevice>();
         let line_layout = render_device.create_bind_group_layout(
             "LineGizmoUniform layout",
             &BindGroupLayoutEntries::single(
@@ -191,12 +201,12 @@ pub trait AppGizmoBuilder {
 
 impl AppGizmoBuilder for App {
     fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self {
-        if self.world.contains_resource::<GizmoStorage<T>>() {
+        if self.world().contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         let mut handles = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);
@@ -204,7 +214,7 @@ impl AppGizmoBuilder for App {
         self.init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
 
-        self.world
+        self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<T>();
 
@@ -216,16 +226,16 @@ impl AppGizmoBuilder for App {
         group: T,
         config: GizmoConfig,
     ) -> &mut Self {
-        self.world
+        self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .insert(config, group);
 
-        if self.world.contains_resource::<GizmoStorage<T>>() {
+        if self.world().contains_resource::<GizmoStorage<T>>() {
             return self;
         }
 
         let mut handles = self
-            .world
+            .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
         handles.list.insert(TypeId::of::<T>(), None);
         handles.strip.insert(TypeId::of::<T>(), None);

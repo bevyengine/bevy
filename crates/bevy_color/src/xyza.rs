@@ -1,5 +1,5 @@
 use crate::{
-    impl_componentwise_point, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
 };
 use bevy_reflect::prelude::*;
 
@@ -28,7 +28,7 @@ pub struct Xyza {
 
 impl StandardColor for Xyza {}
 
-impl_componentwise_point!(Xyza, [x, y, z, alpha]);
+impl_componentwise_vector_space!(Xyza, [x, y, z, alpha]);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.

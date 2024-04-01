@@ -38,10 +38,9 @@ impl Plugin for SkyboxPlugin {
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
@@ -54,12 +53,10 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        let render_device = render_app.world.resource::<RenderDevice>().clone();
-
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }
