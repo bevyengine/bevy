@@ -13,7 +13,10 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{tracing::{info, warn}, Duration, HashMap};
+use bevy_utils::{
+    tracing::{info, warn},
+    Duration, HashMap,
+};
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
@@ -566,15 +569,15 @@ pub struct GamepadButtons {
     pub(crate) analog: Axis<GamepadButtonType>,
 }
 
-impl Default for GamepadButtons{
+impl Default for GamepadButtons {
     fn default() -> Self {
         let mut analog = Axis::default();
-        for button in &ALL_BUTTON_TYPES{
+        for button in &ALL_BUTTON_TYPES {
             analog.set(*button, 0.0);
         }
         Self {
             analog,
-            digital: ButtonInput::default()
+            digital: ButtonInput::default(),
         }
     }
 }
@@ -739,12 +742,10 @@ pub struct GamepadAxes {
 impl Default for GamepadAxes {
     fn default() -> Self {
         let mut axis = Axis::default();
-        for axis_type in &ALL_AXIS_TYPES{
+        for axis_type in &ALL_AXIS_TYPES {
             axis.set(*axis_type, 0.0);
         }
-        Self {
-            axis,
-        }
+        Self { axis }
     }
 }
 
