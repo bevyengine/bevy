@@ -1395,10 +1395,10 @@ impl From<&Indices> for IndexFormat {
 }
 
 bitflags! {
-    /// Mesh pipeline key bits start from the highest bit and go downward. PBR
-    /// mesh pipeline key bits start from the lowest bit and go upward. This
-    /// allows the PBR bits in the downstream crate `bevy_pbr` to coexist in the
-    /// same field without any shifts.
+    /// Our base mesh pipeline key bits start from the highest bit and go
+    /// downward. The PBR mesh pipeline key bits start from the lowest bit and
+    /// go upward. This allows the PBR bits in the downstream crate `bevy_pbr`
+    /// to coexist in the same field without any shifts.
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u32 {
         const MORPH_TARGETS = 1 << 31;
