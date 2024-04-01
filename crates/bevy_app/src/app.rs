@@ -1,14 +1,11 @@
 use crate::{
-    First, Main, Main, MainSchedulePlugin, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugin,
-    Plugins, Plugins, PluginsState, SubApp, SubApps,
+     Main,  MainSchedulePlugin,  PlaceholderPlugin, Plugin, 
+    Plugins,  PluginsState, SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
-    schedule::{
-        common_conditions::run_once as run_once_condition, run_enter_schedule,
-        setup_state_transitions_in_world, FreelyMutableState, InternedScheduleLabel,
-        ManualStateTransitions, ScheduleBuildSettings, ScheduleLabel,
+    schedule::{ FreelyMutableState, ScheduleBuildSettings, ScheduleLabel,
     },
     system::SystemId,
 };
@@ -269,25 +266,7 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
     pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world);
-            self.init_resource::<State<S>>()
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>()
-                .add_systems(
-                    ManualStateTransitions,
-                    (
-                        run_enter_schedule::<S>.run_if(run_once_condition()),
-                        apply_state_transition::<S>,
-                    )
-                        .chain(),
-                );
-        }
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
-        // gracefully if they aren't present.
-
+        self.main_mut().init_state::<S>();
         self
     }
 
@@ -307,23 +286,7 @@ impl App {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
     pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        setup_state_transitions_in_world(&mut self.world);
-        self.insert_resource(State::new(state))
-            .init_resource::<NextState<S>>()
-            .add_event::<StateTransitionEvent<S>>()
-            .add_systems(
-                ManualStateTransitions,
-                (
-                    run_enter_schedule::<S>.run_if(run_once_condition()),
-                    apply_state_transition::<S>,
-                )
-                    .chain(),
-            );
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
-        // gracefully if they aren't present.
-
+        self.main_mut().insert_state::<S>(state);
         self
     }
 
@@ -334,16 +297,7 @@ impl App {
     /// For each source state the derived state depends on, it adds this state's derivation
     /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world);
-            self.add_event::<StateTransitionEvent<S>>();
-            let mut schedules = self.world.resource_mut::<Schedules>();
-            S::register_state_compute_systems_in_schedule(schedules.as_mut());
-        }
-
+        self.main_mut().add_computed_state::<S>();
         self
     }
 
@@ -354,18 +308,7 @@ impl App {
     /// For each source state the derived state depends on, it adds this state's existence check
     /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
     pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world);
-            self.init_resource::<NextState<S>>();
-            self.add_event::<StateTransitionEvent<S>>();
-            let mut schedules = self.world.resource_mut::<Schedules>();
-            S::register_state_exist_systems_in_schedules(schedules.as_mut());
-            self.add_systems(ManualStateTransitions, apply_state_transition::<S>);
-        }
-
+        self.main_mut().add_sub_state::<S>();
         self
     }
 
