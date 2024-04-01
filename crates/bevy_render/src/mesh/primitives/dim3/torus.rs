@@ -76,12 +76,16 @@ impl TorusMeshBuilder {
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
-        let major_iter = CircleIterator::new(self.major_resolution, true);
-        let minor_iter = CircleIterator::new(self.minor_resolution, true);
+        let major_iter = CircleIterator::new(self.major_resolution)
+            .cycle()
+            .take(self.major_resolution + 1);
+        let minor_circle: Vec<_> = CircleIterator::new(self.minor_resolution)
+            .cycle()
+            .take(self.minor_resolution + 1)
+            .collect();
 
         for (segment, theta) in major_iter.enumerate() {
-            let minor_iter = minor_iter.clone();
-            for (side, phi) in minor_iter.enumerate() {
+            for (side, phi) in minor_circle.iter().enumerate() {
                 let position = Vec3::new(
                     theta.x * (self.torus.major_radius + self.torus.minor_radius * phi.x),
                     self.torus.minor_radius * phi.y,

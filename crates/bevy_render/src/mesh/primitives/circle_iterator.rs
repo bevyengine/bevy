@@ -1,27 +1,22 @@
+use bevy_math::DMat2;
+use bevy_math::DVec2;
 use bevy_math::Vec2;
-use std::f32::consts::TAU;
+use std::f64::consts::TAU;
 
+//iterator for generating a set of points around a unit circle, beginning at 0 radians
 #[derive(Debug, Clone)]
 pub(crate) struct CircleIterator {
     count: usize,
-    theta: f32,
-    wrap: bool,
+    rot: DMat2,
+    pos: DVec2,
 }
 
 impl CircleIterator {
-    pub(crate) fn new(count: usize, wrap: bool) -> CircleIterator {
-        if wrap {
-            Self {
-                count: count + 1,
-                theta: -TAU / (count as f32),
-                wrap,
-            }
-        } else {
-            Self {
-                count,
-                theta: -TAU / (count as f32),
-                wrap,
-            }
+    pub(crate) fn new(count: usize) -> CircleIterator {
+        Self {
+            count,
+            rot: DMat2::from_angle(TAU / (count as f64)),
+            pos: DVec2::new(1.0, 0.0),
         }
     }
 }
@@ -29,20 +24,10 @@ impl Iterator for CircleIterator {
     type Item = Vec2;
     fn next(&mut self) -> Option<Self::Item> {
         if self.count != 0 {
-            if self.wrap {
-                self.count -= 1;
-                Some(Vec2::new(
-                    (self.theta * self.count as f32).cos(),
-                    (self.theta * self.count as f32).sin(),
-                ))
-            } else {
-                let res = Some(Vec2::new(
-                    (self.theta * self.count as f32).cos(),
-                    (self.theta * self.count as f32).sin(),
-                ));
-                self.count -= 1;
-                res
-            }
+            let prev = self.pos.as_vec2();
+            self.pos = self.rot * self.pos;
+            self.count -= 1;
+            Some(prev)
         } else {
             None
         }
@@ -56,16 +41,14 @@ mod tests {
     use bevy_math::Vec2;
     #[test]
     fn circle_iterator_has_correct_length() {
-        let vertices: Vec<Vec2> = CircleIterator::new(6, false).collect();
+        let vertices: Vec<Vec2> = CircleIterator::new(6).collect();
         assert_eq!(vertices.len(), 6);
-        let vertices: Vec<Vec2> = CircleIterator::new(6, true).collect();
-        assert_eq!(vertices.len(), 7);
     }
 
     #[test]
     fn circle_iterator_vertices_are_equidistant() {
         let epsilon = 0.00001;
-        let vertices: Vec<Vec2> = CircleIterator::new(6, true).collect();
+        let vertices: Vec<Vec2> = CircleIterator::new(6).collect();
         let center = Vec2::new(0.0, 0.0);
         let distances_center: Vec<f32> = vertices.iter().map(|x| center.distance(*x)).collect();
         assert!(distances_center

@@ -189,14 +189,17 @@ impl SphereMeshBuilder {
         let stacks_f32 = stacks as f32;
         let length_inv = 1. / self.sphere.radius;
 
-        let stacks_iter = CircleIterator::new(stacks * 2, false).take(stacks);
-        let sectors_iter = CircleIterator::new(sectors, true);
+        let stacks_iter = CircleIterator::new(stacks * 2).take(stacks);
+        let sector_circle: Vec<_> = CircleIterator::new(sectors)
+            .cycle()
+            .take(sectors + 1)
+            .collect();
 
         for (i, stack_pos) in stacks_iter.enumerate() {
             //sin/cos results flipped around to properly orient stack position
             let xy = self.sphere.radius * stack_pos.y;
             let z = self.sphere.radius * stack_pos.x;
-            for (j, sector_pos) in sectors_iter.clone().enumerate() {
+            for (j, sector_pos) in sector_circle.iter().enumerate() {
                 let x = xy * sector_pos.x;
                 let y = xy * sector_pos.y;
 
