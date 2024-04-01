@@ -11,7 +11,8 @@ use thiserror::Error;
 ///
 /// Constructed via its [`FromIterator`] implementation, hence by calling [`Iterator::collect`]
 /// on an iterator whose items are of type `Option<[usize; N]>`. Most notably, the sample iterator
-/// of [`BinSampler<T>`](super::traits::BinSampler) where `T` implements [`Binned`](super::traits::Binned) produces values of this type.
+/// of [`BinSampler<T>`](super::traits::BinSampler) where `T` implements [`Binned`](super::traits::Binned)
+/// produces values of this type.
 pub struct Histogram<const N: usize> {
     /// The actual histogram, with the invalid items diverted to `invalid`
     pub(crate) inner: BTreeMap<[usize; N], usize>,
