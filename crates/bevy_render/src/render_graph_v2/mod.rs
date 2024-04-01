@@ -1,10 +1,14 @@
-use crate::renderer::{RenderDevice, RenderQueue};
-use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    system::{ResMut, Resource},
-    world::World,
+mod compute_pass;
+mod node;
+mod resource;
+mod view;
+
+use self::{
+    node::RenderGraphNode,
+    resource::{RenderGraphResource, RenderGraphResourceId},
 };
+use crate::renderer::{RenderDevice, RenderQueue};
+use bevy_ecs::system::{ResMut, Resource};
 use bevy_utils::HashMap;
 use wgpu::TextureDescriptor;
 
@@ -28,15 +32,8 @@ impl RenderGraph {
         RenderGraphResource { id, generation: 0 }
     }
 
-    pub fn add_node(
-        &mut self,
-        resources: &[RenderGraphResource],
-        runner: impl FnOnce(&RenderDevice, &RenderQueue) + Send + Sync + 'static,
-    ) {
-        self.nodes.push(RenderGraphNode {
-            resources: resources.into(),
-            runner: Box::new(runner),
-        });
+    pub fn add_node(&mut self, node: impl Into<RenderGraphNode>) {
+        self.nodes.push(node.into());
     }
 
     pub fn build(&mut self, render_device: &RenderDevice) {
@@ -46,44 +43,6 @@ impl RenderGraph {
     pub fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
     }
-}
-
-pub struct RenderGraphResource {
-    id: RenderGraphResourceId,
-    generation: u16,
-}
-
-impl Clone for RenderGraphResource {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            generation: self.generation + 1,
-        }
-    }
-}
-
-type RenderGraphResourceId = u16;
-
-struct RenderGraphNode {
-    resources: Box<[RenderGraphResource]>,
-    runner: Box<dyn FnOnce(&RenderDevice, &RenderQueue) + Send + Sync + 'static>,
-}
-
-#[derive(Component)]
-pub struct ViewRenderGraphConfigurator(
-    pub Box<dyn Fn(Entity, &World, &mut RenderGraph) + Send + Sync>,
-);
-
-pub fn setup_view_render_graph_nodes(world: &mut World) {
-    world.resource_scope::<RenderGraph, _>(|world, mut render_graph| {
-        // TODO: Probably want to cache the QueryState
-        for (view_entity, configurator) in world
-            .query::<(Entity, &ViewRenderGraphConfigurator)>()
-            .iter(world)
-        {
-            (configurator.0)(view_entity, world, &mut render_graph);
-        }
-    });
 }
 
 pub fn run_render_graph(
