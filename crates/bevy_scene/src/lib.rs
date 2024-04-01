@@ -61,7 +61,7 @@ impl Plugin for ScenePlugin {
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicScene
-        app.world
+        app.world_mut()
             .register_component_hooks::<Handle<DynamicScene>>()
             .on_remove(|mut world, entity, _| {
                 let Some(handle) = world.get::<Handle<DynamicScene>>(entity) else {
@@ -80,7 +80,7 @@ impl Plugin for ScenePlugin {
             });
 
         // Register component hooks for Scene
-        app.world
+        app.world_mut()
             .register_component_hooks::<Handle<Scene>>()
             .on_remove(|mut world, entity, _| {
                 if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {

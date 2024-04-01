@@ -197,83 +197,83 @@ pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &
     for winit_event in buffered_events.iter() {
         match winit_event.clone() {
             WinitEvent::ApplicationLifetime(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::CursorEntered(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::CursorLeft(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::CursorMoved(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::FileDragAndDrop(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::Ime(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::ReceivedCharacter(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::RequestRedraw(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowBackendScaleFactorChanged(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowCloseRequested(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowCreated(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowDestroyed(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowFocused(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowMoved(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowOccluded(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowResized(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowScaleFactorChanged(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::WindowThemeChanged(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::MouseButtonInput(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::MouseMotion(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::MouseWheel(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::TouchpadMagnify(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::TouchpadRotate(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::TouchInput(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
             WinitEvent::KeyboardInput(e) => {
-                app.world.send_event(e);
+                app.world_mut().send_event(e);
             }
         }
     }
-    app.world
+    app.world_mut()
         .resource_mut::<Events<WinitEvent>>()
         .send_batch(buffered_events.drain(..));
 }

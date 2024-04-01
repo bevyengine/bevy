@@ -150,7 +150,7 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>();
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<ExtractedMaterials2d<M>>()
@@ -176,7 +176,7 @@ where
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<Material2dPipeline<M>>();
         }
     }

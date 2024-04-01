@@ -37,7 +37,7 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
@@ -53,7 +53,7 @@ impl Plugin for WindowRenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
@@ -341,7 +341,7 @@ pub fn prepare_windows(
                 Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
                     warn_once!(
                         "Couldn't get swap chain texture. This often happens with \
-                        the Nvidia 550 driver. It can be safely ignored."
+                        the NVIDIA drivers on Linux. It can be safely ignored."
                     );
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
