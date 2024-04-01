@@ -13,10 +13,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{
-    tracing::{info, warn},
-    Duration, HashMap,
-};
+use bevy_utils::{tracing::{info, warn}, Duration, HashMap};
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
@@ -560,13 +557,26 @@ pub enum GamepadButtonType {
 ///     }
 /// }
 /// ```
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug)]
 pub struct GamepadButtons {
     // TODO: Change digital to 2 fixedbitsets?
     /// [`ButtonInput`] of [`GamepadButtonType`] representing their digital state
     pub(crate) digital: ButtonInput<GamepadButtonType>,
     /// [`Axis`] of [`GamepadButtonType`] representing their analog state.
     pub(crate) analog: Axis<GamepadButtonType>,
+}
+
+impl Default for GamepadButtons{
+    fn default() -> Self {
+        let mut analog = Axis::default();
+        for button in &ALL_BUTTON_TYPES{
+            analog.set(*button, 0.0);
+        }
+        Self {
+            analog,
+            digital: ButtonInput::default()
+        }
+    }
 }
 
 impl GamepadButtons {
@@ -721,9 +731,21 @@ pub enum GamepadAxisType {
 ///     }
 /// }
 /// ```
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug)]
 pub struct GamepadAxes {
     axis: Axis<GamepadAxisType>,
+}
+
+impl Default for GamepadAxes {
+    fn default() -> Self {
+        let mut axis = Axis::default();
+        for axis_type in &ALL_AXIS_TYPES{
+            axis.set(*axis_type, 0.0);
+        }
+        Self {
+            axis,
+        }
+    }
 }
 
 impl GamepadAxes {
