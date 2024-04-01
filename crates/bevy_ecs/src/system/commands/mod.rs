@@ -1503,5 +1503,27 @@ mod tests {
 
             assert!(!world.contains_non_send::<MyNonSend>());
         }
+
+        #[test]
+        fn is_in_fact_not_being_sent() {
+            use std::thread::{self, ThreadId};
+
+            let mut world = World::default();
+            let mut queue = CommandQueue::default();
+
+            thread::scope(|s| {
+                s.spawn(|| {
+                    let mut commands = Commands::new(&mut queue, &world);
+                    commands.insert_non_send_resource(|| thread::current().id());
+                });
+            });
+
+            queue.apply(&mut world);
+
+            assert_eq!(
+                *world.non_send_resource::<ThreadId>(),
+                std::thread::current().id()
+            );
+        }
     }
 }
