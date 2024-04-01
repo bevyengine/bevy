@@ -452,13 +452,15 @@ impl<'a> AssetPath<'a> {
 
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
+    ///
+    /// Also strips out anything following a `?` to handle query parameters in URIs
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
         let mut extension = file_name[index + 1..].to_lowercase();
 
         // Strip off any query parameters
-        let query = extension.find("?");
+        let query = extension.find('?');
         if let Some(offset) = query {
             extension.truncate(offset);
         }
