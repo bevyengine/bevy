@@ -91,9 +91,10 @@ fn main() {
             flags.insert(*flag);
         } else {
             // We encountered an invalid parameter:
-            println!(
+            eprintln!(
                 "Invalid argument: {arg:?}.\n\
                 Valid parameters: {}.",
+                // Skip first argument so it can be added in fold(), when displaying as a comma separated list.
                 arguments[1..]
                     .iter()
                     .map(|(s, _)| s)
