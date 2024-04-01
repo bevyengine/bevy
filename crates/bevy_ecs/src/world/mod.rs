@@ -2180,7 +2180,7 @@ impl World {
     /// # world.insert_resource(B(2));
     /// #
     /// // In this example, `A` and `B` are resources. We deliberately do not use the
-    /// // `bevy_reflect` crate here to showcase the low-level `Ptr` usage. You should
+    /// // `bevy_reflect` crate here to showcase the low-level [`Ptr`] usage. You should
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the closures for each resource type
