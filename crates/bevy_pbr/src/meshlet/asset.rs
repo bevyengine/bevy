@@ -1,13 +1,17 @@
 use bevy_asset::{
-    io::{Reader, Writer},
+    io::{AsyncReadAndSeek, Reader, Writer},
     saver::{AssetSaver, SavedAsset},
     Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bytemuck::{Pod, Zeroable};
+use lz4_flex::block::DecompressError;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+/// The current version of the [`MeshletMesh`] asset format.
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
@@ -89,7 +93,7 @@ pub struct MeshletMeshSaverLoad;
 impl AssetLoader for MeshletMeshSaverLoad {
     type Asset = MeshletMesh;
     type Settings = ();
-    type Error = bincode::Error;
+    type Error = MeshletMeshSaveOrLoadError;
 
     async fn load<'a>(
         &'a self,
@@ -97,9 +101,22 @@ impl AssetLoader for MeshletMeshSaverLoad {
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
+        let version = read_u64(reader).await?;
+        if version != MESHLET_MESH_ASSET_VERSION {
+            return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
+        }
+
+        let uncompressed_size = read_u64(reader).await? as usize;
+        let compressed_size = read_u64(reader).await? as usize;
+
+        let mut bytes = Vec::with_capacity(uncompressed_size);
         reader.read_to_end(&mut bytes).await?;
-        bincode::deserialize(&bytes)
+
+        let bytes = lz4_flex::decompress(&bytes, compressed_size)
+            .map_err(|e| MeshletMeshSaveOrLoadError::Decompression(e))?;
+
+        let asset = bincode::deserialize(&bytes)?;
+        Ok(asset)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -111,7 +128,7 @@ impl AssetSaver for MeshletMeshSaverLoad {
     type Asset = MeshletMesh;
     type Settings = ();
     type OutputLoader = Self;
-    type Error = bincode::Error;
+    type Error = MeshletMeshSaveOrLoadError;
 
     async fn save<'a>(
         &'a self,
@@ -120,7 +137,36 @@ impl AssetSaver for MeshletMeshSaverLoad {
         _settings: &'a Self::Settings,
     ) -> Result<(), Self::Error> {
         let bytes = bincode::serialize(asset.get())?;
+        let uncompressed_size = bytes.len() as u64;
+        let bytes = lz4_flex::compress(&bytes);
+        let compressed_size = bytes.len() as u64;
+
+        writer
+            .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
+            .await?;
+        writer.write_all(&uncompressed_size.to_le_bytes()).await?;
+        writer.write_all(&compressed_size.to_le_bytes()).await?;
         writer.write_all(&bytes).await?;
         Ok(())
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum MeshletMeshSaveOrLoadError {
+    #[error("expected version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    WrongVersion { found: u64 },
+    #[error("failed to serialize or deserialize asset data")]
+    SerializationOrDeserialization(#[from] bincode::Error),
+    #[error("failed to decompress asset data")]
+    Decompression(DecompressError),
+    #[error("failed to read or write asset data")]
+    Io(#[from] std::io::Error),
+}
+
+async fn read_u64(
+    reader: &mut (dyn AsyncReadAndSeek + Sync + Send + Unpin),
+) -> Result<u64, bincode::Error> {
+    let mut bytes = [0u8; 8];
+    reader.read_exact(&mut bytes).await?;
+    Ok(u64::from_le_bytes(bytes))
 }
