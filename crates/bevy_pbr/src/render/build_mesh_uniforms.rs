@@ -135,7 +135,7 @@ impl ViewNode for BuildMeshUniformsNode {
 
         // Grab the bind group.
         let Some(ref bind_group) = world.resource::<BuildMeshUniformsBindGroup>().0 else {
-            error!("Attempted to build mesh uniforms on GPU, but the bind group wasn't available");
+            // This can happen for the first frame or so and is fine.
             return Ok(());
         };
 
