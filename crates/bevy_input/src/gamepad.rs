@@ -2265,7 +2265,7 @@ mod tests {
     }
 
     #[test]
-    fn disconnect_nonexistant_gamepad() {
+    fn disconnect_nonexistent_gamepad() {
         let mut app = App::new();
         let app = app
             .init_resource::<Gamepads>()
