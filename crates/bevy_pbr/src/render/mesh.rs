@@ -170,9 +170,15 @@ impl Plugin for MeshRenderPlugin {
                 );
 
             if self.use_gpu_uniform_builder {
-                render_app.add_systems(ExtractSchedule, extract_meshes_for_gpu_building);
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
+                );
             } else {
-                render_app.add_systems(ExtractSchedule, extract_meshes_for_cpu_building);
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                );
             }
         }
     }
@@ -503,6 +509,11 @@ pub struct RenderMeshQueueData<'a> {
     /// The translation of the mesh instance.
     pub translation: Vec3,
 }
+
+/// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
+/// and [`extract_meshes_for_gpu_building`].
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct ExtractMeshesSet;
 
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
