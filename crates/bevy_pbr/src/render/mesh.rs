@@ -31,6 +31,7 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
+use static_assertions::const_assert_eq;
 
 use crate::render::{
     morph::{
@@ -508,7 +509,13 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
+        // Nothing
         const NONE                              = 0;
+
+        // Inherited bits
+        const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
+
+        // Flag bits
         const HDR                               = 1 << 0;
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
@@ -526,6 +533,8 @@ bitflags::bitflags! {
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
+
+        // Bitfields
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
@@ -555,7 +564,13 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
-        const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
+        const ALL_RESERVED_BITS =
+            Self::BLEND_RESERVED_BITS.bits() |
+            Self::MSAA_RESERVED_BITS.bits() |
+            Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
+            Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
+            Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
     }
 }
 
@@ -621,6 +636,13 @@ impl MeshPipelineKey {
         }
     }
 }
+
+// Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
+const_assert_eq!(
+    (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
+        & BaseMeshPipelineKey::all().bits(),
+    0
+);
 
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
