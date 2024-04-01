@@ -63,7 +63,6 @@ pub struct UiSurface {
     camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
     camera_roots: EntityHashMap<Vec<RootNodePair>>,
     taffy: Taffy,
-    no_camera: bool,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -91,7 +90,6 @@ impl Default for UiSurface {
             camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
-            no_camera: false,
         }
     }
 }
@@ -340,7 +338,6 @@ pub fn ui_layout_system(
                     );
                     continue;
                 };
-                ui_surface.no_camera = false;
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
                     .or_insert_with(|| calculate_camera_layout_info(camera));
@@ -348,10 +345,7 @@ pub fn ui_layout_system(
             }
             None => {
                 if cameras.is_empty() {
-                    if !ui_surface.no_camera {
-                        ui_surface.no_camera = true;
-                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
-                    }
+                    warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
                 } else {
                     warn!(
                         "Multiple cameras found, causing UI target ambiguity. \
