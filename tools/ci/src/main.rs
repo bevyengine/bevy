@@ -321,7 +321,7 @@ fn main() {
     }
 
     if checks.contains(Check::TEST_CHECK) {
-        let mut args = vec!["--workspace", "--examples"];
+        let mut args = vec!["--workspace", "--tests"];
 
         if flags.contains(Flag::KEEP_GOING) {
             args.push("--keep-going");
