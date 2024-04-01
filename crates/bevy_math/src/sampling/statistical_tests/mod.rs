@@ -6,7 +6,7 @@
 //! sets of bins ([`stats`]), and concrete implementations of these for Bevy's shape
 //! types ([`impls`]).
 
-/// Holds traits [`Binned`](traits::Binned) and [`WithBinDistributions`](traits::WithBinDistribution), which form the scaffolding for
+/// Holds traits [`Binned`](traits::Binned) and [`WithBinDistributions`](traits::WithBinDistributions), which form the scaffolding for
 /// discretization of spatial distributions (with the former) and comparison of the resulting
 /// discrete probability distributions with ideal multinomial distributions (with the latter).
 pub mod traits;
