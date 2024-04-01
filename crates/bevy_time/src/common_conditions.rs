@@ -239,7 +239,6 @@ pub fn paused(time: Res<Time<Virtual>>) -> bool {
 mod tests {
     use super::*;
     use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
-    use std::time::Duration;
 
     fn test_system() {}
 
