@@ -129,7 +129,10 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
+        let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
+            warn!("Missing taffy node for entity when calling update_children.");
+            return;
+        };
         self.taffy
             .set_children(*taffy_node, &taffy_children)
             .unwrap();
