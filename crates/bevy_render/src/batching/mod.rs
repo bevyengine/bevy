@@ -132,8 +132,8 @@ where
     BDI: Pod,
 {
     /// Creates new buffers.
-    pub fn new(render_device: &RenderDevice, using_gpu_uniform_builder: bool) -> Self {
-        if !using_gpu_uniform_builder {
+    pub fn new(render_device: &RenderDevice, use_gpu_uniform_builder: bool) -> Self {
+        if !use_gpu_uniform_builder {
             return BatchedInstanceBuffers::CpuBuilt(GpuArrayBuffer::new(render_device));
         }
 

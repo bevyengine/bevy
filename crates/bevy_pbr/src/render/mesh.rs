@@ -52,7 +52,7 @@ pub struct MeshRenderPlugin {
     /// Whether we're building [`MeshUniform`]s on GPU.
     ///
     /// If this is false, we're building them on CPU.
-    pub using_gpu_uniform_builder: bool,
+    pub use_gpu_uniform_builder: bool,
 }
 
 pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
@@ -79,7 +79,7 @@ pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 impl Default for MeshRenderPlugin {
     fn default() -> Self {
         Self {
-            using_gpu_uniform_builder: true,
+            use_gpu_uniform_builder: true,
         }
     }
 }
@@ -126,7 +126,7 @@ impl Plugin for MeshRenderPlugin {
         );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_mesh_instances = RenderMeshInstances::new(self.using_gpu_uniform_builder);
+            let render_mesh_instances = RenderMeshInstances::new(self.use_gpu_uniform_builder);
 
             render_app
                 .init_resource::<MeshBindGroups>()
@@ -169,7 +169,7 @@ impl Plugin for MeshRenderPlugin {
                     ),
                 );
 
-            if self.using_gpu_uniform_builder {
+            if self.use_gpu_uniform_builder {
                 render_app.add_systems(ExtractSchedule, extract_meshes_for_gpu_building);
             } else {
                 render_app.add_systems(ExtractSchedule, extract_meshes_for_cpu_building);
@@ -185,7 +185,7 @@ impl Plugin for MeshRenderPlugin {
             let batched_instance_buffers =
                 BatchedInstanceBuffers::<MeshUniform, MeshInputUniform>::new(
                     render_device,
-                    self.using_gpu_uniform_builder,
+                    self.use_gpu_uniform_builder,
                 );
 
             if let Some(per_object_buffer_batch_size) =
@@ -453,8 +453,8 @@ pub enum RenderMeshInstances {
 }
 
 impl RenderMeshInstances {
-    fn new(using_gpu_uniform_builder: bool) -> RenderMeshInstances {
-        if using_gpu_uniform_builder {
+    fn new(use_gpu_uniform_builder: bool) -> RenderMeshInstances {
+        if use_gpu_uniform_builder {
             RenderMeshInstances::GpuBuilding(EntityHashMap::default())
         } else {
             RenderMeshInstances::CpuBuilding(EntityHashMap::default())

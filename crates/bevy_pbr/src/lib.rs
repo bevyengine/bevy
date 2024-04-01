@@ -138,7 +138,7 @@ pub struct PbrPlugin {
     /// Controls if GPU [`MeshUniform`] building is enabled.
     ///
     /// This requires compute shader support.
-    pub using_gpu_uniform_builder: bool,
+    pub use_gpu_uniform_builder: bool,
 }
 
 impl Default for PbrPlugin {
@@ -149,7 +149,7 @@ impl Default for PbrPlugin {
 
             // The GPU uniform builder requires compute shaders, which aren't
             // available on any version of WebGL.
-            using_gpu_uniform_builder: cfg!(any(
+            use_gpu_uniform_builder: cfg!(any(
                 feature = "webgpu",
                 not(feature = "webgl"),
                 not(target_arch = "wasm32"),
@@ -295,7 +295,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {
-                    using_gpu_uniform_builder: self.using_gpu_uniform_builder,
+                    use_gpu_uniform_builder: self.use_gpu_uniform_builder,
                 },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
@@ -368,7 +368,7 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        if self.using_gpu_uniform_builder {
+        if self.use_gpu_uniform_builder {
             app.add_plugins(BuildMeshUniformsPlugin);
         }
 
