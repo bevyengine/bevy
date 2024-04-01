@@ -455,7 +455,14 @@ impl<'a> AssetPath<'a> {
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
-        let extension = file_name[index + 1..].to_lowercase();
+        let mut extension = file_name[index + 1..].to_lowercase();
+
+        // Strip off any query parameters
+        let query = extension.find("?");
+        if let Some(offset) = query {
+            extension.truncate(offset);
+        }
+
         Some(extension)
     }
 
@@ -1064,5 +1071,8 @@ mod tests {
 
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.get_full_extension(), None);
+
+        let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
+        assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
     }
 }
