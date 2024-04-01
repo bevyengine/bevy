@@ -79,24 +79,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
+            let id_iter = self.state.matched_storage_ids.iter();
             if D::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
-                self.state
-                    .matched_table_ids
-                    .iter()
-                    .map(|id| tables[*id].entity_count())
+                id_iter
+                    // SAFETY: The if check ensures that matched_storage_ids stores TableIds
+                    .map(|id| unsafe { tables[id.table_id].entity_count() })
                     .max()
-                    .unwrap_or(0)
             } else {
                 let archetypes = &self.world.archetypes();
-                self.state
-                    .matched_archetype_ids
-                    .iter()
-                    .map(|id| archetypes[*id].len())
+                id_iter
+                    // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
+                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
                     .max()
-                    .unwrap_or(0)
             }
+            .unwrap_or(0)
         };
         self.batching_strategy
             .calc_batch_size(max_items, thread_count)

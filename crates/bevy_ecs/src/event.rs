@@ -655,6 +655,15 @@ impl<E: Event> Default for ManualEventReader<E> {
     }
 }
 
+impl<E: Event> Clone for ManualEventReader<E> {
+    fn clone(&self) -> Self {
+        ManualEventReader {
+            last_event_count: self.last_event_count,
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::read`]
