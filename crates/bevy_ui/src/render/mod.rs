@@ -1141,7 +1141,7 @@ pub fn prepare_uinodes(
                             flags: flags | shader_flags::CORNERS[i],
                             radius: extracted_uinode.border_radius,
                             border: extracted_uinode.border,
-                            size: transformed_rect_size.xy().into(),
+                            size: rect_size.xy().into(),
                         });
                     }
 
