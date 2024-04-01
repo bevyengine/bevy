@@ -2136,6 +2136,190 @@ impl World {
         }
     }
 
+    /// Iterates over all resources in the world.
+    ///
+    /// # Examples
+    ///
+    /// ## Printing the size of all resources
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct A(u32);
+    /// # #[derive(Resource)]
+    /// # struct B(u32);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(A(1));
+    /// # world.insert_resource(B(2));
+    /// let mut total = 0;
+    /// for (info, _) in world.iter_resources() {
+    ///    println!("Resource: {}", info.name());
+    ///    println!("Size: {} bytes", info.layout().size());
+    ///    total += info.layout().size();
+    /// }
+    /// println!("----------------");
+    /// println!("Total size: {} bytes", total);
+    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// ```
+    ///
+    /// ## Dynamically running closures for resources matching specific `TypeId`s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::collections::HashMap;
+    /// # use std::any::TypeId;
+    /// # use bevy_ptr::Ptr;
+    /// # #[derive(Resource)]
+    /// # struct A(u32);
+    /// # #[derive(Resource)]
+    /// # struct B(u32);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(A(1));
+    /// # world.insert_resource(B(2));
+    /// #
+    /// // In this example, `A` and `B` are resources. We deliberately do not use the
+    /// // `bevy_reflect` crate here to showcase the low-level `Ptr` usage. You should
+    /// // probably use something like `ReflectFromPtr` in a real-world scenario.
+    ///
+    /// // Create the hash map that will store the closures for each resource type
+    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::new();
+    ///
+    /// // Add closure for `A`
+    /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
+    ///     let a = unsafe { &ptr.deref::<A>() };
+    /// #   assert_eq!(a.0, 1);
+    ///     // ... do something with `a` here
+    /// }));
+    ///
+    /// // Add closure for `B`
+    /// closures.insert(TypeId::of::<B>(), Box::new(|ptr| {
+    ///     let b = unsafe { &ptr.deref::<B>() };
+    /// #   assert_eq!(b.0, 2);
+    ///     // ... do something with `b` here
+    /// }));
+    ///
+    /// // Iterate all resources, in order to run the closures for each matching resource type
+    /// for (info, ptr) in world.iter_resources() {
+    ///     let Some(type_id) = info.type_id() else {
+    ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
+    ///        // dynamically inserted via a scripting language) in which case we can't match them.
+    ///        continue;
+    ///     };
+    ///
+    ///     let Some(closure) = closures.get(&type_id) else {
+    ///        // No closure for this resource type, skip it.
+    ///        continue;
+    ///     };
+    ///
+    ///     // Run the closure for the resource
+    ///     closure(&ptr);
+    /// }
+    /// ```
+    #[inline]
+    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+        self.storages
+            .resources
+            .iter()
+            .filter_map(|(component_id, data)| {
+                let component_info = self.components.get_info(component_id)?;
+                Some((component_info, data.get_data()?))
+            })
+    }
+
+    /// Mutably iterates over all resources in the world.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::change_detection::MutUntyped;
+    /// # use std::collections::HashMap;
+    /// # use std::any::TypeId;
+    /// # #[derive(Resource)]
+    /// # struct A(u32);
+    /// # #[derive(Resource)]
+    /// # struct B(u32);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(A(1));
+    /// # world.insert_resource(B(2));
+    /// #
+    /// // In this example, `A` and `B` are resources. We deliberately do not use the
+    /// // `bevy_reflect` crate here to showcase the low-level `MutUntyped` usage. You should
+    /// // probably use something like `ReflectFromPtr` in a real-world scenario.
+    ///
+    /// // Create the hash map that will store the mutator closures for each resource type
+    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::new();
+    ///
+    /// // Add mutator closure for `A`
+    /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
+    ///     // Note: `MutUntyped::as_mut()` automatically marks the resource as changed
+    ///     // for ECS change detection, and gives us a `PtrMut` we can use to mutate the resource.
+    ///     let a = unsafe { &mut mut_untyped.as_mut().deref_mut::<A>() };
+    /// #   a.0 += 1;
+    ///     // ... mutate `a` here
+    /// }));
+    ///
+    /// // Add mutator closure for `B`
+    /// mutators.insert(TypeId::of::<B>(), Box::new(|mut_untyped| {
+    ///     let b = unsafe { &mut mut_untyped.as_mut().deref_mut::<B>() };
+    /// #   b.0 += 1;
+    ///     // ... mutate `b` here
+    /// }));
+    ///
+    /// // Iterate all resources, in order to run the mutator closures for each matching resource type
+    /// for (info, mut mut_untyped) in world.iter_resources_mut() {
+    ///     let Some(type_id) = info.type_id() else {
+    ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
+    ///        // dynamically inserted via a scripting language) in which case we can't match them.
+    ///        continue;
+    ///     };
+    ///
+    ///     let Some(mutator) = mutators.get(&type_id) else {
+    ///        // No mutator closure for this resource type, skip it.
+    ///        continue;
+    ///     };
+    ///
+    ///     // Run the mutator closure for the resource
+    ///     mutator(&mut mut_untyped);
+    /// }
+    /// # assert_eq!(world.resource::<A>().0, 2);
+    /// # assert_eq!(world.resource::<B>().0, 3);
+    /// ```
+    #[inline]
+    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+        self.storages
+            .resources
+            .iter()
+            .filter_map(|(component_id, data)| {
+                let component_info = self.components.get_info(component_id)?;
+                let (ptr, ticks) = data.get_with_ticks()?;
+
+                // SAFETY:
+                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
+                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next oned
+                let ticks = unsafe {
+                    TicksMut::from_tick_cells(
+                        ticks,
+                        self.last_change_tick(),
+                        self.read_change_tick(),
+                    )
+                };
+
+                let mut_untyped = MutUntyped {
+                    // SAFETY:
+                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
+                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
+                    value: unsafe { ptr.assert_unique() },
+                    ticks,
+                };
+
+                Some((component_info, mut_untyped))
+            })
+    }
+
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
