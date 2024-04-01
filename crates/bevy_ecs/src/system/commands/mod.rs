@@ -540,9 +540,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(insert_my_non_send);
     /// ```
-    /// 
+    ///
     /// Note that the value must be constructed inside of the closure. Moving it will fail to compile:
-    /// 
+    ///
     /// ```compile_fail,E0277
     /// # use bevy_ecs::prelude::*;
     /// #
@@ -550,7 +550,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #
     /// # fn insert_my_non_send(mut commands: Commands) {
     /// let my_non_send = MyNonSend(std::ptr::null());
-    /// 
+    ///
     /// commands.insert_non_send_resource(move || {
     ///     my_non_send
     /// });
