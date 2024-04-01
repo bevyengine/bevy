@@ -2,8 +2,9 @@
 
 use bevy::{
     input::gamepad::{
-        GamepadButtonStateChanged, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
-        RawGamepadButtonChangedEvent, RawGamepadEvent,
+        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+        GamepadConnectionEvent, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+        RawGamepadEvent,
     },
     prelude::*,
 };
@@ -17,31 +18,46 @@ fn main() {
 
 fn gamepad_events(
     mut connection_events: EventReader<GamepadConnectionEvent>,
-    mut axis_changed_events: EventReader<RawGamepadAxisChangedEvent>,
-    // Handles the continuous measure of how far a button has been pressed down, as measured
-    // by `Axis<GamepadButton>`. Whenever that value changes, this event is emitted.
-    mut button_changed_events: EventReader<RawGamepadButtonChangedEvent>,
+    // Handles the continuous measure of an axis, equivalent to GamepadAxes::get.
+    // Whenever that *raw* value changes, this event is emitted.
+    mut raw_axis_changed_events: EventReader<RawGamepadAxisChangedEvent>,
+    // Same as above but filtered by the settings in `GamepadSettings`.
+    mut axis_changed_events: EventReader<GamepadAxisChangedEvent>,
+    // Handles the continuous measure of how far a button has been pressed down, equivalent to `GamepadButtons::get`.
+    // Whenever that *raw* value changes, this event is emitted.
+    mut raw_button_changed_events: EventReader<RawGamepadButtonChangedEvent>,
+    // Same as above but filtered by the settings in `GamepadSettings`.
+    mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
     // Handles the boolean measure of whether a button is considered pressed or unpressed, as
-    // defined by the thresholds in `GamepadSettings::button_settings` and measured by
-    // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
-    // this event is emitted.
-    mut button_input_events: EventReader<GamepadButtonStateChanged>,
+    // defined by the thresholds in `GamepadSettings::button_settings`.
+    // When the threshold is crossed and the button state changes, this event is emitted.
+    mut button_input_events: EventReader<GamepadButtonStateChangedEvent>,
 ) {
     for connection_event in connection_events.read() {
         info!("{:?}", connection_event);
     }
+    for axis_changed_event in raw_axis_changed_events.read() {
+        info!(
+            "Raw: {:?} of {:?} is changed to {}",
+            axis_changed_event.axis, axis_changed_event.gamepad, axis_changed_event.value
+        );
+    }
     for axis_changed_event in axis_changed_events.read() {
         info!(
             "{:?} of {:?} is changed to {}",
-            axis_changed_event.axis_type, axis_changed_event.gamepad, axis_changed_event.value
+            axis_changed_event.axis, axis_changed_event.gamepad, axis_changed_event.value
+        );
+    }
+    for button_changed_event in raw_button_changed_events.read() {
+        info!(
+            "Raw: {:?} of {:?} is changed to {}",
+            button_changed_event.button, button_changed_event.gamepad, button_changed_event.value
         );
     }
     for button_changed_event in button_changed_events.read() {
         info!(
             "{:?} of {:?} is changed to {}",
-            button_changed_event.button_type,
-            button_changed_event.gamepad,
-            button_changed_event.value
+            button_changed_event.button, button_changed_event.gamepad, button_changed_event.value
         );
     }
     for button_input_event in button_input_events.read() {

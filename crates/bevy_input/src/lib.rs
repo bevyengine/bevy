@@ -49,9 +49,9 @@ use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    GamepadAxisChanged, GamepadButtonChanged, GamepadButtonStateChanged, GamepadConnectionEvent,
-    GamepadRumbleRequest, GamepadSettings, Gamepads, RawGamepadAxisChangedEvent,
-    RawGamepadButtonChangedEvent, RawGamepadEvent,
+    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+    GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, Gamepads,
+    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
 use crate::gamepad::{Gamepad, GamepadConnection, GamepadId, GamepadInfo};
@@ -84,9 +84,9 @@ impl Plugin for InputPlugin {
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
@@ -116,9 +116,9 @@ impl Plugin for InputPlugin {
             .register_type::<RawGamepadAxisChangedEvent>()
             .register_type::<RawGamepadButtonChangedEvent>()
             .register_type::<GamepadConnectionEvent>()
-            .register_type::<GamepadButtonChanged>()
-            .register_type::<GamepadAxisChanged>()
-            .register_type::<GamepadButtonStateChanged>()
+            .register_type::<GamepadButtonChangedEvent>()
+            .register_type::<GamepadAxisChangedEvent>()
+            .register_type::<GamepadButtonStateChangedEvent>()
             .register_type::<Gamepads>()
             .register_type::<Gamepad>()
             .register_type::<GamepadId>()

@@ -74,7 +74,7 @@ pub struct RawGamepadButtonChangedEvent {
     /// The gamepad on which the button is triggered.
     pub gamepad: GamepadId,
     /// The type of the triggered button.
-    pub button_type: GamepadButtonType,
+    pub button: GamepadButtonType,
     /// The value of the button.
     pub value: f32,
 }
@@ -84,7 +84,7 @@ impl RawGamepadButtonChangedEvent {
     pub fn new(gamepad: GamepadId, button_type: GamepadButtonType, value: f32) -> Self {
         Self {
             gamepad,
-            button_type,
+            button: button_type,
             value,
         }
     }
@@ -103,7 +103,7 @@ pub struct RawGamepadAxisChangedEvent {
     /// The gamepad on which the axis is triggered.
     pub gamepad: GamepadId,
     /// The type of the triggered axis.
-    pub axis_type: GamepadAxisType,
+    pub axis: GamepadAxisType,
     /// The value of the axis.
     pub value: f32,
 }
@@ -113,7 +113,7 @@ impl RawGamepadAxisChangedEvent {
     pub fn new(gamepad: GamepadId, axis_type: GamepadAxisType, value: f32) -> Self {
         Self {
             gamepad,
-            axis_type,
+            axis: axis_type,
             value,
         }
     }
@@ -163,19 +163,19 @@ impl GamepadConnectionEvent {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GamepadButtonStateChanged {
+pub struct GamepadButtonStateChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
     /// The gamepad id of this gamepad.
-    pub gamepad_id: GamepadId,
+    pub gamepad: GamepadId,
     /// The gamepad button assigned to the event.
     pub button: GamepadButtonType,
     /// The pressed state of the button.
     pub state: ButtonState,
 }
 
-impl GamepadButtonStateChanged {
-    /// Creates a new [`GamepadButtonStateChanged`]
+impl GamepadButtonStateChangedEvent {
+    /// Creates a new [`GamepadButtonStateChangedEvent`]
     pub fn new(
         entity: Entity,
         gamepad_id: impl AsRef<GamepadId>,
@@ -184,7 +184,7 @@ impl GamepadButtonStateChanged {
     ) -> Self {
         Self {
             entity,
-            gamepad_id: *gamepad_id.as_ref(),
+            gamepad: *gamepad_id.as_ref(),
             button,
             state,
         }
@@ -199,11 +199,11 @@ impl GamepadButtonStateChanged {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GamepadButtonChanged {
+pub struct GamepadButtonChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
     /// The gamepad id of this gamepad.
-    pub gamepad_id: GamepadId,
+    pub gamepad: GamepadId,
     /// The gamepad button assigned to the event.
     pub button: GamepadButtonType,
     /// The pressed state of the button.
@@ -212,8 +212,8 @@ pub struct GamepadButtonChanged {
     pub value: f32,
 }
 
-impl GamepadButtonChanged {
-    /// Creates a new [`GamepadButtonChanged`]
+impl GamepadButtonChangedEvent {
+    /// Creates a new [`GamepadButtonChangedEvent`]
     pub fn new(
         entity: Entity,
         gamepad_id: impl AsRef<GamepadId>,
@@ -223,7 +223,7 @@ impl GamepadButtonChanged {
     ) -> Self {
         Self {
             entity,
-            gamepad_id: *gamepad_id.as_ref(),
+            gamepad: *gamepad_id.as_ref(),
             button,
             state,
             value,
@@ -239,19 +239,19 @@ impl GamepadButtonChanged {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GamepadAxisChanged {
+pub struct GamepadAxisChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
     /// The gamepad id of this gamepad.
-    pub gamepad_id: GamepadId,
+    pub gamepad: GamepadId,
     /// The gamepad axis assigned to the event.
     pub axis: GamepadAxisType,
     /// The value of this axis.
     pub value: f32,
 }
 
-impl GamepadAxisChanged {
-    /// Creates a new [`GamepadAxisChanged`]
+impl GamepadAxisChangedEvent {
+    /// Creates a new [`GamepadAxisChangedEvent`]
     pub fn new(
         entity: Entity,
         gamepad_id: impl AsRef<GamepadId>,
@@ -260,7 +260,7 @@ impl GamepadAxisChanged {
     ) -> Self {
         Self {
             entity,
-            gamepad_id: *gamepad_id.as_ref(),
+            gamepad: *gamepad_id.as_ref(),
             axis,
             value,
         }
@@ -1505,13 +1505,13 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChanged`] [`event`](Event).
+/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChangedEvent`] [`event`](Event).
 pub fn gamepad_axis_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads_axis: Query<(&mut GamepadAxes, &GamepadSettings)>,
     gamepads_map: Res<Gamepads>,
     mut raw_events: EventReader<RawGamepadAxisChangedEvent>,
-    mut filtered_events: EventWriter<GamepadAxisChanged>,
+    mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
 ) {
     for axis_event in raw_events.read() {
         let Some(entity) = gamepads_map.get_entity(axis_event.gamepad) else {
@@ -1521,37 +1521,37 @@ pub fn gamepad_axis_event_system(
             continue;
         };
         let Some(filtered_value) = gamepad_settings
-            .get_axis_settings(axis_event.axis_type)
-            .filter(axis_event.value, gamepad_axis.get(axis_event.axis_type))
+            .get_axis_settings(axis_event.axis)
+            .filter(axis_event.value, gamepad_axis.get(axis_event.axis))
         else {
             continue;
         };
 
-        gamepad_axis.axis.set(axis_event.axis_type, filtered_value);
-        filtered_events.send(GamepadAxisChanged::new(
+        gamepad_axis.axis.set(axis_event.axis, filtered_value);
+        filtered_events.send(GamepadAxisChangedEvent::new(
             entity,
             axis_event.gamepad,
-            axis_event.axis_type,
+            axis_event.axis,
             filtered_value,
         ));
     }
 }
 
-/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonStateChanged`] [`event`](Event).
+/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonStateChangedEvent`] [`event`](Event).
 pub fn gamepad_button_event_system(
     // TODO: Change settings to Option<T>?
     mut gamepads: Query<(&Gamepad, &mut GamepadButtons, &GamepadSettings)>,
     gamepads_map: Res<Gamepads>,
     mut raw_events: EventReader<RawGamepadButtonChangedEvent>,
-    mut processed_digital_events: EventWriter<GamepadButtonStateChanged>,
-    mut processed_analog_events: EventWriter<GamepadButtonChanged>,
+    mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
+    mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
 ) {
     // Clear digital buttons state
     for (_, mut gamepad_buttons, _) in gamepads.iter_mut() {
         gamepad_buttons.bypass_change_detection().digital.clear();
     }
     for event in raw_events.read() {
-        let button = event.button_type;
+        let button = event.button;
         let Some(entity) = gamepads_map.get_entity(event.gamepad) else {
             continue;
         };
@@ -1570,7 +1570,7 @@ pub fn gamepad_button_event_system(
         if button_settings.is_released(filtered_value) {
             // Check if button was previously pressed
             if buttons.pressed(button) {
-                processed_digital_events.send(GamepadButtonStateChanged::new(
+                processed_digital_events.send(GamepadButtonStateChangedEvent::new(
                     entity,
                     gamepad,
                     button,
@@ -1583,7 +1583,7 @@ pub fn gamepad_button_event_system(
         } else if button_settings.is_pressed(filtered_value) {
             // Check if button was previously not pressed
             if !buttons.pressed(button) {
-                processed_digital_events.send(GamepadButtonStateChanged::new(
+                processed_digital_events.send(GamepadButtonStateChangedEvent::new(
                     entity,
                     gamepad,
                     button,
@@ -1592,7 +1592,7 @@ pub fn gamepad_button_event_system(
             }
             buttons.digital.press(button);
         };
-        processed_analog_events.send(GamepadButtonChanged::new(
+        processed_analog_events.send(GamepadButtonChangedEvent::new(
             entity,
             gamepad,
             button,
@@ -1764,10 +1764,10 @@ mod tests {
     use crate::gamepad::GamepadConnection::{Connected, Disconnected};
     use crate::gamepad::{
         gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-        AxisSettingsError, ButtonSettingsError, Gamepad, GamepadAxes, GamepadAxisChanged,
-        GamepadAxisType, GamepadButtonChanged, GamepadButtonStateChanged, GamepadButtonType,
-        GamepadButtons, GamepadConnectionEvent, GamepadId, GamepadInfo, GamepadSettings, Gamepads,
-        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+        AxisSettingsError, ButtonSettingsError, Gamepad, GamepadAxes, GamepadAxisChangedEvent,
+        GamepadAxisType, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+        GamepadButtonType, GamepadButtons, GamepadConnectionEvent, GamepadId, GamepadInfo,
+        GamepadSettings, Gamepads, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
     };
     use crate::ButtonState;
     use bevy_app::{App, PreUpdate};
@@ -2398,7 +2398,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2425,7 +2425,9 @@ mod tests {
             ]);
         app.update();
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             4
         );
     }
@@ -2437,7 +2439,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2478,7 +2480,9 @@ mod tests {
             .send_batch(events);
         app.update();
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             2
         );
     }
@@ -2490,7 +2494,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2528,7 +2532,9 @@ mod tests {
             .send_batch(events);
         app.update();
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             0
         );
     }
@@ -2540,7 +2546,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2581,13 +2587,15 @@ mod tests {
             .send_batch(events);
         app.update();
 
-        let events = app.world().resource::<Events<GamepadAxisChanged>>();
+        let events = app.world().resource::<Events<GamepadAxisChangedEvent>>();
         let mut event_reader = events.get_reader();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
         }
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             4
         );
     }
@@ -2599,7 +2607,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2639,7 +2647,9 @@ mod tests {
             .send_batch(events);
         app.update();
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             2
         );
     }
@@ -2651,7 +2661,7 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChanged>()
+            .add_event::<GamepadAxisChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_axis_event_system).chain(),
@@ -2690,13 +2700,15 @@ mod tests {
             .send_batch(events);
         app.update();
 
-        let events = app.world().resource::<Events<GamepadAxisChanged>>();
+        let events = app.world().resource::<Events<GamepadAxisChangedEvent>>();
         let mut event_reader = events.get_reader();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
         }
         assert_eq!(
-            app.world().resource::<Events<GamepadAxisChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadAxisChangedEvent>>()
+                .len(),
             2
         );
     }
@@ -2708,8 +2720,8 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_button_event_system).chain(),
@@ -2739,11 +2751,13 @@ mod tests {
 
         assert_eq!(
             app.world()
-                .resource::<Events<GamepadButtonStateChanged>>()
+                .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
-        let events = app.world().resource::<Events<GamepadButtonStateChanged>>();
+        let events = app
+            .world()
+            .resource::<Events<GamepadButtonStateChangedEvent>>();
         let mut event_reader = events.get_reader();
         for event in event_reader.read(events) {
             assert_eq!(event.button, GamepadButtonType::DPadDown);
@@ -2753,13 +2767,13 @@ mod tests {
             assert!(buttons.pressed(GamepadButtonType::DPadDown));
         }
         app.world_mut()
-            .resource_mut::<Events<GamepadButtonStateChanged>>()
+            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
         app.update();
 
         assert_eq!(
             app.world()
-                .resource::<Events<GamepadButtonStateChanged>>()
+                .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
         );
@@ -2772,8 +2786,8 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_button_event_system).chain(),
@@ -2818,8 +2832,8 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_button_event_system).chain(),
@@ -2847,7 +2861,7 @@ mod tests {
         app.update();
 
         app.world_mut()
-            .resource_mut::<Events<GamepadButtonStateChanged>>()
+            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
         app.world_mut()
             .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
@@ -2859,11 +2873,13 @@ mod tests {
         app.update();
         assert_eq!(
             app.world()
-                .resource::<Events<GamepadButtonStateChanged>>()
+                .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
-        let events = app.world().resource::<Events<GamepadButtonStateChanged>>();
+        let events = app
+            .world()
+            .resource::<Events<GamepadButtonStateChangedEvent>>();
         let mut event_reader = events.get_reader();
         for event in event_reader.read(events) {
             assert_eq!(event.button, GamepadButtonType::DPadDown);
@@ -2873,13 +2889,13 @@ mod tests {
             assert!(!buttons.pressed(GamepadButtonType::DPadDown));
         }
         app.world_mut()
-            .resource_mut::<Events<GamepadButtonStateChanged>>()
+            .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
         app.update();
 
         assert_eq!(
             app.world()
-                .resource::<Events<GamepadButtonStateChanged>>()
+                .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
         );
@@ -2892,8 +2908,8 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_button_event_system).chain(),
@@ -2946,8 +2962,8 @@ mod tests {
             .init_resource::<Gamepads>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChanged>()
-            .add_event::<GamepadButtonStateChanged>()
+            .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_systems(
                 PreUpdate,
                 (gamepad_connection_system, gamepad_button_event_system).chain(),
@@ -3005,12 +3021,14 @@ mod tests {
         app.update();
         assert_eq!(
             app.world()
-                .resource::<Events<GamepadButtonStateChanged>>()
+                .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             2
         );
         assert_eq!(
-            app.world().resource::<Events<GamepadButtonChanged>>().len(),
+            app.world()
+                .resource::<Events<GamepadButtonChangedEvent>>()
+                .len(),
             4
         );
     }
