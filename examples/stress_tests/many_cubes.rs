@@ -315,7 +315,9 @@ fn init_materials(
 fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
-    let mut radius_rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut radius_rng = ChaCha8Rng::seed_from_u64(42);
     let mut variant = 0;
     std::iter::repeat_with(|| {
         let radius = radius_rng.gen_range(0.25f32..=0.75f32);
