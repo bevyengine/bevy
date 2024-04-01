@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::{QueryBuilder, QueryData},
+        query::QueryData,
         world::FilteredEntityMut,
     },
     ptr::{Aligned, OwningPtr},

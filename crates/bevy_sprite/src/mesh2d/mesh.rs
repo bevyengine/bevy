@@ -95,7 +95,7 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
@@ -117,8 +117,8 @@ impl Plugin for Mesh2dRenderPlugin {
     fn finish(&self, app: &mut bevy_app::App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_device = render_app.world.resource::<RenderDevice>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
             let batched_instance_buffers = BatchedInstanceBuffers::<Mesh2dUniform, ()>::new(
                 render_device,
                 /*using_gpu_uniform_building=*/ false,

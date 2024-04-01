@@ -14,7 +14,6 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
-    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
@@ -84,7 +83,7 @@ impl Plugin for GameOfLifeComputePlugin {
             prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
         );
 
-        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
+        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
         render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
     }

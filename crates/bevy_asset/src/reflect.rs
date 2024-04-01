@@ -257,7 +257,7 @@ mod tests {
             .register_asset_reflect::<AssetType>();
 
         let reflect_asset = {
-            let type_registry = app.world.resource::<AppTypeRegistry>();
+            let type_registry = app.world().resource::<AppTypeRegistry>();
             let type_registry = type_registry.read();
 
             type_registry
@@ -270,9 +270,9 @@ mod tests {
             field: "test".into(),
         };
 
-        let handle = reflect_asset.add(&mut app.world, &value);
+        let handle = reflect_asset.add(app.world_mut(), &value);
         let ReflectMut::Struct(strukt) = reflect_asset
-            .get_mut(&mut app.world, handle)
+            .get_mut(app.world_mut(), handle)
             .unwrap()
             .reflect_mut()
         else {
@@ -283,19 +283,19 @@ mod tests {
             .unwrap()
             .apply(&String::from("edited"));
 
-        assert_eq!(reflect_asset.len(&app.world), 1);
-        let ids: Vec<_> = reflect_asset.ids(&app.world).collect();
+        assert_eq!(reflect_asset.len(app.world()), 1);
+        let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
         assert_eq!(ids.len(), 1);
 
         let fetched_handle = UntypedHandle::Weak(ids[0]);
         let asset = reflect_asset
-            .get(&app.world, fetched_handle.clone_weak())
+            .get(app.world(), fetched_handle.clone_weak())
             .unwrap();
         assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
 
         reflect_asset
-            .remove(&mut app.world, fetched_handle)
+            .remove(app.world_mut(), fetched_handle)
             .unwrap();
-        assert_eq!(reflect_asset.len(&app.world), 0);
+        assert_eq!(reflect_asset.len(app.world()), 0);
     }
 }

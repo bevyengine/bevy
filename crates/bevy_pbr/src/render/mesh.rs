@@ -125,7 +125,7 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let render_mesh_instances = RenderMeshInstances::new(self.use_gpu_uniform_builder);
 
             render_app
@@ -180,8 +180,8 @@ impl Plugin for MeshRenderPlugin {
     fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_device = render_app.world.resource::<RenderDevice>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
             let batched_instance_buffers =
                 BatchedInstanceBuffers::<MeshUniform, MeshInputUniform>::new(
                     render_device,
