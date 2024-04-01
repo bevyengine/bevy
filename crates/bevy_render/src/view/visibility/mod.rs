@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use bevy_utils::{HashMap, Parallel};
+use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
@@ -174,7 +174,7 @@ pub struct NoFrustumCulling;
 #[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
-    pub entities: HashMap<TypeId, Vec<Entity>>,
+    pub entities: TypeIdMap<Vec<Entity>>,
 }
 
 impl VisibleEntities {
