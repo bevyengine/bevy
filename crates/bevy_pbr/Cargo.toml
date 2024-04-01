@@ -50,6 +50,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
 range-alloc = "0.1"
 nonmax = "0.5"
+static_assertions = "1"
 
 [lints]
 workspace = true

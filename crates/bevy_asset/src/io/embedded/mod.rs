@@ -224,7 +224,7 @@ macro_rules! embedded_asset {
 
     ($app: ident, $source_path: expr, $path: expr) => {{
         let mut embedded = $app
-            .world
+            .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
         let watched_path = $crate::io::embedded::watched_path(file!(), $path);
@@ -253,7 +253,7 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
@@ -265,7 +265,7 @@ macro_rules! load_internal_asset {
     }};
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
@@ -282,7 +282,7 @@ macro_rules! load_internal_asset {
 #[macro_export]
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert(
             $handle.id(),
             ($loader)(

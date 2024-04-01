@@ -13,7 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+        sort_binned_render_phase, write_batched_instance_buffer, GetBatchData, GetBinnedBatchData,
         NoAutomaticBatching,
     },
     mesh::*,
@@ -30,6 +31,7 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
+use static_assertions::const_assert_eq;
 
 use crate::render::{
     morph::{
@@ -108,7 +110,7 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
@@ -125,13 +127,24 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transmissive3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3dDeferred, MeshPipeline>,
+                            sort_binned_render_phase::<Opaque3d>,
+                            sort_binned_render_phase::<AlphaMask3d>,
+                            sort_binned_render_phase::<Shadow>,
+                            sort_binned_render_phase::<Opaque3dDeferred>,
+                            sort_binned_render_phase::<AlphaMask3dDeferred>,
+                        )
+                            .in_set(RenderSet::PhaseSort),
+                        (
+                            batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transmissive3d, MeshPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
+                            batch_and_prepare_binned_render_phase::<
+                                AlphaMask3dDeferred,
+                                MeshPipeline,
+                            >,
                         )
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
@@ -148,9 +161,9 @@ impl Plugin for MeshRenderPlugin {
     fn finish(&self, app: &mut App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world().resource::<RenderDevice>(),
             ) {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -160,7 +173,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world().resource::<RenderDevice>(),
                 ))
                 .init_resource::<MeshPipeline>();
         }
@@ -471,13 +484,38 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
+impl GetBinnedBatchData for MeshPipeline {
+    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+
+        Some(MeshUniform::new(
+            &mesh_instance.transforms,
+            maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+        ))
+    }
+}
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
+        // Nothing
         const NONE                              = 0;
+
+        // Inherited bits
+        const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
+
+        // Flag bits
         const HDR                               = 1 << 0;
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
@@ -491,17 +529,18 @@ bitflags::bitflags! {
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
         const DEPTH_CLAMP_ORTHO                 = 1 << 10;
         const TEMPORAL_JITTER                   = 1 << 11;
-        const MORPH_TARGETS                     = 1 << 12;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 13;
-        const LIGHTMAPPED                       = 1 << 14;
-        const IRRADIANCE_VOLUME                 = 1 << 15;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
+        const LIGHTMAPPED                       = 1 << 13;
+        const IRRADIANCE_VOLUME                 = 1 << 14;
+        const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
+
+        // Bitfields
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
         const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                   // ← We still have room for one more value without adding more bits
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -525,36 +564,38 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const ALL_RESERVED_BITS =
+            Self::BLEND_RESERVED_BITS.bits() |
+            Self::MSAA_RESERVED_BITS.bits() |
+            Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
+            Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
+            Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
-        Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+    const MSAA_SHIFT_BITS: u32 = Self::LAST_FLAG.bits().trailing_zeros();
 
     const BLEND_MASK_BITS: u32 = 0b11;
-    const BLEND_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+    const BLEND_SHIFT_BITS: u32 = Self::MSAA_MASK_BITS.count_ones() + Self::MSAA_SHIFT_BITS;
 
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+        Self::BLEND_MASK_BITS.count_ones() + Self::BLEND_SHIFT_BITS;
 
     const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
     const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
+        Self::TONEMAP_METHOD_MASK_BITS.count_ones() + Self::TONEMAP_METHOD_SHIFT_BITS;
 
     const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
     const VIEW_PROJECTION_SHIFT_BITS: u32 =
-        Self::SHADOW_FILTER_METHOD_SHIFT_BITS - Self::VIEW_PROJECTION_MASK_BITS.count_ones();
+        Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones() + Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
 
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u32 = 0b11;
-    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 = Self::VIEW_PROJECTION_SHIFT_BITS
-        - Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones();
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 =
+        Self::VIEW_PROJECTION_MASK_BITS.count_ones() + Self::VIEW_PROJECTION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -576,14 +617,15 @@ impl MeshPipelineKey {
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+            & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         Self::from_bits_retain(primitive_topology_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        let primitive_topology_bits = (self.bits()
+            >> BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+            & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS;
         match primitive_topology_bits {
             x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
             x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
@@ -594,6 +636,13 @@ impl MeshPipelineKey {
         }
     }
 }
+
+// Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
+const_assert_eq!(
+    (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
+        & BaseMeshPipelineKey::all().bits(),
+    0
+);
 
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
