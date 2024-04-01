@@ -1444,4 +1444,64 @@ mod tests {
         assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
+
+    mod non_send {
+        use super::*;
+
+        #[allow(dead_code)]
+        struct MyNonSend(*const ());
+
+        impl Default for MyNonSend {
+            fn default() -> Self {
+                MyNonSend(std::ptr::null())
+            }
+        }
+
+        #[test]
+        fn init() {
+            let mut world = World::default();
+            let mut queue = CommandQueue::default();
+
+            {
+                let mut commands = Commands::new(&mut queue, &world);
+                commands.init_non_send_resource::<MyNonSend>();
+            }
+
+            queue.apply(&mut world);
+
+            assert!(world.contains_non_send::<MyNonSend>());
+        }
+
+        #[test]
+        fn insert() {
+            let mut world = World::default();
+            let mut queue = CommandQueue::default();
+
+            {
+                let mut commands = Commands::new(&mut queue, &world);
+                commands.insert_non_send_resource(|| MyNonSend(std::ptr::from_ref(&())));
+            }
+
+            queue.apply(&mut world);
+
+            assert!(world.contains_non_send::<MyNonSend>());
+        }
+
+        #[test]
+        fn remove() {
+            let mut world = World::default();
+            let mut queue = CommandQueue::default();
+
+            world.init_non_send_resource::<MyNonSend>();
+
+            {
+                let mut commands = Commands::new(&mut queue, &world);
+                commands.remove_non_send_resource::<MyNonSend>();
+            }
+
+            queue.apply(&mut world);
+
+            assert!(!world.contains_non_send::<MyNonSend>());
+        }
+    }
 }
