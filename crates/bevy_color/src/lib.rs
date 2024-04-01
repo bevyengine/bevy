@@ -164,7 +164,7 @@ where
 {
 }
 
-macro_rules! impl_componentwise_point {
+macro_rules! impl_componentwise_vector_space {
     ($ty: ident, [$($element: ident),+]) => {
         impl std::ops::Add<Self> for $ty {
             type Output = Self;
@@ -179,6 +179,16 @@ macro_rules! impl_componentwise_point {
         impl std::ops::AddAssign<Self> for $ty {
             fn add_assign(&mut self, rhs: Self) {
                 *self = *self + rhs;
+            }
+        }
+
+        impl std::ops::Neg for $ty {
+            type Output = Self;
+
+            fn neg(self) -> Self::Output {
+                Self::Output {
+                    $($element: -self.$element,)+
+                }
             }
         }
 
@@ -240,8 +250,12 @@ macro_rules! impl_componentwise_point {
             }
         }
 
-        impl bevy_math::cubic_splines::Point for $ty {}
+        impl bevy_math::VectorSpace for $ty {
+            const ZERO: Self = Self {
+                $($element: 0.0,)+
+            };
+        }
     };
 }
 
-pub(crate) use impl_componentwise_point;
+pub(crate) use impl_componentwise_vector_space;

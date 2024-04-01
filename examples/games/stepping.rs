@@ -36,7 +36,7 @@ impl Plugin for SteppingPlugin {
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
         app.init_schedule(DebugSchedule);
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();
         order.insert_after(Update, DebugSchedule);
 
         // create our stepping resource

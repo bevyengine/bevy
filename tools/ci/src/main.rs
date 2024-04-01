@@ -18,6 +18,7 @@ bitflags! {
         const EXAMPLE_CHECK = 0b10000000;
         const COMPILE_CHECK = 0b100000000;
         const CFG_CHECK = 0b1000000000;
+        const TEST_CHECK = 0b10000000000;
     }
 }
 
@@ -56,13 +57,18 @@ fn main() {
         ("doc", Check::DOC_TEST | Check::DOC_CHECK),
         (
             "compile",
-            Check::COMPILE_FAIL | Check::BENCH_CHECK | Check::EXAMPLE_CHECK | Check::COMPILE_CHECK,
+            Check::COMPILE_FAIL
+                | Check::BENCH_CHECK
+                | Check::EXAMPLE_CHECK
+                | Check::COMPILE_CHECK
+                | Check::TEST_CHECK,
         ),
         ("format", Check::FORMAT),
         ("clippy", Check::CLIPPY),
         ("compile-fail", Check::COMPILE_FAIL),
         ("bench-check", Check::BENCH_CHECK),
         ("example-check", Check::EXAMPLE_CHECK),
+        ("test-check", Check::TEST_CHECK),
         ("cfg-check", Check::CFG_CHECK),
         ("doc-check", Check::DOC_CHECK),
         ("doc-test", Check::DOC_TEST),
@@ -310,6 +316,24 @@ fn main() {
                 failure_message: "Please fix failing cfg checks in output above.",
                 subdir: None,
                 env_vars: vec![("RUSTFLAGS", "-D warnings")],
+            }],
+        );
+    }
+
+    if checks.contains(Check::TEST_CHECK) {
+        let mut args = vec!["--workspace", "--tests"];
+
+        if flags.contains(Flag::KEEP_GOING) {
+            args.push("--keep-going");
+        }
+
+        test_suite.insert(
+            Check::TEST_CHECK,
+            vec![CITest {
+                command: cmd!(sh, "cargo check {args...}"),
+                failure_message: "Please fix compiler examples for tests in output above.",
+                subdir: None,
+                env_vars: Vec::new(),
             }],
         );
     }

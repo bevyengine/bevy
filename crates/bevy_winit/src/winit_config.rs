@@ -2,7 +2,7 @@ use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Clone)]
 pub struct WinitSettings {
     /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
