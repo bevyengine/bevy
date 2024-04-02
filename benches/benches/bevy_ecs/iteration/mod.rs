@@ -124,7 +124,7 @@ fn par_iter_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("par_iter_simple");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
-    for f in [0, 10, 500, 10000] {
+    for f in [0, 10, 100, 1000] {
         group.bench_function(format!("with_{}_fragment", f), |b| {
             let mut bench = par_iter_simple::Benchmark::new(f);
             b.iter(move || bench.run());
