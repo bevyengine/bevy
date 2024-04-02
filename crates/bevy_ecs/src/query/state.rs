@@ -1402,31 +1402,26 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
                 let queue = std::mem::take(queue);
                 let mut func = func.clone();
-                if D::IS_DENSE && F::IS_DENSE {
-                    scope.spawn(async move {
-                        #[cfg(feature = "trace")]
-                        let _span = self.par_iter_span.enter();
-                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
-                        for storage_id in queue {
-                            let table_id = storage_id.table_id;
-                            let table =
-                                &world.storages().tables.get(table_id).debug_checked_unwrap();
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                    for storage_id in queue {
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let id = storage_id.table_id;
+                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
                             iter.for_each_in_table_range(&mut func, table, 0..table.entity_count())
+                        } else {
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
+                            iter.for_each_in_archetype_range(
+                                &mut func,
+                                archetype,
+                                0..archetype.len(),
+                            )
                         }
-                    });
-                } else {
-                    scope.spawn(async move {
-                        #[cfg(feature = "trace")]
-                        let _span = self.par_iter_span.enter();
-                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
-                        for storage_id in queue {
-                            let table_id = storage_id.table_id;
-                            let table =
-                                &world.storages().tables.get(table_id).debug_checked_unwrap();
-                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count())
-                        }
-                    });
-                }
+                    }
+                });
             };
 
             // submit single storage which size larger than batch_size
@@ -1439,18 +1434,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         if D::IS_DENSE && F::IS_DENSE {
-                            let table = world
-                                .storages()
-                                .tables
-                                .get(storage_id.table_id)
-                                .debug_checked_unwrap();
+                            let id = storage_id.table_id;
+                            let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_table_range(&mut func, table, batch);
                         } else {
-                            let archetype = world
-                                .archetypes()
-                                .get(storage_id.archetype_id)
-                                .debug_checked_unwrap();
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_archetype_range(&mut func, archetype, batch)
                         }
