@@ -192,8 +192,77 @@ impl SystemExecutor for MultiThreadedExecutor {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        skip_systems: Option<&FixedBitSet>,
     ) {
+        let state = self.state.get_mut().unwrap();
+        // reset counts
+        state.num_systems = schedule.systems.len();
+        if state.num_systems == 0 {
+            return;
+        }
+        state.num_running_systems = 0;
+        state.num_completed_systems = 0;
+        state.num_dependencies_remaining.clear();
+        state
+            .num_dependencies_remaining
+            .extend_from_slice(&schedule.system_dependencies);
+
+        for (system_index, dependencies) in state.num_dependencies_remaining.iter_mut().enumerate()
+        {
+            if *dependencies == 0 {
+                state.ready_systems.insert(system_index);
+            }
+        }
+
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        let thread_executor = thread_executor.as_deref();
+
+        let environment = &Environment::new(self, schedule, world);
+
+        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
+            false,
+            thread_executor,
+            |scope| {
+                let context = Context { environment, scope };
+
+                // The first tick won't need to process finished systems, but we still need to run the loop in
+                // tick_executor() in case a system completes while the first tick still holds the mutex.
+                context.tick_executor();
+            },
+        );
+
+        // End the borrows of self and world in environment by copying out the reference to systems.
+        let systems = environment.systems;
+
+        let state = self.state.get_mut().unwrap();
+        if self.apply_final_deferred {
+            // Do one final apply buffers after all systems have completed
+            // Commands should be applied while on the scope's thread, not the executor's thread
+            let res = apply_deferred(&state.unapplied_systems, systems, world);
+            if let Err(payload) = res {
+                let mut panic_payload = self.panic_payload.lock().unwrap();
+                *panic_payload = Some(payload);
+            }
+            state.unapplied_systems.clear();
+            debug_assert!(state.unapplied_systems.is_clear());
+        }
+
+        // check to see if there was a panic
+        let mut payload = self.panic_payload.lock().unwrap();
+        if let Some(payload) = payload.take() {
+            std::panic::resume_unwind(payload);
+        }
+
+        debug_assert!(state.ready_systems.is_clear());
+        debug_assert!(state.running_systems.is_clear());
+        state.active_access.clear();
+        state.evaluated_sets.clear();
+        state.skipped_systems.clear();
+        state.completed_systems.clear();
+    }
+
+    fn run_with_skip(&mut self, schedule: &mut SystemSchedule, world: &mut World, skip_systems: Option<&FixedBitSet>) {
         let state = self.state.get_mut().unwrap();
         // reset counts
         state.num_systems = schedule.systems.len();

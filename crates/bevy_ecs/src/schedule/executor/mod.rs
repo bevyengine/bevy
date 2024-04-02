@@ -27,7 +27,15 @@ pub(super) trait SystemExecutor: Send + Sync {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        skip_systems: Option<&FixedBitSet>,
+    );
+
+    /// Similar to `run`, but potentially skips systems based on the provided bitset.
+    /// This is separated from `run` to avoid the performance hit of checking the bitset
+    fn run_with_skip(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        skip_systems: Option<&FixedBitSet>
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }

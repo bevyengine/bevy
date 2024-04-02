@@ -330,7 +330,7 @@ impl Schedule {
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, None);
+        self.executor.run(&mut self.executable, world);
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
@@ -340,7 +340,7 @@ impl Schedule {
             };
 
             self.executor
-                .run(&mut self.executable, world, skip_systems.as_ref());
+                .run_with_skip(&mut self.executable, world, skip_systems.as_ref());
         }
     }
 
@@ -384,7 +384,7 @@ impl Schedule {
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
-            .run(&mut self.executable, world, skipped.as_ref());
+            .run_with_skip(&mut self.executable, world, skipped.as_ref());
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
@@ -399,7 +399,7 @@ impl Schedule {
                 (None, None) => None,
             };
             self.executor
-                .run(&mut self.executable, world, to_skip.as_ref());
+                .run_with_skip(&mut self.executable, world, to_skip.as_ref());
         }
     }
 

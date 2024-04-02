@@ -38,14 +38,7 @@ impl SystemExecutor for SimpleExecutor {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        skip_systems: Option<&FixedBitSet>,
     ) {
-        // skip the systems that should not be run.
-        if let Some(skipped_systems) = skip_systems {
-            // mark skipped systems as completed
-            self.completed_systems |= skipped_systems;
-        }
-
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -103,6 +96,15 @@ impl SystemExecutor for SimpleExecutor {
 
         self.evaluated_sets.clear();
         self.completed_systems.clear();
+    }
+
+    fn run_with_skip(&mut self, schedule: &mut SystemSchedule, world: &mut World, skip_systems: Option<&FixedBitSet>) {
+        // skip the systems that should not be run.
+        if let Some(skipped_systems) = skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+        }
+        self.run(schedule, world)
     }
 
     fn set_apply_final_deferred(&mut self, _: bool) {
