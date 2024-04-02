@@ -426,7 +426,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 continue;
             };
             let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
