@@ -423,9 +423,13 @@ fn handle_winit_event(
                 {
                     // Remove the `RawHandleWrapper` from the primary window.
                     // This will trigger the surface destruction.
-                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
-                    let entity = query.single(&app.world);
-                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                    let mut query = app
+                        .world_mut()
+                        .query_filtered::<Entity, With<PrimaryWindow>>();
+                    let entity = query.single(&app.world());
+                    app.world_mut()
+                        .entity_mut(entity)
+                        .remove::<RawHandleWrapper>();
                 }
             }
 
@@ -440,9 +444,9 @@ fn handle_winit_event(
                     // Get windows that are cached but without raw handles. Those window were already created, but got their
                     // handle wrapper removed when the app was suspended.
                     let mut query = app
-                        .world
+                        .world_mut()
                         .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                    if let Ok((entity, window)) = query.get_single(&app.world()) {
                         use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
                         let window = window.clone();
 
@@ -468,7 +472,7 @@ fn handle_winit_event(
                             display_handle: winit_window.display_handle().unwrap().as_raw(),
                         };
 
-                        app.world.entity_mut(entity).insert(wrapper);
+                        app.world_mut().entity_mut(entity).insert(wrapper);
                     }
                 }
             }
