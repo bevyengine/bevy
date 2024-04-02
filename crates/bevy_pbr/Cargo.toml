@@ -51,7 +51,6 @@ bincode = "1"
 range-alloc = "0.1"
 nonmax = "0.5"
 static_assertions = "1"
-wgpu = { version = "0.19.3", default-features = false, features = [] }
 
 [lints]
 workspace = true

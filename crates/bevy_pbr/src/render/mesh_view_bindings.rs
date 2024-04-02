@@ -21,7 +21,7 @@ use bevy_render::{
     texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
-use wgpu::DownlevelFlags;
+use bevy_render::DownlevelFlags;
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;

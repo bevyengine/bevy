@@ -23,7 +23,7 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
 use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
-use wgpu::DownlevelFlags;
+use bevy_render::DownlevelFlags;
 
 use crate::*;
 
