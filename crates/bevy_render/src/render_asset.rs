@@ -36,6 +36,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     type Param: SystemParam;
 
     /// Whether or not to unload the asset after extracting it to the render world.
+    #[inline]
     fn asset_usage(_source_asset: &Self::SourceAsset) -> RenderAssetUsages {
         RenderAssetUsages::default()
     }
