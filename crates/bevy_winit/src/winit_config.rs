@@ -18,8 +18,10 @@ impl WinitSettings {
     pub fn game() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::ReactiveLowPower {
-                wait: Duration::from_secs_f64(1.0 / 60.0), // 60Hz
+            unfocused_mode: UpdateMode::Reactive {
+                wait: Duration::from_secs_f64(1.0 / 60.0), // 60Hz,
+                react_to_window_events: true,
+                react_to_device_events: true,
             },
         }
     }
@@ -34,9 +36,13 @@ impl WinitSettings {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
                 wait: Duration::from_secs(1),
+                react_to_window_events: true,
+                react_to_device_events: true,
             },
-            unfocused_mode: UpdateMode::ReactiveLowPower {
+            unfocused_mode: UpdateMode::Reactive {
                 wait: Duration::from_secs(5),
+                react_to_window_events: true,
+                react_to_device_events: false,
             },
         }
     }
@@ -81,23 +87,9 @@ pub enum UpdateMode {
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
         wait: Duration,
-    },
-    /// The [`App`](bevy_app::App) will update in response to the following, until an
-    /// [`AppExit`](bevy_app::AppExit) event appears:
-    /// - `wait` time has elapsed since the previous update
-    /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
-    /// - new [window events](`winit::event::WindowEvent`) have appeared
-    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
-    ///
-    /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
-    /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
-    /// Use this mode if, for example, you only want your app to update when the mouse cursor is
-    /// moving over a window, not just moving in general. This can greatly reduce power consumption.
-    ReactiveLowPower {
-        /// The approximate time from the start of one update to the next.
-        ///
-        /// **Note:** This has no upper limit.
-        /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
-        wait: Duration,
+        /// Reacts to window events, that will wake up the loop if it's in a wait wtate
+        react_to_window_events: bool,
+        /// Reacts to device events, that will wake up the loop if it's in a wait wtate
+        react_to_device_events: bool,
     },
 }

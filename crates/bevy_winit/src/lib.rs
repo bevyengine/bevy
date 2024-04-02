@@ -420,16 +420,11 @@ fn handle_winit_event(
                         || runner_state.window_event_received
                         || runner_state.device_event_received
                 }
-                UpdateMode::Reactive { .. } => {
+                UpdateMode::Reactive { react_to_window_events, react_to_device_events, .. } => {
                     runner_state.wait_elapsed
                         || runner_state.redraw_requested
-                        || runner_state.window_event_received
-                        || runner_state.device_event_received
-                }
-                UpdateMode::ReactiveLowPower { .. } => {
-                    runner_state.wait_elapsed
-                        || runner_state.redraw_requested
-                        || runner_state.window_event_received
+                        || (runner_state.window_event_received && react_to_window_events)
+                        || (runner_state.device_event_received && react_to_device_events)
                 }
             };
 
@@ -542,7 +537,7 @@ fn handle_winit_event(
                         }
                     }
                 }
-                UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                UpdateMode::Reactive { wait, .. } => {
                     if let Some(next) = runner_state.last_update.checked_add(wait) {
                         runner_state.last_update = Instant::now();
 
