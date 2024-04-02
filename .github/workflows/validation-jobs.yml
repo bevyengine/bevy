@@ -71,25 +71,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # TODO: Specify custom xkb, test whether additional flags are necessary, replace old version
-      # - name: Install Linux dependencies
-      #   uses: ./.github/actions/install-linux-deps
-      #   with:
-      #     xkb: true
-      #   env:
-      #     DEBIAN_FRONTEND: noninteractive
-      - name: Install Bevy dependencies
-        run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev libxkbcommon-x11-0;
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
+      - name: Install additional Linux dependencies for Vulkan
+        run: |
+          sudo add-apt-repository ppa:kisak/turtle -y
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/cache@v4
         with:
           path: |

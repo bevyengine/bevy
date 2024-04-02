@@ -8,7 +8,8 @@
 #     wayland: true
 # ```
 #
-# See the `inputs` section for all options and their defaults.
+# See the `inputs` section for all options and their defaults. Note that you must checkout the
+# repository before you can use this action.
 #
 # This action will only install dependencies when the current operating system is Linux. It will do
 # nothing on any other OS (MacOS, Windows).
