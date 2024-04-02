@@ -1,6 +1,4 @@
-#![allow(unsafe_code)]
-#![allow(clippy::undocumented_unsafe_blocks)]
-// TODO: Remove these once unsafe code is removed from this module
+#![allow(clippy::undocumented_unsafe_blocks)] // TODO: Remove
 
 use super::asset::{
     Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh,
