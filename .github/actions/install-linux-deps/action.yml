@@ -1,0 +1,35 @@
+name: Install Linux dependencies
+description: Installs the dependencies necessary to build Bevy on Linux.
+inputs:
+  # Enabled by default
+  alsa:
+    description: Install alsa (libasound2-dev)
+    required: false
+    default: true
+  udev:
+    description: Install udev (libudev-dev)
+    required: false
+    default: true
+  # Disabled by default
+  wayland:
+    description: Install Wayland (libwayland-dev)
+    required: false
+    default: false
+  xkb:
+    description: Install xkb (libxkbcommon-dev)
+    required: false
+    default: false
+runs:
+  using: composite
+  steps:
+    - name: Install Linux dependencies
+      shell: bash
+      if: ${{ runner.os == 'linux' }}
+      run: >
+        sudo apt-get update
+
+        sudo apt-get install --no-install-recommends
+        ${{ inputs.alsa && 'libasound2-dev' }}
+        ${{ inputs.udev && 'libudev-dev' }}
+        ${{ inputs.wayland && 'libwayland-dev' }}
+        ${{ inputs.xkb && 'libxkbcommon-dev' }}
