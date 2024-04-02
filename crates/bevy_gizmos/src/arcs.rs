@@ -22,7 +22,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
-    /// - `color` sets the color to draw the arc
+    /// - `color` sets the color to draw the arc.
     ///
     /// # Example
     /// ```
