@@ -2803,6 +2803,9 @@ mod tests {
         let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
 
         assert_eq!(components, vec![] as Vec<&TestComponent>);
+
+        // remove non-existent component does not panic
+        world.spawn_empty().remove_by_id(test_component_id);
     }
 
     #[derive(Component)]
