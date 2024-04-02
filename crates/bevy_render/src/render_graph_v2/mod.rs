@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_utils::HashMap;
-use wgpu::{BindGroupLayoutEntry, TextureDescriptor};
+use wgpu::{BindGroupLayoutEntry, Texture, TextureDescriptor};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -34,6 +34,7 @@ pub struct RenderGraph {
     nodes: Vec<RenderGraphNode>,
 
     bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
+    resources: HashMap<RenderGraphResourceId, Texture>,
 }
 
 impl RenderGraph {
@@ -61,6 +62,8 @@ impl RenderGraph {
         self.next_id = 0;
         self.resource_descriptors.clear();
         self.nodes.clear();
+
+        // TODO: Remove unused resources
     }
 }
 
