@@ -31,7 +31,17 @@ impl RenderGraph {
     }
 
     fn build_resources(&mut self, render_device: &RenderDevice) {
-        // TODO: Create textures if not exist
+        for node in &self.nodes {
+            for resource_usage in node.resource_usages.iter() {
+                if let Some(resource_descriptor) =
+                    self.resource_descriptors.get(&resource_usage.resource.id)
+                {
+                    self.resources
+                        .entry(resource_descriptor.clone())
+                        .or_insert_with(|| render_device.create_texture(resource_descriptor));
+                }
+            }
+        }
     }
 
     fn build_bind_group_layouts(&mut self, render_device: &RenderDevice) {
