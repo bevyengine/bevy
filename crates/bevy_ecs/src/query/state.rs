@@ -1392,53 +1392,104 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
-            for storage_id in &self.matched_storage_ids {
-                if D::IS_DENSE && F::IS_DENSE {
-                    let table_id = storage_id.table_id;
-                    let table = &tables[table_id];
-                    if table.is_empty() {
-                        continue;
-                    }
+            let mut batch_queue = vec![];
+            let mut queue_entity_count = 0;
 
-                    let mut offset = 0;
-                    while offset < table.entity_count() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(table.entity_count() - offset);
-                        let batch = offset..offset + len;
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
+            // submit a list of storages which size smaller than batch_size as single task
+            let submit_batch_queue = |queue: &mut Vec<StorageId>| {
+                if queue.is_empty() {
+                    return;
+                }
+                let queue = std::mem::take(queue);
+                let mut func = func.clone();
+                if D::IS_DENSE && F::IS_DENSE {
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = self.par_iter_span.enter();
+                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                        for storage_id in queue {
+                            let table_id = storage_id.table_id;
                             let table =
                                 &world.storages().tables.get(table_id).debug_checked_unwrap();
+                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count())
+                        }
+                    });
+                } else {
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = self.par_iter_span.enter();
+                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                        for storage_id in queue {
+                            let table_id = storage_id.table_id;
+                            let table =
+                                &world.storages().tables.get(table_id).debug_checked_unwrap();
+                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count())
+                        }
+                    });
+                }
+            };
+
+            // submit single storage which size larger than batch_size
+            let submit_single = |count, storage_id: StorageId| {
+                for offset in (0..count).step_by(batch_size) {
+                    let mut func = func.clone();
+                    let len = batch_size.min(count - offset);
+                    let batch = offset..offset + len;
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = self.par_iter_span.enter();
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let table = world
+                                .storages()
+                                .tables
+                                .get(storage_id.table_id)
+                                .debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_table_range(&mut func, table, batch);
-                        });
-                        offset += batch_size;
-                    }
-                } else {
-                    let archetype_id = storage_id.archetype_id;
-                    let archetype = &archetypes[archetype_id];
-                    if archetype.is_empty() {
-                        continue;
-                    }
-
-                    let mut offset = 0;
-                    while offset < archetype.len() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(archetype.len() - offset);
-                        let batch = offset..offset + len;
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
-                            let archetype =
-                                world.archetypes().get(archetype_id).debug_checked_unwrap();
+                        } else {
+                            let archetype = world
+                                .archetypes()
+                                .get(storage_id.archetype_id)
+                                .debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_archetype_range(&mut func, archetype, batch);
-                        });
-                        offset += batch_size;
-                    }
+                                .for_each_in_archetype_range(&mut func, archetype, batch)
+                        }
+                    });
+                }
+            };
+
+            let storage_entity_count = |storage_id: StorageId| -> usize {
+                if D::IS_DENSE && F::IS_DENSE {
+                    tables[storage_id.table_id].entity_count()
+                } else {
+                    archetypes[storage_id.archetype_id].len()
+                }
+            };
+
+            for storage_id in &self.matched_storage_ids {
+                let count = storage_entity_count(*storage_id);
+
+                // skip empty table
+                if count == 0 {
+                    continue;
+                }
+                // immediately submit for large storage
+                if count >= batch_size {
+                    submit_single(count, *storage_id);
+                }
+                // merge small storage
+                else {
+                    batch_queue.push(*storage_id);
+                    queue_entity_count += count;
+                }
+
+                // submit batch_queue
+                if queue_entity_count >= batch_size {
+                    submit_batch_queue(&mut batch_queue);
+                    continue;
                 }
             }
+            submit_batch_queue(&mut batch_queue);
         });
     }
 
