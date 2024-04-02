@@ -21,9 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@beta
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-        if: runner.os == 'linux'
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
@@ -39,8 +38,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@beta
         with:
           components: rustfmt, clippy
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
       - name: Run lints
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -52,8 +54,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@beta
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Check compile test
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
@@ -64,8 +66,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@beta
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
       - name: Build and check docs
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc

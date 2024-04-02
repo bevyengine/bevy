@@ -71,6 +71,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # TODO: Specify custom xkb, test whether additional flags are necessary, replace old version
+      # - name: Install Linux dependencies
+      #   uses: ./.github/actions/install-linux-deps
+      #   with:
+      #     xkb: true
+      #   env:
+      #     DEBIAN_FRONTEND: noninteractive
       - name: Install Bevy dependencies
         run: |
           sudo apt-get update;
@@ -240,8 +247,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
         env:
@@ -282,8 +289,8 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Run cargo udeps
         run: cargo udeps
 
@@ -305,8 +312,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Apply patches
         run: |
           for patch in tools/example-showcase/*.patch; do
