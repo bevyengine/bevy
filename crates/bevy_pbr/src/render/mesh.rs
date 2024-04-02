@@ -15,13 +15,15 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
-        sort_binned_render_phase, write_batched_instance_buffer, BatchedInstanceBuffers,
+        clear_batched_instance_buffers, write_batched_instance_buffer, BatchedInstanceBuffers,
         GetBatchData, GetBinnedBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{
+        BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,
+        SortedRenderPhasePlugin, TrackedRenderPass,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
@@ -123,7 +125,16 @@ impl Plugin for MeshRenderPlugin {
         app.add_systems(
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
-        );
+        )
+        .add_plugins((
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+        ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let render_mesh_instances = RenderMeshInstances::new(self.use_gpu_uniform_builder);
@@ -137,29 +148,12 @@ impl Plugin for MeshRenderPlugin {
                 .insert_resource(render_mesh_instances)
                 .add_systems(ExtractSchedule, (extract_skins, extract_morphs))
                 .add_systems(
+                    ExtractSchedule,
+                    clear_batched_instance_buffers::<MeshPipeline>.before(ExtractMeshesSet),
+                )
+                .add_systems(
                     Render,
                     (
-                        (
-                            sort_binned_render_phase::<Opaque3d>,
-                            sort_binned_render_phase::<AlphaMask3d>,
-                            sort_binned_render_phase::<Shadow>,
-                            sort_binned_render_phase::<Opaque3dDeferred>,
-                            sort_binned_render_phase::<AlphaMask3dDeferred>,
-                        )
-                            .in_set(RenderSet::PhaseSort),
-                        (
-                            batch_and_prepare_binned_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_and_prepare_sorted_render_phase::<Transmissive3d, MeshPipeline>,
-                            batch_and_prepare_sorted_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<Shadow, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<Opaque3dDeferred, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<
-                                AlphaMask3dDeferred,
-                                MeshPipeline,
-                            >,
-                        )
-                            .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
@@ -896,7 +890,7 @@ impl GetBatchData for MeshPipeline {
         ))
     }
 
-    fn get_batch_index(
+    fn get_batch_input_index(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)> {
@@ -950,7 +944,7 @@ impl GetBinnedBatchData for MeshPipeline {
         ))
     }
 
-    fn get_batch_index(
+    fn get_batch_input_index(
         (mesh_instances, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<u32> {

@@ -365,7 +365,7 @@ impl GetBatchData for Mesh2dPipeline {
         ))
     }
 
-    fn get_batch_index(
+    fn get_batch_input_index(
         _: &SystemParamItem<Self::Param>,
         _: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)> {

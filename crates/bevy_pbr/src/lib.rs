@@ -80,7 +80,7 @@ pub mod graph {
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
         /// Label for the compute shader mesh uniforms building pass.
-        BuildMeshUniforms,
+        GpuPreprocess,
     }
 }
 
@@ -369,7 +369,7 @@ impl Plugin for PbrPlugin {
         }
 
         if self.use_gpu_uniform_builder {
-            app.add_plugins(BuildMeshUniformsPlugin);
+            app.add_plugins(GpuMeshPreprocessPlugin);
         }
 
         app.world_mut().resource_mut::<Assets<StandardMaterial>>().insert(
@@ -404,15 +404,6 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
-
-        render_app.ignore_ambiguity(
-            bevy_render::Render,
-            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
-            bevy_render::batching::batch_and_prepare_sorted_render_phase::<
-                bevy_core_pipeline::core_3d::Transmissive3d,
-                MeshPipeline,
-            >,
-        );
     }
 
     fn finish(&self, app: &mut App) {

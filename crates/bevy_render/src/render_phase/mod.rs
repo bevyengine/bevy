@@ -29,6 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
+use bevy_app::{App, Plugin};
 use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
@@ -36,13 +37,17 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache};
+use crate::{
+    batching::{self, GetBatchData, GetBinnedBatchData},
+    render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    Render, RenderApp, RenderSet,
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use smallvec::SmallVec;
-use std::{hash::Hash, ops::Range, slice::SliceIndex};
+use std::{hash::Hash, marker::PhantomData, ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -288,6 +293,88 @@ where
             unbatchable_values: HashMap::default(),
             batch_sets: vec![],
         }
+    }
+}
+
+/// A convenient abstraction for adding all the systems necessary for a binned
+/// render phase to the render app.
+pub struct BinnedRenderPhasePlugin<BPI, GBBD>(PhantomData<(BPI, GBBD)>)
+where
+    BPI: BinnedPhaseItem,
+    GBBD: GetBinnedBatchData;
+
+impl<BPI, GBBD> Default for BinnedRenderPhasePlugin<BPI, GBBD>
+where
+    BPI: BinnedPhaseItem,
+    GBBD: GetBinnedBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<BPI, GBBD> Plugin for BinnedRenderPhasePlugin<BPI, GBBD>
+where
+    BPI: BinnedPhaseItem,
+    GBBD: GetBinnedBatchData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
+            (
+                batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                (
+                    batching::batch_and_prepare_binned_render_phase::<BPI, GBBD>,
+                    batching::batch_and_prepare_binned_render_phase_for_gpu_preprocessing::<
+                        BPI,
+                        GBBD,
+                    >,
+                )
+                    .in_set(RenderSet::PrepareResources),
+            ),
+        );
+    }
+}
+
+/// A convenient abstraction for adding all the systems necessary for a sorted
+/// render phase to the render app.
+pub struct SortedRenderPhasePlugin<SPI, GBD>(PhantomData<(SPI, GBD)>)
+where
+    SPI: SortedPhaseItem,
+    GBD: GetBatchData;
+
+impl<SPI, GBD> Default for SortedRenderPhasePlugin<SPI, GBD>
+where
+    SPI: SortedPhaseItem,
+    GBD: GetBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<SPI, GBD> Plugin for SortedRenderPhasePlugin<SPI, GBD>
+where
+    SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
+    GBD: GetBatchData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
+            (
+                batching::batch_and_prepare_sorted_render_phase::<SPI, GBD>,
+                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GBD>,
+            )
+                .in_set(RenderSet::PrepareResources),
+        );
     }
 }
 

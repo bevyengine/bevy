@@ -23,6 +23,11 @@ struct MeshInput {
     previous_input_index: u32,
 }
 
+struct PreprocessWorkItem {
+    input_index: u32,
+    output_index: u32,
+}
+
 // The current frame's `MeshInput`.
 @group(0) @binding(0) var<storage> current_input: array<MeshInput>;
 // The `MeshInput` values from the previous frame.
@@ -30,7 +35,7 @@ struct MeshInput {
 // Indices into the `MeshInput` buffer.
 //
 // There may be many indices that map to the same `MeshInput`.
-@group(0) @binding(2) var<storage> indices: array<u32>;
+@group(0) @binding(2) var<storage> work_items: array<PreprocessWorkItem>;
 // The output array of `Mesh`es.
 @group(0) @binding(3) var<storage, read_write> output: array<Mesh>;
 
@@ -38,12 +43,13 @@ struct MeshInput {
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let instance_index = global_invocation_id.x;
-    if (instance_index >= arrayLength(&output)) {
+    if (instance_index >= arrayLength(&work_items)) {
         return;
     }
 
     // Unpack.
-    let mesh_index = indices[instance_index];
+    let mesh_index = work_items[instance_index].input_index;
+    let output_index = work_items[instance_index].output_index;
     let model_affine_transpose = current_input[mesh_index].model;
     let model = maths::affine3_to_square(model_affine_transpose);
 
@@ -67,10 +73,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
     // Write the output.
-    output[instance_index].model = model_affine_transpose;
-    output[instance_index].previous_model = previous_model;
-    output[instance_index].inverse_transpose_model_a = inverse_transpose_model_a;
-    output[instance_index].inverse_transpose_model_b = inverse_transpose_model_b;
-    output[instance_index].flags = current_input[mesh_index].flags;
-    output[instance_index].lightmap_uv_rect = current_input[mesh_index].lightmap_uv_rect;
+    output[output_index].model = model_affine_transpose;
+    output[output_index].previous_model = previous_model;
+    output[output_index].inverse_transpose_model_a = inverse_transpose_model_a;
+    output[output_index].inverse_transpose_model_b = inverse_transpose_model_b;
+    output[output_index].flags = current_input[mesh_index].flags;
+    output[output_index].lightmap_uv_rect = current_input[mesh_index].lightmap_uv_rect;
 }
