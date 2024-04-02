@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use xshell::{cmd, Cmd, Shell};
 
 bitflags! {
+    /// A collection of individual checks that can be run in CI.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct Check: u32 {
         const FORMAT = 1 << 0;
@@ -19,11 +20,11 @@ bitflags! {
         const CFG_CHECK = 1 << 9;
         const TEST_CHECK = 1 << 10;
     }
-}
 
-bitflags! {
+    /// A collection of flags that can modify how checks are run.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Flag: u32 {
+        /// Forces certain checks to continue running even if they hit an error.
         const KEEP_GOING = 1 << 0;
     }
 }
