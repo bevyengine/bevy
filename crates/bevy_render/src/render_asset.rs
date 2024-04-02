@@ -40,7 +40,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         RenderAssetUsages::default()
     }
 
-    /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
+    /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a [`RenderAsset`].
     ///
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
@@ -171,8 +171,8 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
     }
 }
 
-/// Stores all GPU representations ([`RenderAsset`](RenderAsset))
-/// of [`RenderAsset::SourceAsset`](RenderAsset::SourceAsset) as long as they exist.
+/// Stores all GPU representations ([`RenderAsset`])
+/// of [`RenderAsset::SourceAsset`] as long as they exist.
 #[derive(Resource)]
 pub struct RenderAssets<A: RenderAsset>(HashMap<AssetId<A::SourceAsset>, A>);
 

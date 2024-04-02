@@ -64,7 +64,7 @@ impl Deref for BindGroup {
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
-/// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
+/// for an [`Image`](crate::texture::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
 /// # Deriving
@@ -116,7 +116,7 @@ impl Deref for BindGroup {
 ///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///    (with a different binding index) if a binding of the sampler for the [`Image`] is also required.
+///    (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -144,7 +144,7 @@ impl Deref for BindGroup {
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///     (with a different binding index) if a binding of the texture for the [`Image`] is also required.
+///     (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
