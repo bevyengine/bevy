@@ -2198,6 +2198,7 @@ impl World {
     ///
     /// // Add closure for `B`
     /// closures.insert(TypeId::of::<B>(), Box::new(|ptr| {
+    ///     // SAFETY: We assert ptr is the same type of B with TypeId of B
     ///     let b = unsafe { &ptr.deref::<B>() };
     /// #   assert_eq!(b.0, 2);
     ///     // ... do something with `b` here
@@ -2268,6 +2269,7 @@ impl World {
     /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
     ///     // Note: `MutUntyped::as_mut()` automatically marks the resource as changed
     ///     // for ECS change detection, and gives us a `PtrMut` we can use to mutate the resource.
+    ///     // SAFETY: We assert ptr is the same type of A with TypeId of A
     ///     let a = unsafe { &mut mut_untyped.as_mut().deref_mut::<A>() };
     /// #   a.0 += 1;
     ///     // ... mutate `a` here
@@ -2275,6 +2277,7 @@ impl World {
     ///
     /// // Add mutator closure for `B`
     /// mutators.insert(TypeId::of::<B>(), Box::new(|mut_untyped| {
+    ///     // SAFETY: We assert ptr is the same type of B with TypeId of B
     ///     let b = unsafe { &mut mut_untyped.as_mut().deref_mut::<B>() };
     /// #   b.0 += 1;
     ///     // ... mutate `b` here
