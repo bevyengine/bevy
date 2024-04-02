@@ -153,7 +153,7 @@ impl AssetSaver for MeshletMeshSaverLoad {
 
 #[derive(thiserror::Error, Debug)]
 pub enum MeshletMeshSaveOrLoadError {
-    #[error("expected version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
     #[error("failed to serialize or deserialize asset data")]
     SerializationOrDeserialization(#[from] bincode::Error),
