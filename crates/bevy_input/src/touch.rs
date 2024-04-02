@@ -373,8 +373,9 @@ impl Touches {
             }
             TouchPhase::Moved => {
                 if let Some(mut new_touch) = self.pressed.get(&event.id).cloned() {
-                    new_touch.previous_position = new_touch.position;
-                    new_touch.previous_force = new_touch.force;
+                    // NOTE: This does not update the previous_force / previous_position field;
+                    // they should be updated once per frame, not once per event
+                    // See https://github.com/bevyengine/bevy/issues/12442
                     new_touch.position = event.position;
                     new_touch.force = event.force;
                     self.pressed.insert(event.id, new_touch);
@@ -427,8 +428,15 @@ pub fn touch_screen_input_system(
         touch_state.just_canceled.clear();
     }
 
-    for event in touch_input_events.read() {
-        touch_state.process_touch_event(event);
+    if !touch_input_events.is_empty() {
+        for touch in touch_state.pressed.values_mut() {
+            touch.previous_position = touch.position;
+            touch.previous_force = touch.force;
+        }
+
+        for event in touch_input_events.read() {
+            touch_state.process_touch_event(event);
+        }
     }
 }
 
@@ -549,6 +557,69 @@ mod test {
         let touch = touches.just_released.get(&touch_event.id).unwrap();
         // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
         assert_ne!(touch.previous_position, touch.position);
+    }
+
+    // See https://github.com/bevyengine/bevy/issues/12442
+    #[test]
+    fn touch_process_multi_event() {
+        use crate::{touch::TouchPhase, TouchInput, Touches};
+        use bevy_ecs::entity::Entity;
+        use bevy_math::Vec2;
+
+        let mut touches = Touches::default();
+
+        let started_touch_event = TouchInput {
+            phase: TouchPhase::Started,
+            position: Vec2::splat(4.0),
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id: 4,
+        };
+
+        let moved_touch_event1 = TouchInput {
+            phase: TouchPhase::Moved,
+            position: Vec2::splat(5.0),
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id: started_touch_event.id,
+        };
+
+        let moved_touch_event2 = TouchInput {
+            phase: TouchPhase::Moved,
+            position: Vec2::splat(6.0),
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id: started_touch_event.id,
+        };
+
+        // tick 1: touch is started during frame
+        for touch in touches.pressed.values_mut() {
+            // update ONCE, at start of frame
+            touch.previous_position = touch.position;
+        }
+        touches.process_touch_event(&started_touch_event);
+        touches.process_touch_event(&moved_touch_event1);
+        touches.process_touch_event(&moved_touch_event2);
+
+        {
+            let touch = touches.get_pressed(started_touch_event.id).unwrap();
+            assert_eq!(touch.previous_position, started_touch_event.position);
+            assert_eq!(touch.position, moved_touch_event2.position);
+        }
+
+        // tick 2: touch was started before frame
+        for touch in touches.pressed.values_mut() {
+            touch.previous_position = touch.position;
+        }
+        touches.process_touch_event(&moved_touch_event1);
+        touches.process_touch_event(&moved_touch_event2);
+        touches.process_touch_event(&moved_touch_event1);
+
+        {
+            let touch = touches.get_pressed(started_touch_event.id).unwrap();
+            assert_eq!(touch.previous_position, moved_touch_event2.position);
+            assert_eq!(touch.position, moved_touch_event1.position);
+        }
     }
 
     #[test]

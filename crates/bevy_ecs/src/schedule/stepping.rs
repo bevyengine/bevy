@@ -828,7 +828,7 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::prelude::*;
-    use crate::{schedule::ScheduleLabel, world::World};
+    use crate::schedule::ScheduleLabel;
 
     pub use crate as bevy_ecs;
 

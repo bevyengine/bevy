@@ -45,29 +45,29 @@ fn runner(mut app: App) {
             }
             "f" => {
                 println!("FAST: setting relative speed to 2x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(2.0);
             }
             "n" => {
                 println!("NORMAL: setting relative speed to 1x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(1.0);
             }
             "s" => {
                 println!("SLOW: setting relative speed to 0.5x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(0.5);
             }
             "p" => {
                 println!("PAUSE: pausing virtual clock");
-                app.world.resource_mut::<Time<Virtual>>().pause();
+                app.world_mut().resource_mut::<Time<Virtual>>().pause();
             }
             "u" => {
                 println!("UNPAUSE: resuming virtual clock");
-                app.world.resource_mut::<Time<Virtual>>().unpause();
+                app.world_mut().resource_mut::<Time<Virtual>>().unpause();
             }
             "q" => {
                 println!("QUITTING!");

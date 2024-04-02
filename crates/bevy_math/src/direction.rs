@@ -564,7 +564,6 @@ impl approx::UlpsEq for Dir3A {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::InvalidDirectionError;
 
     #[test]
     fn dir2_creation() {
