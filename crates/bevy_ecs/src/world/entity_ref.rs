@@ -1196,21 +1196,22 @@ impl<'w> EntityWorldMut<'w> {
 
         let old_archetype = &mut archetypes[old_location.archetype_id];
         let entity = self.entity;
-        if old_archetype.contains(component_id) {
-            removed_components.send(component_id, entity);
+        debug_assert!(old_archetype.contains(component_id));
+        removed_components.send(component_id, entity);
 
-            // Make sure to drop components stored in sparse sets.
-            // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-            if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-                storages
-                    .sparse_sets
-                    .get_mut(component_id)
-                    .unwrap()
-                    .remove(entity);
-            }
+        // Make sure to drop components stored in sparse sets.
+        // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+        if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+            storages
+                .sparse_sets
+                .get_mut(component_id)
+                .unwrap()
+                .remove(entity);
         }
 
         // TODO: document why this is safe
+        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
+        // because it is created by removing one of its components.
         unsafe {
             Self::move_entity_from_remove::<true>(
                 entity,
