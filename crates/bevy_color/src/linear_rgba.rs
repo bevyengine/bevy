@@ -293,6 +293,7 @@ impl From<LinearRgba> for Vec4 {
     }
 }
 
+#[cfg(feature = "wgpu")]
 impl From<LinearRgba> for wgpu::Color {
     fn from(color: LinearRgba) -> Self {
         wgpu::Color {

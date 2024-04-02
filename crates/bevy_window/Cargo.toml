@@ -22,8 +22,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "glam",
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-# Used for close_on_esc
-bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }

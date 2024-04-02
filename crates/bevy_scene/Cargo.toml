@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["serialize"]
-serialize = ["dep:serde", "uuid/serde"]
+serialize = ["dep:serde", "uuid/serde", "bevy_app/serialize"]
 
 [dependencies]
 # bevy
