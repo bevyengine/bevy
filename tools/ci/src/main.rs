@@ -1,7 +1,6 @@
 //! CI script used for Bevy.
 
 use bitflags::bitflags;
-use core::panic;
 use std::collections::BTreeMap;
 use xshell::{cmd, Cmd, Shell};
 
