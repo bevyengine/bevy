@@ -23,8 +23,12 @@ struct MeshInput {
     previous_input_index: u32,
 }
 
+// One invocation of this compute shader: i.e. one mesh instance in a view.
 struct PreprocessWorkItem {
+    // The index of the `MeshInput` in the `current_input` buffer that we read
+    // from.
     input_index: u32,
+    // The index of the `Mesh` in `output` that we write to.
     output_index: u32,
 }
 

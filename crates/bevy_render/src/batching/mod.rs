@@ -132,10 +132,15 @@ pub struct PreprocessWorkItemBuffer {
     pub rendered: bool,
 }
 
+/// One invocation of the preprocessing shader: i.e. one mesh instance in a
+/// view.
 #[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct PreprocessWorkItem {
+    /// The index of the batch input data in the input buffer that the shader
+    /// reads from.
     pub input_index: u32,
+    /// The index of the `MeshUniform` in the output buffer that we write to.
     pub output_index: u32,
 }
 
@@ -263,6 +268,10 @@ pub trait GetBinnedBatchData {
 
 /// A system that runs early in extraction and clears out all the
 /// [`BatchedInstanceBuffers`] for the frame.
+///
+/// We have to run this during extraction because, if GPU preprocessing is in
+/// use, the extraction phase will write to the mesh input uniform buffers
+/// directly, so the buffers need to be cleared before then.
 pub fn clear_batched_instance_buffers<F>(
     mut gpu_array_buffer: ResMut<BatchedInstanceBuffers<F::BufferData, F::BufferInputData>>,
 ) where
@@ -288,6 +297,12 @@ pub fn clear_batched_instance_buffers<F>(
     }
 }
 
+/// A system that removes GPU preprocessing work item buffers that correspond to
+/// deleted [`ViewTarget`]s.
+///
+/// This is a separate system from [`clear_batched_instance_buffers`] because
+/// [`ViewTarget`]s aren't created until after the extraction phase is
+/// completed.
 pub fn delete_old_work_item_buffers<F>(
     mut gpu_array_buffer: ResMut<BatchedInstanceBuffers<F::BufferData, F::BufferInputData>>,
     view_targets: Query<Entity, With<ViewTarget>>,
