@@ -1410,7 +1410,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         if D::IS_DENSE && F::IS_DENSE {
                             let id = storage_id.table_id;
                             let table = &world.storages().tables.get(id).debug_checked_unwrap();
-                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count())
+                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count());
                         } else {
                             let id = storage_id.archetype_id;
                             let archetype = world.archetypes().get(id).debug_checked_unwrap();
@@ -1418,7 +1418,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                                 &mut func,
                                 archetype,
                                 0..archetype.len(),
-                            )
+                            );
                         }
                     }
                 });
@@ -1442,7 +1442,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                             let id = storage_id.archetype_id;
                             let archetype = world.archetypes().get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_archetype_range(&mut func, archetype, batch)
+                                .for_each_in_archetype_range(&mut func, archetype, batch);
                         }
                     });
                 }
