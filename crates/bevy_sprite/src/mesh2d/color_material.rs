@@ -5,7 +5,7 @@ use bevy_color::{Color, LinearRgba};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    render_asset::{AssetUsages, RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::*,
     texture::{GpuImage, Image},
 };
@@ -106,13 +106,6 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
             color: LinearRgba::from(self.color).to_f32_array().into(),
             flags: flags.bits(),
         }
-    }
-}
-
-impl AssetUsages for ColorMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
 

@@ -7,7 +7,7 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{AssetUsages, PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
     texture::GpuImage,
@@ -1464,13 +1464,6 @@ pub enum GpuBufferInfo {
     NonIndexed,
 }
 
-impl AssetUsages for Mesh {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
-    }
-}
-
 impl RenderAsset for GpuMesh {
     type SourceAsset = Mesh;
     type Param = (
@@ -1478,6 +1471,11 @@ impl RenderAsset for GpuMesh {
         SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
+
+    #[inline]
+    fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
+        mesh.asset_usage
+    }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(

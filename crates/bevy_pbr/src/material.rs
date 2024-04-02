@@ -26,7 +26,7 @@ use bevy_render::{
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{GpuMesh, MeshVertexBufferLayoutRef},
-    render_asset::{AssetUsages, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
@@ -99,7 +99,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material: Asset + AssetUsages + AsBindGroup + Clone + Sized {
+pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {

@@ -4,10 +4,7 @@ use bevy::{
     color::palettes::basic::RED,
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
-    render::{
-        render_asset::{AssetUsages, RenderAssetUsages},
-        render_resource::*,
-    },
+    render::render_resource::*,
 };
 
 fn main() {
@@ -78,13 +75,6 @@ struct MyExtension {
     // so we start from binding slot 100, leaving slots 0-99 for the base material.
     #[uniform(100)]
     quantize_steps: u32,
-}
-
-impl AssetUsages for MyExtension {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl MaterialExtension for MyExtension {

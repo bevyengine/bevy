@@ -5,10 +5,7 @@ use bevy::{
     asset::LoadState,
     prelude::*,
     reflect::TypePath,
-    render::{
-        render_asset::{AssetUsages, RenderAssetUsages},
-        render_resource::{AsBindGroup, ShaderRef},
-    },
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
@@ -88,13 +85,6 @@ struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]
     array_texture: Handle<Image>,
-}
-
-impl AssetUsages for ArrayTextureMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for ArrayTextureMaterial {

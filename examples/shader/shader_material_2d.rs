@@ -3,10 +3,7 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::{
-        render_asset::{AssetUsages, RenderAssetUsages},
-        render_resource::{AsBindGroup, ShaderRef},
-    },
+    render::render_resource::{AsBindGroup, ShaderRef},
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
 };
 
@@ -50,13 +47,6 @@ struct CustomMaterial {
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
-}
-
-impl AssetUsages for CustomMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 /// The Material2d trait is very configurable, but comes with sensible defaults for all methods.

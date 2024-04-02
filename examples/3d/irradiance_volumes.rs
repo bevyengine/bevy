@@ -19,7 +19,6 @@ use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::*;
-use bevy::render::render_asset::{AssetUsages, RenderAssetUsages};
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
 
@@ -656,13 +655,6 @@ fn toggle_voxel_visibility(
         } else {
             Visibility::Hidden
         };
-    }
-}
-
-impl AssetUsages for VoxelVisualizationExtension {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
 

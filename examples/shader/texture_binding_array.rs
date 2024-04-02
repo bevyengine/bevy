@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::{AssetUsages, RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_resource::*,
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
@@ -171,13 +171,6 @@ impl AsBindGroup for BindlessMaterial {
                 // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
             },
         ]
-    }
-}
-
-impl AssetUsages for BindlessMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
 

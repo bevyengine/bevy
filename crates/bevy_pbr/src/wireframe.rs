@@ -5,10 +5,7 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    extract_resource::ExtractResource,
-    mesh::MeshVertexBufferLayoutRef,
-    prelude::*,
-    render_asset::{AssetUsages, RenderAssetUsages},
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
 };
 
@@ -202,13 +199,6 @@ fn apply_global_wireframe_material(
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: LinearRgba,
-}
-
-impl AssetUsages for WireframeMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for WireframeMaterial {

@@ -6,7 +6,6 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
-        render_asset::{AssetUsages, RenderAssetUsages},
         render_resource::*,
     },
     sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
@@ -60,13 +59,6 @@ fn setup(
 /// thickness of the border is animated using the global time shader uniform.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {}
-
-impl AssetUsages for CustomMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
-}
 
 impl Material2d for CustomMaterial {
     fn vertex_shader() -> ShaderRef {

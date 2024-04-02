@@ -6,7 +6,6 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
-        render_asset::{AssetUsages, RenderAssetUsages},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
             VertexFormat,
@@ -62,13 +61,6 @@ fn setup(
 struct CustomMaterial {
     #[uniform(0)]
     color: LinearRgba,
-}
-
-impl AssetUsages for CustomMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for CustomMaterial {

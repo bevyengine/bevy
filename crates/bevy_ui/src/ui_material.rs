@@ -1,10 +1,7 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::{
-    render_asset::AssetUsages,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
-};
+use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -93,7 +90,7 @@ use bevy_render::{
 ///
 /// }
 /// ```
-pub trait UiMaterial: AsBindGroup + Asset + AssetUsages + Clone + Sized {
+pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
     fn vertex_shader() -> ShaderRef {

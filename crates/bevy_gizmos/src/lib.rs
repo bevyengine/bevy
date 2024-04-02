@@ -79,10 +79,7 @@ use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_asset::{
-        AssetUsages, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages,
-        RenderAssets,
-    },
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -376,13 +373,6 @@ struct GpuLineGizmo {
     vertex_count: u32,
     strip: bool,
     joints: GizmoLineJoint,
-}
-
-impl AssetUsages for LineGizmo {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl RenderAsset for GpuLineGizmo {

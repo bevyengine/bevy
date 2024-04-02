@@ -2,7 +2,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
-    render_asset::{AssetUsages, RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
@@ -27,7 +27,7 @@ pub struct MaterialExtensionKey<E: MaterialExtension> {
 
 /// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
 /// A user type implementing the trait should be used as the `E` generic param in an `ExtendedMaterial` struct.
-pub trait MaterialExtension: Asset + AssetUsages + AsBindGroup + Clone + Sized {
+pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -173,14 +173,6 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         let mut entries = B::bind_group_layout_entries(render_device);
         entries.extend(E::bind_group_layout_entries(render_device));
         entries
-    }
-}
-
-impl<B: Material, E: MaterialExtension> AssetUsages for ExtendedMaterial<B, E> {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        // NOTE: Always use the AssetUsages from the extension to allow overriding
-        self.extension.asset_usage()
     }
 }
 

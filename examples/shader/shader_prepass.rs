@@ -7,10 +7,7 @@ use bevy::{
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
-    render::{
-        render_asset::{AssetUsages, RenderAssetUsages},
-        render_resource::{AsBindGroup, ShaderRef, ShaderType},
-    },
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 fn main() {
@@ -168,13 +165,6 @@ struct CustomMaterial {
     alpha_mode: AlphaMode,
 }
 
-impl AssetUsages for CustomMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
-}
-
 /// Not shown in this example, but if you need to specialize your material, the specialize
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
@@ -217,13 +207,6 @@ struct ShowPrepassSettings {
 struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
-}
-
-impl AssetUsages for PrepassOutputMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for PrepassOutputMaterial {

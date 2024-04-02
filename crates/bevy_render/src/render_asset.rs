@@ -19,11 +19,6 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     RetryNextUpdate(E),
 }
 
-pub trait AssetUsages {
-    /// Whether or not to unload the asset after extracting it to the render world.
-    fn asset_usage(&self) -> RenderAssetUsages;
-}
-
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred
@@ -33,12 +28,17 @@ pub trait AssetUsages {
 /// is transformed into its GPU-representation of type [`RenderAsset`].
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
-    type SourceAsset: Asset + AssetUsages + Clone;
+    type SourceAsset: Asset + Clone;
 
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
     type Param: SystemParam;
+
+    /// Whether or not to unload the asset after extracting it to the render world.
+    fn asset_usage(_source_asset: &Self::SourceAsset) -> RenderAssetUsages {
+        RenderAssetUsages::default()
+    }
 
     /// Prepares the asset for the GPU by transforming it into a [`RenderAsset::PreparedAsset`].
     ///
@@ -254,7 +254,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             let mut extracted_assets = Vec::new();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
-                    let asset_usage = asset.asset_usage();
+                    let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {

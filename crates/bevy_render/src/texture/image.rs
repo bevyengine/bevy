@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{AssetUsages, PrepareAssetError, RenderAsset, RenderAssetUsages},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -826,13 +826,6 @@ pub struct GpuImage {
     pub mip_level_count: u32,
 }
 
-impl AssetUsages for Image {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
-    }
-}
-
 impl RenderAsset for GpuImage {
     type SourceAsset = Image;
     type Param = (
@@ -840,6 +833,11 @@ impl RenderAsset for GpuImage {
         SRes<RenderQueue>,
         SRes<DefaultImageSampler>,
     );
+
+    #[inline]
+    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
+        image.asset_usage
+    }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(

@@ -6,7 +6,6 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayoutRef,
-        render_asset::{AssetUsages, RenderAssetUsages},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -53,13 +52,6 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-}
-
-impl AssetUsages for CustomMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for CustomMaterial {

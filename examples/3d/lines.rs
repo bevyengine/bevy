@@ -6,7 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
-        render_asset::{AssetUsages, RenderAssetUsages},
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
@@ -68,13 +68,6 @@ fn setup(
 struct LineMaterial {
     #[uniform(0)]
     color: LinearRgba,
-}
-
-impl AssetUsages for LineMaterial {
-    #[inline]
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
 }
 
 impl Material for LineMaterial {
