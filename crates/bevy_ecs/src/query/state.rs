@@ -1395,7 +1395,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let mut batch_queue = vec![];
             let mut queue_entity_count = 0;
 
-            // submit a list of storages which size smaller than batch_size as single task
+            // submit a list of storages which smaller than batch_size as single task
             let submit_batch_queue = |queue: &mut Vec<StorageId>| {
                 if queue.is_empty() {
                     return;
@@ -1424,7 +1424,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 });
             };
 
-            // submit single storage which size larger than batch_size
+            // submit single storage larger than batch_size
             let submit_single = |count, storage_id: StorageId| {
                 for offset in (0..count).step_by(batch_size) {
                     let mut func = func.clone();
@@ -1459,11 +1459,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             for storage_id in &self.matched_storage_ids {
                 let count = storage_entity_count(*storage_id);
 
-                // skip empty table
+                // skip empty storage
                 if count == 0 {
                     continue;
                 }
-                // immediately submit for large storage
+                // immediately submit large storage
                 if count >= batch_size {
                     submit_single(count, *storage_id);
                 }
