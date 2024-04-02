@@ -13,6 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_render::renderer::RenderAdapter;
+use bevy_render::DownlevelFlags;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
@@ -21,7 +22,6 @@ use bevy_render::{
     texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
-use bevy_render::DownlevelFlags;
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;

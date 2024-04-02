@@ -3,6 +3,7 @@ use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::DownlevelFlags;
 use bevy_render::{
     camera::Camera,
     diagnostic::RecordDiagnostics,
@@ -23,7 +24,6 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
 use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
-use bevy_render::DownlevelFlags;
 
 use crate::*;
 
