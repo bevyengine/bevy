@@ -4,16 +4,18 @@ on:
   merge_group:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 env:
+  # Force colors, which can be displayed by Github.
   CARGO_TERM_COLOR: always
+  # Defaults to 'nightly', but can be modified in case the latest nightly is broken.
   NIGHTLY_TOOLCHAIN: nightly
 
+# If a new commit is pushed to the PR, cancel any old CI checks that might still be running.
 concurrency:
-  group: ${{github.workflow}}-${{github.ref}}
-  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
