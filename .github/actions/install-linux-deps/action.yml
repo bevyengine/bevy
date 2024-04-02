@@ -29,7 +29,7 @@ runs:
         sudo apt-get update
 
         sudo apt-get install --no-install-recommends
-        ${{ inputs.alsa && 'libasound2-dev' }}
-        ${{ inputs.udev && 'libudev-dev' }}
-        ${{ inputs.wayland && 'libwayland-dev' }}
-        ${{ inputs.xkb && 'libxkbcommon-dev' }}
+        ${{ fromJSON(inputs.alsa) && 'libasound2-dev' || '' }}
+        ${{ fromJSON(inputs.udev) && 'libudev-dev' || '' }}
+        ${{ fromJSON(inputs.wayland) && 'libwayland-dev' || '' }}
+        ${{ fromJSON(inputs.xkb) && 'libxkbcommon-dev' || '' }}
