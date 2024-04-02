@@ -1466,17 +1466,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // immediately submit large storage
                 if count >= batch_size {
                     submit_single(count, *storage_id);
+                    continue;
                 }
                 // merge small storage
-                else {
-                    batch_queue.push(*storage_id);
-                    queue_entity_count += count;
-                }
+                batch_queue.push(*storage_id);
+                queue_entity_count += count;
 
                 // submit batch_queue
                 if queue_entity_count >= batch_size {
                     submit_batch_queue(&mut batch_queue);
-                    continue;
                 }
             }
             submit_batch_queue(&mut batch_queue);
