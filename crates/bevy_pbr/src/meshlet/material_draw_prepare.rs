@@ -10,6 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
     camera::TemporalJitter,
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
+    render_asset::RenderAssets,
     render_resource::*,
     view::ExtractedView,
 };
@@ -139,7 +140,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(material_id) else {
+            let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
 
@@ -264,7 +265,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(material_id) else {
+            let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
 

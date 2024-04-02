@@ -9,7 +9,10 @@ use bevy::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
-    render::render_resource::AsBindGroup,
+    render::{
+        render_asset::{AssetUsages, RenderAssetUsages},
+        render_resource::AsBindGroup,
+    },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
@@ -177,4 +180,11 @@ struct MeshletBoundingSpheresDebug {
 struct MeshletDebugMaterial {
     _dummy: (),
 }
+
+impl AssetUsages for MeshletDebugMaterial {
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
+}
+
 impl Material for MeshletDebugMaterial {}
