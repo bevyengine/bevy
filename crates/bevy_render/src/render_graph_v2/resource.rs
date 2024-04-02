@@ -7,14 +7,6 @@ pub struct RenderGraphResource {
     pub(crate) generation: u16,
 }
 
-impl RenderGraphResource {
-    /// Increment this resource's generation and return a new copy.
-    pub(crate) fn increment(&mut self) -> Self {
-        self.generation += 1;
-        self.clone()
-    }
-}
-
 /// Uniquely identifies a resource within a [`super::RenderGraph`].
 pub type RenderGraphResourceId = u16;
 

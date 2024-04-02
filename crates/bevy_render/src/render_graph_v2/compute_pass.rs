@@ -47,17 +47,19 @@ impl ComputePass {
 
     pub fn write_texture(mut self, texture: &mut RenderGraphResource) -> Self {
         self.resource_usages.push(RenderGraphResourceUsage {
-            resource: texture.increment(),
+            resource: texture.clone(),
             usage_type: RenderGraphResourceUsageType::WriteTexture,
         });
+        texture.generation += 1;
         self
     }
 
     pub fn read_write_texture(mut self, texture: &mut RenderGraphResource) -> Self {
         self.resource_usages.push(RenderGraphResourceUsage {
-            resource: texture.increment(),
+            resource: texture.clone(),
             usage_type: RenderGraphResourceUsageType::ReadWriteTexture,
         });
+        texture.generation += 1;
         self
     }
 
