@@ -22,9 +22,7 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract,
 };
@@ -375,12 +373,16 @@ impl FromWorld for MeshPipeline {
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
         )> = SystemState::new(world);
-        let (render_device, render_adapter, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, render_adapter, default_sampler, render_queue) =
+            system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        let view_layouts =
-            generate_view_layouts(&render_device, &render_adapter, clustered_forward_buffer_binding_type);
+        let view_layouts = generate_view_layouts(
+            &render_device,
+            &render_adapter,
+            clustered_forward_buffer_binding_type,
+        );
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {

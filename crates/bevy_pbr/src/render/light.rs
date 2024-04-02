@@ -1210,7 +1210,11 @@ pub fn prepare_lights(
             }
         }
 
-       let point_light_texture_descriptor = if render_adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES) {
+        let point_light_texture_descriptor = if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
+        {
             &TextureViewDescriptor {
                 label: Some("point_light_shadow_map_array_texture_view"),
                 format: None,
@@ -1221,7 +1225,7 @@ pub fn prepare_lights(
                 base_array_layer: 0,
                 array_layer_count: None,
             }
-       } else {
+        } else {
             &TextureViewDescriptor {
                 label: Some("point_light_shadow_map_array_texture_view"),
                 format: None,
@@ -1231,13 +1235,12 @@ pub fn prepare_lights(
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
-            }   
-       };
+            }
+        };
 
-        let point_light_depth_texture_view =
-            point_light_depth_texture
-                .texture
-                .create_view(point_light_texture_descriptor);
+        let point_light_depth_texture_view = point_light_depth_texture
+            .texture
+            .create_view(point_light_texture_descriptor);
 
         let directional_light_depth_texture_view = directional_light_depth_texture
             .texture

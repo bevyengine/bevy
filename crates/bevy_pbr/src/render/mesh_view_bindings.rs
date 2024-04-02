@@ -12,6 +12,7 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res},
 };
+use bevy_render::renderer::RenderAdapter;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
@@ -20,7 +21,6 @@ use bevy_render::{
     texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
-use bevy_render::renderer::RenderAdapter;
 use wgpu::DownlevelFlags;
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -173,9 +173,8 @@ fn layout_entries(
     clustered_forward_buffer_binding_type: BufferBindingType,
     layout_key: MeshPipelineViewLayoutKey,
     render_device: &RenderDevice,
-    render_adapter: &RenderAdapter
+    render_adapter: &RenderAdapter,
 ) -> Vec<BindGroupLayoutEntry> {
-
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
@@ -189,7 +188,11 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                if render_adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES) {
+                if render_adapter
+                    .get_downlevel_capabilities()
+                    .flags
+                    .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
+                {
                     texture_cube_array(TextureSampleType::Depth)
                 } else {
                     texture_cube(TextureSampleType::Depth)
@@ -322,7 +325,12 @@ pub fn generate_view_layouts(
 ) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
     array::from_fn(|i| {
         let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-        let entries = layout_entries(clustered_forward_buffer_binding_type, key, render_device, render_adapter);
+        let entries = layout_entries(
+            clustered_forward_buffer_binding_type,
+            key,
+            render_device,
+            render_adapter,
+        );
 
         #[cfg(debug_assertions)]
         let texture_count: usize = entries
