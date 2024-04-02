@@ -1,9 +1,10 @@
-use std::{marker::PhantomData, mem};
+use std::marker::PhantomData;
 
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::Res,
+    query::With,
     system::{Query, ResMut, Resource, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::EntityHashMap;
@@ -23,6 +24,7 @@ use crate::{
         UninitBufferVec,
     },
     renderer::{RenderDevice, RenderQueue},
+    view::ViewTarget,
 };
 
 /// Add this component to mesh entities to disable automatic batching
@@ -279,14 +281,25 @@ pub fn clear_batched_instance_buffers<F>(
             data_buffer.clear();
             current_input_buffer.clear();
             previous_input_buffer.clear();
-
-            // Clear out all work item buffers. And, if the buffer wasn't
-            // touched at all last frame, delete it.
-            work_item_buffers.retain(|_, work_item_buffers| {
-                work_item_buffers.buffer.clear();
-                mem::take(&mut work_item_buffers.rendered)
-            });
+            for work_item_buffer in work_item_buffers.values_mut() {
+                work_item_buffer.buffer.clear();
+            }
         }
+    }
+}
+
+pub fn delete_old_work_item_buffers<F>(
+    mut gpu_array_buffer: ResMut<BatchedInstanceBuffers<F::BufferData, F::BufferInputData>>,
+    view_targets: Query<Entity, With<ViewTarget>>,
+) where
+    F: GetBatchData,
+{
+    if let BatchedInstanceBuffers::GpuBuilt {
+        ref mut work_item_buffers,
+        ..
+    } = *gpu_array_buffer
+    {
+        work_item_buffers.retain(|entity, _| view_targets.contains(*entity));
     }
 }
 

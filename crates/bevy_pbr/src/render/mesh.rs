@@ -15,8 +15,9 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        clear_batched_instance_buffers, write_batched_instance_buffer, BatchedInstanceBuffers,
-        GetBatchData, GetBinnedBatchData, NoAutomaticBatching,
+        clear_batched_instance_buffers, delete_old_work_item_buffers,
+        write_batched_instance_buffer, BatchedInstanceBuffers, GetBatchData, GetBinnedBatchData,
+        NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -27,7 +28,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
-    view::{ViewTarget, ViewUniformOffset, ViewVisibility},
+    view::{prepare_view_targets, ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -154,6 +155,9 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        delete_old_work_item_buffers::<MeshPipeline>
+                            .in_set(RenderSet::ManageViews)
+                            .after(prepare_view_targets),
                         write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
