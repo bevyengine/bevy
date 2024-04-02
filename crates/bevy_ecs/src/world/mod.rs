@@ -2190,7 +2190,7 @@ impl World {
     ///
     /// // Add closure for `A`
     /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
-    ///     // SAFETY: We assert ptr is the same type of A with TypeId of A 
+    ///     // SAFETY: We assert ptr is the same type of A with TypeId of A
     ///     let a = unsafe { &ptr.deref::<A>() };
     /// #   assert_eq!(a.0, 1);
     ///     // ... do something with `a` here
@@ -2227,7 +2227,11 @@ impl World {
             .iter()
             .filter_map(|(component_id, data)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
-                let component_info = unsafe { self.components.get_info(component_id).debug_checked_unwrap() };
+                let component_info = unsafe {
+                    self.components
+                        .get_info(component_id)
+                        .debug_checked_unwrap()
+                };
                 Some((component_info, data.get_data()?))
             })
     }
@@ -2302,7 +2306,11 @@ impl World {
             .iter()
             .filter_map(|(component_id, data)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
-                let component_info = unsafe { self.components.get_info(component_id).debug_checked_unwrap() };
+                let component_info = unsafe {
+                    self.components
+                        .get_info(component_id)
+                        .debug_checked_unwrap()
+                };
                 let (ptr, ticks) = data.get_with_ticks()?;
 
                 // SAFETY:
