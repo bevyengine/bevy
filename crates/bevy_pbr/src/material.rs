@@ -30,7 +30,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage},
+    texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
 };
 use bevy_utils::tracing::error;
