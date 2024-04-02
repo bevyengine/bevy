@@ -56,7 +56,7 @@ impl TableId {
     /// Will panic if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        assert!(index as u32 as usize == index);
+        debug_assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
