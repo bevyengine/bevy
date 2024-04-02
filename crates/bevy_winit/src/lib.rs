@@ -158,9 +158,9 @@ impl Plugin for WinitPlugin {
             // Otherwise, we want to create a window before `bevy_render` initializes the renderer
             // so that we have a surface to use as a hint. This improves compatibility with `wgpu`
             // backends, especially WASM/WebGL2.
-            let mut create_window = SystemState::<CreateWindowParams>::from_world(&mut app.world);
-            create_windows(&event_loop, create_window.get_mut(&mut app.world));
-            create_window.apply(&mut app.world);
+            let mut create_window = SystemState::<CreateWindowParams>::from_world(app.world_mut());
+            create_windows(&event_loop, create_window.get_mut(app.world_mut()));
+            create_window.apply(app.world_mut());
         }
 
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
@@ -273,11 +273,11 @@ pub fn winit_runner(mut app: App) {
     }
 
     let event_loop = app
-        .world
+        .world_mut()
         .remove_non_send_resource::<EventLoop<UserEvent>>()
         .unwrap();
 
-    app.world
+    app.world_mut()
         .insert_non_send_resource(event_loop.create_proxy());
 
     let mut runner_state = WinitAppRunnerState::default();
@@ -287,17 +287,17 @@ pub fn winit_runner(mut app: App) {
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
     let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
-        SystemState::new(&mut app.world);
+        SystemState::new(app.world_mut());
 
     let mut event_writer_system_state: SystemState<(
         EventWriter<WindowResized>,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
         NonSend<AccessKitAdapters>,
-    )> = SystemState::new(&mut app.world);
+    )> = SystemState::new(app.world_mut());
 
     let mut create_window =
-        SystemState::<CreateWindowParams<Added<Window>>>::from_world(&mut app.world);
+        SystemState::<CreateWindowParams<Added<Window>>>::from_world(app.world_mut());
     let mut winit_events = Vec::default();
     // set up the event loop
     let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
@@ -354,7 +354,7 @@ fn handle_winit_event(
         runner_state.redraw_requested = true;
     }
 
-    if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
+    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
         if app_exit_event_reader.read(app_exit_events).last().is_some() {
             event_loop.exit();
             return;
@@ -363,18 +363,18 @@ fn handle_winit_event(
 
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
-    create_windows(event_loop, create_window.get_mut(&mut app.world));
-    create_window.apply(&mut app.world);
+    create_windows(event_loop, create_window.get_mut(app.world_mut()));
+    create_window.apply(app.world_mut());
 
     match event {
         Event::AboutToWait => {
-            if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
+            if let Some(app_redraw_events) = app.world().get_resource::<Events<RequestRedraw>>() {
                 if redraw_event_reader.read(app_redraw_events).last().is_some() {
                     runner_state.redraw_requested = true;
                 }
             }
 
-            let (config, windows) = focused_windows_state.get(&app.world);
+            let (config, windows) = focused_windows_state.get(app.world());
             let focused = windows.iter().any(|window| window.focused);
             let next_update_mode = config.update_mode(focused);
 
@@ -452,7 +452,7 @@ fn handle_winit_event(
                             mut adapters,
                             mut handlers,
                             accessibility_requested,
-                        ) = create_window.get_mut(&mut app.world);
+                        ) = create_window.get_mut(app.world_mut());
 
                         let winit_window = winit_windows.create_window(
                             event_loop,
@@ -476,7 +476,7 @@ fn handle_winit_event(
             if should_update {
                 if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
                     let (_, winit_windows, _, _) =
-                        event_writer_system_state.get_mut(&mut app.world);
+                        event_writer_system_state.get_mut(app.world_mut());
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
@@ -499,7 +499,7 @@ fn handle_winit_event(
                             all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                         )))]
                         {
-                            let (_, windows) = focused_windows_state.get(&app.world);
+                            let (_, windows) = focused_windows_state.get(app.world());
                             let visible = windows.iter().any(|window| window.visible);
 
                             match event_loop.control_flow() {
@@ -545,7 +545,7 @@ fn handle_winit_event(
             event, window_id, ..
         } => {
             let (mut window_resized, winit_windows, mut windows, access_kit_adapters) =
-                event_writer_system_state.get_mut(&mut app.world);
+                event_writer_system_state.get_mut(app.world_mut());
 
             let Some(window) = winit_windows.get_window_entity(window_id) else {
                 warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -748,8 +748,8 @@ fn handle_winit_event(
                 _ => {}
             }
 
-            let mut windows = app.world.query::<(&mut Window, &mut CachedWindow)>();
-            if let Ok((window_component, mut cache)) = windows.get_mut(&mut app.world, window) {
+            let mut windows = app.world_mut().query::<(&mut Window, &mut CachedWindow)>();
+            if let Ok((window_component, mut cache)) = windows.get_mut(app.world_mut(), window) {
                 if window_component.is_changed() {
                     cache.window = window_component.clone();
                 }

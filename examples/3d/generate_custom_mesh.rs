@@ -166,7 +166,7 @@ fn create_cube_mesh() -> Mesh {
         Mesh::ATTRIBUTE_UV_0,
         vec![
             // Assigning the UV coords for the top side.
-            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.25],
+            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.2],
             // Assigning the UV coords for the bottom side.
             [0.0, 0.45], [0.0, 0.25], [1.0, 0.25], [1.0, 0.45],
             // Assigning the UV coords for the right side.
