@@ -188,11 +188,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
-    fn run(
-        &mut self,
-        schedule: &mut SystemSchedule,
-        world: &mut World,
-    ) {
+    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         let state = self.state.get_mut().unwrap();
         // reset counts
         state.num_systems = schedule.systems.len();
@@ -262,7 +258,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.completed_systems.clear();
     }
 
-    fn run_with_skip(&mut self, schedule: &mut SystemSchedule, world: &mut World, skip_systems: Option<&FixedBitSet>) {
+    fn run_with_skip(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        skip_systems: Option<&FixedBitSet>,
+    ) {
         let state = self.state.get_mut().unwrap();
         // reset counts
         state.num_systems = schedule.systems.len();

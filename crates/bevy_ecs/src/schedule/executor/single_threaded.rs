@@ -40,11 +40,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(
-        &mut self,
-        schedule: &mut SystemSchedule,
-        world: &mut World,
-    ) {
+    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -118,7 +114,12 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.completed_systems.clear();
     }
 
-    fn run_with_skip(&mut self, schedule: &mut SystemSchedule, world: &mut World, skip_systems: Option<&FixedBitSet>) {
+    fn run_with_skip(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        skip_systems: Option<&FixedBitSet>,
+    ) {
         // skip the systems that should not be run.
         if let Some(skipped_systems) = skip_systems {
             // mark skipped systems as completed
