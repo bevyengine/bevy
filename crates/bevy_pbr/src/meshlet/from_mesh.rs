@@ -17,6 +17,8 @@ use meshopt::{
 use metis::Graph;
 use std::{borrow::Cow, iter, ops::Range};
 
+const MAX_LOD_LEVEL: u32 = 20;
+
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
     ///
@@ -61,8 +63,8 @@ impl MeshletMesh {
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
-        let mut lod_level = 0;
-        while simplification_queue.len() > 1 && lod_level < 10 {
+        let mut lod_level = 1;
+        while simplification_queue.len() > 1 && lod_level <= MAX_LOD_LEVEL {
             // For each meshlet build a set of triangle edges
             let triangle_edges_per_meshlet =
                 collect_triangle_edges_per_meshlet(simplification_queue.clone(), &meshlets);
@@ -82,8 +84,11 @@ impl MeshletMesh {
 
             for group_meshlets in groups.values().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let (simplified_group_indices, mut group_error) =
-                    simplify_meshlet_groups(group_meshlets, &meshlets, &vertices);
+                let Some((simplified_group_indices, mut group_error)) =
+                    simplify_meshlet_groups(group_meshlets, &meshlets, &vertices, lod_level)
+                else {
+                    continue;
+                };
 
                 // Build a new bounding sphere for the simplified group as a whole for LOD calculations
                 let group_bounding_sphere = convert_meshlet_bounds(compute_cluster_bounds(
@@ -273,7 +278,8 @@ fn simplify_meshlet_groups(
     group_meshlets: &Vec<usize>,
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
-) -> (Vec<u32>, f32) {
+    lod_level: u32,
+) -> Option<(Vec<u32>, f32)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
     for meshlet_id in group_meshlets {
@@ -283,16 +289,25 @@ fn simplify_meshlet_groups(
         }
     }
 
+    // Allow more deformation for high LOD levels (1% at LOD 0, 10% at MAX_LOD_LEVEL)
+    let t = (lod_level - 1) as f32 / (MAX_LOD_LEVEL - 1) as f32;
+    let target_error = 0.1 * t + 0.01 * (1.0 - t);
+
     // Simplify the group to ~50% triangle count
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,
         vertices,
         group_indices.len() / 2,
-        0.01,
+        target_error,
         SimplifyOptions::LockBorder,
         Some(&mut error),
     );
+
+    // Check if we were able to simplify to at least 65% triangle count
+    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.65 {
+        return None;
+    }
 
     // Convert error to object-space
     // TODO: Use high level bindings https://github.com/gwihlidal/meshopt-rs/commit/5d243a89067b459b3b33a197ac94037d96963191
@@ -304,7 +319,7 @@ fn simplify_meshlet_groups(
         )
     };
 
-    (simplified_group_indices, error)
+    Some((simplified_group_indices, error))
 }
 
 fn split_simplified_groups_into_new_meshlets(
