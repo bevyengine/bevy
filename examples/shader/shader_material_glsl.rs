@@ -6,6 +6,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayoutRef,
+        render_asset::{AssetUsages, RenderAssetUsages},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -54,6 +55,12 @@ struct CustomMaterial {
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
     alpha_mode: AlphaMode,
+}
+
+impl AssetUsages for CustomMaterial {
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
 }
 
 /// The Material trait is very configurable, but comes with sensible defaults for all methods.
