@@ -1151,7 +1151,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes a dynamic [`Component`] from the entity.
+    /// Removes a dynamic [`Component`] from the entity. This does nothing if there is no component to remove.
     ///
     /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
     ///
@@ -1159,71 +1159,19 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let entities = &mut self.world.entities;
-        let removed_components = &mut self.world.removed_components;
 
         let bundle_id = self
             .world
             .bundles
             .init_component_info(components, component_id);
 
-        let Some(bundle_info) = self.world.bundles.get(bundle_id) else {
-            // if no bundle info, certainly no components to remove
-            return self;
+        if self.world.bundles.get(bundle_id).is_some() {
+            // SAFETY: We have just checked that `bundle_info` has been initialized
+            unsafe {
+                self.remove_bundle(bundle_id);
+            }
         };
-
-        let old_location = self.location;
-        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
-        // components exist in `bundle_info` because `Bundles::init_component_info` would have panicked otherwise
-        let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
-                archetypes,
-                storages,
-                components,
-                old_location.archetype_id,
-                bundle_info,
-                true,
-            )
-            .expect("intersections should always return a result")
-        };
-
-        if new_archetype_id == old_location.archetype_id {
-            return self;
-        }
-
-        let old_archetype = &mut archetypes[old_location.archetype_id];
-        let entity = self.entity;
-        debug_assert!(old_archetype.contains(component_id));
-        removed_components.send(component_id, entity);
-
-        // Make sure to drop components stored in sparse sets.
-        // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-        if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-            storages
-                .sparse_sets
-                .get_mut(component_id)
-                .unwrap()
-                .remove(entity);
-        }
-
-        // TODO: document why this is safe
-        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
-        // because it is created by removing one of its components.
-        unsafe {
-            Self::move_entity_from_remove::<true>(
-                entity,
-                &mut self.location,
-                old_location.archetype_id,
-                old_location,
-                entities,
-                archetypes,
-                storages,
-                new_archetype_id,
-            );
-        }
 
         self
     }
