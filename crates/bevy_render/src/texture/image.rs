@@ -941,7 +941,6 @@ impl CompressedImageFormats {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn image_size() {

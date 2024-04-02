@@ -14,7 +14,6 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
-    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
