@@ -79,7 +79,6 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
-  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -1685,6 +1684,7 @@ wasm = false
 name = "system_stepping"
 path = "examples/ecs/system_stepping.rs"
 doc-scrape-examples = true
+required-features = ["bevy_debug_stepping"]
 
 [package.metadata.example.system_stepping]
 name = "System Stepping"
