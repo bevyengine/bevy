@@ -2226,7 +2226,8 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                let component_info = self.components.get_info(component_id)?;
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
+                let component_info = unsafe { self.components.get_info(component_id).debug_checked_unwrap() };
                 Some((component_info, data.get_data()?))
             })
     }
@@ -2300,7 +2301,8 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                let component_info = self.components.get_info(component_id)?;
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
+                let component_info = unsafe { self.components.get_info(component_id).debug_checked_unwrap() };
                 let (ptr, ticks) = data.get_with_ticks()?;
 
                 // SAFETY:
