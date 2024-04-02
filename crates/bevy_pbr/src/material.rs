@@ -42,7 +42,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
-/// way to render [`Mesh`] entities with custom shader logic.
+/// way to render [`bevy_render::mesh::Mesh`] entities with custom shader logic.
 ///
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
