@@ -20,6 +20,11 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{debug, error, trace, warn};
+#[cfg(feature = "trace")]
+use bevy_utils::{
+    tracing::{info_span, instrument::Instrument},
+    ConditionalSendFuture,
+};
 use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -479,6 +484,8 @@ impl AssetProcessor {
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
         let mut process_plans = self.data.processors.write();
+        #[cfg(feature = "trace")]
+        let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
     }
 
@@ -1028,6 +1035,37 @@ impl AssetProcessorData {
         if let Some(mut receiver) = receiver {
             receiver.recv().await.unwrap();
         }
+    }
+}
+
+#[cfg(feature = "trace")]
+struct InstrumentedAssetProcessor<T>(T);
+
+#[cfg(feature = "trace")]
+impl<T: Process> Process for InstrumentedAssetProcessor<T> {
+    type Settings = T::Settings;
+    type OutputLoader = T::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut crate::io::Writer,
+    ) -> impl ConditionalSendFuture<
+        Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
+    > {
+        // Change the processor type for the `AssetMeta`, which works because we share the `Settings` type.
+        let meta = AssetMeta {
+            meta_format_version: meta.meta_format_version,
+            processed_info: meta.processed_info,
+            asset: meta.asset,
+        };
+        let span = info_span!(
+            "asset processing",
+            processor = std::any::type_name::<T>(),
+            asset = context.path().to_string(),
+        );
+        self.0.process(context, meta, writer).instrument(span)
     }
 }
 
