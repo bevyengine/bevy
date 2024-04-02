@@ -269,7 +269,7 @@ Example | Description
 Example | Description
 --- | ---
 [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
+[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout". Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature.
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 [Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu

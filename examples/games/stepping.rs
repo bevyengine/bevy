@@ -32,6 +32,10 @@ impl SteppingPlugin {
 
 impl Plugin for SteppingPlugin {
     fn build(&self, app: &mut App) {
+        if cfg!(not(feature = "bevy_debug_stepping")) {
+            info!("Bevy was compiled without the bevy_debug_stepping feature. Run with `--features=bevy_debug_stepping` to enable.");
+            return;
+        }
         // create and insert our debug schedule into the main schedule order.
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
