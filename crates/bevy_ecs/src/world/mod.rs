@@ -2138,6 +2138,9 @@ impl World {
 
     /// Iterates over all resources in the world.
     ///
+    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading the contents
+    /// of each resource will require the use of unsafe code.
+    ///
     /// # Examples
     ///
     /// ## Printing the size of all resources
@@ -2158,7 +2161,6 @@ impl World {
     ///    println!("Size: {} bytes", info.layout().size());
     ///    total += info.layout().size();
     /// }
-    /// println!("----------------");
     /// println!("Total size: {} bytes", total);
     /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
     /// ```
@@ -2188,6 +2190,7 @@ impl World {
     ///
     /// // Add closure for `A`
     /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
+    ///     // SAFETY: We assert ptr is the same type of A with TypeId of A 
     ///     let a = unsafe { &ptr.deref::<A>() };
     /// #   assert_eq!(a.0, 1);
     ///     // ... do something with `a` here
@@ -2229,6 +2232,9 @@ impl World {
     }
 
     /// Mutably iterates over all resources in the world.
+    ///
+    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading from or writing
+    /// to the contents of each resource will require the use of unsafe code.
     ///
     /// # Example
     ///
@@ -2299,7 +2305,7 @@ impl World {
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next oned
+                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
                 let ticks = unsafe {
                     TicksMut::from_tick_cells(
                         ticks,
