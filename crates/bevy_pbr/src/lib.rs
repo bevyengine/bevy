@@ -372,14 +372,16 @@ impl Plugin for PbrPlugin {
             app.add_plugins(GpuMeshPreprocessPlugin);
         }
 
-        app.world_mut().resource_mut::<Assets<StandardMaterial>>().insert(
-            &Handle::<StandardMaterial>::default(),
-            StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.5),
-                unlit: true,
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .insert(
+                &Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::srgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
