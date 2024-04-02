@@ -116,10 +116,11 @@ pub(crate) fn despawn_windows(
 }
 
 /// The cached state of the window so we can check which properties were changed from within the app.
+#[doc(hidden)]
 #[derive(Debug, Clone, Component)]
 pub struct CachedWindow {
     /// The previous state of the [`Window`].
-    pub window: Window,
+    pub(crate) window: Window,
 }
 
 /// Propagates changes from [`Window`] entities to the [`winit`] backend.
