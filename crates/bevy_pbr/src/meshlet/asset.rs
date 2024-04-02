@@ -6,9 +6,12 @@ use bevy_asset::{
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bytemuck::{Pod, Zeroable};
-use lz4_flex::block::DecompressError;
+use lz4_flex::{
+    block::DecompressError,
+    frame::{FrameDecoder, FrameEncoder},
+};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{io::Cursor, sync::Arc};
 
 /// The current version of the [`MeshletMesh`] asset format.
 pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
@@ -106,16 +109,10 @@ impl AssetLoader for MeshletMeshSaverLoad {
             return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
         }
 
-        let uncompressed_size = read_u64(reader).await? as usize;
-        let compressed_size = read_u64(reader).await? as usize;
-
-        let mut bytes = Vec::with_capacity(uncompressed_size);
+        let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
+        let asset = bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))?;
 
-        let bytes = lz4_flex::decompress(&bytes, compressed_size)
-            .map_err(|e| MeshletMeshSaveOrLoadError::Decompression(e))?;
-
-        let asset = bincode::deserialize(&bytes)?;
         Ok(asset)
     }
 
@@ -136,17 +133,16 @@ impl AssetSaver for MeshletMeshSaverLoad {
         asset: SavedAsset<'a, Self::Asset>,
         _settings: &'a Self::Settings,
     ) -> Result<(), Self::Error> {
-        let bytes = bincode::serialize(asset.get())?;
-        let uncompressed_size = bytes.len() as u64;
-        let bytes = lz4_flex::compress(&bytes);
-        let compressed_size = bytes.len() as u64;
-
         writer
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
-        writer.write_all(&uncompressed_size.to_le_bytes()).await?;
-        writer.write_all(&compressed_size.to_le_bytes()).await?;
+
+        let mut bytes = Vec::new();
+        let mut sync_writer = FrameEncoder::new(&mut bytes);
+        bincode::serialize_into(&mut sync_writer, asset.get())?;
+        sync_writer.finish()?;
         writer.write_all(&bytes).await?;
+
         Ok(())
     }
 }
@@ -157,8 +153,8 @@ pub enum MeshletMeshSaveOrLoadError {
     WrongVersion { found: u64 },
     #[error("failed to serialize or deserialize asset data")]
     SerializationOrDeserialization(#[from] bincode::Error),
-    #[error("failed to decompress asset data")]
-    Decompression(DecompressError),
+    #[error("failed to compress or decompress asset data")]
+    CompressionOrDecompression(#[from] lz4_flex::frame::Error),
     #[error("failed to read or write asset data")]
     Io(#[from] std::io::Error),
 }

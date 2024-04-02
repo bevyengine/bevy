@@ -42,7 +42,9 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bitflags = "2.3"
 fixedbitset = "0.5"
 # meshlet
-lz4_flex = { version = "0.11", default-features = false, optional = true }
+lz4_flex = { version = "0.11", default-features = false, features = [
+  "frame",
+], optional = true }
 thiserror = { version = "1", optional = true }
 meshopt = { version = "0.2", optional = true }
 metis = { version = "0.2", optional = true }
