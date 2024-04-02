@@ -785,7 +785,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
                 let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
-                let row = TableRow::from_usize(self.current_row);
+                let row = TableRow::from_u32(self.current_row as u32);
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;
