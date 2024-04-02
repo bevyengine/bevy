@@ -1151,7 +1151,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes a dynamic [`Component`] from the entity. This does nothing if there is no component to remove.
+    /// Removes a dynamic [`Component`] from the entity if it exists.
     ///
     /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
     ///
