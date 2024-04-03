@@ -42,7 +42,7 @@ fn main() {
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
-            (gameover_keyboard.run_if(in_state(GameState::GameOver)),),
+            gameover_keyboard.run_if(in_state(GameState::GameOver)),
         )
         .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
