@@ -16,7 +16,13 @@ shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:thiserror"]
+meshlet = [
+  "dep:lz4_flex",
+  "dep:serde",
+  "dep:bincode",
+  "dep:thiserror",
+  "dep:range-alloc",
+]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = ["meshlet", "dep:meshopt", "dep:metis", "dep:itertools"]
 
@@ -45,7 +51,10 @@ fixedbitset = "0.5"
 lz4_flex = { version = "0.11", default-features = false, features = [
   "frame",
 ], optional = true }
+serde = { version = "1", features = ["derive", "rc"], optional = true }
+bincode = { version = "1", optional = true }
 thiserror = { version = "1", optional = true }
+range-alloc = { version = "0.1", optional = true }
 meshopt = { version = "0.2", optional = true }
 metis = { version = "0.2", optional = true }
 itertools = { version = "0.12", optional = true }
@@ -53,9 +62,6 @@ itertools = { version = "0.12", optional = true }
 bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
 smallvec = "1.6"
-serde = { version = "1", features = ["derive", "rc"] }
-bincode = "1"
-range-alloc = "0.1"
 nonmax = "0.5"
 
 [lints]
