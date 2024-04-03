@@ -43,11 +43,6 @@ struct MeshletBoundingSphere {
     radius: f32,
 }
 
-struct MeshletLodErrors {
-    self_: f32,
-    parent: f32,
-}
-
 struct DrawIndirectArgs {
     vertex_count: atomic<u32>,
     instance_count: u32,
@@ -58,15 +53,14 @@ struct DrawIndirectArgs {
 #ifdef MESHLET_CULLING_PASS
 @group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per asset meshlet
-@group(0) @binding(2) var<storage, read> meshlet_lod_errors: array<MeshletLodErrors>; // Per asset meshlet
-@group(0) @binding(3) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(5) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(6) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(7) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(8) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(9) var<uniform> view: View;
-@group(0) @binding(10) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
+@group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
+@group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
+@group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
+@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(6) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
+@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(8) var<uniform> view: View;
+@group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;

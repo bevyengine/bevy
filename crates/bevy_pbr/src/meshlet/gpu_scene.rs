@@ -1,5 +1,5 @@
 use super::{
-    asset::{Meshlet, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh},
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletMesh},
     persistent_buffer::PersistentGpuBuffer,
 };
 use crate::{
@@ -65,7 +65,7 @@ pub fn extract_meshlet_meshes(
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
             if let Some((
-                [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice, meshlet_lod_errors_slice],
+                [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice],
                 _,
             )) = gpu_scene.meshlet_mesh_slices.remove(id)
             {
@@ -76,9 +76,6 @@ pub fn extract_meshlet_meshes(
                 gpu_scene
                     .meshlet_bounding_spheres
                     .mark_slice_unused(meshlet_bounding_spheres_slice);
-                gpu_scene
-                    .meshlet_lod_errors
-                    .mark_slice_unused(meshlet_lod_errors_slice);
             }
         }
     }
@@ -156,9 +153,6 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
     gpu_scene
         .meshlet_bounding_spheres
-        .perform_writes(&render_queue, &render_device);
-    gpu_scene
-        .meshlet_lod_errors
         .perform_writes(&render_queue, &render_device);
 }
 
@@ -466,7 +460,6 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             gpu_scene.thread_meshlet_ids.binding().unwrap(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.meshlet_lod_errors.binding(),
             gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.view_instance_visibility[&view_entity]
@@ -622,8 +615,7 @@ pub struct MeshletGpuScene {
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
-    meshlet_lod_errors: PersistentGpuBuffer<Arc<[MeshletLodErrors]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 6], u64)>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64)>,
 
     scene_meshlet_count: u32,
     scene_triangle_count: u64,
@@ -666,7 +658,6 @@ impl FromWorld for MeshletGpuScene {
                 "meshlet_bounding_spheres",
                 render_device,
             ),
-            meshlet_lod_errors: PersistentGpuBuffer::new("meshlet_lod_errors", render_device),
             meshlet_mesh_slices: HashMap::new(),
 
             scene_meshlet_count: 0,
@@ -711,7 +702,6 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
-                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -854,9 +844,6 @@ impl MeshletGpuScene {
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
-            let meshlet_lod_errors_slice = self
-                .meshlet_lod_errors
-                .queue_write(Arc::clone(&meshlet_mesh.lod_errors), ());
 
             (
                 [
@@ -865,7 +852,6 @@ impl MeshletGpuScene {
                     indices_slice,
                     meshlets_slice,
                     meshlet_bounding_spheres_slice,
-                    meshlet_lod_errors_slice,
                 ],
                 meshlet_mesh.worst_case_meshlet_triangles,
             )
@@ -877,7 +863,7 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().push(0);
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let ([_, _, _, meshlets_slice, _, _], triangle_count) = self
+        let ([_, _, _, meshlets_slice, _], triangle_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)

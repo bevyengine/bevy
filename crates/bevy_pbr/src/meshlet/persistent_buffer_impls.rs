@@ -1,5 +1,5 @@
 use super::{
-    asset::{Meshlet, MeshletBoundingSpheres, MeshletLodErrors},
+    asset::{Meshlet, MeshletBoundingSpheres},
     persistent_buffer::PersistentGpuBufferable,
 };
 use std::{mem::size_of, sync::Arc};
@@ -70,18 +70,6 @@ impl PersistentGpuBufferable for Arc<[MeshletBoundingSpheres]> {
 
     fn size_in_bytes(&self) -> usize {
         self.len() * size_of::<MeshletBoundingSpheres>()
-    }
-
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
-    }
-}
-
-impl PersistentGpuBufferable for Arc<[MeshletLodErrors]> {
-    type Metadata = ();
-
-    fn size_in_bytes(&self) -> usize {
-        self.len() * size_of::<MeshletLodErrors>()
     }
 
     fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {

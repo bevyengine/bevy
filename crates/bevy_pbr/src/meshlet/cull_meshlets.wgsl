@@ -1,7 +1,6 @@
 #import bevy_pbr::meshlet_bindings::{
     meshlet_thread_meshlet_ids,
     meshlet_bounding_spheres,
-    meshlet_lod_errors,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_occlusion,
@@ -46,9 +45,8 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     let parent_lod_bounding_sphere_center_view_space = (view.inverse_view * vec4(parent_lod_bounding_sphere_center.xyz, 1.0)).xyz;
 
     // Check LOD cut (meshlet error imperceptible, and parent error not imperceptible)
-    let lod_errors = meshlet_lod_errors[meshlet_id];
-    let lod_is_ok = lod_error_is_imperceptible(lod_errors.self_, lod_bounding_sphere_center_view_space, lod_bounding_sphere_radius);
-    let parent_lod_is_ok = lod_error_is_imperceptible(lod_errors.parent, parent_lod_bounding_sphere_center_view_space, parent_lod_bounding_sphere_radius);
+    let lod_is_ok = lod_error_is_imperceptible(lod_bounding_sphere_center_view_space, lod_bounding_sphere_radius);
+    let parent_lod_is_ok = lod_error_is_imperceptible(parent_lod_bounding_sphere_center_view_space, parent_lod_bounding_sphere_radius);
     if !lod_is_ok || parent_lod_is_ok { return; }
 
     // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
@@ -108,14 +106,13 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 }
 
 // https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
-fn lod_error_is_imperceptible(error: f32, cp: vec3<f32>, r: f32) -> bool {
+fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
     let d2 = dot(cp, cp);
     let r2 = r * r;
     let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
     let view_size = f32(max(view.viewport.z, view.viewport.w));
     let sphere_diameter_pixels = sphere_diameter_uv * view_size;
-    let error_pixels = sphere_diameter_pixels * error;
-    return error_pixels < 1.0;
+    return sphere_diameter_pixels < 1.0;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds

@@ -41,8 +41,6 @@ pub struct MeshletMesh {
     pub meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
     pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
-    /// Simplification errors used for choosing level of detail.
-    pub lod_errors: Arc<[MeshletLodErrors]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -75,16 +73,6 @@ pub struct MeshletBoundingSpheres {
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
-}
-
-/// Simplification errors used for determining level of detail for a [`Meshlet`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct MeshletLodErrors {
-    /// The simplification error used for creating this meshlet (from its children).
-    pub self_: f32,
-    /// The simplification error used for creating this meshlet's parent (from this meshlet, and its siblings).
-    pub parent: f32,
 }
 
 /// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
