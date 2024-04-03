@@ -2,7 +2,6 @@ use crate::{PrimaryWindow, Window, WindowCloseRequested};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
-use bevy_input::{keyboard::KeyCode, ButtonInput};
 
 /// Exit the application when there are no open windows.
 ///

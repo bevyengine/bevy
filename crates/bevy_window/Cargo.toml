@@ -20,11 +20,9 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "glam",
+  "smol_str",
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-# Used for close_on_esc
-# TODO: remove this
-bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
