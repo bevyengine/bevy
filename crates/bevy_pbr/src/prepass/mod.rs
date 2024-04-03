@@ -163,7 +163,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    (prepare_previous_view_projection_uniforms).in_set(RenderSet::PrepareResources),
+                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
                 );
         }
 
