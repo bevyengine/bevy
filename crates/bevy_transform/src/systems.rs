@@ -188,10 +188,9 @@ mod test {
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
-    use crate::components::{GlobalTransform, Transform};
     use crate::systems::*;
     use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren};
 
     #[test]
     fn correct_parent_removed() {
@@ -416,7 +415,7 @@ mod test {
         let mut child = Entity::from_raw(0);
         let mut grandchild = Entity::from_raw(1);
         let parent = app
-            .world
+            .world_mut()
             .spawn((
                 Transform::from_translation(translation),
                 GlobalTransform::IDENTITY,
@@ -434,13 +433,16 @@ mod test {
         app.update();
 
         // check the `Children` structure is spawned
-        assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
-        assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
+        assert_eq!(&**app.world().get::<Children>(parent).unwrap(), &[child]);
+        assert_eq!(
+            &**app.world().get::<Children>(child).unwrap(),
+            &[grandchild]
+        );
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
         app.update();
 
-        let mut state = app.world.query::<&GlobalTransform>();
-        for global in state.iter(&app.world) {
+        let mut state = app.world_mut().query::<&GlobalTransform>();
+        for global in state.iter(app.world()) {
             assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
@@ -468,16 +470,16 @@ mod test {
         }
 
         let (temp_child, temp_grandchild) = setup_world(&mut temp);
-        let (child, grandchild) = setup_world(&mut app.world);
+        let (child, grandchild) = setup_world(app.world_mut());
 
         assert_eq!(temp_child, child);
         assert_eq!(temp_grandchild, grandchild);
 
-        app.world
+        app.world_mut()
             .spawn(TransformBundle::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
-            &mut *app.world.get_mut::<Parent>(child).unwrap(),
+            &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
         );
 

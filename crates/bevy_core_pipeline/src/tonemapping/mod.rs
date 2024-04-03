@@ -52,8 +52,8 @@ impl Plugin for TonemappingPlugin {
             Shader::from_wgsl
         );
 
-        if !app.world.is_resource_added::<TonemappingLuts>() {
-            let mut images = app.world.resource_mut::<Assets<Image>>();
+        if !app.world().is_resource_added::<TonemappingLuts>() {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
 
             #[cfg(feature = "tonemapping_luts")]
             let tonemapping_luts = {
@@ -96,20 +96,22 @@ impl Plugin for TonemappingPlugin {
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-                .add_systems(
-                    Render,
-                    prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
-                );
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .add_systems(
+                Render,
+                prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TonemappingPipeline>();
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app.init_resource::<TonemappingPipeline>();
     }
 }
 
