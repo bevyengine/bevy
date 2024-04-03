@@ -6,8 +6,9 @@ use bevy_render::{
 use bevy_utils::{HashMap, HashSet};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
-    simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
+    ffi::{meshopt_Bounds, meshopt_optimizeMeshlet},
+    simplify, simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use std::{borrow::Cow, ops::Range};
@@ -31,8 +32,7 @@ impl MeshletMesh {
         let vertex_buffer = mesh.get_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
-        let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
-        // TODO: Try meshopt_optimizeMeshlet()
+        let mut meshlets = compute_meshlets(&indices, &vertices);
         let mut bounding_spheres = meshlets
             .iter()
             .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
@@ -104,7 +104,7 @@ impl MeshletMesh {
 
                 // Build new meshlets using the simplified group
                 let new_meshlets_count = split_simplified_groups_into_new_meshlets(
-                    simplified_group_indices,
+                    &simplified_group_indices,
                     &vertices,
                     &mut meshlets,
                 );
@@ -173,6 +173,24 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         Some(Indices::U16(indices)) => Ok(indices.iter().map(|i| *i as u32).collect()),
         _ => Err(MeshToMeshletMeshConversionError::MeshMissingIndices),
     }
+}
+
+fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
+    let mut meshlets = build_meshlets(indices, vertices, 64, 64, 0.0);
+
+    for i in 0..meshlets.len() {
+        let meshlet = meshlets.meshlets[i];
+        unsafe {
+            meshopt_optimizeMeshlet(
+                &mut meshlets.vertices[meshlet.vertex_offset as usize],
+                &mut meshlets.triangles[meshlet.triangle_offset as usize],
+                meshlet.triangle_count as usize,
+                meshlet.vertex_count as usize,
+            );
+        }
+    }
+
+    meshlets
 }
 
 fn collect_triangle_edges_per_meshlet(
@@ -303,12 +321,11 @@ fn simplify_meshlet_groups(
 }
 
 fn split_simplified_groups_into_new_meshlets(
-    simplified_group_indices: Vec<u32>,
+    simplified_group_indices: &Vec<u32>,
     vertices: &VertexDataAdapter<'_>,
     meshlets: &mut Meshlets,
 ) -> usize {
-    let simplified_meshlets = build_meshlets(&simplified_group_indices, vertices, 64, 64, 0.0);
-    // TODO: Try meshopt_optimizeMeshlet()
+    let simplified_meshlets = compute_meshlets(simplified_group_indices, vertices);
     let new_meshlets_count = simplified_meshlets.len();
 
     let vertex_offset = meshlets.vertices.len() as u32;
