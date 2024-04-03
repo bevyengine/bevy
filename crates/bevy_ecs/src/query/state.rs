@@ -1476,6 +1476,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // submit batch_queue
                 if queue_entity_count >= batch_size || batch_queue.is_full() {
                     submit_batch_queue(&mut batch_queue);
+                    queue_entity_count = 0;
                 }
             }
             submit_batch_queue(&mut batch_queue);
