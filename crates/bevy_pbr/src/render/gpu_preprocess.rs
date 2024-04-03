@@ -149,7 +149,6 @@ impl Node for GpuPreprocessNode {
         let Some(preprocess_pipeline) = pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
         else {
             // This will happen while the pipeline is being compiled and is fine.
-            println!("No compute pipeline present!");
             return Ok(());
         };
 
@@ -171,7 +170,7 @@ impl Node for GpuPreprocessNode {
             };
 
             compute_pass.set_bind_group(0, &bind_group.0, &[]);
-            let workgroup_count = div_round_up(index_buffer.buffer.len(), WORKGROUP_SIZE);
+            let workgroup_count = div_round_up(index_buffer.len(), WORKGROUP_SIZE);
             compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
         }
 
@@ -267,7 +266,7 @@ pub fn prepare_preprocess_bind_groups(
     };
 
     for (view, index_buffer_vec) in index_buffers {
-        let Some(index_buffer) = index_buffer_vec.buffer.buffer() else {
+        let Some(index_buffer) = index_buffer_vec.buffer() else {
             continue;
         };
         commands

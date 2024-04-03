@@ -104,7 +104,7 @@ where
         /// corresponds to each instance.
         ///
         /// This is keyed off each view. Each view has a separate buffer.
-        work_item_buffers: EntityHashMap<Entity, PreprocessWorkItemBuffer>,
+        work_item_buffers: EntityHashMap<Entity, BufferVec<PreprocessWorkItem>>,
 
         /// The uniform data inputs for the current frame.
         ///
@@ -120,16 +120,6 @@ where
         /// corresponding buffer data input uniform in this list.
         previous_input_buffer: BufferVec<BDI>,
     },
-}
-
-/// The buffer of GPU preprocessing work items for a single view.
-pub struct PreprocessWorkItemBuffer {
-    /// The buffer of work items.
-    pub buffer: BufferVec<PreprocessWorkItem>,
-    /// True if we've populated the buffer this frame.
-    ///
-    /// We use this so that we can delete unused buffers when views disappear.
-    pub rendered: bool,
 }
 
 /// One invocation of the preprocessing shader: i.e. one mesh instance in a
@@ -291,7 +281,7 @@ pub fn clear_batched_instance_buffers<F>(
             current_input_buffer.clear();
             previous_input_buffer.clear();
             for work_item_buffer in work_item_buffers.values_mut() {
-                work_item_buffer.buffer.clear();
+                work_item_buffer.clear();
             }
         }
     }
@@ -417,17 +407,12 @@ pub fn batch_and_prepare_sorted_render_phase_for_gpu_preprocessing<I, F>(
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
-        let work_item_buffer =
-            work_item_buffers
-                .entry(view)
-                .or_insert_with(|| PreprocessWorkItemBuffer {
-                    buffer: BufferVec::new(BufferUsages::STORAGE),
-                    rendered: true,
-                });
-        work_item_buffer.rendered = true;
+        let work_item_buffer = work_item_buffers
+            .entry(view)
+            .or_insert_with(|| BufferVec::new(BufferUsages::STORAGE));
 
         let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item, data_buffer, &mut work_item_buffer.buffer);
+            let batch_data = process_item(item, data_buffer, work_item_buffer);
             (item.batch_range_mut(), batch_data)
         });
         items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
@@ -548,14 +533,9 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBD>(
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
-        let work_item_buffer =
-            work_item_buffers
-                .entry(view)
-                .or_insert_with(|| PreprocessWorkItemBuffer {
-                    buffer: BufferVec::new(BufferUsages::STORAGE),
-                    rendered: true,
-                });
-        work_item_buffer.rendered = true;
+        let work_item_buffer = work_item_buffers
+            .entry(view)
+            .or_insert_with(|| BufferVec::new(BufferUsages::STORAGE));
 
         // Prepare batchables.
 
@@ -568,7 +548,7 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                work_item_buffer.buffer.push(PreprocessWorkItem {
+                work_item_buffer.push(PreprocessWorkItem {
                     input_index,
                     output_index,
                 });
@@ -598,7 +578,7 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                work_item_buffer.buffer.push(PreprocessWorkItem {
+                work_item_buffer.push(PreprocessWorkItem {
                     input_index,
                     output_index,
                 });
@@ -637,9 +617,7 @@ pub fn write_batched_instance_buffer<F: GetBatchData>(
             // that on the previous frame, and it hasn't changed.
 
             for index_buffer in index_buffers.values_mut() {
-                index_buffer
-                    .buffer
-                    .write_buffer(&render_device, &render_queue);
+                index_buffer.write_buffer(&render_device, &render_queue);
             }
         }
     }
