@@ -340,10 +340,10 @@ fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
 /// An error produced by [`MeshletMesh::from_mesh`].
 #[derive(thiserror::Error, Debug)]
 pub enum MeshToMeshletMeshConversionError {
-    #[error("Mesh primitive topology was not TriangleList")]
+    #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh attributes were not {{POSITION, NORMAL, UV_0, TANGENT}}")]
+    #[error("Mesh attributes is not {{POSITION, NORMAL, UV_0, TANGENT}}")]
     WrongMeshVertexAttributes,
-    #[error("Mesh had no indices")]
+    #[error("Mesh has no indices")]
     MeshMissingIndices,
 }
