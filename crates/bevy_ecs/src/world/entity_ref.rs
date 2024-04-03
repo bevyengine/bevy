@@ -1167,9 +1167,7 @@ impl<'w> EntityWorldMut<'w> {
             .init_component_info(components, component_id);
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        unsafe {
-            self.remove_bundle(bundle_id);
-        }
+        self.location = unsafe { self.remove_bundle(bundle_id) };
 
         self
     }
