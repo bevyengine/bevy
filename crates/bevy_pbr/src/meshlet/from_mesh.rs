@@ -1,5 +1,3 @@
-#![allow(clippy::undocumented_unsafe_blocks)] // TODO: Remove
-
 use super::asset::{
     Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletLodErrors, MeshletMesh,
 };
@@ -10,9 +8,8 @@ use bevy_render::{
 use bevy_utils::{HashMap, HashSet};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
-    ffi::{meshopt_Bounds, meshopt_simplifyScale},
-    simplify, Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
+    simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use std::{borrow::Cow, iter, ops::Range};
@@ -39,6 +36,7 @@ impl MeshletMesh {
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = build_meshlets(&indices, &vertices, 64, 64, 0.0);
+        // TODO: Try meshopt_optimizeMeshlet()
         let mut bounding_spheres = meshlets
             .iter()
             .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
@@ -294,6 +292,7 @@ fn simplify_meshlet_groups(
     let target_error = 0.1 * t + 0.01 * (1.0 - t);
 
     // Simplify the group to ~50% triangle count
+    // TODO: Use simplify_with_locks()
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,
@@ -310,14 +309,7 @@ fn simplify_meshlet_groups(
     }
 
     // Convert error to object-space
-    // TODO: Use high level bindings https://github.com/gwihlidal/meshopt-rs/commit/5d243a89067b459b3b33a197ac94037d96963191
-    error *= unsafe {
-        meshopt_simplifyScale(
-            vertices.pos_ptr(),
-            vertices.vertex_count,
-            vertices.vertex_stride,
-        )
-    };
+    error *= simplify_scale(vertices);
 
     Some((simplified_group_indices, error))
 }
@@ -328,6 +320,7 @@ fn split_simplified_groups_into_new_meshlets(
     meshlets: &mut Meshlets,
 ) -> usize {
     let simplified_meshlets = build_meshlets(&simplified_group_indices, vertices, 64, 64, 0.0);
+    // TODO: Try meshopt_optimizeMeshlet()
     let new_meshlets_count = simplified_meshlets.len();
 
     let vertex_offset = meshlets.vertices.len() as u32;
