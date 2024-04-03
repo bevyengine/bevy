@@ -43,7 +43,7 @@ fn setup(
             mesh: shape,
             material: materials.add(color),
             transform: Transform::from_xyz(
-                // Distribute shapes from -X_EXTENT to +X_EXTENT.
+                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                 0.0,
                 0.0,
