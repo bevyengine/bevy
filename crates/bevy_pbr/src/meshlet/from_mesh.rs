@@ -14,8 +14,6 @@ use meshopt::{
 use metis::Graph;
 use std::{borrow::Cow, iter, ops::Range};
 
-const MAX_LOD_LEVEL: u32 = 20;
-
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
     ///
@@ -62,7 +60,7 @@ impl MeshletMesh {
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         let mut lod_level = 1;
-        while simplification_queue.len() > 1 && lod_level <= MAX_LOD_LEVEL {
+        while simplification_queue.len() > 1 {
             // For each meshlet build a set of triangle edges
             let triangle_edges_per_meshlet =
                 collect_triangle_edges_per_meshlet(simplification_queue.clone(), &meshlets);
@@ -256,7 +254,8 @@ fn group_meshlets(
     xadj.push(adjncy.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
-    Graph::new(1, (simplification_queue.len() / 4) as i32, &xadj, &adjncy)
+    let partition_count = (simplification_queue.len().div_ceil(4)) as i32;
+    Graph::new(1, partition_count, &xadj, &adjncy)
         .unwrap()
         .set_adjwgt(&adjwgt)
         .part_kway(&mut group_per_meshlet)
@@ -287,8 +286,8 @@ fn simplify_meshlet_groups(
         }
     }
 
-    // Allow more deformation for high LOD levels (1% at LOD 0, 10% at MAX_LOD_LEVEL)
-    let t = (lod_level - 1) as f32 / (MAX_LOD_LEVEL - 1) as f32;
+    // Allow more deformation for high LOD levels (1% at LOD 1, 10% at LOD 20+)
+    let t = (lod_level - 1) as f32 / 19.0;
     let target_error = 0.1 * t + 0.01 * (1.0 - t);
 
     // Simplify the group to ~50% triangle count
