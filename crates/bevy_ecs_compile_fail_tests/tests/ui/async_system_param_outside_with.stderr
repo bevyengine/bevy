@@ -1,0 +1,32 @@
+error: lifetime may not live long enough
+  --> tests/ui/async_system_param_outside_with.rs:10:26
+   |
+10 |         co_with!(|state| state);
+   |                   ------ ^^^^^ returning this value requires that `'1` must outlive `'2`
+   |                   |    |
+   |                   |    return type of closure is bevy_ecs::system::Local<'2, usize>
+   |                   has type `bevy_ecs::system::Local<'1, usize>`
+
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/ui/async_system_param_outside_with.rs:12:26
+   |
+11 |         let mut oops = None;
+   |             -------- `oops` declared here, outside of the closure body
+12 |         co_with!(|state| oops = Some(state));
+   |                   -----  ^^^^^^^^^^^^^^^^^^ `state` escapes the closure body here
+   |                   |
+   |                   `state` is a reference that is only valid in the closure body
+
+error[E0381]: used binding `state` isn't initialized
+  --> tests/ui/async_system_param_outside_with.rs:7:10
+   |
+5  |       let _ = co!(async move |state: Local<usize>| loop {
+   |  _____________-
+6  | |         // system params are not accessible outside co_with!
+7  | |         &*state;
+   | |          ^^^^^^ `state` used here but it isn't initialized
+8  | |
+...  |
+14 | |         // a normal reference would be UB to hold over an await point
+15 | |     });
+   | |______- binding declared here but left uninitialized
