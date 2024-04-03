@@ -120,7 +120,7 @@ pub struct WindowDestroyed {
 /// Not to be confused with the `MouseMotion` event from `bevy_input`.
 ///
 /// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
-/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see [`MouseMotion`] instead.
+/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
