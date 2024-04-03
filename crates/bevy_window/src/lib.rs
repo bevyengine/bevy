@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -28,7 +29,6 @@ pub use window::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
