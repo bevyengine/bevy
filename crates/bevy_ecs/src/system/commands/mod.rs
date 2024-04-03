@@ -4,6 +4,7 @@ use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::TypedComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
@@ -851,6 +852,30 @@ impl EntityCommands<'_> {
         self.add(try_insert(bundle))
     }
 
+    /// Adds a dynamic component to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type. The typed component
+    /// id is necessary to identity which dynamic component to write to.
+    pub fn insert_dynamic<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+        component: T,
+    ) -> &mut Self {
+        self.add(insert_dynamic(component_id, component))
+    }
+
+    /// Attempts to add a dynamic component to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type. The typed component
+    /// id is necessary to identity which dynamic component to write to.
+    pub fn try_insert_dynamic<T: Send + Sync + 'static>(
+        &mut self,
+        component_id: TypedComponentId<T>,
+        component: T,
+    ) -> &mut Self {
+        self.add(try_insert_dynamic(component_id, component))
+    }
+
     /// Removes a [`Bundle`] of components from the entity.
     ///
     /// # Example
@@ -1094,6 +1119,32 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds the given dynamic component to an entity.
+fn insert_dynamic<T: Send + Sync + 'static>(
+    component_id: TypedComponentId<T>,
+    component: T,
+) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert_dynamic(component_id, component);
+        } else {
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that attempts to add the given dynamic component to an entity.
+fn try_insert_dynamic<T: Send + Sync + 'static>(
+    component_id: TypedComponentId<T>,
+    component: T,
+) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert_dynamic(component_id, component);
         }
     }
 }

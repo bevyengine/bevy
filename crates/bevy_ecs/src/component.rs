@@ -7,7 +7,7 @@ use crate::{
     entity::Entity,
     storage::{SparseSetIndex, Storages},
     system::{Local, Resource, SystemParam},
-    world::{DeferredWorld, FromWorld, World},
+    world::{DeferredWorld, FromWorld, World, WorldId},
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
@@ -397,6 +397,30 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+/// A value which associates a raw component id to a statically-known type
+///
+/// This is somewhat niche, but very useful for accessing dynamic components without requiring raw
+/// [`bevy_ptr::Ptr`]s
+pub struct TypedComponentId<T: Send + Sync + 'static> {
+    pub(crate) id: ComponentId, //todo: pub(crate) fields and have the World construct this, or private fields and construct from an &mut World reference?
+    pub(crate) world_id: WorldId,
+    pub(crate) data: PhantomData<T>,
+}
+
+impl<T: Send + Sync + 'static> Copy for TypedComponentId<T> {}
+impl<T: Send + Sync + 'static> Clone for TypedComponentId<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: Send + Sync + 'static> TypedComponentId<T> {
+    /// returns the internal [`ComponentId`] held by this dynamic id.
+    pub fn id(&self) -> ComponentId {
+        self.id
+    }
+}
+
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
@@ -444,6 +468,18 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::STORAGE_TYPE,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<T>()),
+            layout: Layout::new::<T>(),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+        }
+    }
+
+    /// Create a new dynamic component for the type `T`, with the specified storage type.
+    pub fn new_dynamic<T: Send + Sync + 'static>(storage_type: StorageType) -> Self {
+        Self {
+            name: Cow::Borrowed(std::any::type_name::<T>()), //todo: format with "dynamic: _" or similar for clarity?
+            storage_type,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),

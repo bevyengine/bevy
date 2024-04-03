@@ -7,7 +7,9 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
+    component::{
+        ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells, TypedComponentId,
+    },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     removal_detection::RemovedComponentEvents,
@@ -608,6 +610,12 @@ impl<'w> UnsafeEntityCell<'w> {
         self.entity
     }
 
+    /// Returns the ID of the [World] the current entity is in.
+    #[inline]
+    pub fn world_id(self) -> WorldId {
+        self.world.id()
+    }
+
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(self) -> EntityLocation {
@@ -880,6 +888,56 @@ impl<'w> UnsafeEntityCell<'w> {
                     self.world.change_tick(),
                 ),
             })
+        }
+    }
+
+    /// Gets the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API where possible, this is a niche method used for
+    /// dynamic components whose types are known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_dynamic<T: Send + Sync + 'static>(
+        self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<&'w T> {
+        if component_id.world_id != self.world_id() {
+            return None;
+        }
+        //SAFETY: caller maintains responsibility for call to get_by_id, and the deref() is correct
+        //by construction as long as the world id matches
+        unsafe {
+            let ptr = self.get_by_id(component_id.id)?;
+            Some(ptr.deref::<T>())
+        }
+    }
+
+    /// Gets a mutable reference to the component of the given [`TypedComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API where possible, this is a niche method used for
+    /// dynamic components whose types are known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_dynamic_mut<T: Send + Sync + 'static>(
+        self,
+        component_id: TypedComponentId<T>,
+    ) -> Option<Mut<'w, T>> {
+        if component_id.world_id != self.world_id() {
+            return None;
+        }
+        //SAFETY: caller maintains responsibility for call to get_mut_by_id, and the with_type() is correct
+        //by construction as long as the world id matches
+        unsafe {
+            let ptr = self.get_mut_by_id(component_id.id)?;
+            Some(ptr.with_type::<T>())
         }
     }
 }
