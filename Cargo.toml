@@ -674,17 +674,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "deterministic"
-path = "examples/3d/deterministic.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.deterministic]
-name = "Deterministic rendering"
-description = "Stop flickering from z-fighting at a performance cost"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
