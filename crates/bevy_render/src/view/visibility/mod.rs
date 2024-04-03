@@ -20,6 +20,8 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+use super::NoCpuCulling;
+
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
 /// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
@@ -376,6 +378,7 @@ pub fn check_visibility(
         &Frustum,
         Option<&RenderLayers>,
         &Camera,
+        Has<NoCpuCulling>,
     )>,
     mut visible_aabb_query: Query<(
         Entity,
@@ -387,7 +390,8 @@ pub fn check_visibility(
         Has<NoFrustumCulling>,
     )>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in &mut view_query
+    {
         if !camera.is_active {
             continue;
         }
@@ -418,7 +422,7 @@ pub fn check_visibility(
             }
 
             // If we have an aabb, do frustum culling
-            if !no_frustum_culling {
+            if !no_frustum_culling && !no_cpu_culling {
                 if let Some(model_aabb) = maybe_model_aabb {
                     let model = transform.affine();
                     let model_sphere = Sphere {

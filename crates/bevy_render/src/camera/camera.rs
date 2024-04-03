@@ -6,7 +6,9 @@ use crate::{
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
     texture::GpuImage,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
+    view::{
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+    },
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -17,6 +19,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -827,6 +830,7 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
+            Has<GpuCulling>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -844,6 +848,7 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
+        gpu_culling,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -914,6 +919,10 @@ pub fn extract_cameras(
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            }
+
+            if gpu_culling {
+                commands.insert(GpuCulling);
             }
         }
     }

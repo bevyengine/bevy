@@ -14,6 +14,8 @@ use crate::{
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
 
+use self::gpu_preprocessing::IndirectParametersBuffer;
+
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
 
@@ -52,7 +54,7 @@ impl<T: PartialEq> BatchMeta<T> {
         BatchMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.dynamic_offset(),
+            dynamic_offset: item.extra_index().as_dynamic_offset(),
             user_data,
         }
     }
@@ -133,6 +135,19 @@ pub trait GetFullBatchData: GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<NonMaxU32>;
+
+    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
+    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// index.
+    ///
+    /// This is only used if GPU culling is enabled (which requires GPU
+    /// preprocessing).
+    fn get_batch_indirect_parameters_index(
+        param: &SystemParamItem<Self::Param>,
+        indirect_parameters_buffer: &mut IndirectParametersBuffer,
+        entity: Entity,
+        instance_index: u32,
+    ) -> Option<NonMaxU32>;
 }
 
 /// A system that runs early in extraction and clears out all the
@@ -151,6 +166,7 @@ pub fn clear_batched_instance_buffers<GFBD>(
 ) where
     GFBD: GetFullBatchData,
 {
+    // Clear out the CPU-batched instance buffers, if present.
     if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
         cpu_batched_instance_buffer.clear();
     }

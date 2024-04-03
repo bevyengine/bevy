@@ -11,7 +11,10 @@
 #ifdef MESHLET_SECOND_CULLING_PASS
 #import bevy_pbr::meshlet_bindings::depth_pyramid
 #endif
-#import bevy_render::maths::affine3_to_square
+#import bevy_render::maths::{
+    affine3_to_square,
+    sphere_is_inside_frustum_plane,
+}
 
 /// Culls individual clusters (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which clusters survived.
 /// 1. The first pass is only frustum culling, on only the clusters that were visible last frame.
@@ -46,7 +49,11 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
         if !meshlet_visible { break; }
-        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > -bounding_sphere_radius;
+        meshlet_visible &= sphere_is_inside_frustum_plane(
+            view.frustum[i],
+            bounding_sphere_center,
+            bounding_sphere_radius
+        );
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS

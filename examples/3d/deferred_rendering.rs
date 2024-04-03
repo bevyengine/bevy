@@ -7,11 +7,12 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
-    pbr::NotShadowReceiver,
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
+    pbr::{
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
+        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    },
     prelude::*,
-    render::render_resource::TextureFormat,
+    render::{render_resource::TextureFormat, view::GpuCulling},
 };
 
 fn main() {
@@ -64,6 +65,7 @@ fn setup(
         MotionVectorPrepass,
         DeferredPrepass,
         Fxaa::default(),
+        GpuCulling,
     ));
 
     commands.spawn(DirectionalLightBundle {
