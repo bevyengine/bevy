@@ -153,12 +153,13 @@ impl<T: GpuArrayBufferable> BatchedUniformBufferPool<T> {
     }
 
     pub fn reserve(&mut self, count: NonZeroU64) -> BufferPoolSlice {
-        let mut batches = count.get() / self.capacity as u64;
-        let remainder = count.get() % self.capacity as u64;
+        let mut count = count.get();
+        // NOTE: Round up to the next batch count
+        let remainder = count % self.capacity as u64;
         if remainder != 0 {
-            batches += 1;
+            count += self.capacity as u64 - remainder;
         }
-        self.uniforms.reserve(NonZeroU64::new(batches).unwrap())
+        self.uniforms.reserve(NonZeroU64::new(count).unwrap())
     }
 
     pub fn allocate(&mut self, device: &RenderDevice) {
