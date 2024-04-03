@@ -33,6 +33,38 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// Helper object defining Bevy's serialize format for a [`DynamicScene`] and implementing
 /// the [`Serialize`] trait for use with Serde.
 ///
+/// ```
+/// # use bevy_scene::{serde::SceneSerializer, DynamicScene};
+/// # use bevy_ecs::{
+/// #     prelude::{Component, World},
+/// #     reflect::{AppTypeRegistry, ReflectComponent},
+/// # };
+/// # use bevy_reflect::Reflect;
+/// // Define an example component type.
+/// #[derive(Component, Reflect, Default)]
+/// #[reflect(Component)]
+/// struct MyComponent {
+///     foo: [usize; 3],
+///     bar: (f32, f32),
+///     baz: String,
+/// }
+///
+/// // Create our world, provide it with a type registry.
+/// // Normally, [`App`] handles providing the type registry.
+/// let mut world = World::new();
+/// world.init_resource::<AppTypeRegistry>();
+/// // Components that implement Reflect are automatically registered in the World
+/// // upon being first spawned or referenced by a system.
+/// //
+/// // Note: This only works for non-generic types implemented via the Component
+/// // and Reflect derive macros, and Component must be reflected (#[reflect(Component)]).
+/// // Manual implementations of Component must be manually registered.
+/// world.spawn(MyComponent {
+///     foo: [1, 2, 3],
+///     bar: (1.3, 3.7),
+///     baz: String::from("test"),
+/// });
+///
 /// # Example
 ///
 /// ```
@@ -548,9 +580,9 @@ mod tests {
 
     fn create_world() -> World {
         let mut world = World::new();
-        let registry = AppTypeRegistry::default();
+        world.init_resource::<AppTypeRegistry>();
         {
-            let mut registry = registry.write();
+            let mut registry = world.resource::<AppTypeRegistry>().write();
             registry.register::<Foo>();
             registry.register::<Bar>();
             registry.register::<Baz>();
@@ -558,13 +590,9 @@ mod tests {
             registry.register::<MyEnum>();
             registry.register::<String>();
             registry.register_type_data::<String, ReflectSerialize>();
-            registry.register::<[usize; 3]>();
-            registry.register::<(f32, f32)>();
             registry.register::<MyEntityRef>();
-            registry.register::<Entity>();
             registry.register::<MyResource>();
         }
-        world.insert_resource(registry);
         world
     }
 
@@ -698,7 +726,7 @@ mod tests {
             .unwrap();
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
+            type_registry: &registry.read(),
         };
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();

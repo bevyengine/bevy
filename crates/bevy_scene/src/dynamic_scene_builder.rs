@@ -379,10 +379,7 @@ mod tests {
     #[test]
     fn extract_one_entity() {
         let mut world = World::default();
-
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -392,7 +389,7 @@ mod tests {
 
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
+        assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
 
@@ -400,9 +397,7 @@ mod tests {
     fn extract_one_entity_twice() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -413,7 +408,7 @@ mod tests {
 
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity);
-        assert_eq!(scene.entities[0].components.len(), 1);
+        assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
 
@@ -421,13 +416,7 @@ mod tests {
     fn extract_one_entity_two_components() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity = world.spawn((ComponentA, ComponentB)).id();
 
@@ -472,13 +461,7 @@ mod tests {
     fn extract_query() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -499,9 +482,7 @@ mod tests {
     fn remove_componentless_entity() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ComponentA>();
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity_a = world.spawn(ComponentA).id();
         let entity_b = world.spawn(ComponentB).id();
@@ -511,7 +492,7 @@ mod tests {
             .remove_empty_entities()
             .build();
 
-        assert_eq!(scene.entities.len(), 1);
+        assert_eq!(scene.entities.len(), 2);
         assert_eq!(scene.entities[0].entity, entity_a);
     }
 
@@ -519,9 +500,7 @@ mod tests {
     fn extract_one_resource() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         world.insert_resource(ResourceA);
 
@@ -537,9 +516,7 @@ mod tests {
     fn extract_one_resource_twice() {
         let mut world = World::default();
 
-        let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         world.insert_resource(ResourceA);
 
@@ -555,14 +532,7 @@ mod tests {
     #[test]
     fn should_extract_allowed_components() {
         let mut world = World::default();
-
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -582,14 +552,7 @@ mod tests {
     #[test]
     fn should_not_extract_denied_components() {
         let mut world = World::default();
-
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ComponentA>();
-            register.register::<ComponentB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
         let entity_a = world.spawn(ComponentA).id();
@@ -609,14 +572,7 @@ mod tests {
     #[test]
     fn should_extract_allowed_resources() {
         let mut world = World::default();
-
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);
@@ -633,14 +589,7 @@ mod tests {
     #[test]
     fn should_not_extract_denied_resources() {
         let mut world = World::default();
-
-        let atr = AppTypeRegistry::default();
-        {
-            let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
-        }
-        world.insert_resource(atr);
+        world.init_resource::<AppTypeRegistry>();
 
         world.insert_resource(ResourceA);
         world.insert_resource(ResourceB);

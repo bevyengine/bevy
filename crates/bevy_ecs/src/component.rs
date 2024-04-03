@@ -12,7 +12,7 @@ use crate::{
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeRegistryArc};
 use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
@@ -156,6 +156,13 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+
+    /// Shim for automatically registering components. Intentionally hidden as it's not part of the
+    /// public interface. Only available if the `bevy_reflect` feature is enabled.
+    #[doc(hidden)]
+    #[allow(unused_variables)]
+    #[cfg(feature = "bevy_reflect")]
+    fn __register_type(registry: &TypeRegistryArc) {}
 }
 
 /// The storage used for a specific component type.
@@ -525,6 +532,8 @@ pub struct Components {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
+    #[cfg(feature = "bevy_reflect")]
+    pub(crate) type_registry: TypeRegistryArc,
 }
 
 impl Components {
@@ -552,6 +561,8 @@ impl Components {
                 ComponentDescriptor::new::<T>(),
             );
             T::register_component_hooks(&mut components[index.index()].hooks);
+            #[cfg(feature = "bevy_reflect")]
+            T::__register_type(&self.type_registry);
             index
         })
     }
@@ -720,9 +731,16 @@ impl Components {
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
+            Self::get_or_insert_resource_with(
+                &mut self.components,
+                &mut self.resource_indices,
+                TypeId::of::<T>(),
+                || {
+                    #[cfg(feature = "bevy_reflect")]
+                    T::__register_type(&self.type_registry);
+                    ComponentDescriptor::new_resource::<T>()
+                },
+            )
         }
     }
 
@@ -733,9 +751,12 @@ impl Components {
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
-            })
+            Self::get_or_insert_resource_with(
+                &mut self.components,
+                &mut self.resource_indices,
+                TypeId::of::<T>(),
+                || ComponentDescriptor::new_non_send::<T>(StorageType::default()),
+            )
         }
     }
 
@@ -744,12 +765,12 @@ impl Components {
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
     unsafe fn get_or_insert_resource_with(
-        &mut self,
+        components: &mut Vec<ComponentInfo>,
+        resource_indices: &mut TypeIdMap<ComponentId>,
         type_id: TypeId,
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        let components = &mut self.components;
-        *self.resource_indices.entry(type_id).or_insert_with(|| {
+        *resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let component_id = ComponentId(components.len());
             components.push(ComponentInfo::new(component_id, descriptor));
@@ -969,5 +990,42 @@ impl<T: Component> FromWorld for InitComponentId<T> {
             component_id: world.init_component::<T>(),
             marker: PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "bevy_reflect")]
+mod test {
+    use crate as bevy_ecs;
+    use crate::{
+        component::Components, prelude::Component, prelude::Resource, reflect::ReflectComponent,
+        reflect::ReflectResource, storage::Storages,
+    };
+    use bevy_reflect::Reflect;
+    use core::any::TypeId;
+
+    #[test]
+    fn init_component_registers_component() {
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct A(usize);
+
+        let mut components = Components::default();
+        let mut storages = Storages::default();
+        components.init_component::<A>(&mut storages);
+
+        assert!(components.type_registry.read().contains(TypeId::of::<A>()));
+    }
+
+    #[test]
+    fn init_resource_registers_resource() {
+        #[derive(Resource, Reflect)]
+        #[reflect(Resource)]
+        struct A(usize);
+
+        let mut components = Components::default();
+        components.init_resource::<A>();
+
+        assert!(components.type_registry.read().contains(TypeId::of::<A>()));
     }
 }
