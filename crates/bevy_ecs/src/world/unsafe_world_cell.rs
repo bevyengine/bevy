@@ -10,6 +10,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
+    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -289,7 +290,8 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
-        Some(UnsafeEntityCell::new(self, entity, location))
+        // SAFETY: `location` is valid as it was freshly fetched from Entities.
+        Some(unsafe { UnsafeEntityCell::new(self, entity, location) })
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -588,8 +590,10 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    /// # Safety
+    /// `location` must be valid for `entity`
     #[inline]
-    pub(crate) fn new(
+    pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
@@ -617,7 +621,13 @@ impl<'w> UnsafeEntityCell<'w> {
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(self) -> &'w Archetype {
-        &self.world.archetypes()[self.location.archetype_id]
+        // SAFETY: The archetype associated with the entity must be valid at all times.
+        unsafe {
+            self.world
+                .archetypes()
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets the world that the current entity belongs to.
@@ -897,7 +907,13 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<&'w Column> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
-        unsafe { self.storages() }.tables[location.table_id].get_column(component_id)
+        unsafe {
+            self.storages()
+                .tables
+                .get(location.table_id)
+                .debug_checked_unwrap()
+                .get_column(component_id)
+        }
     }
 
     #[inline]

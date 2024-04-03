@@ -1395,7 +1395,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             for storage_id in &self.matched_storage_ids {
                 if D::IS_DENSE && F::IS_DENSE {
                     let table_id = storage_id.table_id;
-                    let table = &tables[table_id];
+                    // SAFETY: The table has been matched with the query and tables cannot be deleted,
+                    // and so table_id must be valid.
+                    let table = unsafe { tables.get(table_id).debug_checked_unwrap() };
                     if table.is_empty() {
                         continue;
                     }
@@ -1417,7 +1419,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     }
                 } else {
                     let archetype_id = storage_id.archetype_id;
-                    let archetype = &archetypes[archetype_id];
+                    // SAFETY: The table has been matched with the query and tables cannot be deleted,
+                    // and so archetype_id must be valid.
+                    let archetype = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() };
                     if archetype.is_empty() {
                         continue;
                     }

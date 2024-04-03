@@ -152,6 +152,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
+        use crate::query::DebugCheckedUnwrap;
+
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
         }
@@ -166,13 +168,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             let tables = unsafe { &self.world.world_metadata().storages().tables };
             id_iter
                 // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                .map(|id| unsafe { tables[id.table_id].entity_count() })
+                .map(|id| unsafe {
+                    tables
+                        .get(id.table_id)
+                        .debug_checked_unwrap()
+                        .entity_count()
+                })
                 .max()
         } else {
             let archetypes = &self.world.archetypes();
             id_iter
                 // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                .map(|id| unsafe { archetypes[id.archetype_id].len() })
+                .map(|id| unsafe { archetypes.get(id.archetype_id).debug_checked_unwrap().len() })
                 .max()
         };
         let max_size = max_size.unwrap_or(0);
