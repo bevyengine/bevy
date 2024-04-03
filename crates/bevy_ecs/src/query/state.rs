@@ -10,6 +10,7 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use arrayvec::ArrayVec;
 use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
@@ -1392,11 +1393,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
-            let mut batch_queue = vec![];
+            let mut batch_queue = ArrayVec::new();
             let mut queue_entity_count = 0;
 
             // submit a list of storages which smaller than batch_size as single task
-            let submit_batch_queue = |queue: &mut Vec<StorageId>| {
+            let submit_batch_queue = |queue: &mut ArrayVec<StorageId, 128>| {
                 if queue.is_empty() {
                     return;
                 }
@@ -1473,7 +1474,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 queue_entity_count += count;
 
                 // submit batch_queue
-                if queue_entity_count >= batch_size {
+                if queue_entity_count >= batch_size || batch_queue.is_full() {
                     submit_batch_queue(&mut batch_queue);
                 }
             }
