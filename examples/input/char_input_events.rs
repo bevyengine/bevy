@@ -1,6 +1,9 @@
 //! Prints out all chars as they are inputted.
 
-use bevy::prelude::*;
+use bevy::{
+    input::keyboard::{Key, KeyboardInput},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -10,8 +13,10 @@ fn main() {
 }
 
 /// This system prints out all char events as they come in
-fn print_char_event_system(mut char_input_events: EventReader<ReceivedCharacter>) {
+fn print_char_event_system(mut char_input_events: EventReader<KeyboardInput>) {
     for event in char_input_events.read() {
-        info!("{:?}: '{}'", event, event.char);
+        if let Key::Character(character) = &event.logical_key {
+            info!("{:?}: '{}'", event, character);
+        }
     }
 }

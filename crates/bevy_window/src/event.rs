@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
@@ -171,6 +172,7 @@ pub struct CursorLeft {
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
+#[deprecated = "Use `KeyboardInput` instead."]
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(

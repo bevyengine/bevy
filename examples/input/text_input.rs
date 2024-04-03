@@ -6,7 +6,13 @@
 
 use std::mem;
 
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use bevy::{
+    input::{
+        keyboard::{Key, KeyboardInput},
+        ButtonState,
+    },
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -17,7 +23,6 @@ fn main() {
             (
                 toggle_ime,
                 listen_ime_events,
-                listen_received_character_events,
                 listen_keyboard_input_events,
                 bubbling_text,
             ),
@@ -163,25 +168,19 @@ fn listen_ime_events(
     }
 }
 
-fn listen_received_character_events(
-    mut events: EventReader<ReceivedCharacter>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
-) {
-    for event in events.read() {
-        edit_text.single_mut().sections[0]
-            .value
-            .push_str(&event.char);
-    }
-}
-
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
-        match event.key_code {
-            KeyCode::Enter => {
+        // Only trigger changes when the key is first pressed.
+        if event.state == ButtonState::Released {
+            continue;
+        }
+
+        match &event.logical_key {
+            Key::Enter => {
                 let mut text = edit_text.single_mut();
                 if text.sections[0].value.is_empty() {
                     continue;
@@ -198,8 +197,16 @@ fn listen_keyboard_input_events(
                     },
                 ));
             }
-            KeyCode::Backspace => {
+            Key::Space => {
+                edit_text.single_mut().sections[0].value.push(' ');
+            }
+            Key::Backspace => {
                 edit_text.single_mut().sections[0].value.pop();
+            }
+            Key::Character(character) => {
+                edit_text.single_mut().sections[0]
+                    .value
+                    .push_str(&character);
             }
             _ => continue,
         }

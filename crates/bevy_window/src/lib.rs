@@ -28,6 +28,7 @@ pub use window::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
