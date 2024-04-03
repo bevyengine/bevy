@@ -1096,6 +1096,6 @@ mod tests {
             -0.33333334,
             "incorrect signed volume"
         );
-        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::splat(0.0));
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
     }
 }
