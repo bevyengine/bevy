@@ -140,8 +140,8 @@ where
     BDI: Pod,
 {
     /// Creates new buffers.
-    pub fn new(render_device: &RenderDevice, use_gpu_uniform_builder: bool) -> Self {
-        if !use_gpu_uniform_builder {
+    pub fn new(render_device: &RenderDevice, use_gpu_instance_buffer_builder: bool) -> Self {
+        if !use_gpu_instance_buffer_builder {
             return BatchedInstanceBuffers::CpuBuilt(GpuArrayBuffer::new(render_device));
         }
 
@@ -153,12 +153,11 @@ where
         }
     }
 
-    /// Returns the binding of the uniform buffer that contains the per-instance
-    /// data.
+    /// Returns the binding of the buffer that contains the per-instance data.
     ///
-    /// If we're in the GPU uniform building mode, this buffer needs to be
-    /// filled in via a compute shader.
-    pub fn uniform_binding(&self) -> Option<BindingResource> {
+    /// If we're in the GPU instance buffer building mode, this buffer needs to
+    /// be filled in via a compute shader.
+    pub fn instance_data_binding(&self) -> Option<BindingResource> {
         match *self {
             BatchedInstanceBuffers::CpuBuilt(ref buffer) => buffer.binding(),
             BatchedInstanceBuffers::GpuBuilt {
@@ -186,18 +185,18 @@ pub trait GetBatchData {
     /// The per-instance data that was inserted into the [`BufferVec`] during
     /// extraction.
     ///
-    /// This is only used when building uniforms on GPU. If this pipeline
-    /// doesn't support GPU uniform building (e.g. the 2D mesh pipeline), this
-    /// can safely be `()`.
+    /// This is only used when building instance data on GPU. If this pipeline
+    /// doesn't support GPU instance buffer building (e.g. the 2D mesh
+    /// pipeline), this can safely be `()`.
     type BufferInputData: Pod + Sync + Send;
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
     /// If the instance can be batched, also return the data used for
     /// comparison when deciding whether draws can be batched, else return None
     /// for the `CompareData`.
     ///
-    /// This is only called when building uniforms on CPU. In the GPU uniform
-    /// building path, we use [`GetBatchData::get_batch_preprocess_work_item`]
-    /// instead.
+    /// This is only called when building instance data on CPU. In the GPU
+    /// uniform building path, we use
+    /// [`GetBatchData::get_batch_preprocess_work_item`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -207,7 +206,7 @@ pub trait GetBatchData {
     ///
     /// We already inserted the [`GetBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
-    /// look up any render data. If CPU uniform building is in use, this
+    /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
     fn get_batch_input_index(
         param: &SystemParamItem<Self::Param>,
@@ -229,16 +228,16 @@ pub trait GetBinnedBatchData {
     /// The per-instance data that was inserted into the [`BufferVec`] during
     /// extraction.
     ///
-    /// This is only used when building uniforms on GPU. If this pipeline
-    /// doesn't support GPU uniform building (e.g. the 2D mesh pipeline), this
-    /// can safely be `()`.
+    /// This is only used when building instance buffers on GPU. If this
+    /// pipeline doesn't support GPU instance buffer building (e.g. the 2D mesh
+    /// pipeline), this can safely be `()`.
     type BufferInputData: Pod + Sync + Send;
 
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
     ///
-    /// This is only called when building uniforms on CPU. In the GPU uniform
-    /// building path, we use [`GetBatchData::get_batch_preprocess_work_item`]
-    /// instead.
+    /// This is only called when building uniforms on CPU. In the GPU instance
+    /// buffer building path, we use
+    /// [`GetBatchData::get_batch_preprocess_work_item`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         entity: Entity,
@@ -248,8 +247,8 @@ pub trait GetBinnedBatchData {
     ///
     /// We already inserted the [`GetBinnedBatchData::BufferInputData`] during
     /// the extraction phase before we got here, so this function shouldn't need
-    /// to look up any render data. If CPU uniform building is in use, this
-    /// function will never be called.
+    /// to look up any render data. If CPU instance buffer building is in use,
+    /// this function will never be called.
     fn get_batch_input_index(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -308,9 +307,9 @@ pub fn delete_old_work_item_buffers<F>(
     }
 }
 
-/// Batch the items in a sorted render phase, when GPU uniform building isn't in
-/// use. This means comparing metadata needed to draw each phase item and trying
-/// to combine the draws into a batch.
+/// Batch the items in a sorted render phase, when GPU instance buffer building
+/// isn't in use. This means comparing metadata needed to draw each phase item
+/// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, F>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<F::BufferData, F::BufferInputData>>,
     mut views: Query<&mut SortedRenderPhase<I>>,
@@ -337,12 +336,12 @@ pub fn batch_and_prepare_sorted_render_phase<I, F>(
         }
     };
 
-    for mut phase in &mut views {
-        // We only process CPU-built batch data in this function.
-        let BatchedInstanceBuffers::CpuBuilt(ref mut buffer) = gpu_array_buffer else {
-            continue;
-        };
+    // We only process CPU-built batch data in this function.
+    let BatchedInstanceBuffers::CpuBuilt(ref mut buffer) = gpu_array_buffer else {
+        return;
+    };
 
+    for mut phase in &mut views {
         let items = phase.items.iter_mut().map(|item| {
             let batch_data = process_item(item, buffer);
             (item.batch_range_mut(), batch_data)
@@ -358,9 +357,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, F>(
     }
 }
 
-/// Batch the items in a sorted render phase, when GPU uniform building isn't in
-/// use. This means comparing metadata needed to draw each phase item and trying
-/// to combine the draws into a batch.
+/// Batch the items in a sorted render phase, when GPU instance buffer building
+/// isn't in use. This means comparing metadata needed to draw each phase item
+/// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase_for_gpu_preprocessing<I, F>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<F::BufferData, F::BufferInputData>>,
     mut views: Query<(Entity, &mut SortedRenderPhase<I>)>,
@@ -394,17 +393,17 @@ pub fn batch_and_prepare_sorted_render_phase_for_gpu_preprocessing<I, F>(
             }
         };
 
-    for (view, mut phase) in &mut views {
-        // We only process GPU-built batch data in this function.
-        let BatchedInstanceBuffers::GpuBuilt {
-            ref mut data_buffer,
-            ref mut work_item_buffers,
-            ..
-        } = gpu_array_buffer
-        else {
-            continue;
-        };
+    // We only process GPU-built batch data in this function.
+    let BatchedInstanceBuffers::GpuBuilt {
+        ref mut data_buffer,
+        ref mut work_item_buffers,
+        ..
+    } = gpu_array_buffer
+    else {
+        return;
+    };
 
+    for (view, mut phase) in &mut views {
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
         let work_item_buffer = work_item_buffers
@@ -450,13 +449,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
+    // We only process CPU-built batch data in this function.
+    let BatchedInstanceBuffers::CpuBuilt(ref mut buffer) = gpu_array_buffer else {
+        return;
+    };
+
     for mut phase in &mut views {
         let phase = &mut *phase; // Borrow checker.
-
-        // We only process CPU-built batch data in this function.
-        let BatchedInstanceBuffers::CpuBuilt(ref mut buffer) = gpu_array_buffer else {
-            continue;
-        };
 
         // Prepare batchables.
 
@@ -518,18 +517,18 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBD>(
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
+    // We only process GPU-built batch data in this function.
+    let BatchedInstanceBuffers::GpuBuilt {
+        ref mut data_buffer,
+        ref mut work_item_buffers,
+        ..
+    } = gpu_array_buffer
+    else {
+        return;
+    };
+
     for (view, mut phase) in &mut views {
         let phase = &mut *phase; // Borrow checker.
-
-        // We only process GPU-built batch data in this function.
-        let BatchedInstanceBuffers::GpuBuilt {
-            ref mut data_buffer,
-            ref mut work_item_buffers,
-            ..
-        } = gpu_array_buffer
-        else {
-            continue;
-        };
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.

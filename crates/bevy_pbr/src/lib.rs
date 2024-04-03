@@ -79,7 +79,7 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
-        /// Label for the compute shader mesh uniforms building pass.
+        /// Label for the compute shader instance data building pass.
         GpuPreprocess,
     }
 }
@@ -138,7 +138,7 @@ pub struct PbrPlugin {
     /// Controls if GPU [`MeshUniform`] building is enabled.
     ///
     /// This requires compute shader support.
-    pub use_gpu_uniform_builder: bool,
+    pub use_gpu_instance_buffer_builder: bool,
 }
 
 impl Default for PbrPlugin {
@@ -147,9 +147,9 @@ impl Default for PbrPlugin {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
 
-            // The GPU uniform builder requires compute shaders, which aren't
-            // available on any version of WebGL.
-            use_gpu_uniform_builder: cfg!(any(
+            // The GPU instance buffer builder requires compute shaders, which
+            // aren't available on any version of WebGL.
+            use_gpu_instance_buffer_builder: cfg!(any(
                 feature = "webgpu",
                 not(feature = "webgl"),
                 not(target_arch = "wasm32"),
@@ -295,7 +295,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {
-                    use_gpu_uniform_builder: self.use_gpu_uniform_builder,
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
@@ -368,7 +368,7 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        if self.use_gpu_uniform_builder {
+        if self.use_gpu_instance_buffer_builder {
             app.add_plugins(GpuMeshPreprocessPlugin);
         }
 

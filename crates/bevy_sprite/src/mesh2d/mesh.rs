@@ -589,7 +589,7 @@ pub fn prepare_mesh2d_bind_group(
     render_device: Res<RenderDevice>,
     mesh2d_uniforms: Res<BatchedInstanceBuffers<Mesh2dUniform, ()>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.uniform_binding() {
+    if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
