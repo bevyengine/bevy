@@ -1166,12 +1166,10 @@ impl<'w> EntityWorldMut<'w> {
             .bundles
             .init_component_info(components, component_id);
 
-        if self.world.bundles.get(bundle_id).is_some() {
-            // SAFETY: We have just checked that `bundle_info` has been initialized
-            unsafe {
-                self.remove_bundle(bundle_id);
-            }
-        };
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        unsafe {
+            self.remove_bundle(bundle_id);
+        }
 
         self
     }
