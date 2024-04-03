@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 #![allow(missing_docs)]
 
 use bevy_app::App;
@@ -11,7 +12,6 @@ use bevy_input::{
 use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-#[allow(deprecated)]
 use bevy_window::{
     ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
