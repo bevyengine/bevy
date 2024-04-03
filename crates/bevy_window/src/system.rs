@@ -45,22 +45,3 @@ pub fn close_when_requested(mut commands: Commands, mut closed: EventReader<Wind
         commands.entity(event.window).despawn();
     }
 }
-
-/// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
-///
-/// This is useful for examples or prototyping.
-pub fn close_on_esc(
-    mut commands: Commands,
-    focused_windows: Query<(Entity, &Window)>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
-    for (window, focus) in focused_windows.iter() {
-        if !focus.focused {
-            continue;
-        }
-
-        if input.just_pressed(KeyCode::Escape) {
-            commands.entity(window).despawn();
-        }
-    }
-}

@@ -23,6 +23,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 # Used for close_on_esc
+# TODO: remove this
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 
 # other
