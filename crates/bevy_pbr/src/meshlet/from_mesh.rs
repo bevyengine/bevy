@@ -322,7 +322,7 @@ fn simplify_meshlet_groups(
 }
 
 fn split_simplified_groups_into_new_meshlets(
-    simplified_group_indices: &Vec<u32>,
+    simplified_group_indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
     meshlets: &mut Meshlets,
 ) -> usize {
