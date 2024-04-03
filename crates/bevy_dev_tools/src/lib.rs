@@ -12,10 +12,15 @@ use bevy_app::prelude::*;
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
+
 pub mod fps_overlay;
 
 #[cfg(feature = "bevy_ui_debug")]
 pub mod ui_debug_overlay;
+
+mod close_on_esc;
+
+pub use crate::close_on_esc::close_on_esc;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.

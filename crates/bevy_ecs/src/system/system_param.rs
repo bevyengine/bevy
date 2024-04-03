@@ -1531,9 +1531,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::{assert_is_system, Query},
+        system::assert_is_system,
     };
-    use std::{cell::RefCell, marker::PhantomData};
+    use std::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
