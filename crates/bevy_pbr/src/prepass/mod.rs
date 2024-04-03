@@ -792,11 +792,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             };
 
-            let mut mesh_key =
-                MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-            }
+            let mut mesh_key = view_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}

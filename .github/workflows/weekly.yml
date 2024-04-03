@@ -48,7 +48,7 @@ jobs:
   check-compiles:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: ci
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@beta

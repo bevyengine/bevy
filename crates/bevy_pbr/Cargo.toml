@@ -63,6 +63,7 @@ bytemuck = { version = "1", features = ["derive"] }
 radsort = "0.1"
 smallvec = "1.6"
 nonmax = "0.5"
+static_assertions = "1"
 
 [lints]
 workspace = true
