@@ -139,7 +139,8 @@ impl Plugin for MeshRenderPlugin {
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_mesh_instances = RenderMeshInstances::new(self.use_gpu_instance_buffer_builder);
+            let render_mesh_instances =
+                RenderMeshInstances::new(self.use_gpu_instance_buffer_builder);
 
             render_app
                 .init_resource::<MeshBindGroups>()
