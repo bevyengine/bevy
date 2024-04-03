@@ -16,7 +16,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 bytemuck = "1"
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
-wgpu = { version = "0.19.3", default-features = false, optional = true }
+wgpu-types = { version = "0.19", default-features = false, optional = true }
 encase = { version = "0.7", default-features = false }
 
 [features]
