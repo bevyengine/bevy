@@ -32,10 +32,10 @@ pub struct LayoutContext {
 impl LayoutContext {
     fn default() -> Self {
         Self {
-            scale_factor: default(),
+            scale_factor: 1.0,
             physical_size: Vec2::ZERO,
-            min_size: default(),
-            max_size: default(),
+            min_size: Default::default(),
+            max_size: Default::default(),
         }
     }
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
