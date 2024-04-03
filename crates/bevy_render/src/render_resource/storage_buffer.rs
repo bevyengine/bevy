@@ -244,10 +244,14 @@ impl<T: ShaderType + WriteInto> StorageBufferPool<T> {
         let buffer_view = queue.write_buffer_with(buffer, slice.address, slice.size)?;
 
         Some(StorageBufferWriter {
-            buffer: encase::StorageBuffer::new(QueueWriteBufferViewWrapper {
-                capacity: slice.size.get() as usize,
-                buffer_view,
-            }),
+            buffer: encase::DynamicStorageBuffer::new_with_alignment(
+                QueueWriteBufferViewWrapper {
+                    capacity: slice.size.get() as usize,
+                    buffer_view,
+                },
+                // NOTE: The alignment of the start of each item in an array is the alignment of the item type
+                T::METADATA.alignment().get().max(32),
+            ),
             current_index: (slice.address / T::min_size().get()) as usize,
             _marker: PhantomData,
         })
@@ -276,7 +280,9 @@ impl<T: ShaderType> Default for StorageBufferPool<T> {
 ///
 /// For more information, see [`DynamicUniformBuffer::get_writer`].
 pub struct StorageBufferWriter<'a, T> {
-    buffer: encase::StorageBuffer<QueueWriteBufferViewWrapper<'a>>,
+    // NOTE: This is a hack to exploit that DynamicStorageBuffer allows multiple calls to write()
+    // and maintains a cursor for the write position, which is what is needed here.
+    buffer: encase::DynamicStorageBuffer<QueueWriteBufferViewWrapper<'a>>,
     current_index: usize,
     _marker: PhantomData<fn() -> T>,
 }
