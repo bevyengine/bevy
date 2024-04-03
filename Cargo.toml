@@ -1688,7 +1688,7 @@ required-features = ["bevy_debug_stepping"]
 
 [package.metadata.example.system_stepping]
 name = "System Stepping"
-description = "Demonstrate stepping through systems in order of execution"
+description = "Demonstrate stepping through systems in order of execution. Requires enabling the `bevy_debug_stepping` feature."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1744,7 +1744,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.breakout]
 name = "Breakout"
-description = "An implementation of the classic game \"Breakout\""
+description = "An implementation of the classic game \"Breakout\". Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature."
 category = "Games"
 wasm = true
 
