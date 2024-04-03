@@ -32,10 +32,6 @@ impl SteppingPlugin {
 
 impl Plugin for SteppingPlugin {
     fn build(&self, app: &mut App) {
-        if cfg!(not(feature = "bevy_debug_stepping")) {
-            info!("Bevy was compiled without the bevy_debug_stepping feature. Run with `--features=bevy_debug_stepping` to enable.");
-            return;
-        }
         // create and insert our debug schedule into the main schedule order.
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
@@ -56,7 +52,7 @@ impl Plugin for SteppingPlugin {
             ui_left: self.left,
             systems: Vec::new(),
         })
-        .add_systems(Startup, build_help)
+        .add_systems(Startup, build_stepping_hint)
         .add_systems(
             DebugSchedule,
             (
@@ -186,10 +182,16 @@ fn build_ui(
     ));
 }
 
-fn build_help(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn build_stepping_hint(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let hint_text = if cfg!(not(feature = "bevy_debug_stepping")) {
+        "Bevy was compiled without stepping support. Run with `--features=bevy_debug_stepping` to enable stepping."
+    } else {
+        "Press ` to toggle stepping mode (S: step system, Space: step frame)"
+    };
+    info!("{}", hint_text);
     // stepping description box
     commands.spawn((TextBundle::from_sections([TextSection::new(
-        "Press ` to toggle stepping mode (S: step system, Space: step frame)",
+        hint_text,
         TextStyle {
             font: asset_server.load(FONT_MEDIUM),
             font_size: 18.0,
