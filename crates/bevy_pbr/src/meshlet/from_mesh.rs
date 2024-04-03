@@ -180,6 +180,7 @@ fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
 
     for i in 0..meshlets.len() {
         let meshlet = meshlets.meshlets[i];
+        #[allow(clippy::undocumented_unsafe_blocks)]
         unsafe {
             meshopt_optimizeMeshlet(
                 &mut meshlets.vertices[meshlet.vertex_offset as usize],
@@ -279,7 +280,7 @@ fn group_meshlets(
 }
 
 fn simplify_meshlet_groups(
-    group_meshlets: &Vec<usize>,
+    group_meshlets: &[usize],
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
     lod_level: u32,
