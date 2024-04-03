@@ -755,6 +755,9 @@ pub fn camera_system<T: CameraProjection + Component>(
                         }
                     }
                 }
+                // This check is needed because when changing WindowMode to SizedFullscreen, the viewport may have invalid
+                // arguments due to a sudden change on the window size to a lower value.
+                // If the size of the window is lower, the viewport will match that lower value.
                 if let Some(viewport) = &mut camera.viewport {
                     let target_info = &new_computed_target_info;
                     if let Some(target) = target_info {
