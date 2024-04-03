@@ -34,13 +34,13 @@ pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rotation2d;
 #[cfg(feature = "rand")]
-pub use sampling::{FromRng, ShapeSample};
+pub use sampling::{FromRandom, ShapeSample};
 
 /// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
-    pub use crate::sampling::{FromRng, ShapeSample};
+    pub use crate::sampling::{FromRandom, ShapeSample};
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{

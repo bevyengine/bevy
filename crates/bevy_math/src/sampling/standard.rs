@@ -1,12 +1,12 @@
 //! This module holds local implementations of the [`Distribution`] trait for [`Standard`], which
 //! allow certain Bevy math types (those whose values can be randomly generated without additional
-//! input other than an [`Rng`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],
-//! an ergonomic extension to that functionality which allows omission of type annotations.
+//! input other than an [`Rng`]) to be produced using [`rand`]'s APIs. It also holds [`FromRandom`],
+//! an ergonomic extension to that functionality which permits the omission of type annotations.
 //!
 //! For instance:
 //! ```
 //! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distributions::Standard};
-//! # use bevy_math::{Dir3, sampling::FromRng};
+//! # use bevy_math::{Dir3, sampling::FromRandom};
 //! let mut rng = StdRng::from_entropy();
 //! // Random direction using thread-local rng
 //! let random_direction1: Dir3 = random();
@@ -15,7 +15,7 @@
 //! let random_direction2: Dir3 = rng.gen();
 //!
 //! // The same as the previous but with different syntax
-//! let random_direction3 = Dir3::from_rng(&mut rng);
+//! let random_direction3 = Dir3::random(&mut rng);
 //!
 //! // Five random directions, using Standard explicitly
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(Standard).take(5).collect();
@@ -30,23 +30,23 @@ use rand::{
     Rng,
 };
 
-/// Ergonomics trait for types with a [`Standard`] distribution, allowing them to be generated from
-/// an [`Rng`] by a method in their own namespace.
+/// Ergonomics trait for a type with a [`Standard`] distribution, allowing values to be generated
+/// uniformly from an [`Rng`] by a method in its own namespace.
 ///
 /// Example
 /// ```
 /// # use rand::{Rng, SeedableRng, rngs::StdRng};
-/// # use bevy_math::{Dir3, sampling::FromRng};
+/// # use bevy_math::{Dir3, sampling::FromRandom};
 /// let mut rng = StdRng::from_entropy();
-/// let random_dir = Dir3::from_rng(&mut rng);
+/// let random_dir = Dir3::random(&mut rng);
 /// ```
-pub trait FromRng
+pub trait FromRandom
 where
     Self: Sized,
     Standard: Distribution<Self>,
 {
-    /// Construct a value of this type at random using `rng` as the source of randomness.
-    fn from_rng<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    /// Construct a value of this type uniformly at random using `rng` as the source of randomness.
+    fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         rng.gen()
     }
 }
@@ -59,7 +59,7 @@ impl Distribution<Dir2> for Standard {
     }
 }
 
-impl FromRng for Dir2 {}
+impl FromRandom for Dir2 {}
 
 impl Distribution<Dir3> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3 {
@@ -69,7 +69,7 @@ impl Distribution<Dir3> for Standard {
     }
 }
 
-impl FromRng for Dir3 {}
+impl FromRandom for Dir3 {}
 
 impl Distribution<Dir3A> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3A {
@@ -79,6 +79,6 @@ impl Distribution<Dir3A> for Standard {
     }
 }
 
-impl FromRng for Dir3A {}
+impl FromRandom for Dir3A {}
 
-impl FromRng for Quat {}
+impl FromRandom for Quat {}
