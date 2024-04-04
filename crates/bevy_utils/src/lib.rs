@@ -395,6 +395,17 @@ impl std::hash::Hasher for NoOpHasher {
     }
 }
 
+/// Returns the previous power of two of a `u32`.
+pub fn previous_power_of_2(x: u32) -> u32 {
+    // If x is a power of 2, halve it
+    if x.count_ones() == 1 {
+        x / 2
+    } else {
+        // Else calculate the largest power of 2 that is less than x
+        1 << (31 - x.leading_zeros())
+    }
+}
+
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
 ///

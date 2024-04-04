@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
         AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
         Transmissive3d, Transparent3d,
     },
+    culling::HierarchicalDepthBuffer,
     prepass::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
     },
@@ -539,6 +540,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<HierarchicalDepthBuffer>,
         ),
         Option<&Camera3d>,
         Has<TemporalJitter>,
@@ -562,7 +564,13 @@ pub fn queue_material_meshes<M: Material>(
         dither,
         shadow_filter_method,
         ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (
+            normal_prepass,
+            depth_prepass,
+            motion_vector_prepass,
+            deferred_prepass,
+            hierarchical_depth_buffer,
+        ),
         camera_3d,
         temporal_jitter,
         projection,
@@ -585,7 +593,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
 
-        if depth_prepass {
+        if depth_prepass || hierarchical_depth_buffer {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
 

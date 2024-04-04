@@ -1,5 +1,6 @@
 mod prepass_bindings;
 
+use bevy_core_pipeline::culling::HierarchicalDepthBuffer;
 use bevy_render::batching::{batch_and_prepare_binned_render_phase, sort_binned_render_phase};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_resource::binding_types::uniform_buffer;
@@ -727,10 +728,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             Option<&mut BinnedRenderPhase<AlphaMask3dPrepass>>,
             Option<&mut BinnedRenderPhase<Opaque3dDeferred>>,
             Option<&mut BinnedRenderPhase<AlphaMask3dDeferred>>,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
+            Has<DepthPrepass>,
+            Has<NormalPrepass>,
+            Has<MotionVectorPrepass>,
             Option<&DeferredPrepass>,
+            Has<HierarchicalDepthBuffer>,
         ),
         Or<(
             With<BinnedRenderPhase<Opaque3dPrepass>>,
@@ -769,16 +771,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        hierarchical_depth_buffer,
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-        if depth_prepass.is_some() {
+        if depth_prepass || hierarchical_depth_buffer {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
-        if normal_prepass.is_some() {
+        if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-        if motion_vector_prepass.is_some() {
+        if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 

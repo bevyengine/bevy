@@ -12,6 +12,7 @@ pub mod bloom;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
+pub mod culling;
 pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
@@ -50,6 +51,7 @@ use crate::{
     contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
+    culling::OcclusionCullingPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
@@ -89,6 +91,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                OcclusionCullingPlugin,
             ));
     }
 }

@@ -16,9 +16,11 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
         MsaaWriteback,
+        OcclusionCullingDepthPrepass,
         Prepass,
         DeferredPrepass,
         CopyDeferredLightingId,
+        EarlyDownsampleDepthBuffer,
         EndPrepasses,
         StartMainPass,
         MainOpaquePass,
@@ -31,6 +33,7 @@ pub mod graph {
         Fxaa,
         Upscaling,
         ContrastAdaptiveSharpening,
+        LateDownsampleDepthBuffer,
         EndMainPassPostProcessing,
     }
 }
@@ -73,6 +76,7 @@ use nonmax::NonMaxU32;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
+    culling::HierarchicalDepthBuffer,
     deferred::{
         copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
@@ -495,18 +499,27 @@ pub fn extract_camera_prepass_phase(
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
                 Has<DeferredPrepass>,
+                Has<HierarchicalDepthBuffer>,
             ),
             With<Camera3d>,
         >,
     >,
 ) {
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+        hierarchical_depth_buffer,
+    ) in cameras_3d.iter()
     {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            if depth_prepass || normal_prepass || motion_vector_prepass {
+            if depth_prepass || normal_prepass || motion_vector_prepass || hierarchical_depth_buffer
+            {
                 entity.insert((
                     BinnedRenderPhase::<Opaque3dPrepass>::default(),
                     BinnedRenderPhase::<AlphaMask3dPrepass>::default(),
@@ -542,7 +555,13 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
+        (
+            Entity,
+            &ExtractedCamera,
+            Has<DepthPrepass>,
+            Has<HierarchicalDepthBuffer>,
+            &Camera3d,
+        ),
         (
             With<BinnedRenderPhase<Opaque3d>>,
             With<BinnedRenderPhase<AlphaMask3d>>,
@@ -552,12 +571,16 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut render_target_usage = HashMap::default();
-    for (_, camera, depth_prepass, camera_3d) in &views_3d {
+    for (_, camera, depth_prepass, hierarchical_depth_buffer, camera_3d) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
-        if depth_prepass.is_some() {
-            // Required to read the output of the prepass
+        // Required to read the output of the prepass
+        if depth_prepass {
             usage |= TextureUsages::COPY_SRC;
+        }
+        // Required to build a hierarchical Z-buffer
+        if hierarchical_depth_buffer {
+            usage |= TextureUsages::COPY_SRC | TextureUsages::TEXTURE_BINDING;
         }
         render_target_usage
             .entry(camera.target.clone())
@@ -566,7 +589,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = HashMap::default();
-    for (entity, camera, _, camera_3d) in &views_3d {
+    for (entity, camera, _, _, camera_3d) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -730,6 +753,7 @@ pub fn prepare_prepass_textures(
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<HierarchicalDepthBuffer>,
         ),
         Or<(
             With<BinnedRenderPhase<Opaque3dPrepass>>,
@@ -744,8 +768,15 @@ pub fn prepare_prepass_textures(
     let mut deferred_textures = HashMap::default();
     let mut deferred_lighting_id_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        &views_3d
+    for (
+        entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+        hierarchical_depth_buffer,
+    ) in &views_3d
     {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -757,7 +788,7 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture = depth_prepass.then(|| {
+        let cached_depth_texture = (depth_prepass || hierarchical_depth_buffer).then(|| {
             depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
