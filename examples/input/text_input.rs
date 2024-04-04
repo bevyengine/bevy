@@ -204,9 +204,7 @@ fn listen_keyboard_input_events(
                 edit_text.single_mut().sections[0].value.pop();
             }
             Key::Character(character) => {
-                edit_text.single_mut().sections[0]
-                    .value
-                    .push_str(&character);
+                edit_text.single_mut().sections[0].value.push_str(character);
             }
             _ => continue,
         }
