@@ -1,6 +1,8 @@
 # Release Checklist
 
-## Pre-release
+## Minor Version
+
+### Pre-release
 
 1. Check regressions tag.
 2. Check appropriate milestone.
@@ -10,16 +12,20 @@
 6. Write blog post.
 7. Update book.
 8. Bump version number for all crates, using the "Release" workflow.
+    * Change the commit message to be nicer
 9. Create tag on GitHub.
 10. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
 11. Bump `latest` tag to most recent release.
 12. Run this workflow to update screenshots:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
     * _This will block blog post releases (and take ~40 minutes) so do it early_.
+13. Run this workflow to update wasm examples:
+    * <https://github.com/bevyengine/bevy-website/actions/workflows/build-wasm-examples.yml>
 
-## Release
+### Release
 
 1. Release on crates.io
+    * `bash tools/publish.sh`
 2. Announce on:
     1. HackerNews
     2. Twitter
@@ -28,7 +34,32 @@
     5. This Month in Rust Game Development newsletter
     6. This Week in Rust newsletter
 
-## Post-release
+### Post-release
 
 1. Bump version number for all crates to next versions, as `0.X-dev`, using the "Post-release version bump" workflow, to ensure properly displayed version for [Dev Docs](https://dev-docs.bevyengine.org/bevy/index.html).
 2. Update Bevy version used for Bevy book code validation to latest release.
+
+## Patch
+
+### Pre-release
+
+1. Check appropriate milestone.
+2. Bump version number for all crates, using the command from the "Release" workflow locally, with `patch` for the new version. At the time of writing this:
+    * `cargo release patch --workspace --no-publish --execute --no-tag --no-confirm --no-push --dependent-version upgrade --exclude ci --exclude errors --exclude bevy_mobile_example --exclude build-wasm-example`
+    * Change the commit message to be nicer
+3. Create tag on GitHub.
+4. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
+5. Bump `latest` tag to most recent release.
+6. Run this workflow to update screenshots:
+    * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
+7. Run this workflow to update wasm examples:
+    * <https://github.com/bevyengine/bevy-website/actions/workflows/build-wasm-examples.yml>
+
+### Release
+
+1. Release on crates.io
+    * `bash tools/publish.sh`
+2. Announce on:
+    1. Discord: Bevy
+
+### Post-Release
