@@ -13,7 +13,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use crossbeam_channel::{Receiver, Sender};
 
 // Size of a single u32 in bytes
 const BUFFER_SIZE: u64 = 4;
