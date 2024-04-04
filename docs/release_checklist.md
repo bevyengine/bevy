@@ -2,7 +2,7 @@
 
 ## Minor Version
 
-### Pre-release
+### Minor Pre-release
 
 1. Check regressions tag.
 2. Check appropriate milestone, and close it
@@ -22,7 +22,7 @@
 13. Run this workflow to update wasm examples:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/build-wasm-examples.yml>
 
-### Release
+### Minor Release
 
 1. Release on crates.io
     * `bash tools/publish.sh`
@@ -34,14 +34,14 @@
     5. This Month in Rust Game Development newsletter
     6. This Week in Rust newsletter
 
-### Post-release
+### Minor Post-release
 
 1. Bump version number for all crates to next versions, as `0.X-dev`, using the "Post-release version bump" workflow, to ensure properly displayed version for [Dev Docs](https://dev-docs.bevyengine.org/bevy/index.html).
 2. Update Bevy version used for Bevy book code validation to latest release.
 
 ## Patch
 
-### Pre-release
+### Patch Pre-release
 
 1. Check appropriate milestone.
 2. Close the milestone, open the next one if anything remains and transfer them
@@ -56,11 +56,11 @@
 8. Run this workflow to update wasm examples:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/build-wasm-examples.yml>
 
-### Release
+### Patch Release
 
 1. Release on crates.io
     * `bash tools/publish.sh`
 2. Announce on:
     1. Discord: Bevy
 
-### Post-Release
+### Patch Post-Release
