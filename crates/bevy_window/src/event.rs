@@ -172,7 +172,10 @@ pub struct CursorLeft {
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[deprecated = "Use `KeyboardInput` instead."]
+#[deprecated(
+    since = "0.14.0",
+    note = "Use `KeyboardInput` instead."
+)]
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
