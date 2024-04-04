@@ -1,6 +1,6 @@
 [package]
 name = "bevy_pbr"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,19 +15,19 @@ pbr_transmission_textures = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.13.1" }
-bevy_asset = { path = "../bevy_asset", version = "0.13.1" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.13.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.1" }
-bevy_math = { path = "../bevy_math", version = "0.13.1" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.1", features = [
+bevy_app = { path = "../bevy_app", version = "0.13.2" }
+bevy_asset = { path = "../bevy_asset", version = "0.13.2" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.13.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.13.2" }
+bevy_math = { path = "../bevy_math", version = "0.13.2" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.13.2", features = [
   "bevy",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.13.1" }
-bevy_transform = { path = "../bevy_transform", version = "0.13.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.13.1" }
-bevy_window = { path = "../bevy_window", version = "0.13.1" }
-bevy_derive = { path = "../bevy_derive", version = "0.13.1" }
+bevy_render = { path = "../bevy_render", version = "0.13.2" }
+bevy_transform = { path = "../bevy_transform", version = "0.13.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.13.2" }
+bevy_window = { path = "../bevy_window", version = "0.13.2" }
+bevy_derive = { path = "../bevy_derive", version = "0.13.2" }
 
 # other
 bitflags = "2.3"

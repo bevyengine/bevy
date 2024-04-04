@@ -1,6 +1,6 @@
 [package]
 name = "bevy_log"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "Provides logging for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -13,9 +13,9 @@ trace = ["tracing-error"]
 trace_tracy_memory = ["dep:tracy-client"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.13.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.13.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.1" }
+bevy_app = { path = "../bevy_app", version = "0.13.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.13.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.13.2" }
 
 tracing-subscriber = { version = "0.3.1", features = [
   "registry",

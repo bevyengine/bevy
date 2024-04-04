@@ -1,6 +1,6 @@
 [package]
 name = "build-templated-pages"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "handle templated pages in Bevy repository"
 publish = false

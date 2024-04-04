@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs_macros"
-version = "0.13.1"
+version = "0.13.2"
 description = "Bevy ECS Macros"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.13.1" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.13.2" }
 
 syn = "2.0"
 quote = "1.0"

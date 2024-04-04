@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -17,11 +17,11 @@ bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.13.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.1", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.1", optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.13.1" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.13.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.13.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.13.2", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.13.2", optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.13.2" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.13.2" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
