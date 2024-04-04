@@ -2126,6 +2126,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "gpu_readback"
+path = "examples/shader/gpu_readback.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_readback]
+name = "GPU readback"
+description = "A very simple compute shader that writes to a buffer that is read by the cpu"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
