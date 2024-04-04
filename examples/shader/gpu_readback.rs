@@ -68,9 +68,8 @@ impl FromWorld for Buffers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let mut init_data = encase::StorageBuffer::new(Vec::new());
-        init_data
-            .write(&vec![0u32])
-            .expect("Failed to write buffer");
+        // Init the buffer with 0
+        init_data.write(&0u32).expect("Failed to write buffer");
         // The buffer that will be accessed by the gpu
         let gpu_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("gpu_buffer"),
@@ -125,10 +124,7 @@ impl FromWorld for ComputePipeline {
         let render_device = world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(
             None,
-            &BindGroupLayoutEntries::single(
-                ShaderStages::COMPUTE,
-                storage_buffer::<Vec<u32>>(false),
-            ),
+            &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer::<u32>(false)),
         );
         let shader = world.load_asset("shaders/gpu_readback.wgsl");
         let pipeline_cache = world.resource::<PipelineCache>();
