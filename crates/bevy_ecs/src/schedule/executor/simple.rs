@@ -105,7 +105,7 @@ impl SystemExecutor for SimpleExecutor {
             // mark skipped systems as completed
             self.completed_systems |= skipped_systems;
         }
-        self.run(schedule, world)
+        self.run(schedule, world);
     }
 
     fn set_apply_final_deferred(&mut self, _: bool) {
