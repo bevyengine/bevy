@@ -165,6 +165,15 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
+
+        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
+        // that report them as supported:
+        // <https://github.com/gfx-rs/wgpu/issues/5488>
+        // WGPU also currently doesn't actually support these features yet, so we should disable
+        // them until they are safe to enable.
+        features -= wgpu::Features::RAY_QUERY;
+        features -= wgpu::Features::RAY_TRACING_ACCELERATION_STRUCTURE;
+
         limits = adapter.limits();
     }
 
