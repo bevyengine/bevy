@@ -13,15 +13,35 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 
 // Size of a single u32 in bytes
 const BUFFER_SIZE: u64 = 4;
+
+// To communicate between the main world and the render world we need a channel
+
+/// This will receive asynchronously any data sent from the render world
+#[derive(Resource, Deref)]
+struct MainWorldReceiver(Receiver<u32>);
+
+/// This will send asynchronously any data to the main world
+#[derive(Resource, Deref)]
+struct RenderWorldSender(Sender<u32>);
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins((DefaultPlugins, GpuReadbackPlugin))
+        .add_systems(Update, receive)
         .run();
+}
+
+fn receive(receiver: Res<MainWorldReceiver>) {
+    // We don't want to block the main world on this,
+    // so we use try_recv which attemps to receive without blocking
+    if let Ok(data) = receiver.try_recv() {
+        println!("Received data from render world: {data}");
+    }
 }
 
 // We need a plugin to organize all the systems and render node required for this example
@@ -32,19 +52,24 @@ struct ComputeNodeLabel;
 
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
+        let (s, r) = crossbeam_channel::unbounded();
+        app.insert_resource(MainWorldReceiver(r));
+
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_systems(
-            Render,
-            (
-                prepare_bind_group
-                    .in_set(RenderSet::PrepareBindGroups)
-                    // We don't need to recreate the bind group every frame
-                    .run_if(not(resource_exists::<GpuBufferBindGroup>)),
-                // We need to run it after the render graph is done
-                // because this needs to happen after the submit()
-                map_and_read_buffer.after(RenderSet::Render),
-            ),
-        );
+        render_app
+            .insert_resource(RenderWorldSender(s))
+            .add_systems(
+                Render,
+                (
+                    prepare_bind_group
+                        .in_set(RenderSet::PrepareBindGroups)
+                        // We don't need to recreate the bind group every frame
+                        .run_if(not(resource_exists::<GpuBufferBindGroup>)),
+                    // We need to run it after the render graph is done
+                    // because this needs to happen after the submit()
+                    map_and_read_buffer.after(RenderSet::Render),
+                ),
+            );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         // Add the compute node as a top level node to the render graph
@@ -144,7 +169,11 @@ impl FromWorld for ComputePipeline {
     }
 }
 
-fn map_and_read_buffer(render_device: Res<RenderDevice>, buffers: Res<Buffers>) {
+fn map_and_read_buffer(
+    render_device: Res<RenderDevice>,
+    buffers: Res<Buffers>,
+    sender: Res<RenderWorldSender>,
+) {
     // Finally time to get our data.
     // First we get a buffer slice which represents a chunk of the buffer (which we
     // can't access yet).
@@ -200,8 +229,9 @@ fn map_and_read_buffer(render_device: Res<RenderDevice>, buffers: Res<Buffers>) 
                 .try_into()
                 .expect("Data should be a u32"),
         );
-        println!("{:?}", data);
-        // TODO send to main world
+        sender
+            .send(data)
+            .expect("Failed to send data to main world");
     }
 
     // We need to make sure all `BufferView`'s are dropped before we do what we're about
