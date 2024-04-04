@@ -498,6 +498,10 @@ impl PipelineCache {
         self.pipelines.iter()
     }
 
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = &CachedPipelineId> {
+        self.waiting_pipelines.iter()
+    }
+
     /// Create a new pipeline cache associated with the given render device.
     pub fn new(
         device: RenderDevice,
