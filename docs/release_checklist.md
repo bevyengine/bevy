@@ -14,7 +14,7 @@
 8. Bump version number for all crates, using the "Release" workflow.
     * Change the commit message to be nicer
 9. Create tag on GitHub.
-10. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
+10. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`.
 11. Bump `latest` tag to most recent release.
 12. Run this workflow to update screenshots:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
@@ -49,7 +49,7 @@
     * `cargo release patch --workspace --no-publish --execute --no-tag --no-confirm --no-push --dependent-version upgrade --exclude ci --exclude errors --exclude bevy_mobile_example --exclude build-wasm-example`
     * Change the commit message to be nicer
 4. Create tag on GitHub.
-5. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
+5. Edit Github Release. Add link to the comparison between this patch and the previous version.
 6. Bump `latest` tag to most recent release.
 7. Run this workflow to update screenshots:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
