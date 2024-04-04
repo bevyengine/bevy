@@ -73,15 +73,19 @@ pub fn create_windows<F: QueryFilter + 'static>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor() as f32);
-        commands
-            .entity(entity)
-            .insert(RawHandleWrapper {
-                window_handle: winit_window.window_handle().unwrap().as_raw(),
-                display_handle: winit_window.display_handle().unwrap().as_raw(),
-            })
-            .insert(CachedWindow {
-                window: window.clone(),
+
+        commands.entity(entity).insert(CachedWindow {
+            window: window.clone(),
+        });
+
+        if let (Ok(window_handle), Ok(display_handle)) =
+            (winit_window.window_handle(), winit_window.display_handle())
+        {
+            commands.entity(entity).insert(RawHandleWrapper {
+                window_handle: window_handle.as_raw(),
+                display_handle: display_handle.as_raw(),
             });
+        }
 
         #[cfg(target_arch = "wasm32")]
         {
