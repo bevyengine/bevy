@@ -41,6 +41,26 @@ pub trait ShapeSample {
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 }
 
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows interior sampling from a [`ShapeSample`] type directly as a [`Distribution`].
+pub struct InteriorOf<T: ShapeSample>(pub T);
+
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows boundary sampling from a [`ShapeSample`] type directly as a [`Distribution`].
+pub struct BoundaryOf<T: ShapeSample>(pub T);
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for InteriorOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_interior(rng)
+    }
+}
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for BoundaryOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_boundary(rng)
+    }
+}
+
 impl ShapeSample for Circle {
     type Output = Vec2;
 
