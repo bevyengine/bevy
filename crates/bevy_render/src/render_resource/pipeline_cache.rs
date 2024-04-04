@@ -494,12 +494,16 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    /// Returns an iterator over the pipelines in the pipeline cache.
     pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
         self.pipelines.iter()
     }
 
-    pub fn waiting_pipelines(&self) -> impl Iterator<Item = &CachedPipelineId> {
-        self.waiting_pipelines.iter()
+    /// Returns a vector of all currently waiting pipelines IDs.
+    pub fn waiting_pipelines(&self) -> Vec<CachedPipelineId> {
+        let mut waiting_pipelines_vec: Vec<CachedPipelineId> = Vec::new();
+        self.waiting_pipelines.iter().for_each(|id| waiting_pipelines_vec.push(*id));
+        waiting_pipelines_vec
     }
 
     /// Create a new pipeline cache associated with the given render device.
