@@ -5,7 +5,7 @@
 ### Minor Pre-release
 
 1. Check regressions tag.
-2. Check appropriate milestone, and close it
+2. Check appropriate milestone, and close it.
 3. Check GitHub Projects page for staleness.
 4. Update change log.
 5. Create migration guide.
@@ -44,7 +44,7 @@
 ### Patch Pre-release
 
 1. Check appropriate milestone.
-2. Close the milestone, open the next one if anything remains and transfer them
+2. Close the milestone, open the next one if anything remains and transfer them.
 3. Bump version number for all crates, using the command from the "Release" workflow locally, with `patch` for the new version. At the time of writing this:
     * `cargo release patch --workspace --no-publish --execute --no-tag --no-confirm --no-push --dependent-version upgrade --exclude ci --exclude errors --exclude bevy_mobile_example --exclude build-wasm-example`
     * Change the commit message to be nicer
