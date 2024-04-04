@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -42,6 +41,7 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::tracing::{error, trace, warn};
+#[allow(deprecated)]
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
@@ -463,6 +463,7 @@ fn handle_winit_event(
                     if event.state.is_pressed() {
                         if let Some(char) = &event.text {
                             let char = char.clone();
+                            #[allow(deprecated)]
                             winit_events.send(ReceivedCharacter { window, char });
                         }
                     }
