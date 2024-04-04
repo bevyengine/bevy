@@ -5,22 +5,21 @@
 ### Pre-release
 
 1. Check regressions tag.
-2. Check appropriate milestone.
-3. Close the milestone, transfer anything remaining to the next one.
-4. Check GitHub Projects page for staleness.
-5. Update change log.
-6. Create migration guide.
-7. Write blog post.
-8. Update book.
-9. Bump version number for all crates, using the "Release" workflow.
+2. Check appropriate milestone, and close it
+3. Check GitHub Projects page for staleness.
+4. Update change log.
+5. Create migration guide.
+6. Write blog post.
+7. Update book.
+8. Bump version number for all crates, using the "Release" workflow.
     * Change the commit message to be nicer
-10. Create tag on GitHub.
-11. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
-12. Bump `latest` tag to most recent release.
-13. Run this workflow to update screenshots:
+9. Create tag on GitHub.
+10. Edit Github Release. Add links to the `Release announcement` and `Migration Guide`
+11. Bump `latest` tag to most recent release.
+12. Run this workflow to update screenshots:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/update-screenshots.yml>
     * _This will block blog post releases (and take ~40 minutes) so do it early_.
-14. Run this workflow to update wasm examples:
+13. Run this workflow to update wasm examples:
     * <https://github.com/bevyengine/bevy-website/actions/workflows/build-wasm-examples.yml>
 
 ### Release
