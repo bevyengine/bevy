@@ -55,6 +55,7 @@ struct DrawIndirectArgs {
 @group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(8) var<uniform> view: View;
 @group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
+var<push_constant> aabb_uv_to_viewport: vec2<f32>; // Multiplier to convert UV-space AABB to view-space (unused in the first pass but still bound)
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;

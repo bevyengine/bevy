@@ -75,6 +75,8 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -167,6 +169,15 @@ impl Plugin for MeshletPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if !render_app
+            .world()
+            .resource::<RenderDevice>()
+            .features()
+            .contains(WgpuFeatures::PUSH_CONSTANTS)
+        {
+            return;
+        }
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(

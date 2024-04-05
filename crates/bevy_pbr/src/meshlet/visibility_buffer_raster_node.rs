@@ -8,12 +8,13 @@ use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
+use bevy_math::Vec2;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewUniformOffset},
 };
 
 /// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer for shading passes.
@@ -29,6 +30,7 @@ pub struct MeshletVisibilityBufferRasterPassNode {
     view_light_query: QueryState<(
         &'static ShadowView,
         &'static LightEntity,
+        &'static ExtractedView,
         &'static ViewUniformOffset,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -88,6 +90,9 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             .cbrt()
             .ceil() as u32;
 
+        let aabb_uv_to_viewport =
+            calculate_aabb_uv_to_viewport(meshlet_view_resources, view_depth.texture.size());
+
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster_pass");
@@ -105,6 +110,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             view_offset,
             culling_first_pipeline,
             culling_workgroups,
+            aabb_uv_to_viewport,
         );
         write_index_buffer_pass(
             "meshlet_write_index_buffer_first_pass",
@@ -142,6 +148,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             view_offset,
             culling_second_pipeline,
             culling_workgroups,
+            aabb_uv_to_viewport,
         );
         write_index_buffer_pass(
             "meshlet_write_index_buffer_second_pass",
@@ -174,6 +181,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             let Ok((
                 shadow_view,
                 light_type,
+                extracted_view,
                 view_offset,
                 meshlet_view_bind_groups,
                 meshlet_view_resources,
@@ -181,6 +189,15 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             else {
                 continue;
             };
+
+            let aabb_uv_to_viewport = calculate_aabb_uv_to_viewport(
+                meshlet_view_resources,
+                Extent3d {
+                    width: extracted_view.viewport.z,
+                    height: extracted_view.viewport.w,
+                    depth_or_array_layers: 1,
+                },
+            );
 
             let shadow_visibility_buffer_pipeline = match light_type {
                 LightEntity::Directional { .. } => visibility_buffer_raster_depth_only_clamp_ortho,
@@ -205,6 +222,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
+                aabb_uv_to_viewport,
             );
             write_index_buffer_pass(
                 "meshlet_write_index_buffer_first_pass",
@@ -242,6 +260,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
+                aabb_uv_to_viewport,
             );
             write_index_buffer_pass(
                 "meshlet_write_index_buffer_second_pass",
@@ -275,6 +294,7 @@ fn cull_pass(
     view_offset: &ViewUniformOffset,
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
+    aabb_uv_to_viewport: Vec2,
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -283,6 +303,7 @@ fn cull_pass(
     });
     cull_pass.set_bind_group(0, &meshlet_view_bind_groups.culling, &[view_offset.offset]);
     cull_pass.set_pipeline(culling_pipeline);
+    cull_pass.set_push_constants(0, bytemuck::cast_slice(&aabb_uv_to_viewport.to_array()));
     cull_pass.dispatch_workgroups(culling_workgroups, 1, 1);
 }
 
@@ -445,4 +466,21 @@ fn copy_material_depth_pass(
         copy_pass.set_render_pipeline(copy_material_depth_pipeline);
         copy_pass.draw(0..3, 0..1);
     }
+}
+
+/// Meshlet AABBs are calculated against the original view, and need to be scaled to match the depth pyramid.
+///
+/// Calculates the depth pyramid size scaled by how much the first depth mip resampling cut the view depth resolution by.
+/// E.g. view_depth = 200, depth_pyramid = 100, aabb_uv_to_viewport = 100 * (100 / 200) = 50
+fn calculate_aabb_uv_to_viewport(
+    meshlet_view_resources: &MeshletViewResources,
+    view_depth_size: Extent3d,
+) -> Vec2 {
+    let depth_pyramid_mip_0_size = meshlet_view_resources.depth_pyramid.texture.size();
+    let depth_pyramid_mip_0_size = Vec2::new(
+        depth_pyramid_mip_0_size.width as f32,
+        depth_pyramid_mip_0_size.height as f32,
+    );
+    let view_depth_size = Vec2::new(view_depth_size.width as f32, view_depth_size.height as f32);
+    (depth_pyramid_mip_0_size) * (depth_pyramid_mip_0_size / view_depth_size)
 }

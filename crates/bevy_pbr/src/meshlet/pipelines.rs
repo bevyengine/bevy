@@ -46,7 +46,10 @@ impl FromWorld for MeshletPipelines {
             cull_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_culling_first_pipeline".into()),
                 layout: vec![cull_layout.clone()],
-                push_constant_ranges: vec![],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..8,
+                }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec!["MESHLET_CULLING_PASS".into()],
                 entry_point: "cull_meshlets".into(),
@@ -55,7 +58,10 @@ impl FromWorld for MeshletPipelines {
             cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_culling_second_pipeline".into()),
                 layout: vec![cull_layout],
-                push_constant_ranges: vec![],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..8,
+                }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
                     "MESHLET_CULLING_PASS".into(),

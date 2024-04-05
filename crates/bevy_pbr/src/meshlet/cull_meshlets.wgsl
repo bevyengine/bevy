@@ -9,7 +9,7 @@
     get_meshlet_previous_occlusion,
 }
 #ifdef MESHLET_SECOND_CULLING_PASS
-#import bevy_pbr::meshlet_bindings::depth_pyramid
+#import bevy_pbr::meshlet_bindings::{depth_pyramid, aabb_uv_to_viewport}
 #endif
 #import bevy_render::maths::affine3_to_square
 
@@ -55,10 +55,8 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
         let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
         let aabb = project_view_space_sphere_to_screen_space_aabb(bounding_sphere_center_view_space, bounding_sphere_radius);
 
-        // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
-        let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
-        let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
-        let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
+        let width = (aabb.z - aabb.x) * aabb_uv_to_viewport.x;
+        let height = (aabb.w - aabb.y) * aabb_uv_to_viewport.y;
         let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
         let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
         let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
