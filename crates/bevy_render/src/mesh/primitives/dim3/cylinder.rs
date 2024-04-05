@@ -78,19 +78,14 @@ impl CylinderMeshBuilder {
         let mut uvs = Vec::with_capacity(num_vertices);
         let mut indices = Vec::with_capacity(num_indices);
 
-        let step_theta = std::f32::consts::TAU / resolution as f32;
         let step_y = 2.0 * self.cylinder.half_height / segments as f32;
 
         // rings
-        let ring_circle: Vec<_> = CircleIterator::new(resolution)
-            .cycle()
-            .take(resolution + 1)
-            .collect();
+        let cylinder_ring: Vec<_> = CircleIterator::wrapping(resolution).collect();
 
         for ring in 0..num_rings {
             let y = -self.cylinder.half_height + ring as f32 * step_y;
-
-            for (segment, point) in ring_circle.iter().enumerate() {
+            for (segment, point) in cylinder_ring.iter().enumerate() {
                 positions.push([
                     self.cylinder.radius * point.x,
                     y,
@@ -103,8 +98,8 @@ impl CylinderMeshBuilder {
                 ]);
             }
         }
-        // barrel skin
 
+        // barrel skin
         for i in 0..segments {
             let ring = i * (resolution + 1);
             let next_ring = (i + 1) * (resolution + 1);
@@ -122,7 +117,6 @@ impl CylinderMeshBuilder {
         }
 
         // caps
-
         let mut build_cap = |top: bool| {
             let offset = positions.len();
             let (y, normal_y, winding) = if top {
@@ -130,18 +124,7 @@ impl CylinderMeshBuilder {
             } else {
                 (-self.cylinder.half_height, -1., (0, 1))
             };
-
-            for i in 0..self.resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
-
-                positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            let cap_iter = CircleIterator::new(resolution);
-            for point in cap_iter {
+            for point in cylinder_ring.iter() {
                 positions.push([
                     point.x * self.cylinder.radius,
                     y,
@@ -150,7 +133,6 @@ impl CylinderMeshBuilder {
                 normals.push([0.0, normal_y, 0.0]);
                 uvs.push([0.5 * (point.x + 1.0), 1.0 - 0.5 * (point.y + 1.0)]);
             }
-
             for i in 1..(self.resolution - 1) {
                 indices.extend_from_slice(&[
                     offset as u32,
@@ -161,7 +143,6 @@ impl CylinderMeshBuilder {
         };
 
         // top
-
         build_cap(true);
         build_cap(false);
 

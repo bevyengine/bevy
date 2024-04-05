@@ -4,6 +4,7 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 use bevy_math::primitives::Sphere;
+use bevy_math::Vec2;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
@@ -189,19 +190,17 @@ impl SphereMeshBuilder {
         let stacks_f32 = stacks as f32;
         let length_inv = 1. / self.sphere.radius;
 
-        let stacks_iter = CircleIterator::new(stacks * 2).take(stacks);
-        let sector_circle: Vec<_> = CircleIterator::new(sectors)
-            .cycle()
-            .take(sectors + 1)
-            .collect();
+        let stacks_iter = CircleIterator::semicircle(stacks);
+        let sector_circle: Vec<Vec2> = CircleIterator::wrapping(sectors).collect();
 
         for (i, stack_pos) in stacks_iter.enumerate() {
             //sin/cos results flipped around to properly orient stack position
-            let xy = self.sphere.radius * stack_pos.y;
-            let z = self.sphere.radius * stack_pos.x;
+            println!("{}, {}", stack_pos.x, stack_pos.y);
+            let xz = self.sphere.radius * stack_pos.y;
+            let y = self.sphere.radius * -stack_pos.x;
             for (j, sector_pos) in sector_circle.iter().enumerate() {
-                let x = xy * sector_pos.x;
-                let y = xy * sector_pos.y;
+                let x = xz * sector_pos.x;
+                let z = xz * sector_pos.y;
 
                 vertices.push([x, y, z]);
                 normals.push([x * length_inv, y * length_inv, z * length_inv]);

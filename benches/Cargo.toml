@@ -68,6 +68,11 @@ name = "torus"
 path = "benches/bevy_render/torus.rs"
 harness = false
 
+[[bench]]
+name = "capsule"
+path = "benches/bevy_render/capsule.rs"
+harness = false
+
 
 [[bench]]
 name = "entity_hash"

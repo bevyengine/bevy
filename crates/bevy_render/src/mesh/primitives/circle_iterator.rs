@@ -12,12 +12,32 @@ pub(crate) struct CircleIterator {
 }
 
 impl CircleIterator {
+    //produces an iterator over (count) equidistant points that starts at (1.0, 0.0) on the unit circle
     pub(crate) fn new(count: usize) -> CircleIterator {
         Self {
             count,
             rot: DMat2::from_angle(TAU / (count as f64)),
             pos: DVec2::new(1.0, 0.0),
         }
+    }
+
+    //produces an iterator over (count) equidistant points that starts at (1.0, 0.0) on the unit circle, with an additional end point of (1.0, 0.0)
+    pub(crate) fn wrapping(count: usize) -> impl Iterator<Item = Vec2> {
+        Self::new(count).chain(std::iter::once(Vec2::new(1.0, 0.0)))
+    }
+
+    //semicircle with points ranging from 0 radians to pi radians, with (count) regions between points.
+    pub(crate) fn semicircle(count: usize) -> impl Iterator<Item = Vec2> {
+        Self::new(count * 2)
+            .take(count)
+            .chain(std::iter::once(Vec2::new(-1.0, 0.0)))
+    }
+
+    //quarter circle with points ranging from 0 radians to pi/2 radians, with (count) regions between points.
+    pub(crate) fn quarter_circle(count: usize) -> impl Iterator<Item = Vec2> {
+        Self::new(count * 4)
+            .take(count)
+            .chain(std::iter::once(Vec2::new(0.0, 1.0)))
     }
 }
 impl Iterator for CircleIterator {
