@@ -27,6 +27,7 @@ pub fn executor(c: &mut Criterion) {
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
 
+        // spawn 16 systems in chain
         chain_systems!(schedule;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 
         schedule.initialize(&mut world);
@@ -49,6 +50,7 @@ pub fn executor(c: &mut Criterion) {
                 let mut schedule = Schedule::default();
                 schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
 
+                // spawn 16 batches, each with `system_count_per_batch` systems per batch.
                 for i in 0..system_count_per_batch {
                     chain_systems!(schedule;0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
                 }
