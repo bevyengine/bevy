@@ -38,7 +38,9 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::{
-    batching::{self, GetBatchData, GetBinnedBatchData},
+    batching::{
+        self, GetBatchData, GetBatchInputData, GetBinnedBatchData, GetBinnedBatchInputData,
+    },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
 };
@@ -298,15 +300,38 @@ where
 
 /// A convenient abstraction for adding all the systems necessary for a binned
 /// render phase to the render app.
+///
+/// This is the version used when the pipeline doesn't support GPU
+/// preprocessing: e.g. 2D meshes.
 pub struct BinnedRenderPhasePlugin<BPI, GBBD>(PhantomData<(BPI, GBBD)>)
 where
     BPI: BinnedPhaseItem,
     GBBD: GetBinnedBatchData;
 
+/// A convenient abstraction for adding all the systems necessary for a binned
+/// render phase to the render app.
+///
+/// This is the version used when the pipeline supports GPU preprocessing: e.g.
+/// 3D PBR meshes.
+pub struct BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>(PhantomData<(BPI, GBBID)>)
+where
+    BPI: BinnedPhaseItem,
+    GBBID: GetBinnedBatchInputData;
+
 impl<BPI, GBBD> Default for BinnedRenderPhasePlugin<BPI, GBBD>
 where
     BPI: BinnedPhaseItem,
     GBBD: GetBinnedBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<BPI, GBBID> Default for BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>
+where
+    BPI: BinnedPhaseItem,
+    GBBID: GetBinnedBatchInputData,
 {
     fn default() -> Self {
         Self(PhantomData)
@@ -327,11 +352,35 @@ where
             Render,
             (
                 batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                batching::batch_and_prepare_binned_render_phase_no_gpu_preprocessing::<BPI, GBBD>
+                    .in_set(RenderSet::PrepareResources),
+            ),
+        );
+    }
+}
+
+impl<BPI, GBBID> Plugin for BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>
+where
+    BPI: BinnedPhaseItem,
+    GBBID: GetBinnedBatchInputData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
+            (
+                batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
                 (
-                    batching::batch_and_prepare_binned_render_phase::<BPI, GBBD>,
+                    batching::batch_and_prepare_binned_render_phase_no_gpu_preprocessing::<
+                        BPI,
+                        GBBID,
+                    >,
                     batching::batch_and_prepare_binned_render_phase_for_gpu_preprocessing::<
                         BPI,
-                        GBBD,
+                        GBBID,
                     >,
                 )
                     .in_set(RenderSet::PrepareResources),
@@ -342,15 +391,38 @@ where
 
 /// A convenient abstraction for adding all the systems necessary for a sorted
 /// render phase to the render app.
+///
+/// This is the version used when the pipeline doesn't support GPU
+/// preprocessing: e.g. 2D sprites.
 pub struct SortedRenderPhasePlugin<SPI, GBD>(PhantomData<(SPI, GBD)>)
 where
     SPI: SortedPhaseItem,
     GBD: GetBatchData;
 
+/// A convenient abstraction for adding all the systems necessary for a sorted
+/// render phase to the render app.
+///
+/// This is the version used when the pipeline supports GPU preprocessing: e.g.
+/// 3D PBR meshes.
+pub struct SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>(PhantomData<(SPI, GBID)>)
+where
+    SPI: SortedPhaseItem,
+    GBID: GetBatchInputData;
+
 impl<SPI, GBD> Default for SortedRenderPhasePlugin<SPI, GBD>
 where
     SPI: SortedPhaseItem,
     GBD: GetBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<SPI, GBID> Default for SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>
+where
+    SPI: SortedPhaseItem,
+    GBID: GetBatchInputData,
 {
     fn default() -> Self {
         Self(PhantomData)
@@ -369,9 +441,27 @@ where
 
         render_app.add_systems(
             Render,
+            batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GBD>
+                .in_set(RenderSet::PrepareResources),
+        );
+    }
+}
+
+impl<SPI, GBID> Plugin for SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>
+where
+    SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
+    GBID: GetBatchInputData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
             (
-                batching::batch_and_prepare_sorted_render_phase::<SPI, GBD>,
-                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GBD>,
+                batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GBID>,
+                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GBID>,
             )
                 .in_set(RenderSet::PrepareResources),
         );

@@ -20,7 +20,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    batching::{BatchedInstanceBuffers, PreprocessWorkItem},
+    batching::{BatchedGpuBuiltInstanceBuffers, PreprocessWorkItem},
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only},
@@ -128,10 +128,10 @@ impl Node for GpuPreprocessNode {
     ) -> Result<(), NodeRunError> {
         // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh
         // uniform building, bail out.
-        let BatchedInstanceBuffers::GpuBuilt {
+        let Some(BatchedGpuBuiltInstanceBuffers {
             work_item_buffers: ref index_buffers,
             ..
-        } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+        }) = world.get_resource::<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>()
         else {
             error!(
                 "Attempted to preprocess meshes on GPU, but `GpuBuilt` batched instance buffers \
@@ -244,20 +244,22 @@ pub fn prepare_preprocess_pipeline(
 pub fn prepare_preprocess_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    gpu_batched_instance_buffers: Option<
+        Res<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     pipeline: Res<PreprocessPipeline>,
 ) {
-    // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh
+    // Grab the [`BatchedGpuBuiltInstanceBuffers`]. If we aren't using GPU mesh
     // uniform building, bail out.
-    let BatchedInstanceBuffers::GpuBuilt {
+    let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers else {
+        return;
+    };
+    let BatchedGpuBuiltInstanceBuffers {
         data_buffer: ref data_buffer_vec,
         work_item_buffers: ref index_buffers,
         current_input_buffer: ref current_input_buffer_vec,
         previous_input_buffer: ref previous_input_buffer_vec,
-    } = *batched_instance_buffers
-    else {
-        return;
-    };
+    } = gpu_batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
         current_input_buffer_vec.buffer(),

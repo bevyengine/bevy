@@ -16,14 +16,15 @@ use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         clear_batched_instance_buffers, delete_old_work_item_buffers,
-        write_batched_instance_buffer, BatchedInstanceBuffers, GetBatchData, GetBinnedBatchData,
-        NoAutomaticBatching,
+        write_cpu_built_batched_instance_buffers, write_gpu_built_batched_instance_buffers,
+        BatchedCpuBuiltInstanceBuffer, BatchedGpuBuiltInstanceBuffers, GetBatchData,
+        GetBatchInputData, GetBinnedBatchData, GetBinnedBatchInputData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,
-        SortedRenderPhasePlugin, TrackedRenderPass,
+        BinnedRenderPhaseGpuPreprocessingPlugin, PhaseItem, RenderCommand, RenderCommandResult,
+        SortedRenderPhaseGpuPreprocessingPlugin, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -129,13 +130,13 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+            BinnedRenderPhaseGpuPreprocessingPlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhaseGpuPreprocessingPlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhaseGpuPreprocessingPlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhaseGpuPreprocessingPlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhaseGpuPreprocessingPlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhaseGpuPreprocessingPlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhaseGpuPreprocessingPlugin::<Transparent3d, MeshPipeline>::default(),
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -160,7 +161,9 @@ impl Plugin for MeshRenderPlugin {
                         delete_old_work_item_buffers::<MeshPipeline>
                             .in_set(RenderSet::ManageViews)
                             .after(prepare_view_targets),
-                        write_batched_instance_buffer::<MeshPipeline>
+                        write_cpu_built_batched_instance_buffers::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
+                        write_gpu_built_batched_instance_buffers::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
@@ -187,13 +190,18 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_device = render_app.world().resource::<RenderDevice>();
-            let batched_instance_buffers =
-                BatchedInstanceBuffers::<MeshUniform, MeshInputUniform>::new(
-                    render_device,
-                    self.use_gpu_instance_buffer_builder,
-                );
+            if self.use_gpu_instance_buffer_builder {
+                render_app
+                    .init_resource::<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>(
+                    );
+            } else {
+                let render_device = render_app.world().resource::<RenderDevice>();
+                let cpu_batched_instance_buffer =
+                    BatchedCpuBuiltInstanceBuffer::<MeshUniform>::new(render_device);
+                render_app.insert_resource(cpu_batched_instance_buffer);
+            };
 
+            let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
                 GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
             {
@@ -203,9 +211,7 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app
-                .insert_resource(batched_instance_buffers)
-                .init_resource::<MeshPipeline>();
+            render_app.init_resource::<MeshPipeline>();
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -609,7 +615,9 @@ pub fn extract_meshes_for_cpu_building(
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    mut batched_instance_buffers: ResMut<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    mut gpu_batched_instance_buffers: ResMut<
+        BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>,
+    >,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
     mut prev_render_mesh_instances: Local<EntityHashMap<RenderMeshInstanceGpu>>,
     meshes_query: Extract<
@@ -673,7 +681,7 @@ pub fn extract_meshes_for_gpu_building(
 
     collect_meshes_for_gpu_building(
         &mut render_mesh_instances,
-        &mut batched_instance_buffers,
+        &mut gpu_batched_instance_buffers,
         &mut render_mesh_instance_queues,
         &mut prev_render_mesh_instances,
     );
@@ -683,7 +691,10 @@ pub fn extract_meshes_for_gpu_building(
 /// uniforms are built.
 fn collect_meshes_for_gpu_building(
     render_mesh_instances: &mut RenderMeshInstances,
-    batched_instance_buffers: &mut BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
+    gpu_batched_instance_buffers: &mut BatchedGpuBuiltInstanceBuffers<
+        MeshUniform,
+        MeshInputUniform,
+    >,
     render_mesh_instance_queues: &mut Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>,
     prev_render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
 ) {
@@ -696,14 +707,11 @@ fn collect_meshes_for_gpu_building(
         );
     };
 
-    let BatchedInstanceBuffers::GpuBuilt {
+    let BatchedGpuBuiltInstanceBuffers {
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
         ..
-    } = *batched_instance_buffers
-    else {
-        unreachable!()
-    };
+    } = gpu_batched_instance_buffers;
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
@@ -871,8 +879,6 @@ impl GetBatchData for MeshPipeline {
 
     type BufferData = MeshUniform;
 
-    type BufferInputData = MeshInputUniform;
-
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
@@ -899,6 +905,10 @@ impl GetBatchData for MeshPipeline {
             )),
         ))
     }
+}
+
+impl GetBatchInputData for MeshPipeline {
+    type BufferInputData = MeshInputUniform;
 
     fn get_batch_input_index(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
@@ -932,8 +942,6 @@ impl GetBinnedBatchData for MeshPipeline {
 
     type BufferData = MeshUniform;
 
-    type BufferInputData = MeshInputUniform;
-
     fn get_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
@@ -953,6 +961,10 @@ impl GetBinnedBatchData for MeshPipeline {
             maybe_lightmap.map(|lightmap| lightmap.uv_rect),
         ))
     }
+}
+
+impl GetBinnedBatchInputData for MeshPipeline {
+    type BufferInputData = MeshInputUniform;
 
     fn get_batch_input_index(
         (mesh_instances, _): &SystemParamItem<Self::Param>,
@@ -1501,16 +1513,30 @@ pub fn prepare_mesh_bind_group(
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
-    mesh_uniforms: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    cpu_batched_instance_buffer: Option<Res<BatchedCpuBuiltInstanceBuffer<MeshUniform>>>,
+    gpu_batched_instance_buffers: Option<
+        Res<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
     let layouts = &mesh_pipeline.mesh_layouts;
-    let Some(model) = mesh_uniforms.instance_data_binding() else {
+
+    let model = if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
+        cpu_batched_instance_buffer
+            .into_inner()
+            .instance_data_binding()
+    } else if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
+        gpu_batched_instance_buffers
+            .into_inner()
+            .instance_data_binding()
+    } else {
         return;
     };
+    let Some(model) = model else { return };
+
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
