@@ -4,7 +4,7 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bytemuck::{cast_slice, Pod};
+use bytemuck::{must_cast_slice, NoUninit};
 use wgpu::BufferUsages;
 
 use super::GpuArrayBufferable;
@@ -13,7 +13,7 @@ use super::GpuArrayBufferable;
 /// for use by the GPU.
 ///
 /// "Properly formatted" means that item data already meets the alignment and padding
-/// requirements for how it will be used on the GPU. The item type must implement [`Pod`]
+/// requirements for how it will be used on the GPU. The item type must implement [`NoUninit`]
 /// for its data representation to be directly copyable.
 ///
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
@@ -32,7 +32,7 @@ use super::GpuArrayBufferable;
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`]
 /// * [`Texture`](crate::render_resource::Texture)
-pub struct BufferVec<T: Pod> {
+pub struct BufferVec<T: NoUninit> {
     values: Vec<T>,
     buffer: Option<Buffer>,
     capacity: usize,
@@ -42,7 +42,7 @@ pub struct BufferVec<T: Pod> {
     label_changed: bool,
 }
 
-impl<T: Pod> BufferVec<T> {
+impl<T: NoUninit> BufferVec<T> {
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             values: Vec::new(),
@@ -136,7 +136,7 @@ impl<T: Pod> BufferVec<T> {
         self.reserve(self.values.len(), device);
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
-            let bytes: &[u8] = cast_slice(&self.values);
+            let bytes: &[u8] = must_cast_slice(&self.values);
             queue.write_buffer(buffer, 0, &bytes[range]);
         }
     }
@@ -158,7 +158,7 @@ impl<T: Pod> BufferVec<T> {
     }
 }
 
-impl<T: Pod> Extend<T> for BufferVec<T> {
+impl<T: NoUninit> Extend<T> for BufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.values.extend(iter);
