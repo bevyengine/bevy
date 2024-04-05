@@ -296,7 +296,7 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, ())
     }
 
-    /// Load an [`Asset`] of type `A` stored at `path` asynchronously.
+    /// Load an [`Asset`] of type `A` stored at `path` asynchronously and wait for loading to complete.
     /// If successful, returns a "strong" [`Handle`] when the asset is loaded.
     ///
     /// Returns an error if the asset stored at `path` is not of type `A`.
@@ -328,7 +328,7 @@ impl AssetServer {
         self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
     }
 
-    /// Load an [`Asset`] of type `A` stored at `path` asynchronously.
+    /// Load an [`Asset`] of type `A` stored at `path` asynchronously and wait for loading to complete.
     /// The given `settings` function will override the asset's
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
