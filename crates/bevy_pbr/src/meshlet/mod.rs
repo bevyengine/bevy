@@ -187,17 +187,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    NodeMeshlet::VisibilityBufferRasterPass,
+                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
                     NodePbr::ShadowPass,
-                    NodeMeshlet::Prepass,
-                    NodeMeshlet::DeferredPrepass,
                     Node3d::Prepass,
                     Node3d::DeferredPrepass,
+                    NodeMeshlet::VisibilityBufferRasterPass,
+                    NodeMeshlet::Prepass,
+                    NodeMeshlet::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    NodeMeshlet::MainOpaquePass,
                     Node3d::MainOpaquePass,
+                    NodeMeshlet::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )
@@ -269,6 +270,7 @@ fn configure_meshlet_views(
                 .entity(entity)
                 .insert(MeshletViewMaterialsMainOpaquePass::default());
         } else {
+            // TODO: Should we add both Prepass and DeferredGBufferPrepass materials here, and in other systems/nodes?
             commands.entity(entity).insert((
                 MeshletViewMaterialsMainOpaquePass::default(),
                 MeshletViewMaterialsPrepass::default(),
