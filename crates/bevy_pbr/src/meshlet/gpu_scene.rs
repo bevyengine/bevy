@@ -187,7 +187,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
 
     if capacity >= size {
         let inner = inner.unwrap();
-        let bytes = bytemuck::cast_slice(buffer.get().as_slice());
+        let bytes = bytemuck::must_cast_slice(buffer.get().as_slice());
         render_queue.write_buffer(inner, 0, bytes);
     } else {
         buffer.write_buffer(render_device, render_queue);
