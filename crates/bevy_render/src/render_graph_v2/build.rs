@@ -3,7 +3,7 @@ use crate::{
     render_resource::{ComputePipelineDescriptor, PipelineCache},
     renderer::RenderDevice,
 };
-use wgpu::{BindGroupLayoutEntry, ShaderStages, TextureUsages};
+use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess, TextureUsages};
 
 impl RenderGraph {
     pub(crate) fn build(&mut self, render_device: &RenderDevice, pipeline_cache: &PipelineCache) {
@@ -53,11 +53,38 @@ impl RenderGraph {
                 .resource_usages
                 .iter()
                 .enumerate()
-                .map(|(i, resource_usage)| BindGroupLayoutEntry {
-                    binding: i as u32,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: todo!(),
-                    count: None,
+                .map(|(i, resource_usage)| {
+                    let resource_descriptor = self
+                        .resource_descriptors
+                        .get(&resource_usage.resource.id)
+                        .unwrap();
+
+                    let ty = match resource_usage.usage_type {
+                        RenderGraphResourceUsageType::ReadTexture => BindingType::Texture {
+                            sample_type: todo!(),
+                            view_dimension: todo!(),
+                            multisampled: todo!(),
+                        },
+                        RenderGraphResourceUsageType::WriteTexture => BindingType::StorageTexture {
+                            access: StorageTextureAccess::WriteOnly,
+                            format: todo!(),
+                            view_dimension: todo!(),
+                        },
+                        RenderGraphResourceUsageType::ReadWriteTexture => {
+                            BindingType::StorageTexture {
+                                access: StorageTextureAccess::ReadWrite,
+                                format: todo!(),
+                                view_dimension: todo!(),
+                            }
+                        }
+                    };
+
+                    BindGroupLayoutEntry {
+                        binding: i as u32,
+                        visibility: ShaderStages::COMPUTE,
+                        ty,
+                        count: None,
+                    }
                 })
                 .collect();
 
