@@ -93,7 +93,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access modify a Mesh's attributes after creating it.
 ///
