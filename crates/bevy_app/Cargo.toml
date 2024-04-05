@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 trace = []
 bevy_debug_stepping = []
-default = ["bevy_reflect", "bevy_debug_stepping"]
+default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 
 [dependencies]
