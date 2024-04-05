@@ -7,8 +7,8 @@ use crate::{
     renderer::RenderDevice,
 };
 use wgpu::{
-    BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess, TextureDescriptor,
-    TextureUsages, TextureViewDimension,
+    BindGroupDescriptor, BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess,
+    TextureDescriptor, TextureUsages, TextureViewDimension,
 };
 
 impl RenderGraph {
@@ -90,7 +90,7 @@ impl RenderGraph {
     fn build_pipelines(&mut self, pipeline_cache: &PipelineCache) {
         for node in &mut self.nodes {
             let pipeline_descriptor = ComputePipelineDescriptor {
-                label: None,
+                label: None, // TODO: Ideally we can set the bind group to the node label
                 layout: vec![node.bind_group_layout.clone().unwrap()],
                 push_constant_ranges: vec![],
                 shader: node.shader.clone(),
