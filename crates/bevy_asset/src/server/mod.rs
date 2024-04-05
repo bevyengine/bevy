@@ -304,7 +304,7 @@ impl AssetServer {
     pub fn load_async<'a, A: Asset>(
         &self,
         path: impl Into<AssetPath<'a>>,
-    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> {
+    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> + Send + Sync + 'static {
         let (sender, mut receiver) = async_broadcast::broadcast(1);
         let handle = self.load_with_meta_transform(path, None, sender);
         async move {
@@ -342,7 +342,7 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> {
+    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> + Send + Sync + 'static {
         let (sender, mut receiver) = async_broadcast::broadcast(1);
         let handle = self.load_with_meta_transform(
             path,
