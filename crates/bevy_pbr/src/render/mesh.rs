@@ -156,13 +156,6 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                            .in_set(RenderSet::ManageViews)
-                            .after(prepare_view_targets),
-                        no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -171,15 +164,32 @@ impl Plugin for MeshRenderPlugin {
                 );
 
             if self.use_gpu_instance_buffer_builder {
-                render_app.add_systems(
-                    ExtractSchedule,
-                    extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
-                );
+                render_app
+                    .add_systems(
+                        ExtractSchedule,
+                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
+                    )
+                    .add_systems(
+                        Render,
+                        (
+                            gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
+                                .in_set(RenderSet::PrepareResourcesFlush),
+                            gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
+                                .in_set(RenderSet::ManageViews)
+                                .after(prepare_view_targets),
+                        ),
+                    );
             } else {
-                render_app.add_systems(
-                    ExtractSchedule,
-                    extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
-                );
+                render_app
+                    .add_systems(
+                        ExtractSchedule,
+                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                    )
+                    .add_systems(
+                        Render,
+                        no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
+                    );
             }
         }
     }
@@ -281,7 +291,7 @@ pub struct MeshInputUniform {
     /// The index of this mesh's [`MeshInputUniform`] in the previous frame's
     /// buffer, if applicable.
     ///
-    /// This is used for TAA. If not present, this will be `!0`.
+    /// This is used for TAA. If not present, this will be `u32::MAX`.
     pub previous_input_index: u32,
 }
 
@@ -736,8 +746,8 @@ fn collect_meshes_for_gpu_building(
                 transform: builder.transform.to_transpose(),
                 lightmap_uv_rect: builder.lightmap_uv_rect,
                 flags: builder.mesh_flags.bits(),
-                previous_input_index: previous_input_index.unwrap_or(!0),
-            });
+                previous_input_index: previous_input_index.unwrap_or(u32::MAX),
+            }) as u32;
 
             // Record the [`RenderMeshInstance`].
             render_mesh_instances.insert(
@@ -745,7 +755,7 @@ fn collect_meshes_for_gpu_building(
                 RenderMeshInstanceGpu {
                     translation: builder.transform.translation,
                     shared: builder.shared,
-                    current_uniform_index: current_uniform_index as u32,
+                    current_uniform_index,
                 },
             );
         }

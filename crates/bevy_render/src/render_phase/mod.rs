@@ -38,7 +38,12 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::{
-    batching::{self, gpu_preprocessing, no_gpu_preprocessing, GetFullBatchData},
+    batching::{
+        self,
+        gpu_preprocessing::{self, BatchedInstanceBuffers},
+        no_gpu_preprocessing::{self, BatchedInstanceBuffer},
+        GetFullBatchData,
+    },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
 };
@@ -331,8 +336,13 @@ where
             (
                 batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
                 (
-                    no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>,
-                    gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>,
+                    no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                        .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                    gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>.run_if(
+                        resource_exists::<
+                            BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                        >,
+                    ),
                 )
                     .in_set(RenderSet::PrepareResources),
             ),
@@ -373,8 +383,13 @@ where
         render_app.add_systems(
             Render,
             (
-                no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>,
-                gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>,
+                no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                    .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>.run_if(
+                    resource_exists::<
+                        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                    >,
+                ),
             )
                 .in_set(RenderSet::PrepareResources),
         );

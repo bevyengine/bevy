@@ -15,7 +15,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::QueryState,
-    schedule::IntoSystemConfigs as _,
+    schedule::{common_conditions::resource_exists, IntoSystemConfigs as _},
     system::{lifetimeless::Read, Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -88,7 +88,11 @@ impl Plugin for GpuMeshPreprocessPlugin {
             Render,
             (
                 prepare_preprocess_pipeline.in_set(RenderSet::Prepare),
-                prepare_preprocess_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                prepare_preprocess_bind_groups
+                    .run_if(
+                        resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+                    )
+                    .in_set(RenderSet::PrepareBindGroups),
             ),
         );
     }
@@ -244,14 +248,10 @@ pub fn prepare_preprocess_pipeline(
 pub fn prepare_preprocess_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    batched_instance_buffers: Option<Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>>,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     pipeline: Res<PreprocessPipeline>,
 ) {
-    // Grab the [`BatchedGpuBuiltInstanceBuffers`]. If we aren't using GPU mesh
-    // uniform building, bail out.
-    let Some(batched_instance_buffers) = batched_instance_buffers else {
-        return;
-    };
+    // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
         data_buffer: ref data_buffer_vec,
         work_item_buffers: ref index_buffers,

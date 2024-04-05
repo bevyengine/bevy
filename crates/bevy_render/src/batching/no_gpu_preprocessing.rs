@@ -47,7 +47,7 @@ where
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GBD::BufferData>>>,
+    batched_instance_buffer: ResMut<BatchedInstanceBuffer<GBD::BufferData>>,
     mut views: Query<&mut SortedRenderPhase<I>>,
     param: StaticSystemParam<GBD::Param>,
 ) where
@@ -72,14 +72,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
     };
 
     // We only process CPU-built batch data in this function.
-    let Some(cpu_batched_instance_buffers) = cpu_batched_instance_buffer else {
-        return;
-    };
-    let cpu_batched_instance_buffers = cpu_batched_instance_buffers.into_inner();
+    let batched_instance_buffer = batched_instance_buffer.into_inner();
 
     for mut phase in &mut views {
         let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item, cpu_batched_instance_buffers);
+            let batch_data = process_item(item, batched_instance_buffer);
             (item.batch_range_mut(), batch_data)
         });
         items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
@@ -96,7 +93,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
 /// Creates batches for a render phase that uses bins, when GPU batch data
 /// building isn't in use.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GFBD::BufferData>>>,
+    mut buffer: ResMut<BatchedInstanceBuffer<GFBD::BufferData>>,
     mut views: Query<&mut BinnedRenderPhase<BPI>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
@@ -104,11 +101,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     GFBD: GetFullBatchData,
 {
     let system_param_item = param.into_inner();
-
-    // We only process CPU-built batch data in this function.
-    let Some(mut buffer) = cpu_batched_instance_buffer else {
-        return;
-    };
 
     for mut phase in &mut views {
         let phase = &mut *phase; // Borrow checker.
@@ -167,11 +159,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 pub fn write_batched_instance_buffer<GBD>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GBD::BufferData>>>,
+    mut cpu_batched_instance_buffer: ResMut<BatchedInstanceBuffer<GBD::BufferData>>,
 ) where
     GBD: GetBatchData,
 {
-    if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        cpu_batched_instance_buffer.write_buffer(&render_device, &render_queue);
-    }
+    cpu_batched_instance_buffer.write_buffer(&render_device, &render_queue);
 }

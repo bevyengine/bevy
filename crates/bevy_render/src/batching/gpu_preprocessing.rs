@@ -122,26 +122,24 @@ where
 /// [`ViewTarget`]s aren't created until after the extraction phase is
 /// completed.
 pub fn delete_old_work_item_buffers<GFBD>(
-    gpu_batched_instance_buffers: Option<
-        ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    mut gpu_batched_instance_buffers: ResMut<
+        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
     view_targets: Query<Entity, With<ViewTarget>>,
 ) where
     GFBD: GetFullBatchData,
 {
-    if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        gpu_batched_instance_buffers
-            .work_item_buffers
-            .retain(|entity, _| view_targets.contains(*entity));
-    }
+    gpu_batched_instance_buffers
+        .work_item_buffers
+        .retain(|entity, _| view_targets.contains(*entity));
 }
 
 /// Batch the items in a sorted render phase, when GPU instance buffer building
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
-    gpu_batched_instance_buffers: Option<
-        ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    gpu_batched_instance_buffers: ResMut<
+        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
     mut views: Query<(Entity, &mut SortedRenderPhase<I>)>,
     param: StaticSystemParam<GFBD::Param>,
@@ -174,9 +172,6 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         };
 
     // We only process GPU-built batch data in this function.
-    let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers else {
-        return;
-    };
     let BatchedInstanceBuffers {
         ref mut data_buffer,
         ref mut work_item_buffers,
@@ -207,8 +202,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
-    gpu_batched_instance_buffers: Option<
-        ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    gpu_batched_instance_buffers: ResMut<
+        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
     mut views: Query<(Entity, &mut BinnedRenderPhase<BPI>)>,
     param: StaticSystemParam<GFBD::Param>,
@@ -218,10 +213,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 {
     let system_param_item = param.into_inner();
 
-    // We only process GPU-built batch data in this function.
-    let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers else {
-        return;
-    };
     let BatchedInstanceBuffers {
         ref mut data_buffer,
         ref mut work_item_buffers,
@@ -301,16 +292,12 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 pub fn write_batched_instance_buffers<GFBD>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    gpu_batched_instance_buffers: Option<
-        ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    mut gpu_batched_instance_buffers: ResMut<
+        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
 ) where
     GFBD: GetFullBatchData,
 {
-    let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers else {
-        return;
-    };
-
     gpu_batched_instance_buffers
         .data_buffer
         .write_buffer(&render_device);

@@ -19,7 +19,7 @@ struct MeshInput {
     // Various flags.
     flags: u32,
     // The index of this mesh's `MeshInput` in the `previous_input` array, if
-    // applicable. If not present, this is `~0`.
+    // applicable. If not present, this is `u32::MAX`.
     previous_input_index: u32,
 }
 
