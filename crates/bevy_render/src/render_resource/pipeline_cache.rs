@@ -500,12 +500,8 @@ impl PipelineCache {
     }
 
     /// Returns a vector of all currently waiting pipelines IDs.
-    pub fn waiting_pipelines(&self) -> Vec<CachedPipelineId> {
-        let mut waiting_pipelines_vec: Vec<CachedPipelineId> = Vec::new();
-        self.waiting_pipelines
-            .iter()
-            .for_each(|id| waiting_pipelines_vec.push(*id));
-        waiting_pipelines_vec
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> {
+        self.waiting_pipelines.iter().copied()
     }
 
     /// Create a new pipeline cache associated with the given render device.
