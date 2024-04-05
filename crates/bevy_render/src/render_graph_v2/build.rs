@@ -1,13 +1,16 @@
 use super::{resource::RenderGraphResourceUsageType, RenderGraph};
-use crate::renderer::RenderDevice;
+use crate::{
+    render_resource::{ComputePipelineDescriptor, PipelineCache},
+    renderer::RenderDevice,
+};
 use wgpu::{BindGroupLayoutEntry, ShaderStages, TextureUsages};
 
 impl RenderGraph {
-    pub(crate) fn build(&mut self, render_device: &RenderDevice) {
+    pub(crate) fn build(&mut self, render_device: &RenderDevice, pipeline_cache: &PipelineCache) {
         self.compute_resource_usages();
         self.build_resources(render_device);
         self.build_bind_group_layouts(render_device);
-        self.build_pipelines(render_device);
+        self.build_pipelines(pipeline_cache);
         self.build_bind_groups(render_device);
     }
 
@@ -69,8 +72,24 @@ impl RenderGraph {
         }
     }
 
-    fn build_pipelines(&mut self, render_device: &RenderDevice) {
-        todo!()
+    fn build_pipelines(&mut self, pipeline_cache: &PipelineCache) {
+        for node in &mut self.nodes {
+            let pipeline_descriptor = ComputePipelineDescriptor {
+                label: None,
+                layout: vec![node.bind_group_layout.clone().unwrap()],
+                push_constant_ranges: vec![],
+                shader: node.shader.clone(),
+                shader_defs: node.shader_defs.clone(),
+                entry_point: node.label.into(),
+            };
+
+            node.pipeline = Some(
+                *self
+                    .pipelines
+                    .entry(pipeline_descriptor.clone())
+                    .or_insert_with(|| pipeline_cache.queue_compute_pipeline(pipeline_descriptor)),
+            )
+        }
     }
 
     fn build_bind_groups(&mut self, render_device: &RenderDevice) {

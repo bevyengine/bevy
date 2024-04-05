@@ -9,10 +9,12 @@ use self::{
     resource::{RenderGraphResource, RenderGraphResourceId},
 };
 use crate::{
-    render_resource::{BindGroupLayout, Texture},
+    render_resource::{
+        BindGroupLayout, CachedComputePipelineId, ComputePipelineDescriptor, PipelineCache, Texture,
+    },
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_ecs::system::{ResMut, Resource};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::HashMap;
 use wgpu::{BindGroupLayoutEntry, TextureDescriptor};
 
@@ -35,6 +37,7 @@ pub struct RenderGraph {
 
     bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
     resources: HashMap<TextureDescriptor<'static>, Texture>,
+    pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
 }
 
 impl RenderGraph {
@@ -71,8 +74,9 @@ pub fn run_render_graph(
     mut render_graph: ResMut<RenderGraph>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     render_graph.reset();
-    render_graph.build(render_device);
+    render_graph.build(render_device, &pipeline_cache);
     render_graph.run(render_device, render_queue);
 }
