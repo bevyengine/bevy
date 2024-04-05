@@ -38,9 +38,7 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::{
-    batching::{
-        self, GetBatchData, GetBatchInputData, GetBinnedBatchData, GetBinnedBatchInputData,
-    },
+    batching::{self, GetFullBatchData},
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
 };
@@ -301,68 +299,27 @@ where
 /// A convenient abstraction for adding all the systems necessary for a binned
 /// render phase to the render app.
 ///
-/// This is the version used when the pipeline doesn't support GPU
-/// preprocessing: e.g. 2D meshes.
-pub struct BinnedRenderPhasePlugin<BPI, GBBD>(PhantomData<(BPI, GBBD)>)
-where
-    BPI: BinnedPhaseItem,
-    GBBD: GetBinnedBatchData;
-
-/// A convenient abstraction for adding all the systems necessary for a binned
-/// render phase to the render app.
-///
 /// This is the version used when the pipeline supports GPU preprocessing: e.g.
 /// 3D PBR meshes.
-pub struct BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>(PhantomData<(BPI, GBBID)>)
+pub struct BinnedRenderPhasePlugin<BPI, GFBD>(PhantomData<(BPI, GFBD)>)
 where
     BPI: BinnedPhaseItem,
-    GBBID: GetBinnedBatchInputData;
+    GFBD: GetFullBatchData;
 
-impl<BPI, GBBD> Default for BinnedRenderPhasePlugin<BPI, GBBD>
+impl<BPI, GFBD> Default for BinnedRenderPhasePlugin<BPI, GFBD>
 where
     BPI: BinnedPhaseItem,
-    GBBD: GetBinnedBatchData,
+    GFBD: GetFullBatchData,
 {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<BPI, GBBID> Default for BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>
+impl<BPI, GFBD> Plugin for BinnedRenderPhasePlugin<BPI, GFBD>
 where
     BPI: BinnedPhaseItem,
-    GBBID: GetBinnedBatchInputData,
-{
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<BPI, GBBD> Plugin for BinnedRenderPhasePlugin<BPI, GBBD>
-where
-    BPI: BinnedPhaseItem,
-    GBBD: GetBinnedBatchData + Sync + Send + 'static,
-{
-    fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            (
-                batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
-                batching::batch_and_prepare_binned_render_phase_no_gpu_preprocessing::<BPI, GBBD>
-                    .in_set(RenderSet::PrepareResources),
-            ),
-        );
-    }
-}
-
-impl<BPI, GBBID> Plugin for BinnedRenderPhaseGpuPreprocessingPlugin<BPI, GBBID>
-where
-    BPI: BinnedPhaseItem,
-    GBBID: GetBinnedBatchInputData + Sync + Send + 'static,
+    GFBD: GetFullBatchData + Sync + Send + 'static,
 {
     fn build(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -376,11 +333,11 @@ where
                 (
                     batching::batch_and_prepare_binned_render_phase_no_gpu_preprocessing::<
                         BPI,
-                        GBBID,
+                        GFBD,
                     >,
                     batching::batch_and_prepare_binned_render_phase_for_gpu_preprocessing::<
                         BPI,
-                        GBBID,
+                        GFBD,
                     >,
                 )
                     .in_set(RenderSet::PrepareResources),
@@ -392,65 +349,27 @@ where
 /// A convenient abstraction for adding all the systems necessary for a sorted
 /// render phase to the render app.
 ///
-/// This is the version used when the pipeline doesn't support GPU
-/// preprocessing: e.g. 2D sprites.
-pub struct SortedRenderPhasePlugin<SPI, GBD>(PhantomData<(SPI, GBD)>)
-where
-    SPI: SortedPhaseItem,
-    GBD: GetBatchData;
-
-/// A convenient abstraction for adding all the systems necessary for a sorted
-/// render phase to the render app.
-///
 /// This is the version used when the pipeline supports GPU preprocessing: e.g.
 /// 3D PBR meshes.
-pub struct SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>(PhantomData<(SPI, GBID)>)
+pub struct SortedRenderPhasePlugin<SPI, GFBD>(PhantomData<(SPI, GFBD)>)
 where
     SPI: SortedPhaseItem,
-    GBID: GetBatchInputData;
+    GFBD: GetFullBatchData;
 
-impl<SPI, GBD> Default for SortedRenderPhasePlugin<SPI, GBD>
+impl<SPI, GFBD> Default for SortedRenderPhasePlugin<SPI, GFBD>
 where
     SPI: SortedPhaseItem,
-    GBD: GetBatchData,
+    GFBD: GetFullBatchData,
 {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<SPI, GBID> Default for SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>
-where
-    SPI: SortedPhaseItem,
-    GBID: GetBatchInputData,
-{
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<SPI, GBD> Plugin for SortedRenderPhasePlugin<SPI, GBD>
+impl<SPI, GFBD> Plugin for SortedRenderPhasePlugin<SPI, GFBD>
 where
     SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
-    GBD: GetBatchData + Sync + Send + 'static,
-{
-    fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GBD>
-                .in_set(RenderSet::PrepareResources),
-        );
-    }
-}
-
-impl<SPI, GBID> Plugin for SortedRenderPhaseGpuPreprocessingPlugin<SPI, GBID>
-where
-    SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
-    GBID: GetBatchInputData + Sync + Send + 'static,
+    GFBD: GetFullBatchData + Sync + Send + 'static,
 {
     fn build(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -460,8 +379,8 @@ where
         render_app.add_systems(
             Render,
             (
-                batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GBID>,
-                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GBID>,
+                batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GFBD>,
+                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GFBD>,
             )
                 .in_set(RenderSet::PrepareResources),
         );

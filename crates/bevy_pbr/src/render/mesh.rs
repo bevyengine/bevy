@@ -18,13 +18,13 @@ use bevy_render::{
         clear_batched_instance_buffers, delete_old_work_item_buffers,
         write_cpu_built_batched_instance_buffers, write_gpu_built_batched_instance_buffers,
         BatchedCpuBuiltInstanceBuffer, BatchedGpuBuiltInstanceBuffers, GetBatchData,
-        GetBatchInputData, GetBinnedBatchData, GetBinnedBatchInputData, NoAutomaticBatching,
+        GetFullBatchData, NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhaseGpuPreprocessingPlugin, PhaseItem, RenderCommand, RenderCommandResult,
-        SortedRenderPhaseGpuPreprocessingPlugin, TrackedRenderPass,
+        BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,
+        SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -130,13 +130,13 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
-            BinnedRenderPhaseGpuPreprocessingPlugin::<Opaque3d, MeshPipeline>::default(),
-            BinnedRenderPhaseGpuPreprocessingPlugin::<AlphaMask3d, MeshPipeline>::default(),
-            BinnedRenderPhaseGpuPreprocessingPlugin::<Shadow, MeshPipeline>::default(),
-            BinnedRenderPhaseGpuPreprocessingPlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-            BinnedRenderPhaseGpuPreprocessingPlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-            SortedRenderPhaseGpuPreprocessingPlugin::<Transmissive3d, MeshPipeline>::default(),
-            SortedRenderPhaseGpuPreprocessingPlugin::<Transparent3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -907,7 +907,7 @@ impl GetBatchData for MeshPipeline {
     }
 }
 
-impl GetBatchInputData for MeshPipeline {
+impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_batch_input_index(
@@ -935,14 +935,8 @@ impl GetBatchInputData for MeshPipeline {
             )),
         ))
     }
-}
 
-impl GetBinnedBatchData for MeshPipeline {
-    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
-
-    type BufferData = MeshUniform;
-
-    fn get_batch_data(
+    fn get_binned_batch_data(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<Self::BufferData> {
@@ -961,12 +955,8 @@ impl GetBinnedBatchData for MeshPipeline {
             maybe_lightmap.map(|lightmap| lightmap.uv_rect),
         ))
     }
-}
 
-impl GetBinnedBatchInputData for MeshPipeline {
-    type BufferInputData = MeshInputUniform;
-
-    fn get_batch_input_index(
+    fn get_binned_batch_input_index(
         (mesh_instances, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<u32> {

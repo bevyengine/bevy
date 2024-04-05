@@ -187,6 +187,10 @@ where
 
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
+///
+/// This is a simple version that only allows for sorting, not binning, as well
+/// as only CPU processing, not GPU preprocessing. For these fancier features,
+/// see [`GetFullBatchData`].
 pub trait GetBatchData {
     /// The system parameters [`GetBatchData::get_batch_data`] needs in
     /// order to compute the batch data.
@@ -215,11 +219,22 @@ pub trait GetBatchData {
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
 ///
-/// This is only used when GPU preprocessing is in use.
-pub trait GetBatchInputData: GetBatchData {
+/// This version allows for binning and GPU preprocessing.
+pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the [`BufferVec`] during
     /// extraction.
     type BufferInputData: Pod + Sync + Send;
+
+    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
+    ///
+    /// This is only called when building uniforms on CPU. In the GPU instance
+    /// buffer building path, we use
+    /// [`GetBinnedBatchData::get_batch_input_index`]
+    /// instead.
+    fn get_binned_batch_data(
+        param: &SystemParamItem<Self::Param>,
+        query_item: Entity,
+    ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetBatchData::BufferInputData`] that the GPU
     /// preprocessing phase will use.
@@ -232,45 +247,15 @@ pub trait GetBatchInputData: GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)>;
-}
 
-/// When implemented on a pipeline, this trait allows the batching logic to
-/// compute the per-batch data that will be uploaded to the GPU.
-///
-/// This includes things like the mesh transforms.
-pub trait GetBinnedBatchData {
-    /// The system parameters [`GetBinnedBatchData::get_batch_data`] needs
-    /// in order to compute the batch data.
-    type Param: SystemParam + 'static;
-    /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
-    /// containing these data for all instances.
-    type BufferData: GpuArrayBufferable + Sync + Send + 'static;
-
-    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
+    /// Returns the index of the [`GetBatchData::BufferInputData`] that the GPU
+    /// preprocessing phase will use, for the binning path.
     ///
-    /// This is only called when building uniforms on CPU. In the GPU instance
-    /// buffer building path, we use
-    /// [`GetBinnedBatchDataForGpuPreprocessing::get_batch_input_index`]
-    /// instead.
-    fn get_batch_data(
-        param: &SystemParamItem<Self::Param>,
-        entity: Entity,
-    ) -> Option<Self::BufferData>;
-}
-
-/// Like [`GetBinnedBatchData`], but for GPU preprocessing.
-pub trait GetBinnedBatchInputData: GetBinnedBatchData {
-    /// The per-instance data that was inserted into the [`BufferVec`] during
-    /// extraction.
-    type BufferInputData: Pod + Sync + Send;
-
-    /// Returns the index of the [`GetBinnedBatchData::BufferInputData`] that
-    /// the GPU preprocessing phase will use.
-    ///
-    /// We already inserted the [`GetBinnedBatchData::BufferInputData`] during
-    /// the extraction phase before we got here, so this function shouldn't need
-    /// to look up any render data.
-    fn get_batch_input_index(
+    /// We already inserted the [`GetBatchData::BufferInputData`] during the
+    /// extraction phase before we got here, so this function shouldn't need to
+    /// look up any render data. If CPU instance buffer building is in use, this
+    /// function will never be called.
+    fn get_binned_batch_input_index(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<u32>;
@@ -282,13 +267,13 @@ pub trait GetBinnedBatchInputData: GetBinnedBatchData {
 /// We have to run this during extraction because, if GPU preprocessing is in
 /// use, the extraction phase will write to the mesh input uniform buffers
 /// directly, so the buffers need to be cleared before then.
-pub fn clear_batched_instance_buffers<GBID>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<GBID::BufferData>>>,
+pub fn clear_batched_instance_buffers<GFBD>(
+    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<GFBD::BufferData>>>,
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedGpuBuiltInstanceBuffers<GBID::BufferData, GBID::BufferInputData>>,
+        ResMut<BatchedGpuBuiltInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
 ) where
-    GBID: GetBatchInputData,
+    GFBD: GetFullBatchData,
 {
     if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
         cpu_batched_instance_buffer.clear();
@@ -310,13 +295,13 @@ pub fn clear_batched_instance_buffers<GBID>(
 /// This is a separate system from [`clear_batched_instance_buffers`] because
 /// [`ViewTarget`]s aren't created until after the extraction phase is
 /// completed.
-pub fn delete_old_work_item_buffers<GBID>(
+pub fn delete_old_work_item_buffers<GFBD>(
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedGpuBuiltInstanceBuffers<GBID::BufferData, GBID::BufferInputData>>,
+        ResMut<BatchedGpuBuiltInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
     view_targets: Query<Entity, With<ViewTarget>>,
 ) where
-    GBID: GetBatchInputData,
+    GFBD: GetFullBatchData,
 {
     if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         gpu_batched_instance_buffers
@@ -328,18 +313,18 @@ pub fn delete_old_work_item_buffers<GBID>(
 /// Batch the items in a sorted render phase, when GPU instance buffer building
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_sorted_render_phase_no_gpu_preprocessing<I, F>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<F::BufferData>>>,
+pub fn batch_and_prepare_sorted_render_phase_no_gpu_preprocessing<I, GBD>(
+    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<GBD::BufferData>>>,
     mut views: Query<&mut SortedRenderPhase<I>>,
-    param: StaticSystemParam<F::Param>,
+    param: StaticSystemParam<GBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
-    F: GetBatchData,
+    GBD: GetBatchData,
 {
     let system_param_item = param.into_inner();
 
-    let process_item = |item: &mut I, buffer: &mut GpuArrayBuffer<F::BufferData>| {
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
+    let process_item = |item: &mut I, buffer: &mut GpuArrayBuffer<GBD::BufferData>| {
+        let (buffer_data, compare_data) = GBD::get_batch_data(&system_param_item, item.entity())?;
         let buffer_index = buffer.push(buffer_data);
 
         let index = buffer_index.index;
@@ -378,24 +363,24 @@ pub fn batch_and_prepare_sorted_render_phase_no_gpu_preprocessing<I, F>(
 /// Batch the items in a sorted render phase, when GPU instance buffer building
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
-pub fn batch_and_prepare_sorted_render_phase_for_gpu_preprocessing<I, GBID>(
+pub fn batch_and_prepare_sorted_render_phase_for_gpu_preprocessing<I, GFBD>(
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedGpuBuiltInstanceBuffers<GBID::BufferData, GBID::BufferInputData>>,
+        ResMut<BatchedGpuBuiltInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
     mut views: Query<(Entity, &mut SortedRenderPhase<I>)>,
-    param: StaticSystemParam<GBID::Param>,
+    param: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
-    GBID: GetBatchInputData,
+    GFBD: GetFullBatchData,
 {
     let system_param_item = param.into_inner();
 
     let process_item =
         |item: &mut I,
-         data_buffer: &mut UninitBufferVec<GBID::BufferData>,
+         data_buffer: &mut UninitBufferVec<GFBD::BufferData>,
          work_item_buffer: &mut BufferVec<PreprocessWorkItem>| {
             let (input_index, compare_data) =
-                GBID::get_batch_input_index(&system_param_item, item.entity())?;
+                GFBD::get_batch_input_index(&system_param_item, item.entity())?;
             let output_index = data_buffer.add() as u32;
 
             work_item_buffer.push(PreprocessWorkItem {
@@ -457,13 +442,13 @@ where
 
 /// Creates batches for a render phase that uses bins, when GPU batch data
 /// building isn't in use.
-pub fn batch_and_prepare_binned_render_phase_no_gpu_preprocessing<BPI, GBBD>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<GBBD::BufferData>>>,
+pub fn batch_and_prepare_binned_render_phase_no_gpu_preprocessing<BPI, GFBD>(
+    cpu_batched_instance_buffer: Option<ResMut<BatchedCpuBuiltInstanceBuffer<GFBD::BufferData>>>,
     mut views: Query<&mut BinnedRenderPhase<BPI>>,
-    param: StaticSystemParam<GBBD::Param>,
+    param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
-    GBBD: GetBinnedBatchData,
+    GFBD: GetFullBatchData,
 {
     let system_param_item = param.into_inner();
 
@@ -480,7 +465,8 @@ pub fn batch_and_prepare_binned_render_phase_no_gpu_preprocessing<BPI, GBBD>(
         for key in &phase.batchable_keys {
             let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
             for &entity in &phase.batchable_values[key] {
-                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
+                let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, entity)
+                else {
                     continue;
                 };
                 let instance = buffer.push(buffer_data);
@@ -513,7 +499,8 @@ pub fn batch_and_prepare_binned_render_phase_no_gpu_preprocessing<BPI, GBBD>(
         for key in &phase.unbatchable_keys {
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
-                let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) else {
+                let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, entity)
+                else {
                     continue;
                 };
                 let instance = buffer.push(buffer_data);
@@ -524,15 +511,15 @@ pub fn batch_and_prepare_binned_render_phase_no_gpu_preprocessing<BPI, GBBD>(
 }
 
 /// Creates batches for a render phase that uses bins.
-pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBDGP>(
+pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GFBD>(
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedGpuBuiltInstanceBuffers<GBBDGP::BufferData, GBBDGP::BufferInputData>>,
+        ResMut<BatchedGpuBuiltInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
     mut views: Query<(Entity, &mut BinnedRenderPhase<BPI>)>,
-    param: StaticSystemParam<GBBDGP::Param>,
+    param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
-    GBBDGP: GetBinnedBatchInputData,
+    GFBD: GetFullBatchData,
 {
     let system_param_item = param.into_inner();
 
@@ -560,7 +547,8 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBDGP>(
         for key in &phase.batchable_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &entity in &phase.batchable_values[key] {
-                let Some(input_index) = GBBDGP::get_batch_input_index(&system_param_item, entity)
+                let Some(input_index) =
+                    GFBD::get_binned_batch_input_index(&system_param_item, entity)
                 else {
                     continue;
                 };
@@ -590,7 +578,8 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBDGP>(
         for key in &phase.unbatchable_keys {
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
-                let Some(input_index) = GBBDGP::get_batch_input_index(&system_param_item, entity)
+                let Some(input_index) =
+                    GFBD::get_binned_batch_input_index(&system_param_item, entity)
                 else {
                     continue;
                 };
@@ -603,7 +592,7 @@ pub fn batch_and_prepare_binned_render_phase_for_gpu_preprocessing<BPI, GBBDGP>(
 
                 unbatchables
                     .buffer_indices
-                    .add(GpuArrayBufferIndex::<GBBDGP::BufferData> {
+                    .add(GpuArrayBufferIndex::<GFBD::BufferData> {
                         index: output_index,
                         dynamic_offset: None,
                         element_type: PhantomData,
@@ -625,14 +614,14 @@ pub fn write_cpu_built_batched_instance_buffers<GBD>(
     }
 }
 
-pub fn write_gpu_built_batched_instance_buffers<GBID>(
+pub fn write_gpu_built_batched_instance_buffers<GFBD>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedGpuBuiltInstanceBuffers<GBID::BufferData, GBID::BufferInputData>>,
+        ResMut<BatchedGpuBuiltInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
 ) where
-    GBID: GetBatchInputData,
+    GFBD: GetFullBatchData,
 {
     let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers else {
         return;
