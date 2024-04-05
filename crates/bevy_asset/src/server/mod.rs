@@ -22,7 +22,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
-use futures_lite::StreamExt;
+use futures_lite::{Future, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
@@ -33,6 +33,29 @@ use thiserror::Error;
 // Needed for doc string
 #[allow(unused_imports)]
 use crate::io::{AssetReader, AssetWriter};
+
+/// A sender that reports an asset was loaded.
+trait Notify: Send + Sync + 'static {
+    fn notify(
+        self,
+        result: Result<(), AssetLoadError>,
+    ) -> impl Future<Output = ()> + Send + Sync + 'static;
+}
+
+impl Notify for () {
+    fn notify(
+        self,
+        _: Result<(), AssetLoadError>,
+    ) -> impl Future<Output = ()> + Send + Sync + 'static {
+        std::future::ready(())
+    }
+}
+
+impl Notify for async_broadcast::Sender<Result<(), AssetLoadError>> {
+    async fn notify(self, result: Result<(), AssetLoadError>) {
+        let _ = self.broadcast(result).await;
+    }
+}
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
 /// retrieve their current load states.
@@ -270,7 +293,27 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None)
+        self.load_with_meta_transform(path, None, ())
+    }
+
+    /// Load an [`Asset`] of type `A` stored at `path` asynchronously.
+    /// If successful, returns a "strong" [`Handle`] when the asset is loaded.
+    ///
+    /// Returns an error if the asset stored at `path` is not of type `A`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_async<'a, A: Asset>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> {
+        let (sender, mut receiver) = async_broadcast::broadcast(1);
+        let handle = self.load_with_meta_transform(path, None, sender);
+        async move {
+            match receiver.recv().await {
+                Ok(Ok(())) => Ok(handle),
+                Ok(Err(err)) => Err(err),
+                Err(_) => Err(AssetLoadError::TaskDroppedUnexpectedly),
+            }
+        }
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -282,13 +325,44 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)))
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
+    }
+
+    /// Load an [`Asset`] of type `A` stored at `path` asynchronously.
+    /// The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
+    ///
+    /// If successful, returns a "strong" [`Handle`] when the asset is loaded.
+    ///
+    /// Returns an error if the asset stored at `path` is not of type `A`.
+    /// Begins loading an [`Asset`] of type `A` stored at `path`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_async_with_settings<'a, A: Asset, S: Settings>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> impl Future<Output = Result<Handle<A>, AssetLoadError>> {
+        let (sender, mut receiver) = async_broadcast::broadcast(1);
+        let handle = self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            sender,
+        );
+        async move {
+            match receiver.recv().await {
+                Ok(Ok(())) => Ok(handle),
+                Ok(Err(err)) => Err(err),
+                Err(_) => Err(AssetLoadError::TaskDroppedUnexpectedly),
+            }
+        }
     }
 
     fn load_with_meta_transform<'a, A: Asset>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
+        notify: impl Notify,
     ) -> Handle<A> {
         let path = path.into().into_owned();
         let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
@@ -304,6 +378,9 @@ impl AssetServer {
                 .spawn(async move {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
+                        notify.notify(Err(err)).await;
+                    } else {
+                        notify.notify(Ok(())).await;
                     }
                 })
                 .detach();
@@ -1284,6 +1361,8 @@ pub enum AssetLoadError {
         label: String,
         all_labels: Vec<String>,
     },
+    #[error("Asset loading task dropped unexpectedly.")]
+    TaskDroppedUnexpectedly,
 }
 
 #[derive(Error, Debug, Clone)]
