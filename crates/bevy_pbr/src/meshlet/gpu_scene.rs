@@ -352,7 +352,7 @@ pub fn prepare_meshlet_per_frame_resources(
             });
 
         let depth_size = Extent3d {
-            // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
+            // Round down to the nearest power of 2 to ensure depth is conservative
             width: previous_power_of_2(view.viewport.z),
             height: previous_power_of_2(view.viewport.w),
             depth_or_array_layers: 1,
