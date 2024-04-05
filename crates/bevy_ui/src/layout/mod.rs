@@ -1,14 +1,12 @@
-mod convert;
-pub mod debug;
+use thiserror::Error;
 
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource, SystemParam},
+    system::{Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -16,11 +14,15 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use std::fmt;
-use taffy::{tree::LayoutTree, Taffy};
-use thiserror::Error;
+use ui_surface::UiSurface;
+
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+
+mod convert;
+pub mod debug;
+pub(crate) mod ui_surface;
 
 pub struct LayoutContext {
     pub scale_factor: f32,
@@ -46,6 +48,7 @@ impl LayoutContext {
         }
     }
 }
+
 
 impl Default for LayoutContext {
     fn default() -> Self {
@@ -547,12 +550,8 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 
 #[cfg(test)]
 mod tests {
-    use crate::layout::round_layout_coords;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
-    use crate::UiSurface;
+    use taffy::tree::LayoutTree;
+
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2dBundle;
@@ -571,7 +570,8 @@ mod tests {
     use bevy_render::camera::OrthographicProjection;
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
-    use bevy_transform::prelude::{GlobalTransform, Transform};
+    use bevy_transform::prelude::GlobalTransform;
+    use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
@@ -580,7 +580,13 @@ mod tests {
     use bevy_window::WindowResized;
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
-    use taffy::tree::LayoutTree;
+
+    use crate::layout::round_layout_coords;
+    use crate::layout::ui_surface::UiSurface;
+    use crate::prelude::*;
+    use crate::ui_layout_system;
+    use crate::update::update_target_camera_system;
+    use crate::ContentSize;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -621,6 +627,8 @@ mod tests {
                 update_target_camera_system,
                 apply_deferred,
                 ui_layout_system,
+                sync_simple_transforms,
+                propagate_transforms,
             )
                 .chain(),
         );
@@ -919,15 +927,11 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &Node, &mut GlobalTransform, &Transform), Without<Parent>>()
-            .iter_mut(&mut world)
+            .query_filtered::<(Entity, &Node, &GlobalTransform), Without<Parent>>()
+            .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, mut global_transform, transform)| {
-                    // fix global transform - for some reason the global transform isn't populated yet.
-                    // might be related to how these specific tests are working directly with World instead of App
-                    *global_transform = GlobalTransform::from(transform.compute_affine());
-                    let global_transform = &*global_transform;
+                |option_rect, (entity, node, global_transform)| {
                     let current_rect = node.logical_rect(global_transform);
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,

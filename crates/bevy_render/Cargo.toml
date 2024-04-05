@@ -61,7 +61,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # rendering
-image = { version = "0.24", default-features = false }
+image = { version = "0.25", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
@@ -80,7 +80,7 @@ wgpu = { version = "0.19.3", default-features = false, features = [
 naga = { version = "0.19", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5", features = ["derive"] }
+bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
 thread_local = "1.1"
 thiserror = "1.0"

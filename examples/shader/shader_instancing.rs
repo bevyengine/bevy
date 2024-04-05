@@ -16,7 +16,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            RenderPhase, SetItemPipeline, TrackedRenderPass,
+            SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -117,7 +117,7 @@ fn queue_custom(
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
@@ -133,7 +133,8 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let key =
+                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();

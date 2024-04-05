@@ -320,7 +320,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]

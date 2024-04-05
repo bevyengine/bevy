@@ -13,7 +13,7 @@ use bevy::{
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -285,7 +285,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
-        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
+        let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
         shaders.insert(
             &COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
@@ -360,7 +360,7 @@ pub fn queue_colored_mesh2d(
     render_mesh_instances: Res<RenderMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {
@@ -383,7 +383,7 @@ pub fn queue_colored_mesh2d(
                 let mut mesh2d_key = mesh_key;
                 if let Some(mesh) = render_meshes.get(mesh2d_handle) {
                     mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
                 }
 
                 let pipeline_id =

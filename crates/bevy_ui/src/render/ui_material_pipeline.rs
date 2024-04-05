@@ -62,7 +62,7 @@ where
         app.init_asset::<M>()
             .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
@@ -89,7 +89,7 @@ where
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<UiMaterialPipeline<M>>();
         }
     }
@@ -460,7 +460,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -757,7 +757,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterials<M>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {

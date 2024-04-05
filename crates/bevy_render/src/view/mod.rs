@@ -55,7 +55,7 @@ impl Plugin for ViewPlugin {
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ViewUniforms>().add_systems(
                 Render,
                 (
