@@ -500,7 +500,7 @@ impl PipelineCache {
     }
 
     /// Returns a iterator of the IDs of all currently waiting pipelines.
-    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> {
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> + '_ {
         self.waiting_pipelines.iter().copied()
     }
 
