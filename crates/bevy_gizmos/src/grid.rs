@@ -360,8 +360,7 @@ fn draw_grid<Config, Clear>(
     skew: Vec3,
     outer_edges: [bool; 3],
     color: LinearRgba,
-)
-where
+) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {

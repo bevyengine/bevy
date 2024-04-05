@@ -275,8 +275,7 @@ struct LineGizmoHandles {
 pub fn start_gizmo_context<Config, Clear>(
     mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
     mut default: ResMut<GizmoStorage<Config, ()>>,
-)
-where
+) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
