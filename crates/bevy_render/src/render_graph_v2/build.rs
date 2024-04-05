@@ -7,8 +7,9 @@ use crate::{
     renderer::RenderDevice,
 };
 use wgpu::{
-    BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess, TextureDescriptor,
-    TextureUsages, TextureViewDimension,
+    BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, ShaderStages,
+    StorageTextureAccess, TextureDescriptor, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 impl RenderGraph {
@@ -71,7 +72,7 @@ impl RenderGraph {
 
                     BindGroupLayoutEntry {
                         binding: i as u32,
-                        visibility: ShaderStages::COMPUTE,
+                        visibility: ShaderStages::COMPUTE, // TODO: Don't hardcode
                         ty,
                         count: None,
                     }
@@ -110,7 +111,42 @@ impl RenderGraph {
     }
 
     fn build_bind_groups(&mut self, render_device: &RenderDevice) {
-        todo!()
+        for node in &mut self.nodes {
+            let entries = &node
+                .resource_usages
+                .iter()
+                .enumerate()
+                .map(|(i, resource_usage)| {
+                    // TODO: Cache view
+                    let texture_view = self
+                        .resources
+                        .get(&resource_usage.resource.id)
+                        .unwrap()
+                        .create_view(&TextureViewDescriptor {
+                            label: todo!(),
+                            format: todo!(),
+                            dimension: todo!(),
+                            aspect: todo!(),
+                            base_mip_level: todo!(),
+                            mip_level_count: todo!(),
+                            base_array_layer: todo!(),
+                            array_layer_count: todo!(),
+                        });
+
+                    BindGroupEntry {
+                        binding: i as u32,
+                        resource: BindingResource::TextureView(&texture_view),
+                    }
+                })
+                .collect::<Box<[BindGroupEntry]>>();
+
+            // TODO: Cache bind group
+            node.bind_group = Some(render_device.create_bind_group(
+                node.label,
+                node.bind_group_layout.as_ref().unwrap(),
+                entries,
+            ));
+        }
     }
 }
 
