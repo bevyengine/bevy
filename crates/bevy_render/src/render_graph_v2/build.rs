@@ -122,16 +122,7 @@ impl RenderGraph {
                         .resources
                         .get(&resource_usage.resource.id)
                         .unwrap()
-                        .create_view(&TextureViewDescriptor {
-                            label: todo!(),
-                            format: todo!(),
-                            dimension: todo!(),
-                            aspect: todo!(),
-                            base_mip_level: todo!(),
-                            mip_level_count: todo!(),
-                            base_array_layer: todo!(),
-                            array_layer_count: todo!(),
-                        });
+                        .create_view(&TextureViewDescriptor::default());
 
                     BindGroupEntry {
                         binding: i as u32,
