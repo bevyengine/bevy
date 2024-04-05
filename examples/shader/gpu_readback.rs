@@ -38,7 +38,7 @@ fn main() {
 
 fn receive(receiver: Res<MainWorldReceiver>) {
     // We don't want to block the main world on this,
-    // so we use try_recv which attemps to receive without blocking
+    // so we use try_recv which attempts to receive without blocking
     if let Ok(data) = receiver.try_recv() {
         println!("Received data from render world: {data}");
     }
@@ -258,7 +258,7 @@ impl render_graph::Node for ComputeNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("GPU reacback compute pass"),
+                        label: Some("GPU readback compute pass"),
                         ..default()
                     });
 
