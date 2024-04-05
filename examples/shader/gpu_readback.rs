@@ -18,7 +18,12 @@ use crossbeam_channel::{Receiver, Sender};
 // Size of a single u32 in bytes
 const BUFFER_SIZE: u64 = 4;
 
-// To communicate between the main world and the render world we need a channel
+// To communicate between the main world and the render world we need a channel.
+// Since the main world and render world run in parallel, there will always be a frame of latency
+// between the data sent from the render world and the data received in the main world
+//
+// frame n => render world sends data through the channel at the end of the frame
+// frame n + 1 => main world receives the data
 
 /// This will receive asynchronously any data sent from the render world
 #[derive(Resource, Deref)]
@@ -179,6 +184,7 @@ fn map_and_read_buffer(
     // can't access yet).
     // We want the whole thing so use unbounded range.
     let buffer_slice = buffers.cpu_buffer.slice(..);
+
     // Now things get complicated. WebGPU, for safety reasons, only allows either the GPU
     // or CPU to access a buffer's contents at a time. We need to "map" the buffer which means
     // flipping ownership of the buffer over to the CPU and making access legal. We do this
@@ -201,7 +207,7 @@ fn map_and_read_buffer(
     // channels is wholly unnecessary, for the sake of portability to WASM
     // we'll use async channels that work on both native and WASM.
 
-    let (s, r) = crossbeam_channel::bounded::<()>(1);
+    let (s, r) = crossbeam_channel::unbounded::<()>();
 
     // Maps the buffer so it can be read on the cpu
     buffer_slice.map_async(MapMode::Read, move |r| match r {
