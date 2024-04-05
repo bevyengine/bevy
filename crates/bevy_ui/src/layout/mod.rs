@@ -343,7 +343,8 @@ mod tests {
     use bevy_render::camera::OrthographicProjection;
     use bevy_render::prelude::Camera;
     use bevy_render::texture::Image;
-    use bevy_transform::prelude::{GlobalTransform, Transform};
+    use bevy_transform::prelude::GlobalTransform;
+    use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
@@ -399,6 +400,8 @@ mod tests {
                 update_target_camera_system,
                 apply_deferred,
                 ui_layout_system,
+                sync_simple_transforms,
+                propagate_transforms,
             )
                 .chain(),
         );
@@ -697,15 +700,11 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &Node, &mut GlobalTransform, &Transform), Without<Parent>>()
-            .iter_mut(&mut world)
+            .query_filtered::<(Entity, &Node, &GlobalTransform), Without<Parent>>()
+            .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, mut global_transform, transform)| {
-                    // fix global transform - for some reason the global transform isn't populated yet.
-                    // might be related to how these specific tests are working directly with World instead of App
-                    *global_transform = GlobalTransform::from(transform.compute_affine());
-                    let global_transform = &*global_transform;
+                |option_rect, (entity, node, global_transform)| {
                     let current_rect = node.logical_rect(global_transform);
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
