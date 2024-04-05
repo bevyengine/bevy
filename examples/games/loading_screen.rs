@@ -1,6 +1,6 @@
 //! Shows how to create a loading screen that waits for assets to load and render.
 use bevy::{ecs::system::SystemId, prelude::*};
-use pipelines_info::*;
+use pipelines_ready::*;
 
 // The way we'll go about doing this in this example is to
 // keep track of all assets that we want to have loaded before
@@ -17,8 +17,8 @@ use pipelines_info::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // `PipelinesInfoPlugin` is declared in the `pipelines_info` module below.
-        .add_plugins(PipelinesInfoPlugin)
+        // `PipelinesReadyPlugin` is declared in the `pipelines_ready` module below.
+        .add_plugins(PipelinesReadyPlugin)
         .insert_resource(LoadingState::default())
         .insert_resource(LoadingData::new(5))
         .add_systems(Startup, (setup, load_loading_screen))
@@ -26,7 +26,7 @@ fn main() {
             Update,
             (update_loading_data, level_selection, display_loading_screen),
         )
-        .run()
+        .run();
 }
 
 // A `Resource` that holds the current loading state.
@@ -42,8 +42,9 @@ enum LoadingState {
 struct LoadingData {
     // This will hold the currently unloaded/loading assets.
     loading_assets: Vec<UntypedHandle>,
-    // The number of frames that the loading_assets vector needs to be empty
-    // for to confirm that everything is loaded.
+    // Number of frames that everything needs to be ready for.
+    // This is to prevent going into the fully loaded state in instances
+    // where there might be a some frames between certain loading/pipelines action.
     confirmation_frames_target: usize,
     // Current number of confirmation frames.
     confirmation_frames_count: usize,
@@ -59,7 +60,7 @@ impl LoadingData {
     }
 }
 
-// This resource will hold the systems ID for later use.
+// This resource will hold the level related systems ID for later use.
 #[derive(Resource)]
 struct LevelData {
     unload_level_id: SystemId,
@@ -74,6 +75,28 @@ fn setup(mut commands: Commands) {
         level_2_id: commands.register_one_shot_system(load_level_2),
     };
     commands.insert_resource(level_data);
+
+    // Spawns the UI that will show the user prompts.
+    let text_style = TextStyle {
+        font_size: 50.0,
+        ..default()
+    };
+    commands
+        .spawn(NodeBundle {
+            background_color: BackgroundColor(Color::NONE),
+            style: Style {
+                justify_self: JustifySelf::Center,
+                align_self: AlignSelf::FlexEnd,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Press 1 or 2 to load a new scene.",
+                text_style,
+            ));
+        });
 }
 
 // Selects the level you want to load.
@@ -83,21 +106,21 @@ fn level_selection(
     level_data: Res<LevelData>,
     loading_state: Res<LoadingState>,
 ) {
-    match loading_state.as_ref() {
-        LoadingState::LevelReady => {
-            if keyboard.just_pressed(KeyCode::Digit1) {
-                info!("Loading LEVEL 1");
-                commands.run_system(level_data.unload_level_id);
-                commands.run_system(level_data.level_1_id);
-            } else if keyboard.just_pressed(KeyCode::Digit2) {
-                info!("Loading LEVEL 2");
-                commands.run_system(level_data.unload_level_id);
-                commands.run_system(level_data.level_2_id);
-            }
+    // Only trigger a load if the current level is fully loaded.
+    if let LoadingState::LevelReady = loading_state.as_ref() {
+        if keyboard.just_pressed(KeyCode::Digit1) {
+            commands.run_system(level_data.unload_level_id);
+            commands.run_system(level_data.level_1_id);
+        } else if keyboard.just_pressed(KeyCode::Digit2) {
+            commands.run_system(level_data.unload_level_id);
+            commands.run_system(level_data.level_2_id);
         }
-        _ => (),
     }
 }
+
+// Marker component for easier deletion of entities.
+#[derive(Component)]
+struct LevelComponents;
 
 // Removes all currently loaded level assets from the game World.
 fn unload_current_level(
@@ -111,20 +134,11 @@ fn unload_current_level(
     }
 }
 
-// Marker component for easier deletion of entities.
-#[derive(Component)]
-struct LevelComponents;
-
 fn load_level_1(
     mut commands: Commands,
     mut loading_data: ResMut<LoadingData>,
-    mut pipelines_info: ResMut<PipelinesInfo>,
     asset_server: Res<AssetServer>,
 ) {
-    // Declare your pipeline count here.
-    // TODO: Find a way to get pipeline count target dynamically
-    pipelines_info.pipeline_count = 11;
-
     // Spawn the camera.
     commands.spawn((
         Camera3dBundle {
@@ -165,13 +179,8 @@ fn load_level_1(
 fn load_level_2(
     mut commands: Commands,
     mut loading_data: ResMut<LoadingData>,
-    mut pipelines_info: ResMut<PipelinesInfo>,
     asset_server: Res<AssetServer>,
 ) {
-    // Declare your pipeline count here.
-    // TODO: Find a way to get pipeline count target dynamically.
-    pipelines_info.pipeline_count = 15;
-
     // Spawn the camera.
     commands.spawn((
         Camera3dBundle {
@@ -214,10 +223,11 @@ fn update_loading_data(
     mut loading_data: ResMut<LoadingData>,
     mut loading_state: ResMut<LoadingState>,
     asset_server: Res<AssetServer>,
-    pipelines_info: Res<PipelinesInfo>,
+    pipelines_ready: Res<PipelinesReady>,
 ) {
-    if !loading_data.loading_assets.is_empty() {
-        // If our loading_assets vector isn't empty, we reset the confirmation frames count.
+    if !loading_data.loading_assets.is_empty() || !pipelines_ready.0 {
+        // If we are still loading assets / pipelines are not fully compiled,
+        // we reset the confirmation frame count.
         loading_data.confirmation_frames_count = 0;
 
         // Go through each asset and verify their load states.
@@ -225,9 +235,8 @@ fn update_loading_data(
         let mut pop_list: Vec<usize> = Vec::new();
         for (index, asset) in loading_data.loading_assets.iter().enumerate() {
             if let Some(state) = asset_server.get_load_states(asset) {
-                match state.2 {
-                    bevy::asset::RecursiveDependencyLoadState::Loaded => pop_list.push(index),
-                    _ => (),
+                if let bevy::asset::RecursiveDependencyLoadState::Loaded = state.2 {
+                    pop_list.push(index);
                 }
             }
         }
@@ -238,12 +247,12 @@ fn update_loading_data(
         }
 
         // If there are no more assets being monitored, and pipelines
-        // are loaded, then start counting confirmation frames.
-        // Once enough confirmations have passed, everything should be ready.
-    } else if pipelines_info.ready_count >= pipelines_info.pipeline_count {
+        // are compiled, then start counting confirmation frames.
+        // Once enough confirmations have passed, everything will be
+        // considered to be fully loaded.
+    } else {
         loading_data.confirmation_frames_count += 1;
         if loading_data.confirmation_frames_count == loading_data.confirmation_frames_target {
-            info!("LOADED");
             *loading_state = LoadingState::LevelReady;
         }
     }
@@ -256,21 +265,17 @@ struct LoadingScreen;
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextStyle {
-        font_size: 50.0,
-        ..default()
-    };
-
-    // Set the camera render order.
-    let camera = Camera {
-        order: 1,
-        is_active: true,
+        font_size: 80.0,
         ..default()
     };
 
     // Spawn the UI and Loading screen camera.
     commands.spawn((
         Camera2dBundle {
-            camera,
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
             ..default()
         },
         LoadingScreen,
@@ -298,46 +303,28 @@ fn load_loading_screen(mut commands: Commands) {
                 text_style.clone(),
             )]));
         });
-
-    // Spawns the UI that will show the user prompts.
-    commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::NONE),
-            style: Style {
-                justify_self: JustifySelf::Center,
-                align_self: AlignSelf::FlexEnd,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Press 1 or 2 to load a new scene.",
-                text_style,
-            ));
-        });
 }
 
+// Determines when to show the loading screen
 fn display_loading_screen(
     mut loading_screen: Query<&mut Visibility, With<LoadingScreen>>,
     loading_state: Res<LoadingState>,
 ) {
     match loading_state.as_ref() {
         LoadingState::LevelLoading => {
-            *loading_screen.get_single_mut().unwrap() = Visibility::Visible
+            *loading_screen.get_single_mut().unwrap() = Visibility::Visible;
         }
         LoadingState::LevelReady => *loading_screen.get_single_mut().unwrap() = Visibility::Hidden,
     };
 }
 
-mod pipelines_info {
+mod pipelines_ready {
     use bevy::{prelude::*, render::render_resource::*, render::*};
 
-    pub struct PipelinesInfoPlugin;
-    impl Plugin for PipelinesInfoPlugin {
+    pub struct PipelinesReadyPlugin;
+    impl Plugin for PipelinesReadyPlugin {
         fn build(&self, app: &mut App) {
-            // TODO: Need to find a way to find the target pipeline count dynamically
-            app.insert_resource(PipelinesInfo::default());
+            app.insert_resource(PipelinesReady::default());
 
             // In order to gain access to the pipelines status, we have to
             // go into the `RenderApp`, grab the resource from the main App
@@ -345,28 +332,16 @@ mod pipelines_info {
             // Writing between these Apps can only be done through the
             // `ExtractSchedule`.
             app.sub_app_mut(bevy::render::RenderApp)
-                .add_systems(ExtractSchedule, update_pipelines_info);
+                .add_systems(ExtractSchedule, update_pipelines_ready);
         }
     }
 
     #[derive(Resource, Debug, Default)]
-    pub struct PipelinesInfo {
-        pub pipeline_count: usize,
-        pub ready_count: usize,
-    }
+    pub struct PipelinesReady(pub bool);
 
-    fn update_pipelines_info(mut main_world: ResMut<MainWorld>, pipelines: Res<PipelineCache>) {
-        if let Some(mut pipelines_info) = main_world.get_resource_mut::<PipelinesInfo>() {
-            let mut pipelines_ready = 0;
-            for pipeline in pipelines.pipelines() {
-                match pipeline.state {
-                    CachedPipelineState::Ok(_) => {
-                        pipelines_ready += 1;
-                    }
-                    _ => (),
-                }
-            }
-            pipelines_info.ready_count = pipelines_ready;
+    fn update_pipelines_ready(mut main_world: ResMut<MainWorld>, pipelines: Res<PipelineCache>) {
+        if let Some(mut pipelines_ready) = main_world.get_resource_mut::<PipelinesReady>() {
+            pipelines_ready.0 = pipelines.waiting_pipelines().count() == 0;
         }
     }
 }
