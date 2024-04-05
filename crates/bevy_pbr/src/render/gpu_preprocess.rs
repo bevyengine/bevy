@@ -6,6 +6,8 @@
 //! [`MeshInputUniform`]s instead and use the GPU to calculate the remaining
 //! derived fields in [`MeshUniform`].
 
+use std::num::NonZeroU64;
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::graph::Core3d;
@@ -22,10 +24,10 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only},
-        BindGroup, BindGroupEntries, BindGroupLayout, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
-        PipelineCache, Shader, ShaderStages, SpecializedComputePipeline,
-        SpecializedComputePipelines,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, BufferBinding,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
+        DynamicBindGroupLayoutEntries, PipelineCache, Shader, ShaderStages, ShaderType,
+        SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice},
     Render, RenderApp, RenderSet,
@@ -269,6 +271,15 @@ pub fn prepare_preprocess_bind_groups(
         let Some(index_buffer) = index_buffer_vec.buffer() else {
             continue;
         };
+
+        // Don't use `as_entire_binding()` here; the shader reads the array
+        // length and the underlying buffer may be longer than the actual size
+        // of the vector.
+        let index_buffer_size = NonZeroU64::try_from(
+            index_buffer_vec.len() as u64 * u64::from(PreprocessWorkItem::min_size()),
+        )
+        .ok();
+
         commands
             .entity(*view)
             .insert(PreprocessBindGroup(render_device.create_bind_group(
@@ -277,7 +288,11 @@ pub fn prepare_preprocess_bind_groups(
                 &BindGroupEntries::sequential((
                     current_input_buffer.as_entire_binding(),
                     previous_input_buffer.as_entire_binding(),
-                    index_buffer.as_entire_binding(),
+                    BindingResource::Buffer(BufferBinding {
+                        buffer: index_buffer,
+                        offset: 0,
+                        size: index_buffer_size,
+                    }),
                     data_buffer.as_entire_binding(),
                 )),
             )));

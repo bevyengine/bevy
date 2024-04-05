@@ -201,8 +201,8 @@ pub trait GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
-    /// Returns the index of the [`GetBinnedBatchData::BufferInputData`] that
-    /// the GPU preprocessing phase will use.
+    /// Returns the index of the [`GetBatchData::BufferInputData`] that the GPU
+    /// preprocessing phase will use.
     ///
     /// We already inserted the [`GetBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
