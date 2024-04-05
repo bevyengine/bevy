@@ -471,7 +471,7 @@ fn copy_material_depth_pass(
 /// Meshlet AABBs are calculated against the original view, and need to be scaled to match the depth pyramid.
 ///
 /// Calculates the depth pyramid size scaled by how much the first depth mip resampling cut the view depth resolution by.
-/// E.g. view_depth = 200, depth_pyramid = 100, aabb_uv_to_viewport = 100 * (100 / 200) = 50
+/// E.g. `view_depth = 200, depth_pyramid = 100, aabb_uv_to_viewport = 100 * (100 / 200) = 50`.
 fn calculate_aabb_uv_to_viewport(
     meshlet_view_resources: &MeshletViewResources,
     view_depth_size: Extent3d,
