@@ -499,7 +499,7 @@ impl PipelineCache {
         self.pipelines.iter()
     }
 
-    /// Returns a vector of all currently waiting pipelines IDs.
+    /// Returns a iterator of the IDs of all currently waiting pipelines.
     pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> {
         self.waiting_pipelines.iter().copied()
     }
