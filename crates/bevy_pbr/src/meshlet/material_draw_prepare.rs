@@ -134,6 +134,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
+        // TODO: Lightmaps
+
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values() {
