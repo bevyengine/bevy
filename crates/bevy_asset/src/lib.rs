@@ -1071,13 +1071,13 @@ mod tests {
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            if d_load != LoadState::Failed {
+            if !matches!(d_load, LoadState::Failed(_)) {
                 // wait until d has exited the loading state
                 return None;
             }
 
             assert!(d_text.is_none());
-            assert_eq!(d_load, LoadState::Failed);
+            assert!(matches!(d_load, LoadState::Failed(_)));
             assert_eq!(d_deps, DependencyLoadState::Failed);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
 
@@ -1384,7 +1384,7 @@ mod tests {
             // Check what just failed
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                assert_eq!(load_state, LoadState::Failed);
+                assert!(matches!(load_state, LoadState::Failed(_)));
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {

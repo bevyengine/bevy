@@ -174,7 +174,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 }
 
 // TODO: Try using Queue::write_buffer_with() in queue_meshlet_mesh_upload() to reduce copies
-fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
+fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
     buffer: &mut StorageBuffer<Vec<T>>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
@@ -187,7 +187,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
 
     if capacity >= size {
         let inner = inner.unwrap();
-        let bytes = bytemuck::cast_slice(buffer.get().as_slice());
+        let bytes = bytemuck::must_cast_slice(buffer.get().as_slice());
         render_queue.write_buffer(inner, 0, bytes);
     } else {
         buffer.write_buffer(render_device, render_queue);
