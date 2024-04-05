@@ -20,6 +20,7 @@
 //! [`World`]: crate::world::World
 //! [`World::storages`]: crate::world::World::storages
 
+mod blob_array;
 mod blob_vec;
 mod resource;
 mod sparse_set;

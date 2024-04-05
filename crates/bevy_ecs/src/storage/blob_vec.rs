@@ -1,12 +1,11 @@
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_utils::OnDrop;
 use std::{
     alloc::{handle_alloc_error, Layout},
     cell::UnsafeCell,
     num::NonZeroUsize,
     ptr::NonNull,
 };
-
-use bevy_ptr::{OwningPtr, Ptr, PtrMut};
-use bevy_utils::OnDrop;
 
 /// A flat, type-erased data storage type
 ///
@@ -448,7 +447,7 @@ impl Drop for BlobVec {
 }
 
 /// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
+pub(super) fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
     let (array_layout, offset) = repeat_layout(layout, n)?;
     debug_assert_eq!(layout.size(), offset);
     Some(array_layout)
@@ -471,6 +470,40 @@ fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
             Layout::from_size_align_unchecked(alloc_size, layout.align()),
             padded_size,
         ))
+    }
+}
+
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+pub(super) unsafe fn array_layout_unchecked(layout: &Layout, n: usize) -> Layout {
+    let (array_layout, offset) = repeat_layout_unchecked(layout, n);
+    debug_assert_eq!(layout.size(), offset);
+    array_layout
+}
+
+// TODO: replace with `Layout::repeat` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+unsafe fn repeat_layout_unchecked(layout: &Layout, n: usize) -> (Layout, usize) {
+    // This cannot overflow. Quoting from the invariant of Layout:
+    // > `size`, when rounded up to the nearest multiple of `align`,
+    // > must not overflow (i.e., the rounded value must be less than
+    // > `usize::MAX`)
+    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
+    // This may overlfow in release builds, that's why this function is unsafe.
+    let alloc_size = padded_size * n;
+
+    // SAFETY: self.align is already known to be valid and alloc_size has been
+    // padded already.
+    unsafe {
+        (
+            Layout::from_size_align_unchecked(alloc_size, layout.align()),
+            padded_size,
+        )
     }
 }
 
