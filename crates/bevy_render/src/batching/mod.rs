@@ -71,17 +71,18 @@ pub trait GetBatchData {
     /// function id, per-instance data buffer dynamic offset and this data
     /// matches, the draws can be batched.
     type CompareData: PartialEq;
-    /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
-    /// containing these data for all instances.
+    /// The per-instance data to be inserted into the
+    /// [`crate::render_resource::GpuArrayBuffer`] containing these data for all
+    /// instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
-    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
-    /// If the instance can be batched, also return the data used for
-    /// comparison when deciding whether draws can be batched, else return None
-    /// for the `CompareData`.
+    /// Get the per-instance data to be inserted into the
+    /// [`crate::render_resource::GpuArrayBuffer`].  If the instance can be
+    /// batched, also return the data used for comparison when deciding whether
+    /// draws can be batched, else return None for the `CompareData`.
     ///
     /// This is only called when building instance data on CPU. In the GPU
-    /// uniform building path, we use
-    /// [`GetBatchData::get_batch_preprocess_work_item`] instead.
+    /// instance data building path, we use
+    /// [`GetFullBatchData::get_batch_input_index`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -93,25 +94,25 @@ pub trait GetBatchData {
 ///
 /// This version allows for binning and GPU preprocessing.
 pub trait GetFullBatchData: GetBatchData {
-    /// The per-instance data that was inserted into the [`BufferVec`] during
-    /// extraction.
+    /// The per-instance data that was inserted into the
+    /// [`crate::render_resource::BufferVec`] during extraction.
     type BufferInputData: Pod + Sync + Send;
 
-    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
+    /// Get the per-instance data to be inserted into the
+    /// [`crate::render_resource::GpuArrayBuffer`].
     ///
     /// This is only called when building uniforms on CPU. In the GPU instance
-    /// buffer building path, we use
-    /// [`GetBinnedBatchData::get_batch_input_index`]
+    /// buffer building path, we use [`GetFullBatchData::get_batch_input_index`]
     /// instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<Self::BufferData>;
 
-    /// Returns the index of the [`GetBatchData::BufferInputData`] that the GPU
-    /// preprocessing phase will use.
+    /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
+    /// GPU preprocessing phase will use.
     ///
-    /// We already inserted the [`GetBatchData::BufferInputData`] during the
+    /// We already inserted the [`GetFullBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
@@ -120,10 +121,10 @@ pub trait GetFullBatchData: GetBatchData {
         query_item: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)>;
 
-    /// Returns the index of the [`GetBatchData::BufferInputData`] that the GPU
-    /// preprocessing phase will use, for the binning path.
+    /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
+    /// GPU preprocessing phase will use, for the binning path.
     ///
-    /// We already inserted the [`GetBatchData::BufferInputData`] during the
+    /// We already inserted the [`GetFullBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
@@ -134,7 +135,7 @@ pub trait GetFullBatchData: GetBatchData {
 }
 
 /// A system that runs early in extraction and clears out all the
-/// [`BatchedInstanceBuffers`] for the frame.
+/// [`gpu_preprocessing::BatchedInstanceBuffers`] for the frame.
 ///
 /// We have to run this during extraction because, if GPU preprocessing is in
 /// use, the extraction phase will write to the mesh input uniform buffers

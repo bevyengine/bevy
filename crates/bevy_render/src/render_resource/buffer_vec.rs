@@ -171,8 +171,8 @@ impl<T: NoUninit> Extend<T> for BufferVec<T> {
 /// This type is useful when you're accumulating "output slots" for a GPU
 /// compute shader to write into.
 ///
-/// The type `T` need not be [`Pod`], unlike [`BufferVec`]; it only has to be
-/// [`GpuArrayBufferable`].
+/// The type `T` need not be [`NoUninit`], unlike [`BufferVec`]; it only has to
+/// be [`GpuArrayBufferable`].
 pub struct UninitBufferVec<T>
 where
     T: GpuArrayBufferable,

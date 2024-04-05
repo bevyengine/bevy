@@ -10,11 +10,10 @@
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderSet::Queue`](crate::RenderSet::Queue).
-//! After that the render phase sorts them in the
-//! [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort).
-//! Finally the items are rendered using a single [`TrackedRenderPass`], during the
-//! [`RenderSet::Render`](crate::RenderSet::Render).
+//! This must be done in the [`RenderSet::Queue`].
+//! After that the render phase sorts them in the [`RenderSet::PhaseSort`].
+//! Finally the items are rendered using a single [`TrackedRenderPass`], during
+//! the [`RenderSet::Render`].
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -568,12 +567,10 @@ where
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).
-/// Then it has to be queued up for rendering during the
-/// [`RenderSet::Queue`](crate::RenderSet::Queue), by adding a corresponding phase item to
-/// a render phase.
+/// Then it has to be queued up for rendering during the [`RenderSet::Queue`],
+/// by adding a corresponding phase item to a render phase.
 /// Afterwards it will be possibly sorted and rendered automatically in the
-/// [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort) and
-/// [`RenderSet::Render`](crate::RenderSet::Render), respectively.
+/// [`RenderSet::PhaseSort`] and [`RenderSet::Render`], respectively.
 ///
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.

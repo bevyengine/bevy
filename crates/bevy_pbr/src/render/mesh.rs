@@ -406,9 +406,10 @@ pub struct RenderMeshInstanceShared {
 /// Information that is gathered during the parallel portion of mesh extraction
 /// when GPU mesh uniform building is enabled.
 ///
-/// From this, the [`MeshInputUniform`] and [`RenderMeshInstance`] are prepared.
+/// From this, the [`MeshInputUniform`] and [`RenderMeshInstanceGpu`] are
+/// prepared.
 pub struct RenderMeshInstanceGpuBuilder {
-    /// Data that will be placed on the [`RenderMeshInstance`].
+    /// Data that will be placed on the [`RenderMeshInstanceGpu`].
     pub shared: RenderMeshInstanceShared,
     /// The current transform.
     pub transform: Affine3,
@@ -695,8 +696,8 @@ pub fn extract_meshes_for_gpu_building(
     );
 }
 
-/// Creates the [`RenderMeshInstance`]s and [`MeshInputUniform`]s when GPU mesh
-/// uniforms are built.
+/// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
+/// mesh uniforms are built.
 fn collect_meshes_for_gpu_building(
     render_mesh_instances: &mut RenderMeshInstances,
     batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
