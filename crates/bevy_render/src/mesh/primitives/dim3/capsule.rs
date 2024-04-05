@@ -72,17 +72,17 @@ impl Capsule3dMeshBuilder {
         self
     }
 
-    /// Sets the number of vertical lines subdividing the hemispheres of the capsule.
+    /// Sets the number of quad columns subdividing the hemisphere.
     #[inline]
-    pub const fn longitudes(mut self, longitudes: usize) -> Self {
-        self.sectors = longitudes;
+    pub const fn sectors(mut self, sectors: usize) -> Self {
+        self.sectors = sectors;
         self
     }
 
-    /// Sets the number of horizontal lines subdividing the hemispheres of the capsule.
+    /// Sets the number of quad rows along the longitude of the hemisphere.
     #[inline]
-    pub const fn latitudes(mut self, latitudes: usize) -> Self {
-        self.stacks = latitudes;
+    pub const fn stacks(mut self, stacks: usize) -> Self {
+        self.stacks = stacks;
         self
     }
 
