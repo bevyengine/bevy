@@ -1,6 +1,7 @@
 mod conversions;
 pub mod skinning;
 use bevy_transform::components::Transform;
+use bitflags::bitflags;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -91,7 +92,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access modify a Mesh's attributes after creating it.
 ///
@@ -1393,6 +1394,43 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+bitflags! {
+    /// Our base mesh pipeline key bits start from the highest bit and go
+    /// downward. The PBR mesh pipeline key bits start from the lowest bit and
+    /// go upward. This allows the PBR bits in the downstream crate `bevy_pbr`
+    /// to coexist in the same field without any shifts.
+    #[derive(Clone, Debug)]
+    pub struct BaseMeshPipelineKey: u32 {
+        const MORPH_TARGETS = 1 << 31;
+    }
+}
+
+impl BaseMeshPipelineKey {
+    pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
+        31 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        Self::from_bits_retain(primitive_topology_bits)
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
+    }
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
@@ -1402,8 +1440,15 @@ pub struct GpuMesh {
     pub vertex_count: u32,
     pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
-    pub primitive_topology: PrimitiveTopology,
+    pub key_bits: BaseMeshPipelineKey,
     pub layout: MeshVertexBufferLayoutRef,
+}
+
+impl GpuMesh {
+    #[inline]
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        self.key_bits.primitive_topology()
+    }
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1461,11 +1506,17 @@ impl RenderAsset for Mesh {
         let mesh_vertex_buffer_layout =
             self.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
+        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(self.primitive_topology());
+        key_bits.set(
+            BaseMeshPipelineKey::MORPH_TARGETS,
+            self.morph_targets.is_some(),
+        );
+
         Ok(GpuMesh {
             vertex_buffer,
             vertex_count: self.count_vertices() as u32,
             buffer_info,
-            primitive_topology: self.primitive_topology(),
+            key_bits,
             layout: mesh_vertex_buffer_layout,
             morph_targets: self
                 .morph_targets

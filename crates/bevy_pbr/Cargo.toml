@@ -43,13 +43,14 @@ thiserror = { version = "1", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.5"
 # direct dependency required for derive macro
-bytemuck = { version = "1", features = ["derive"] }
+bytemuck = { version = "1", features = ["derive", "must_cast"] }
 radsort = "0.1"
 smallvec = "1.6"
 serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
 range-alloc = "0.1"
 nonmax = "0.5"
+static_assertions = "1"
 
 [lints]
 workspace = true
