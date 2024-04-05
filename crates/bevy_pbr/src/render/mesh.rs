@@ -262,6 +262,7 @@ pub struct MeshInputUniform {
     pub transform: [Vec4; 3],
     /// Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     ///
+    /// ```text
     ///                         <--- MSB                   LSB --->
     ///                         +---- min v ----+ +---- min u ----+
     ///     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
@@ -269,6 +270,7 @@ pub struct MeshInputUniform {
     ///     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
     ///
     /// (MSB: most significant bit; LSB: least significant bit.)
+    /// ```
     pub lightmap_uv_rect: UVec2,
     /// Various [`MeshFlags`].
     pub flags: u32,
@@ -398,6 +400,7 @@ pub struct RenderMeshInstanceGpuBuilder {
     pub transform: Affine3,
     /// Four 16-bit unsigned normalized UV values packed into a [`UVec2`]:
     ///
+    /// ```text
     ///                         <--- MSB                   LSB --->
     ///                         +---- min v ----+ +---- min u ----+
     ///     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
@@ -405,6 +408,7 @@ pub struct RenderMeshInstanceGpuBuilder {
     ///     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
     ///
     /// (MSB: most significant bit; LSB: least significant bit.)
+    /// ```
     pub lightmap_uv_rect: UVec2,
     /// Various flags.
     pub mesh_flags: MeshFlags,
