@@ -1242,6 +1242,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "meta_files"
+path = "examples/asset/meta_files.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.meta_files]
+name = "Meta Files"
+description = "Demonstrates the use of .meta files when loading an asset"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_decompression"
 path = "examples/asset/asset_decompression.rs"
 doc-scrape-examples = true
