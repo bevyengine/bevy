@@ -15,9 +15,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        clear_batched_instance_buffers, delete_old_work_item_buffers,
-        write_cpu_built_batched_instance_buffers, write_gpu_built_batched_instance_buffers,
-        BatchedCpuBuiltInstanceBuffer, BatchedGpuBuiltInstanceBuffers, GetBatchData,
+        clear_batched_instance_buffers, gpu_preprocessing, no_gpu_preprocessing, GetBatchData,
         GetFullBatchData, NoAutomaticBatching,
     },
     mesh::*,
@@ -158,12 +156,12 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        delete_old_work_item_buffers::<MeshPipeline>
+                        gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                             .in_set(RenderSet::ManageViews)
                             .after(prepare_view_targets),
-                        write_cpu_built_batched_instance_buffers::<MeshPipeline>
+                        no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
-                        write_gpu_built_batched_instance_buffers::<MeshPipeline>
+                        gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
@@ -192,12 +190,12 @@ impl Plugin for MeshRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.use_gpu_instance_buffer_builder {
                 render_app
-                    .init_resource::<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>(
+                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
                     );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
                 let cpu_batched_instance_buffer =
-                    BatchedCpuBuiltInstanceBuffer::<MeshUniform>::new(render_device);
+                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
                 render_app.insert_resource(cpu_batched_instance_buffer);
             };
 
@@ -615,8 +613,8 @@ pub fn extract_meshes_for_cpu_building(
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    mut gpu_batched_instance_buffers: ResMut<
-        BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>,
+    mut batched_instance_buffers: ResMut<
+        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
     mut prev_render_mesh_instances: Local<EntityHashMap<RenderMeshInstanceGpu>>,
@@ -681,7 +679,7 @@ pub fn extract_meshes_for_gpu_building(
 
     collect_meshes_for_gpu_building(
         &mut render_mesh_instances,
-        &mut gpu_batched_instance_buffers,
+        &mut batched_instance_buffers,
         &mut render_mesh_instance_queues,
         &mut prev_render_mesh_instances,
     );
@@ -691,7 +689,7 @@ pub fn extract_meshes_for_gpu_building(
 /// uniforms are built.
 fn collect_meshes_for_gpu_building(
     render_mesh_instances: &mut RenderMeshInstances,
-    gpu_batched_instance_buffers: &mut BatchedGpuBuiltInstanceBuffers<
+    batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
         MeshUniform,
         MeshInputUniform,
     >,
@@ -707,11 +705,11 @@ fn collect_meshes_for_gpu_building(
         );
     };
 
-    let BatchedGpuBuiltInstanceBuffers {
+    let gpu_preprocessing::BatchedInstanceBuffers {
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
         ..
-    } = gpu_batched_instance_buffers;
+    } = batched_instance_buffers;
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
@@ -1503,9 +1501,11 @@ pub fn prepare_mesh_bind_group(
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
-    cpu_batched_instance_buffer: Option<Res<BatchedCpuBuiltInstanceBuffer<MeshUniform>>>,
+    cpu_batched_instance_buffer: Option<
+        Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
+    >,
     gpu_batched_instance_buffers: Option<
-        Res<BatchedGpuBuiltInstanceBuffers<MeshUniform, MeshInputUniform>>,
+        Res<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     >,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,

@@ -38,7 +38,7 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::{
-    batching::{self, GetFullBatchData},
+    batching::{self, gpu_preprocessing, no_gpu_preprocessing, GetFullBatchData},
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
 };
@@ -331,14 +331,8 @@ where
             (
                 batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
                 (
-                    batching::batch_and_prepare_binned_render_phase_no_gpu_preprocessing::<
-                        BPI,
-                        GFBD,
-                    >,
-                    batching::batch_and_prepare_binned_render_phase_for_gpu_preprocessing::<
-                        BPI,
-                        GFBD,
-                    >,
+                    no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>,
+                    gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>,
                 )
                     .in_set(RenderSet::PrepareResources),
             ),
@@ -379,8 +373,8 @@ where
         render_app.add_systems(
             Render,
             (
-                batching::batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<SPI, GFBD>,
-                batching::batch_and_prepare_sorted_render_phase_for_gpu_preprocessing::<SPI, GFBD>,
+                no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>,
+                gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>,
             )
                 .in_set(RenderSet::PrepareResources),
         );

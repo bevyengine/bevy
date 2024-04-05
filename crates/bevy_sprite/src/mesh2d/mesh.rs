@@ -11,15 +11,12 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::{
-    write_cpu_built_batched_instance_buffers, BatchedCpuBuiltInstanceBuffer,
+use bevy_render::batching::no_gpu_preprocessing::{
+    batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, BatchedInstanceBuffer,
 };
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
-    batching::{
-        batch_and_prepare_sorted_render_phase_no_gpu_preprocessing, GetBatchData,
-        NoAutomaticBatching,
-    },
+    batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
@@ -104,12 +101,9 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_sorted_render_phase_no_gpu_preprocessing::<
-                            Transparent2d,
-                            Mesh2dPipeline,
-                        >
+                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
-                        write_cpu_built_batched_instance_buffers::<Mesh2dPipeline>
+                        write_batched_instance_buffer::<Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
@@ -124,7 +118,7 @@ impl Plugin for Mesh2dRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let render_device = render_app.world().resource::<RenderDevice>();
             let batched_instance_buffer =
-                BatchedCpuBuiltInstanceBuffer::<Mesh2dUniform>::new(render_device);
+                BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
 
             if let Some(per_object_buffer_batch_size) =
                 GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
@@ -580,7 +574,7 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<BatchedCpuBuiltInstanceBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
