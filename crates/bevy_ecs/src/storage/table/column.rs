@@ -1,8 +1,11 @@
 use super::*;
-use crate::storage::blob_array::BlobArray;
+use crate::storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr};
 
+// TODO: Docs
 pub struct ColumnTwo<const IS_ZST: bool> {
     data: BlobArray<IS_ZST>,
+    added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
 }
 
 /// A type-erased contiguous container for data of a homogeneous type.

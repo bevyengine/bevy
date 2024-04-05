@@ -30,7 +30,7 @@ pub enum BlobArrayCreation {
     NotZST(BlobArray<false>),
 }
 
-/// Creates a new [`BlobArray`] with a capacity of 0.
+/// Creates a new [`BlobArray`] with a capacity of 0 (no allocations will be made).
 ///
 /// `drop` is an optional function pointer that is meant to be invoked when any element in the [`BlobArray`]
 /// should be dropped. For all Rust-based types, this should match 1:1 with the implementation of [`Drop`]
@@ -163,7 +163,7 @@ impl BlobArray<false> {
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety
-    /// - index must be in bounds
+    /// - `index` must be in bounds (`index` < `len`)
     /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this [`BlobArray`]'s
     /// `item_layout`, must have been previously allocated.
     #[inline]

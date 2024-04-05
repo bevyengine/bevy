@@ -25,6 +25,7 @@ mod blob_vec;
 mod resource;
 mod sparse_set;
 mod table;
+mod thin_array_ptr;
 
 pub use resource::*;
 pub use sparse_set::*;
