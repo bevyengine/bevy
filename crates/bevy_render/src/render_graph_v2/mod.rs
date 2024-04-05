@@ -36,7 +36,7 @@ pub struct RenderGraph {
     nodes: Vec<RenderGraphNode>,
 
     bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
-    resources: HashMap<TextureDescriptor<'static>, Texture>,
+    resources: HashMap<RenderGraphResourceId, Texture>,
     pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
 }
 
