@@ -1,9 +1,15 @@
-use super::{resource::RenderGraphResourceUsageType, RenderGraph};
+use super::{
+    resource::{RenderGraphResourceUsage, RenderGraphResourceUsageType},
+    RenderGraph,
+};
 use crate::{
     render_resource::{ComputePipelineDescriptor, PipelineCache},
     renderer::RenderDevice,
 };
-use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess, TextureUsages};
+use wgpu::{
+    BindGroupLayoutEntry, BindingType, ShaderStages, StorageTextureAccess, TextureDescriptor,
+    TextureUsages, TextureViewDimension,
+};
 
 impl RenderGraph {
     pub(crate) fn build(&mut self, render_device: &RenderDevice, pipeline_cache: &PipelineCache) {
@@ -59,25 +65,7 @@ impl RenderGraph {
                         .get(&resource_usage.resource.id)
                         .unwrap();
 
-                    let ty = match resource_usage.usage_type {
-                        RenderGraphResourceUsageType::ReadTexture => BindingType::Texture {
-                            sample_type: todo!(),
-                            view_dimension: todo!(),
-                            multisampled: todo!(),
-                        },
-                        RenderGraphResourceUsageType::WriteTexture => BindingType::StorageTexture {
-                            access: StorageTextureAccess::WriteOnly,
-                            format: todo!(),
-                            view_dimension: todo!(),
-                        },
-                        RenderGraphResourceUsageType::ReadWriteTexture => {
-                            BindingType::StorageTexture {
-                                access: StorageTextureAccess::ReadWrite,
-                                format: todo!(),
-                                view_dimension: todo!(),
-                            }
-                        }
-                    };
+                    let ty = get_binding_type(resource_usage, resource_descriptor, render_device);
 
                     BindGroupLayoutEntry {
                         binding: i as u32,
@@ -121,5 +109,34 @@ impl RenderGraph {
 
     fn build_bind_groups(&mut self, render_device: &RenderDevice) {
         todo!()
+    }
+}
+
+fn get_binding_type(
+    resource_usage: &RenderGraphResourceUsage,
+    resource_descriptor: &TextureDescriptor,
+    render_device: &RenderDevice,
+) -> BindingType {
+    match resource_usage.usage_type {
+        RenderGraphResourceUsageType::ReadTexture => BindingType::Texture {
+            sample_type: resource_descriptor
+                .format
+                .sample_type(None, Some(render_device.features()))
+                .unwrap(),
+            view_dimension: TextureViewDimension::D2, // TODO: Don't hardcode
+            multisampled: resource_descriptor.sample_count != 1,
+        },
+        RenderGraphResourceUsageType::WriteTexture => BindingType::StorageTexture {
+            access: StorageTextureAccess::WriteOnly,
+            format: resource_descriptor.format,
+            view_dimension: TextureViewDimension::D2, // TODO: Don't hardcode
+        },
+        RenderGraphResourceUsageType::ReadWriteTexture => {
+            BindingType::StorageTexture {
+                access: StorageTextureAccess::ReadWrite,
+                format: resource_descriptor.format,
+                view_dimension: TextureViewDimension::D2, // TODO: Don't hardcode
+            }
+        }
     }
 }
