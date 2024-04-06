@@ -1,22 +1,27 @@
 //! A very simple compute shader that updates a gpu buffer.
 //! That buffer is then copied to the cpu and sent to the main world.
 //!
-//! This example is based on this wgpu example but adapted to work with bevy
+//! This example is not meant to teach compute shaders.
+//! It is only meant to explain how to read a gpu buffer on the cpu and then use it in the main world.
+//!
+//! The code is based on this wgpu example:
 //! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
 
 use bevy::{
     prelude::*,
     render::{
+        render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::storage_buffer, *},
         renderer::{RenderContext, RenderDevice},
+        texture::FallbackImage,
         Render, RenderApp, RenderSet,
     },
 };
 use crossbeam_channel::{Receiver, Sender};
 
-// Size of a single u32 in bytes
-const BUFFER_SIZE: u64 = 4;
+// The lenght of the buffer sent to the gpu
+const BUFFER_LEN: usize = 16;
 
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
@@ -27,11 +32,11 @@ const BUFFER_SIZE: u64 = 4;
 
 /// This will receive asynchronously any data sent from the render world
 #[derive(Resource, Deref)]
-struct MainWorldReceiver(Receiver<u32>);
+struct MainWorldReceiver(Receiver<Vec<u32>>);
 
 /// This will send asynchronously any data to the main world
 #[derive(Resource, Deref)]
-struct RenderWorldSender(Sender<u32>);
+struct RenderWorldSender(Sender<Vec<u32>>);
 
 fn main() {
     App::new()
@@ -41,28 +46,31 @@ fn main() {
         .run();
 }
 
+/// This system will poll the channel and try to get the data sent from the render world
 fn receive(receiver: Res<MainWorldReceiver>) {
     // We don't want to block the main world on this,
     // so we use try_recv which attempts to receive without blocking
     if let Ok(data) = receiver.try_recv() {
-        println!("Received data from render world: {data}");
+        println!("Received data from render world: {data:?}");
     }
 }
 
 // We need a plugin to organize all the systems and render node required for this example
 struct GpuReadbackPlugin;
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct ComputeNodeLabel;
-
 impl Plugin for GpuReadbackPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {}
+
+    // The render device is only accessible inside finish().
+    // So we need to initialize render resources here.
+    fn finish(&self, app: &mut App) {
         let (s, r) = crossbeam_channel::unbounded();
         app.insert_resource(MainWorldReceiver(r));
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .insert_resource(RenderWorldSender(s))
+            .init_resource::<ComputePipeline>()
+            .init_resource::<Buffers>()
             .add_systems(
                 Render,
                 (
@@ -71,20 +79,17 @@ impl Plugin for GpuReadbackPlugin {
                         // We don't need to recreate the bind group every frame
                         .run_if(not(resource_exists::<GpuBufferBindGroup>)),
                     // We need to run it after the render graph is done
-                    // because this needs to happen after the submit()
+                    // because this needs to happen after submit()
                     map_and_read_buffer.after(RenderSet::Render),
                 ),
             );
 
-        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         // Add the compute node as a top level node to the render graph
-        render_graph.add_node(ComputeNodeLabel, ComputeNode::default());
-    }
-
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.init_resource::<ComputePipeline>();
-        render_app.init_resource::<Buffers>();
+        // This means it will only execute once per frame
+        render_app
+            .world_mut()
+            .resource_mut::<RenderGraph>()
+            .add_node(ComputeNodeLabel, ComputeNode::default());
     }
 }
 
@@ -102,7 +107,8 @@ impl FromWorld for Buffers {
         let render_device = world.resource::<RenderDevice>();
         let mut init_data = encase::StorageBuffer::new(Vec::new());
         // Init the buffer with 0
-        init_data.write(&0u32).expect("Failed to write buffer");
+        let data = vec![0; BUFFER_LEN];
+        init_data.write(&data).expect("Failed to write buffer");
         // The buffer that will be accessed by the gpu
         let gpu_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("gpu_buffer"),
@@ -117,7 +123,7 @@ impl FromWorld for Buffers {
         // copy the buffer modified by the GPU into a mappable, CPU-accessible buffer
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("readback_buffer"),
-            size: BUFFER_SIZE,
+            size: (BUFFER_LEN * std::mem::size_of::<u32>()) as u64,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -157,7 +163,10 @@ impl FromWorld for ComputePipeline {
         let render_device = world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(
             None,
-            &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer::<u32>(false)),
+            &BindGroupLayoutEntries::single(
+                ShaderStages::COMPUTE,
+                storage_buffer::<Vec<u32>>(false),
+            ),
         );
         let shader = world.load_asset("shaders/gpu_readback.wgsl");
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -169,7 +178,6 @@ impl FromWorld for ComputePipeline {
             shader_defs: Vec::new(),
             entry_point: "main".into(),
         });
-
         ComputePipeline { layout, pipeline }
     }
 }
@@ -179,7 +187,7 @@ fn map_and_read_buffer(
     buffers: Res<Buffers>,
     sender: Res<RenderWorldSender>,
 ) {
-    // Finally time to get our data.
+    // Finally time to get our data back from the gpu.
     // First we get a buffer slice which represents a chunk of the buffer (which we
     // can't access yet).
     // We want the whole thing so use unbounded range.
@@ -229,12 +237,10 @@ fn map_and_read_buffer(
 
     {
         let buffer_view = buffer_slice.get_mapped_range();
-        let data = u32::from_ne_bytes(
-            buffer_view
-                .as_ref()
-                .try_into()
-                .expect("Data should be a u32"),
-        );
+        let data = buffer_view
+            .chunks(std::mem::size_of::<u32>())
+            .map(|chunk| u32::from_ne_bytes(chunk.try_into().expect("should be a u32")))
+            .collect::<Vec<u32>>();
         sender
             .send(data)
             .expect("Failed to send data to main world");
@@ -246,6 +252,11 @@ fn map_and_read_buffer(
     buffers.cpu_buffer.unmap();
 }
 
+/// Label to identify the node in the render graph
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+struct ComputeNodeLabel;
+
+/// The node that will execute the compute shader
 #[derive(Default)]
 struct ComputeNode {}
 impl render_graph::Node for ComputeNode {
@@ -270,7 +281,7 @@ impl render_graph::Node for ComputeNode {
 
             pass.set_bind_group(0, &bind_group.0, &[]);
             pass.set_pipeline(init_pipeline);
-            pass.dispatch_workgroups(1, 1, 1);
+            pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
         }
 
         // Copy the gpu accessible buffer to the cpu accessible buffer
@@ -280,7 +291,7 @@ impl render_graph::Node for ComputeNode {
             0,
             &buffers.cpu_buffer,
             0,
-            BUFFER_SIZE,
+            (BUFFER_LEN * std::mem::size_of::<u32>()) as u64,
         );
 
         Ok(())
