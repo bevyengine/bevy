@@ -17,21 +17,29 @@ use bevy::{
 };
 use std::borrow::Cow;
 
-const SIZE: (u32, u32) = (1280, 720);
+const DISPLAY_FACTOR: u32 = 4;
+const SIZE: (u32, u32) = (1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);
 const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    // uncomment for unthrottled FPS
-                    // present_mode: bevy::window::PresentMode::AutoNoVsync,
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        resolution: (
+                            (SIZE.0 * DISPLAY_FACTOR) as f32,
+                            (SIZE.1 * DISPLAY_FACTOR) as f32,
+                        )
+                            .into(),
+                        // uncomment for unthrottled FPS
+                        // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                        ..default()
+                    }),
                     ..default()
-                }),
-                ..default()
-            }),
+                })
+                .set(ImagePlugin::default_nearest()),
             GameOfLifeComputePlugin,
         ))
         .add_systems(Startup, setup)
@@ -62,6 +70,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         texture: image0.clone(),
+        transform: Transform {
+            scale: Vec3::splat(DISPLAY_FACTOR as f32),
+            ..default()
+        },
         ..default()
     });
     commands.spawn(Camera2dBundle::default());
