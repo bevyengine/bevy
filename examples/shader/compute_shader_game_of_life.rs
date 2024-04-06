@@ -69,10 +69,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             ..default()
         },
         texture: image0.clone(),
-        transform: Transform {
-            scale: Vec3::splat(DISPLAY_FACTOR as f32),
-            ..default()
-        },
+        transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
         ..default()
     });
     commands.spawn(Camera2dBundle::default());
