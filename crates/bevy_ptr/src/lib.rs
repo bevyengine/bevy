@@ -217,7 +217,7 @@ macro_rules! impl_ptr {
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
             ///   be unaligned for the pointee type.
-            /// - The value pointed by the resulting pointer must outlive the lifetime `'a`.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
@@ -239,7 +239,7 @@ macro_rules! impl_ptr {
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
             ///   be unaligned for the pointee type.
-            /// - The value pointed by the resulting pointer must outlive the lifetime `'a`.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
