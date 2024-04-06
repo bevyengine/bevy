@@ -338,6 +338,7 @@ mod test {
 
                 assert!(binary_offset < data.len());
                 assert!(end_offset <= data.len());
+                // those asserts match how the data will be accessed by wgpu:
                 // data[binary_offset..end_offset])
 
                 binary_offset = end_offset;
