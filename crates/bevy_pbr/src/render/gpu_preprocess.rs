@@ -10,7 +10,7 @@ use std::num::NonZeroU64;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::core_3d::graph::Core3d;
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -105,7 +105,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         // Stitch the node in.
         render_app
             .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
+            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
             .init_resource::<PreprocessPipeline>()
             .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>();
     }
