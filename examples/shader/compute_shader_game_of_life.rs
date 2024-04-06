@@ -155,26 +155,10 @@ impl AsBindGroup for GameOfLifeImages {
         Self: Sized,
     {
         vec![
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::StorageTexture {
-                    access: StorageTextureAccess::ReadOnly,
-                    format: TextureFormat::R32Float,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::StorageTexture {
-                    access: StorageTextureAccess::WriteOnly,
-                    format: TextureFormat::R32Float,
-                    view_dimension: TextureViewDimension::D2,
-                },
-                count: None,
-            },
+            texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadOnly)
+                .build(0, ShaderStages::COMPUTE),
+            texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly)
+                .build(1, ShaderStages::COMPUTE),
         ]
     }
 }
