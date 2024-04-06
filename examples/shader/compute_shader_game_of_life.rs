@@ -126,42 +126,6 @@ struct GameOfLifeImages {
     texture_b: Handle<Image>,
 }
 
-// Manual implementation of AsBindGroup instead of the derive
-// The two textures have the same role and will be swapped in the bind group
-// In the layout, one is `ReadOnly`, the other is `WriteOnly`
-impl AsBindGroup for GameOfLifeImages {
-    type Data = ();
-
-    fn label() -> Option<&'static str> {
-        Some("GameOfLifeImages")
-    }
-
-    fn unprepared_bind_group(
-        &self,
-        _layout: &BindGroupLayout,
-        _render_device: &RenderDevice,
-        _images: &RenderAssets<Image>,
-        _fallback_image: &bevy::render::texture::FallbackImage,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
-        Ok(UnpreparedBindGroup {
-            bindings: vec![],
-            data: (),
-        })
-    }
-
-    fn bind_group_layout_entries(_render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
-    where
-        Self: Sized,
-    {
-        vec![
-            texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadOnly)
-                .build(0, ShaderStages::COMPUTE),
-            texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly)
-                .build(1, ShaderStages::COMPUTE),
-        ]
-    }
-}
-
 #[derive(Resource)]
 struct GameOfLifeImageBindGroups([BindGroup; 2]);
 
