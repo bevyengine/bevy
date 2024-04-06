@@ -185,10 +185,7 @@ fn prepare_bind_group(
     let bind_group_1 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((
-            BindingResource::TextureView(&view_b.texture_view),
-            BindingResource::TextureView(&view_a.texture_view),
-        )),
+        &BindGroupEntries::sequential((&view_b.texture_view, &view_a.texture_view)),
     );
     commands.insert_resource(GameOfLifeImageBindGroups([bind_group_0, bind_group_1]));
 }
