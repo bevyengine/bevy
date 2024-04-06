@@ -1,4 +1,4 @@
-//! This example demonstrates the usage of '.meta' files to override the default settings for loading an asset
+//! This example demonstrates the usage of '.meta' files and AssetServer::load_with_settings to override the default settings for loading an asset
 
 use bevy::{prelude::*, render::{render_resource::Sampler, texture::{ImageLoaderSettings, ImageSampler}}};
 

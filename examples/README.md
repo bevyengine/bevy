@@ -203,7 +203,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Meta Files](../examples/asset/meta_files.rs) | Demonstrates the use of .meta files when loading an asset
+[Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates the use of .meta files and AssetServer::load_with_settings to override settings when loading an asset
 
 ## Async Tasks
 
