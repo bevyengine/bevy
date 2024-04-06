@@ -7,10 +7,9 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::RenderAssetUsages,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::*,
+        render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
