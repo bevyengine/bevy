@@ -56,46 +56,28 @@ struct DrawIndirectArgs {
 @group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(6) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(8) var<uniform> view: View;
-@group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
+@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 2 bits per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(6) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
+@group(0) @binding(7) var<uniform> view: View;
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;
     let packed_visibility = meshlet_view_instance_visibility[instance_id / 32u];
     return bool(extractBits(packed_visibility, bit_offset, 1u));
 }
-
-fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
-    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
-    let bit_offset = previous_cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
-}
 #endif
 
 #ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 2 bits per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(2) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
-@group(0) @binding(5) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
-@group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
+@group(0) @binding(3) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
-fn get_meshlet_occlusion(cluster_id: u32) -> bool {
-    let packed_occlusion = meshlet_occlusion[cluster_id / 32u];
-    let bit_offset = cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
-}
-
-fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
-    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
-    let bit_offset = previous_cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+fn get_meshlet_occlusion(cluster_id: u32) -> u32 {
+    let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
+    let bit_offset = (cluster_id % 16u) * 2u;
+    return extractBits(packed_occlusion, bit_offset, 2u);
 }
 #endif
 

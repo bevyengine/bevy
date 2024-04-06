@@ -101,7 +101,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         cull_pass(
             "meshlet_culling_first_pass",
             render_context,
-            meshlet_view_bind_groups,
+            &meshlet_view_bind_groups.culling_first,
             view_offset,
             culling_first_pipeline,
             culling_workgroups,
@@ -138,7 +138,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         cull_pass(
             "meshlet_culling_second_pass",
             render_context,
-            meshlet_view_bind_groups,
+            &meshlet_view_bind_groups.culling_second,
             view_offset,
             culling_second_pipeline,
             culling_workgroups,
@@ -160,6 +160,12 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             view_offset,
             visibility_buffer_raster_pipeline,
             Some(camera),
+        );
+        downsample_depth(
+            render_context,
+            meshlet_view_resources,
+            meshlet_view_bind_groups,
+            downsample_depth_pipeline,
         );
         copy_material_depth_pass(
             render_context,
@@ -201,7 +207,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             cull_pass(
                 "meshlet_culling_first_pass",
                 render_context,
-                meshlet_view_bind_groups,
+                &meshlet_view_bind_groups.culling_first,
                 view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
@@ -238,7 +244,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             cull_pass(
                 "meshlet_culling_second_pass",
                 render_context,
-                meshlet_view_bind_groups,
+                &meshlet_view_bind_groups.culling_second,
                 view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
@@ -261,6 +267,12 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 shadow_visibility_buffer_pipeline,
                 None,
             );
+            downsample_depth(
+                render_context,
+                meshlet_view_resources,
+                meshlet_view_bind_groups,
+                downsample_depth_pipeline,
+            );
             render_context.command_encoder().pop_debug_group();
         }
 
@@ -271,7 +283,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 fn cull_pass(
     label: &'static str,
     render_context: &mut RenderContext,
-    meshlet_view_bind_groups: &MeshletViewBindGroups,
+    culling_bind_group: &BindGroup,
     view_offset: &ViewUniformOffset,
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
@@ -281,7 +293,7 @@ fn cull_pass(
         label: Some(label),
         timestamp_writes: None,
     });
-    cull_pass.set_bind_group(0, &meshlet_view_bind_groups.culling, &[view_offset.offset]);
+    cull_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
     cull_pass.set_pipeline(culling_pipeline);
     cull_pass.dispatch_workgroups(culling_workgroups, 1, 1);
 }

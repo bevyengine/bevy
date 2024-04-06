@@ -14,8 +14,9 @@
 #import bevy_render::maths::affine3_to_square
 
 /// Culls individual clusters (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which clusters survived.
-/// 1. The first pass is only frustum culling, on only the clusters that were visible last frame.
-/// 2. The second pass performs both frustum and occlusion culling (using the depth buffer generated from the first pass), on all clusters.
+/// 1. The first pass tests instance visibility, frustum culling, LOD selection, and finally occlusion culling using last frame's depth pyramid.
+/// 2. The second pass performs occlusion culling (using the depth buffer generated from the first pass), on all clusters that passed
+///    the instance, frustum, and LOD tests in the first pass, but were not visible last frame according to the occlusion culling.
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread

@@ -32,6 +32,7 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
+    MeshletMesh,
 };
 use crate::*;
 
@@ -205,9 +206,14 @@ pub struct PreviousViewProjection {
     pub view_proj: Mat4,
 }
 
+#[cfg(not(feature = "meshlet"))]
+type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
+#[cfg(feature = "meshlet")]
+type PreviousViewFilter = With<Camera3d>;
+
 pub fn update_previous_view_projections(
     mut commands: Commands,
-    query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
+    query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
         commands.entity(entity).try_insert(PreviousViewProjection {
@@ -219,10 +225,15 @@ pub fn update_previous_view_projections(
 #[derive(Component)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
+#[cfg(not(feature = "meshlet"))]
+type PreviousMeshFilter = With<Handle<Mesh>>;
+#[cfg(feature = "meshlet")]
+type PreviousMeshFilter = Or<(With<Handle<Mesh>>, With<Handle<MeshletMesh>>)>;
+
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, (With<Camera3d>, With<MotionVectorPrepass>)>,
-    meshes: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+    views: Query<&Camera, PreviousViewFilter>,
+    meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
