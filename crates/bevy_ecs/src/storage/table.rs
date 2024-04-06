@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub(crate) use column::*;
-use std::alloc::Layout;
+use std::{alloc::Layout, num::NonZeroUsize};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -207,22 +207,42 @@ impl Table {
         &self.entities
     }
 
+    /// Get the capacity of this table, this is equivelant to `self.entities.capacity()`
+    /// Note that if an allocation is in process, this might not match the actual capacity of the columns, but it should once the allocation ends.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.entities.capacity()
+    }
+
+    /// Get the length of this table, this is equivelant to `self.entities.len()` or [`Self::entity_count`]
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
     /// entity was swapped in)
     ///
     /// # Safety
     /// `row` must be in-bounds (`row` < `len`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        debug_assert!(row.as_usize() < self.entities.len());
-        let last_element_index = self.entities.len() - 1;
-        for column in self.columns.values_mut() {
+        debug_assert!(row.as_usize() < self.len());
+        let last_element_index = self.len() - 1;
+        for col in self.columns.values_mut() {
             // SAFETY:
             // - `row` < `len`
             // - `last_element_index` = `len`
             // - the `len` is kept within `self.entities`, it will update accordingly.
-            unsafe { column.swap_remove_unchecked(last_element_index, row) };
+            unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
-        let is_last = row.as_usize() == self.entities.len() - 1;
+        for zst_col in self.zst_columns.values_mut() {
+            // SAFETY:
+            // - `row` < `len`
+            // - `last_element_index` = `len`
+            // - the `len` is kept within `self.entities`, it will update accordingly.
+            unsafe { zst_col.swap_remove_and_drop_unchecked(last_element_index, row) };
+        }
+        let is_last = row.as_usize() == last_element_index;
         self.entities.swap_remove(row.as_usize());
         if is_last {
             None
@@ -245,14 +265,34 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let is_last = row.as_usize() == self.entities.len() - 1;
+        let last_element_index = self.len() - 1;
+        let is_last = row.as_usize() == last_element_index;
+        let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    other_last_element_index,
+                    row,
+                    new_row,
+                );
             } else {
                 // It's the caller's responsibility to drop these cases.
-                let (_, _) = column.swap_remove_and_forget_unchecked(row);
+                column.swap_remove_and_forget_unchecked(last_element_index, row);
+            }
+        }
+        for (component_id, zst_column) in self.zst_columns.iter_mut() {
+            if let Some(new_column) = new_table.get_zst_column_mut(*component_id) {
+                new_column.initialize_from_unchecked(
+                    zst_column,
+                    other_last_element_index,
+                    row,
+                    new_row,
+                );
+            } else {
+                // It's the caller's responsibility to drop these cases.
+                zst_column.swap_remove_and_forget_unchecked(last_element_index, row);
             }
         }
         TableMoveResult {
@@ -277,13 +317,32 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let is_last = row.as_usize() == self.entities.len() - 1;
+        let last_element_index = self.len() - 1;
+        let is_last = row.as_usize() == last_element_index;
+        let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    other_last_element_index,
+                    row,
+                    new_row,
+                );
             } else {
-                column.swap_remove_unchecked(row);
+                column.swap_remove_and_drop_unchecked(last_element_index, row);
+            }
+        }
+        for (component_id, zst_column) in self.zst_columns.iter_mut() {
+            if let Some(new_column) = new_table.get_zst_column_mut(*component_id) {
+                new_column.initialize_from_unchecked(
+                    zst_column,
+                    other_last_element_index,
+                    row,
+                    new_row,
+                );
+            } else {
+                zst_column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
         TableMoveResult {
@@ -301,7 +360,8 @@ impl Table {
     /// to replace it (if an entity was swapped in).
     ///
     /// # Safety
-    /// `row` must be in-bounds. `new_table` must contain every component this table has
+    /// - `row` must be in-bounds
+    /// - `new_table` must contain every component this table has
     pub(crate) unsafe fn move_to_superset_unchecked(
         &mut self,
         row: TableRow,
@@ -309,12 +369,19 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
+        let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(column, row, new_row);
+                .initialize_from_unchecked(column, other_last_element_index, row, new_row);
+        }
+        for (component_id, zst_column) in self.zst_columns.iter_mut() {
+            new_table
+                .get_zst_column_mut(*component_id)
+                .debug_checked_unwrap()
+                .initialize_from_unchecked(zst_column, other_last_element_index, row, new_row);
         }
         TableMoveResult {
             new_row,
@@ -333,9 +400,8 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        todo!()
-        // self.columns.get(component_id)
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&ColumnWIP<false>> {
+        self.columns.get(component_id)
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -345,9 +411,36 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        todo!()
-        // self.columns.get_mut(component_id)
+    pub(crate) fn get_column_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut ColumnWIP<false>> {
+        self.columns.get_mut(component_id)
+    }
+
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the
+    /// table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
+    #[inline]
+    pub fn get_zst_column(&self, component_id: ComponentId) -> Option<&ColumnWIP<true>> {
+        self.zst_columns.get(component_id)
+    }
+
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
+    /// table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
+    #[inline]
+    pub(crate) fn get_zst_column_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut ColumnWIP<true>> {
+        self.zst_columns.get_mut(component_id)
     }
 
     /// Checks if the table contains a [`Column`] for a given [`Component`].
@@ -362,14 +455,45 @@ impl Table {
 
     /// Reserves `additional` elements worth of capacity within the table.
     pub(crate) fn reserve(&mut self, additional: usize) {
-        if self.entities.capacity() - self.entities.len() < additional {
+        if self.capacity() - self.len() < additional {
+            let column_cap = self.capacity();
             self.entities.reserve(additional);
 
             // use entities vector capacity as driving capacity for all related allocations
             let new_capacity = self.entities.capacity();
 
-            for column in self.columns.columns.values_mut() {
-                column.reserve_exact(new_capacity - column.len());
+            // SAFETY:
+            // - `column_cap` is indeed the columns' capacity
+            // - 0 < `additional` <= `self.len() + additional` <= `new_capacity`
+            unsafe { self.realloc_columns(column_cap, NonZeroUsize::new_unchecked(new_capacity)) };
+        }
+    }
+
+    /// # Safety
+    /// - `current_column_capacity` is indeed the capacity of the columns
+    pub(crate) unsafe fn realloc_columns(
+        &mut self,
+        current_column_capacity: usize,
+        new_capacity: NonZeroUsize,
+    ) {
+        // SAFETY:
+        // - There's no overflow
+        // - `current_capacity` is indeed the capacity - safety requirement
+        if current_column_capacity > 0 {
+            // SAFETY: current capacity > 0
+            let curr_cap = unsafe { NonZeroUsize::new_unchecked(current_column_capacity) };
+            for col in self.columns.values_mut() {
+                col.realloc(curr_cap, new_capacity);
+            }
+            for zst_col in self.zst_columns.values_mut() {
+                zst_col.realloc(curr_cap, new_capacity);
+            }
+        } else {
+            for col in self.columns.values_mut() {
+                col.alloc(new_capacity);
+            }
+            for zst_col in self.zst_columns.values_mut() {
+                zst_col.alloc(new_capacity);
             }
         }
     }
@@ -380,14 +504,24 @@ impl Table {
     /// the allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let index = self.entities.len();
+        let len = self.len();
+        let cap = self.capacity();
         self.entities.push(entity);
-        for column in self.columns.values_mut() {
-            column.data.set_len(self.entities.len());
-            column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
+        for col in self.columns.values_mut() {
+            col.added_ticks
+                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+            col.changed_ticks
+                .push(cap, len, UnsafeCell::new(Tick::new(0)));
         }
-        TableRow::from_usize(index)
+        for zst_col in self.zst_columns.values_mut() {
+            zst_col
+                .added_ticks
+                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+            zst_col
+                .changed_ticks
+                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+        }
+        TableRow::from_usize(len)
     }
 
     /// Gets the number of entities currently being stored in the table.
@@ -418,22 +552,39 @@ impl Table {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for column in self.columns.values_mut() {
-            column.check_change_ticks(change_tick);
+        let len = self.len();
+        for col in self.columns.values_mut() {
+            // SAFETY: `len` is the actual length of the column
+            unsafe { col.check_change_ticks(len, change_tick) };
+        }
+        for zst_col in self.zst_columns.values_mut() {
+            // SAFETY: `len` is the actual length of the column
+            unsafe { zst_col.check_change_ticks(len, change_tick) };
         }
     }
 
     /// Iterates over the [`Column`]s of the [`Table`].
-    pub fn iter(&self) -> impl Iterator<Item = &Column> {
+    pub fn iter_columns(&self) -> impl Iterator<Item = &ColumnWIP<false>> {
         self.columns.values()
+    }
+
+    /// Iterates over the ZST [`Column`]s of the [`Table`].
+    pub fn iter_zst_columns(&self) -> impl Iterator<Item = &ColumnWIP<true>> {
+        self.zst_columns.values()
     }
 
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
-        self.entities.clear();
+        let len = self.len();
         for column in self.columns.values_mut() {
-            column.clear();
+            // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
+            unsafe { column.clear(len) };
         }
+        for zst_column in self.zst_columns.values_mut() {
+            // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
+            unsafe { zst_column.clear(len) };
+        }
+        self.entities.clear();
     }
 }
 

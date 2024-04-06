@@ -16,7 +16,7 @@ use std::{
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
 /// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the Blob that it stores,
 /// and a pointer to the location of the start of the array, similar to a C array.
-pub(super) struct BlobArray<const IS_ZST: bool> {
+pub(super) struct BlobArray<const IS_ZST: bool = false> {
     item_layout: Layout,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
@@ -27,7 +27,7 @@ pub(super) struct BlobArray<const IS_ZST: bool> {
 // TODO: Docs
 pub enum BlobArrayCreation {
     ZST(BlobArray<true>),
-    NotZST(BlobArray<false>),
+    NotZST(BlobArray),
 }
 
 /// Creates a new [`BlobArray`] with a capacity of 0 (no allocations will be made).
@@ -71,6 +71,108 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     pub fn layout(&self) -> Layout {
         self.item_layout
     }
+
+    /// Returns a reference to the element at `index`, without doing bounds checking.
+    ///
+    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
+    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - The element with at index `index` is safe to access.
+    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    #[inline]
+    pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
+        let size = self.item_layout.size();
+        // SAFETY:
+        // - The caller ensures that `index` fits in this array,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //   so adding a multiple of `size` will preserve alignment.
+        unsafe { self.get_ptr().byte_add(index * size) }
+    }
+
+    /// Returns a mutable reference to the element at `index`, without doing bounds checking.
+    ///
+    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
+    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - The element with at index `index` is safe to access.
+    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    #[inline]
+    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
+        let size = self.item_layout.size();
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //  so adding a multiple of `size` will preserve alignment.
+        unsafe { self.get_ptr_mut().byte_add(index * size) }
+    }
+
+    /// Gets a [`Ptr`] to the start of the array
+    #[inline]
+    pub fn get_ptr(&self) -> Ptr<'_> {
+        // SAFETY: the inner data will remain valid for as long as 'self.
+        unsafe { Ptr::new(self.data) }
+    }
+
+    /// Gets a [`PtrMut`] to the start of the array
+    #[inline]
+    pub fn get_ptr_mut(&mut self) -> PtrMut<'_> {
+        // SAFETY: the inner data will remain valid for as long as 'self.
+        unsafe { PtrMut::new(self.data) }
+    }
+
+    /// Get a slice of the first `slice_len` elements in [`BlobArray`] as if it were an array with elements of type `T`
+    /// To get a slice to the entire array, the caller must plug `len` in `slice_len`.
+    ///
+    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
+    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - The type `T` must be the type of the items in this [`BlobArray`].
+    /// - `slice_len` <= `len`
+    pub unsafe fn get_sub_slice<T>(&self, slice_len: usize) -> &[UnsafeCell<T>] {
+        // SAFETY: the inner data will remain valid for as long as 'self.
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, slice_len) }
+    }
+
+    /// Clears the array, removing (and dropping) the first `elements_to_clear` elements.
+    /// Note that this method has no effect on the allocated capacity of the vector.
+    ///
+    /// Note that this method will behave exactly the same as [`Vec::clear`] if `elements_to_clear` will be set to `len`.
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
+    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
+    pub unsafe fn clear_elements(&mut self, elemenets_to_clear: usize) {
+        // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
+        /*
+            // We set len to 0 before dropping elements for unwind safety. This ensures we don't
+            // accidentally drop elements twice in the event of a drop impl panicking.
+            self.len = 0;
+        */
+        if let Some(drop) = self.drop {
+            let size = self.item_layout.size();
+            for i in 0..elemenets_to_clear {
+                // SAFETY:
+                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                // * `size` is a multiple of the erased type's alignment,
+                //   so adding a multiple of `size` will preserve alignment.
+                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
+                // would panic due to `self.len` being set to 0.
+                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
+                unsafe { drop(item) };
+            }
+        }
+    }
 }
 
 // TODO: documentation
@@ -94,18 +196,15 @@ impl BlobArray<false> {
     /// 2) The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
     /// 3) `current_capacity` is indeed the current capacity of this array.
     /// After calling this method, the caller must update their saved capacity to reflect the change.
-    pub(super) unsafe fn grow_exact_unchecked(
+    pub(super) unsafe fn realloc(
         &mut self,
         current_capacity: NonZeroUsize,
-        increment: NonZeroUsize,
+        new_capacity: NonZeroUsize,
     ) {
-        let new_capacity =
-            // SAFETY: This may overflow in release builds, safety dependant on safety requirement 1
-            current_capacity.get() + increment.get();
         let new_layout =
             // SAFETY: Safety requirement 2
             unsafe {
-                array_layout_unchecked(&self.item_layout, new_capacity)
+                array_layout_unchecked(&self.item_layout, new_capacity.get())
             };
         // SAFETY:
         // - ptr was be allocated via this allocator
@@ -121,6 +220,25 @@ impl BlobArray<false> {
             new_layout.size(),
         );
         self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+    }
+
+    // TODO: Better docs
+    /// # Safety
+    /// The caller must ensure that:
+    /// 1) `current_capacity` + `increment` doesn't overflow `usize`
+    /// 2) The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
+    /// 3) `current_capacity` is indeed the current capacity of this array.
+    /// After calling this method, the caller must update their saved capacity to reflect the change.
+    pub(super) unsafe fn grow_exact_unchecked(
+        &mut self,
+        current_capacity: NonZeroUsize,
+        increment: NonZeroUsize,
+    ) {
+        let new_capacity = NonZeroUsize::new_unchecked(
+            // SAFETY: This may overflow in release builds, safety dependant on safety requirement 1
+            current_capacity.get() + increment.get(),
+        );
+        self.realloc(current_capacity, new_capacity);
     }
 
     /// Grows the capacity by `increment` elements.
@@ -304,106 +422,6 @@ impl BlobArray<false> {
         let value = self.swap_remove_and_forget_unchecked(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
             drop(value);
-        }
-    }
-
-    /// Returns a reference to the element at `index`, without doing bounds checking.
-    ///
-    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
-    ///
-    /// # Safety
-    /// The caller must ensure that:
-    /// - The element with at index `index` is safe to access.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
-    #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
-        let size = self.item_layout.size();
-        // SAFETY:
-        // - The caller ensures that `index` fits in this array,
-        //   so this operation will not overflow the original allocation.
-        // - `size` is a multiple of the erased type's alignment,
-        //   so adding a multiple of `size` will preserve alignment.
-        unsafe { self.get_ptr().byte_add(index * size) }
-    }
-
-    /// Returns a mutable reference to the element at `index`, without doing bounds checking.
-    ///
-    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
-    ///
-    /// # Safety
-    /// The caller must ensure that:
-    /// - The element with at index `index` is safe to access.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
-    #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
-        let size = self.item_layout.size();
-        // SAFETY:
-        // - The caller ensures that `index` fits in this vector,
-        //   so this operation will not overflow the original allocation.
-        // - `size` is a multiple of the erased type's alignment,
-        //  so adding a multiple of `size` will preserve alignment.
-        unsafe { self.get_ptr_mut().byte_add(index * size) }
-    }
-
-    /// Gets a [`Ptr`] to the start of the array
-    #[inline]
-    pub fn get_ptr(&self) -> Ptr<'_> {
-        // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { Ptr::new(self.data) }
-    }
-
-    /// Gets a [`PtrMut`] to the start of the array
-    #[inline]
-    pub fn get_ptr_mut(&mut self) -> PtrMut<'_> {
-        // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { PtrMut::new(self.data) }
-    }
-
-    /// Get a slice of the first `slice_len` elements in [`BlobArray`] as if it were an array with elements of type `T`
-    /// To get a slice to the entire array, the caller must plug `len` in `slice_len`.
-    ///
-    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
-    ///
-    /// # Safety
-    /// The caller must ensure that:
-    /// - The type `T` must be the type of the items in this [`BlobArray`].
-    /// - `slice_len` <= `len`
-    pub unsafe fn get_sub_slice<T>(&self, slice_len: usize) -> &[UnsafeCell<T>] {
-        // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, slice_len) }
-    }
-
-    /// Clears the vector, removing (and dropping) the first `elements_to_clear` elements.
-    /// Note that this method has no effect on the allocated capacity of the vector.
-    ///
-    /// # Safety
-    /// The caller must ensure that:
-    /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
-    pub unsafe fn clear_elements(&mut self, elemenets_to_clear: usize) {
-        // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
-        /*
-            // We set len to 0 before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.len = 0;
-        */
-        if let Some(drop) = self.drop {
-            let size = self.item_layout.size();
-            for i in 0..elemenets_to_clear {
-                // SAFETY:
-                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
-                // * `size` is a multiple of the erased type's alignment,
-                //   so adding a multiple of `size` will preserve alignment.
-                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
-                // would panic due to `self.len` being set to 0.
-                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
-                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
-                unsafe { drop(item) };
-            }
         }
     }
 }

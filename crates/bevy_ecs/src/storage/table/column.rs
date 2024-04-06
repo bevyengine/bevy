@@ -3,7 +3,6 @@ use crate::storage::{
     blob_array::{new_blob_array, BlobArray, BlobArrayCreation},
     thin_array_ptr::ThinArrayPtr,
 };
-use std::num::NonZeroUsize;
 
 // TODO: Docs
 pub struct ColumnWIP<const IS_ZST: bool> {
@@ -48,18 +47,211 @@ pub(super) fn column_with_capacity(
 }
 
 impl ColumnWIP<false> {
+    /// Swap-remove and drop the removed element.
+    ///
     /// # Safety
     /// The caller must:
     /// - ensure that `row.as_usize()` < `len`
     /// - ensure that `last_element_index` = `len - 1`
     /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_unchecked(&mut self, last_element_index: usize, row: TableRow) {
+    pub unsafe fn swap_remove_and_drop_unchecked(
+        &mut self,
+        last_element_index: usize,
+        row: TableRow,
+    ) {
         self.data
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         self.changed_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+    }
+
+    /// Swap-remove and forget the removed element (caller's responsibility to drop)
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `row.as_usize()` < `len`
+    /// - ensure that `last_element_index` = `len - 1`
+    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    pub unsafe fn swap_remove_and_forget_unchecked(
+        &mut self,
+        last_element_index: usize,
+        row: TableRow,
+    ) {
+        self.data
+            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+        self.added_ticks
+            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+        self.changed_ticks
+            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+    }
+
+    // TODO: docs
+    pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
+        self.data.realloc(current_capacity, new_capacity);
+        self.added_ticks.realloc(current_capacity, new_capacity);
+        self.changed_ticks.realloc(current_capacity, new_capacity);
+    }
+
+    // TODO: docs
+    pub unsafe fn alloc(&mut self, new_capacity: NonZeroUsize) {
+        self.data.alloc(new_capacity);
+        self.added_ticks.alloc(new_capacity);
+        self.changed_ticks.alloc(new_capacity);
+    }
+
+    /// Removes the element from `other` at `src_row` and inserts it
+    /// into the current column to initialize the values at `dst_row`.
+    /// Does not do any bounds checking.
+    ///
+    /// # Safety
+    ///  - `other` must have the same data layout as `self`
+    ///  - `src_row` must be in bounds for `other`
+    ///  - `dst_row` must be in bounds for `self`
+    ///  - `other[src_row]` must be initialized to a valid value.
+    ///  - `self[dst_row]` must not be initialized yet.
+    #[inline]
+    pub(crate) unsafe fn initialize_from_unchecked(
+        &mut self,
+        other: &mut ColumnWIP<false>,
+        other_last_element_index: usize,
+        src_row: TableRow,
+        dst_row: TableRow,
+    ) {
+        debug_assert!(self.data.layout() == other.data.layout());
+        // Init the data
+        let src_val = other
+            .data
+            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+        self.data.initialize_unchecked(dst_row.as_usize(), src_val);
+        // Init added_ticks
+        let added_tick_ptr = other
+            .added_ticks
+            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+        let added_tick = std::ptr::read(added_tick_ptr);
+        self.added_ticks
+            .initialize_unchecked(dst_row.as_usize(), added_tick);
+        // Init changed_ticks
+        let changed_tick_ptr = other
+            .changed_ticks
+            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+        let changed_tick = std::ptr::read(changed_tick_ptr);
+        self.changed_ticks
+            .initialize_unchecked(dst_row.as_usize(), changed_tick);
+    }
+}
+
+impl ColumnWIP<true> {
+    /// Swap-remove and drop the removed element.
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `row.as_usize()` < `len`
+    /// - ensure that `last_element_index` = `len - 1`
+    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    pub unsafe fn swap_remove_and_drop_unchecked(
+        &mut self,
+        last_element_index: usize,
+        row: TableRow,
+    ) {
+        self.added_ticks
+            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+        self.changed_ticks
+            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+    }
+
+    /// Swap-remove and forget the removed element (caller's responsibility to drop)
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `row.as_usize()` < `len`
+    /// - ensure that `last_element_index` = `len - 1`
+    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    pub unsafe fn swap_remove_and_forget_unchecked(
+        &mut self,
+        last_element_index: usize,
+        row: TableRow,
+    ) {
+        self.added_ticks
+            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+        self.changed_ticks
+            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+    }
+
+    // TODO: docs
+    pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
+        self.added_ticks.realloc(current_capacity, new_capacity);
+        self.changed_ticks.realloc(current_capacity, new_capacity);
+    }
+
+    // TODO: docs
+    pub unsafe fn alloc(&mut self, new_capacity: NonZeroUsize) {
+        self.added_ticks.alloc(new_capacity);
+        self.changed_ticks.alloc(new_capacity);
+    }
+
+    /// Removes the element from `other` at `src_row` and inserts it
+    /// into the current column to initialize the values at `dst_row`.
+    /// Does not do any bounds checking.
+    ///
+    /// # Safety
+    ///  - `other` must have the same data layout as `self`
+    ///  - `src_row` must be in bounds for `other`
+    ///  - `dst_row` must be in bounds for `self`
+    ///  - `other[src_row]` must be initialized to a valid value.
+    ///  - `self[dst_row]` must not be initialized yet.
+    #[inline]
+    pub(crate) unsafe fn initialize_from_unchecked(
+        &mut self,
+        other: &mut ColumnWIP<true>,
+        other_last_element_index: usize,
+        src_row: TableRow,
+        dst_row: TableRow,
+    ) {
+        debug_assert!(self.data.layout() == other.data.layout());
+        // Init added_ticks
+        let added_tick_ptr = other
+            .added_ticks
+            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+        let added_tick = std::ptr::read(added_tick_ptr);
+        self.added_ticks
+            .initialize_unchecked(dst_row.as_usize(), added_tick);
+        // Init changed_ticks
+        let changed_tick_ptr = other
+            .changed_ticks
+            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+        let changed_tick = std::ptr::read(changed_tick_ptr);
+        self.changed_ticks
+            .initialize_unchecked(dst_row.as_usize(), changed_tick);
+    }
+}
+
+impl<const IS_ZST: bool> ColumnWIP<IS_ZST> {
+    /// # Safety
+    /// `len` is the actual length of this column
+    #[inline]
+    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, change_tick: Tick) {
+        for i in 0..len {
+            // SAFETY:
+            // - `i` < `len`
+            // we have a mutable reference to `self`
+            unsafe { self.added_ticks.get_unchecked_mut(i) }
+                .get_mut()
+                .check_tick(change_tick);
+
+            // - `i` < `len`
+            // we have a mutable reference to `self`
+            unsafe { self.changed_ticks.get_unchecked_mut(i) }
+                .get_mut()
+                .check_tick(change_tick);
+        }
+    }
+
+    pub(crate) unsafe fn clear(&mut self, len: usize) {
+        self.data.clear_elements(len);
+        self.added_ticks.clear_elements(len);
+        self.changed_ticks.clear_elements(len);
     }
 }
 

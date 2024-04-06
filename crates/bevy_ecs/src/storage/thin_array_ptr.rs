@@ -10,6 +10,7 @@ pub struct ThinArrayPtr<T> {
 }
 
 impl<T> ThinArrayPtr<T> {
+    // TODO: Docs
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = ThinArrayPtr {
             data: NonNull::dangling(),
@@ -54,7 +55,7 @@ impl<T> ThinArrayPtr<T> {
     /// The caller must:
     /// - Ensure that the current capacity is indeed greater than 0
     /// - Update their saved `capacity` value to reflect the fact that it was changed
-    pub unsafe fn realloc(&mut self, current_capacity: usize, new_capacity: NonZeroUsize) {
+    pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         let new_layout = Layout::array::<T>(new_capacity.get())
             .expect("layout should be valid (arithmatic overflow)");
         // SAFETY:
@@ -68,7 +69,7 @@ impl<T> ThinArrayPtr<T> {
             realloc(
                 self.data.cast().as_ptr(),
                 // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
-                Layout::array::<T>(current_capacity).unwrap_unchecked(),
+                Layout::array::<T>(current_capacity.get()).unwrap_unchecked(),
                 new_layout.size(),
             )
         })
@@ -96,7 +97,7 @@ impl<T> ThinArrayPtr<T> {
             // - The current capacity is indeed 0, and the `new_capacity` > 0
             unsafe { self.alloc(new_capacity) }
         } else {
-            self.realloc(current_capacity, new_capacity);
+            self.realloc(NonZeroUsize::new_unchecked(current_capacity), new_capacity);
         };
     }
 
@@ -253,8 +254,8 @@ impl<T> ThinArrayPtr<T> {
     /// The caller must:
     /// - ensure that `index < len`
     /// - ensure that `last_element_index` = `len - 1`
-    /// - update their saved length to reflect that the last element has been removed (decrement it)
-    pub unsafe fn swap_remove_unchecked(
+    /// - update their saved length value to reflect that the last element has been removed (decrement it)
+    pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         index: usize,
         last_element_index: usize,
@@ -266,7 +267,21 @@ impl<T> ThinArrayPtr<T> {
                 1,
             );
         }
-        self.get_unchecked_raw(index)
+        self.get_unchecked_raw(last_element_index)
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `index < len`
+    /// - ensure that `last_element_index` = `len - 1`
+    /// - update their saved length value to reflect that the last element has been removed (decrement it)
+    pub unsafe fn swap_remove_and_drop_unchecked(
+        &mut self,
+        index: usize,
+        last_element_index: usize,
+    ) {
+        std::ptr::drop_in_place(self.swap_remove_and_forget_unchecked(index, last_element_index))
     }
 
     /// Push a new `T` onto the top of the array. This will increase the capacity if needed (realloc).
@@ -283,6 +298,44 @@ impl<T> ThinArrayPtr<T> {
         // SAFETY: `self.reserve(.., 1)` effectivly incremented len, so `current_len` is smaller the the "real" len
         unsafe { self.initialize_unchecked(current_len, value) };
         additional
+    }
+
+    /// Pop the last element of the array.
+    ///
+    /// # Safety
+    /// - ensure that `current_len` is indeed the len of the array
+    /// - update their saved `len` (decrement it)
+    pub unsafe fn pop(&mut self, current_len: usize) -> Option<T> {
+        if current_len == 0 {
+            None
+        } else {
+            Some(std::ptr::read(self.data.as_ptr().add(current_len)))
+        }
+    }
+
+    /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `current_len` is indeed the length of the array
+    /// - update their saved length value
+    pub unsafe fn clear_elements(&mut self, mut current_len: usize) {
+        while self.pop(current_len).is_some() {
+            current_len -= 1;
+        }
+    }
+
+    /// Drop the entire array and all its elements.
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `current_len` is indeed the length of the array
+    /// - ensure that `current_capacity` is indeed the capacity of the array
+    pub unsafe fn drop(mut self, current_capacity: usize, current_len: usize) {
+        if current_capacity != 0 {
+            self.clear_elements(current_len);
+            let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
+            std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+        }
     }
 }
 
