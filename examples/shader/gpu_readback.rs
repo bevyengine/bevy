@@ -10,17 +10,15 @@
 use bevy::{
     prelude::*,
     render::{
-        render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::storage_buffer, *},
         renderer::{RenderContext, RenderDevice},
-        texture::FallbackImage,
         Render, RenderApp, RenderSet,
     },
 };
 use crossbeam_channel::{Receiver, Sender};
 
-// The lenght of the buffer sent to the gpu
+// The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
 
 // To communicate between the main world and the render world we need a channel.
