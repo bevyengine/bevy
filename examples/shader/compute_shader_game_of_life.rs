@@ -197,7 +197,16 @@ struct GameOfLifePipeline {
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let texture_bind_group_layout = GameOfLifeImages::bind_group_layout(render_device);
+        let texture_bind_group_layout = render_device.create_bind_group_layout(
+            "GameOfLifeImages",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadOnly),
+                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                ),
+            ),
+        );
         let shader = world.load_asset("shaders/game_of_life.wgsl");
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
