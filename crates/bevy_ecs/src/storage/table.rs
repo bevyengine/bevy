@@ -228,18 +228,14 @@ impl Table {
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.len());
         let last_element_index = self.len() - 1;
+        // SAFETY:
+        // - `row` < `len`
+        // - `last_element_index` = `len`
+        // - the `len` is kept within `self.entities`, it will update accordingly.
         for col in self.columns.values_mut() {
-            // SAFETY:
-            // - `row` < `len`
-            // - `last_element_index` = `len`
-            // - the `len` is kept within `self.entities`, it will update accordingly.
             unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
         for zst_col in self.zst_columns.values_mut() {
-            // SAFETY:
-            // - `row` < `len`
-            // - `last_element_index` = `len`
-            // - the `len` is kept within `self.entities`, it will update accordingly.
             unsafe { zst_col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
         let is_last = row.as_usize() == last_element_index;
@@ -576,12 +572,11 @@ impl Table {
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         let len = self.len();
+        // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
         for column in self.columns.values_mut() {
-            // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
         }
         for zst_column in self.zst_columns.values_mut() {
-            // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
             unsafe { zst_column.clear(len) };
         }
         self.entities.clear();

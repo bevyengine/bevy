@@ -176,17 +176,19 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
 }
 
 // TODO: documentation
-impl BlobArray<false> {
+impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     // TODO: Better docs
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
-        let new_layout =
-            array_layout(&self.item_layout, capacity.get()).expect("array layout should be valid");
-        let new_data
+        if !IS_ZST {
+            let new_layout = array_layout(&self.item_layout, capacity.get())
+                .expect("array layout should be valid");
+            let new_data
             // SAFETY:
             // - layout has non-zero size because capacity > 0, and the blob isn't ZST (this method is only available for BlobArray<false>)
             = unsafe {std::alloc::alloc(new_layout)};
 
-        self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+        }
     }
 
     // TODO: Better docs
@@ -201,25 +203,27 @@ impl BlobArray<false> {
         current_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
-        let new_layout =
+        if !IS_ZST {
+            let new_layout =
             // SAFETY: Safety requirement 2
             unsafe {
                 array_layout_unchecked(&self.item_layout, new_capacity.get())
             };
-        // SAFETY:
-        // - ptr was be allocated via this allocator
-        // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
-        // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
-        // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-        // since the item size is always a multiple of its align, the rounding cannot happen
-        // here and the overflow is handled in `array_layout`
-        let new_data = std::alloc::realloc(
-            self.get_ptr_mut().as_ptr(),
-            // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-            array_layout_unchecked(&self.item_layout, current_capacity.get()),
-            new_layout.size(),
-        );
-        self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+            // SAFETY:
+            // - ptr was be allocated via this allocator
+            // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
+            // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+            // since the item size is always a multiple of its align, the rounding cannot happen
+            // here and the overflow is handled in `array_layout`
+            let new_data = std::alloc::realloc(
+                self.get_ptr_mut().as_ptr(),
+                // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
+                array_layout_unchecked(&self.item_layout, current_capacity.get()),
+                new_layout.size(),
+            );
+            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+        }
     }
 
     // TODO: Better docs
@@ -234,11 +238,13 @@ impl BlobArray<false> {
         current_capacity: NonZeroUsize,
         increment: NonZeroUsize,
     ) {
-        let new_capacity = NonZeroUsize::new_unchecked(
-            // SAFETY: This may overflow in release builds, safety dependant on safety requirement 1
-            current_capacity.get() + increment.get(),
-        );
-        self.realloc(current_capacity, new_capacity);
+        if !IS_ZST {
+            let new_capacity = NonZeroUsize::new_unchecked(
+                // SAFETY: This may overflow in release builds, safety dependant on safety requirement 1
+                current_capacity.get() + increment.get(),
+            );
+            self.realloc(current_capacity, new_capacity);
+        }
     }
 
     /// Grows the capacity by `increment` elements.
@@ -256,26 +262,28 @@ impl BlobArray<false> {
         current_capacity: NonZeroUsize,
         increment: NonZeroUsize,
     ) {
-        let new_capacity = current_capacity
-            .get()
-            .checked_add(increment.get())
-            .expect("capacity overflow");
-        let new_layout =
-            array_layout(&self.item_layout, new_capacity).expect("array layout should be valid");
-        // SAFETY:
-        // - ptr was be allocated via this allocator
-        // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
-        // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
-        // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-        // since the item size is always a multiple of its align, the rounding cannot happen
-        // here and the overflow is handled in `array_layout`
-        let new_data = std::alloc::realloc(
-            self.get_ptr_mut().as_ptr(),
-            // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-            array_layout_unchecked(&self.item_layout, current_capacity.get()),
-            new_layout.size(),
-        );
-        self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+        if !IS_ZST {
+            let new_capacity = current_capacity
+                .get()
+                .checked_add(increment.get())
+                .expect("capacity overflow");
+            let new_layout = array_layout(&self.item_layout, new_capacity)
+                .expect("array layout should be valid");
+            // SAFETY:
+            // - ptr was be allocated via this allocator
+            // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
+            // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+            // since the item size is always a multiple of its align, the rounding cannot happen
+            // here and the overflow is handled in `array_layout`
+            let new_data = std::alloc::realloc(
+                self.get_ptr_mut().as_ptr(),
+                // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
+                array_layout_unchecked(&self.item_layout, current_capacity.get()),
+                new_layout.size(),
+            );
+            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
+        }
     }
 
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
@@ -286,8 +294,14 @@ impl BlobArray<false> {
     /// `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
-        let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
+        if !IS_ZST {
+            let ptr = self.get_unchecked_mut(index);
+            std::ptr::copy_nonoverlapping::<u8>(
+                value.as_ptr(),
+                ptr.as_ptr(),
+                self.item_layout.size(),
+            );
+        }
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
@@ -300,61 +314,63 @@ impl BlobArray<false> {
     /// - the memory at `*value` must also be previously initialized with an item matching this
     /// [`BlobArray`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
-        // Pointer to the value in the vector that will get replaced.
-        // SAFETY: The caller ensures that `index` fits in this vector.
-        let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
-        let source = value.as_ptr();
+        if !IS_ZST {
+            // Pointer to the value in the vector that will get replaced.
+            // SAFETY: The caller ensures that `index` fits in this vector.
+            let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
+            let source = value.as_ptr();
 
-        if let Some(drop) = self.drop {
-            // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
-            /*
-                // Temporarily set the length to zero, so that if `drop` panics the caller
-                // will not be left with a `BlobArray` containing a dropped element within
-                // its initialized range.
-                let old_len = self.len;
-                self.len = 0;
-            */
+            if let Some(drop) = self.drop {
+                // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
+                /*
+                    // Temporarily set the length to zero, so that if `drop` panics the caller
+                    // will not be left with a `BlobArray` containing a dropped element within
+                    // its initialized range.
+                    let old_len = self.len;
+                    self.len = 0;
+                */
 
-            // Transfer ownership of the old value out of the vector, so it can be dropped.
+                // Transfer ownership of the old value out of the vector, so it can be dropped.
+                // SAFETY:
+                // - `destination` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
+                //   well-aligned for the underlying type, and has proper provenance.
+                // - The storage location will get overwritten with `value` later, which ensures
+                //   that the element will not get observed or double dropped later.
+                // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
+                //   does not occur. Instead, all elements will be forgotten.
+                let old_value = unsafe { OwningPtr::new(destination) };
+
+                // This closure will run in case `drop()` panics,
+                // which ensures that `value` does not get forgotten.
+                let on_unwind = OnDrop::new(|| drop(value));
+
+                drop(old_value);
+
+                // If the above code does not panic, make sure that `value` doesn't get dropped.
+                core::mem::forget(on_unwind);
+
+                // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
+                /*
+                    // Make the vector's contents observable again, since panics are no longer possible.
+                    self.len = old_len;
+                */
+            }
+
+            // Copy the new value into the vector, overwriting the previous value.
             // SAFETY:
-            // - `destination` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
-            //   well-aligned for the underlying type, and has proper provenance.
-            // - The storage location will get overwritten with `value` later, which ensures
-            //   that the element will not get observed or double dropped later.
-            // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
-            //   does not occur. Instead, all elements will be forgotten.
-            let old_value = unsafe { OwningPtr::new(destination) };
-
-            // This closure will run in case `drop()` panics,
-            // which ensures that `value` does not get forgotten.
-            let on_unwind = OnDrop::new(|| drop(value));
-
-            drop(old_value);
-
-            // If the above code does not panic, make sure that `value` doesn't get dropped.
-            core::mem::forget(on_unwind);
-
-            // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
-            /*
-                // Make the vector's contents observable again, since panics are no longer possible.
-                self.len = old_len;
-            */
-        }
-
-        // Copy the new value into the vector, overwriting the previous value.
-        // SAFETY:
-        // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
-        //   valid for both reads and writes.
-        // - The value behind `source` will only be dropped if the above branch panics,
-        //   so it must still be initialized and it is safe to transfer ownership into the vector.
-        // - `source` and `destination` were obtained from different memory locations,
-        //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        unsafe {
-            std::ptr::copy_nonoverlapping::<u8>(
-                source,
-                destination.as_ptr(),
-                self.item_layout.size(),
-            );
+            // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
+            //   valid for both reads and writes.
+            // - The value behind `source` will only be dropped if the above branch panics,
+            //   so it must still be initialized and it is safe to transfer ownership into the vector.
+            // - `source` and `destination` were obtained from different memory locations,
+            //   both of which we have exclusive access to, so they are guaranteed not to overlap.
+            unsafe {
+                std::ptr::copy_nonoverlapping::<u8>(
+                    source,
+                    destination.as_ptr(),
+                    self.item_layout.size(),
+                );
+            }
         }
     }
 
@@ -383,15 +399,18 @@ impl BlobArray<false> {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
-        let size = self.item_layout.size();
-        if index_to_remove != index_to_keep {
-            std::ptr::swap_nonoverlapping::<u8>(
-                self.get_unchecked_mut(index_to_keep).as_ptr(),
-                self.get_unchecked_mut(index_to_remove).as_ptr(),
-                size,
-            );
+        if !IS_ZST {
+            let size = self.item_layout.size();
+            if index_to_remove != index_to_keep {
+                std::ptr::swap_nonoverlapping::<u8>(
+                    self.get_unchecked_mut(index_to_keep).as_ptr(),
+                    self.get_unchecked_mut(index_to_remove).as_ptr(),
+                    size,
+                );
+            }
         }
         // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
+        // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
@@ -418,10 +437,12 @@ impl BlobArray<false> {
         index_to_remove: usize,
         index_to_keep: usize,
     ) {
-        let drop = self.drop;
-        let value = self.swap_remove_and_forget_unchecked(index_to_remove, index_to_keep);
-        if let Some(drop) = drop {
-            drop(value);
+        if !IS_ZST {
+            let drop = self.drop;
+            let value = self.swap_remove_and_forget_unchecked(index_to_remove, index_to_keep);
+            if let Some(drop) = drop {
+                drop(value);
+            }
         }
     }
 }

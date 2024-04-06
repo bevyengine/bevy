@@ -46,7 +46,7 @@ pub(super) fn column_with_capacity(
     }
 }
 
-impl ColumnWIP<false> {
+impl<const IS_ZST: bool> ColumnWIP<IS_ZST> {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
@@ -101,6 +101,36 @@ impl ColumnWIP<false> {
         self.changed_ticks.alloc(new_capacity);
     }
 
+    /// Writes component data to the column at given row.
+    /// Assumes the slot is uninitialized, drop is not called.
+    /// To overwrite existing initialized value, use `replace` instead.
+    ///
+    /// # Safety
+    /// The caller must ensure that `row.as_usize()` < `len`
+    #[inline]
+    pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
+        self.data.initialize_unchecked(row.as_usize(), data);
+        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
+        *self
+            .changed_ticks
+            .get_unchecked_mut(row.as_usize())
+            .get_mut() = tick;
+    }
+
+    /// Writes component data to the column at given row.
+    /// Assumes the slot is initialized, calls drop.
+    ///
+    /// # Safety
+    /// The caller must ensure that `row.as_usize()` < `len`
+    #[inline]
+    pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
+        self.data.replace_unchecked(row.as_usize(), data);
+        *self
+            .changed_ticks
+            .get_unchecked_mut(row.as_usize())
+            .get_mut() = change_tick;
+    }
+
     /// Removes the element from `other` at `src_row` and inserts it
     /// into the current column to initialize the values at `dst_row`.
     /// Does not do any bounds checking.
@@ -114,7 +144,7 @@ impl ColumnWIP<false> {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut ColumnWIP<false>,
+        other: &mut ColumnWIP<IS_ZST>,
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
@@ -140,94 +170,7 @@ impl ColumnWIP<false> {
         self.changed_ticks
             .initialize_unchecked(dst_row.as_usize(), changed_tick);
     }
-}
 
-impl ColumnWIP<true> {
-    /// Swap-remove and drop the removed element.
-    ///
-    /// # Safety
-    /// The caller must:
-    /// - ensure that `row.as_usize()` < `len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_and_drop_unchecked(
-        &mut self,
-        last_element_index: usize,
-        row: TableRow,
-    ) {
-        self.added_ticks
-            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
-        self.changed_ticks
-            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
-    }
-
-    /// Swap-remove and forget the removed element (caller's responsibility to drop)
-    ///
-    /// # Safety
-    /// The caller must:
-    /// - ensure that `row.as_usize()` < `len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_and_forget_unchecked(
-        &mut self,
-        last_element_index: usize,
-        row: TableRow,
-    ) {
-        self.added_ticks
-            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
-        self.changed_ticks
-            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
-    }
-
-    // TODO: docs
-    pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
-        self.added_ticks.realloc(current_capacity, new_capacity);
-        self.changed_ticks.realloc(current_capacity, new_capacity);
-    }
-
-    // TODO: docs
-    pub unsafe fn alloc(&mut self, new_capacity: NonZeroUsize) {
-        self.added_ticks.alloc(new_capacity);
-        self.changed_ticks.alloc(new_capacity);
-    }
-
-    /// Removes the element from `other` at `src_row` and inserts it
-    /// into the current column to initialize the values at `dst_row`.
-    /// Does not do any bounds checking.
-    ///
-    /// # Safety
-    ///  - `other` must have the same data layout as `self`
-    ///  - `src_row` must be in bounds for `other`
-    ///  - `dst_row` must be in bounds for `self`
-    ///  - `other[src_row]` must be initialized to a valid value.
-    ///  - `self[dst_row]` must not be initialized yet.
-    #[inline]
-    pub(crate) unsafe fn initialize_from_unchecked(
-        &mut self,
-        other: &mut ColumnWIP<true>,
-        other_last_element_index: usize,
-        src_row: TableRow,
-        dst_row: TableRow,
-    ) {
-        debug_assert!(self.data.layout() == other.data.layout());
-        // Init added_ticks
-        let added_tick_ptr = other
-            .added_ticks
-            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
-        let added_tick = std::ptr::read(added_tick_ptr);
-        self.added_ticks
-            .initialize_unchecked(dst_row.as_usize(), added_tick);
-        // Init changed_ticks
-        let changed_tick_ptr = other
-            .changed_ticks
-            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
-        let changed_tick = std::ptr::read(changed_tick_ptr);
-        self.changed_ticks
-            .initialize_unchecked(dst_row.as_usize(), changed_tick);
-    }
-}
-
-impl<const IS_ZST: bool> ColumnWIP<IS_ZST> {
     /// # Safety
     /// `len` is the actual length of this column
     #[inline]
