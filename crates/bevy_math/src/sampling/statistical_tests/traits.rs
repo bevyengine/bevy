@@ -2,8 +2,7 @@ use rand::distributions::Distribution;
 use rand::Rng;
 
 /// A trait implemented by a type which discretizes the sample space of a [`Distribution`] simultaneously
-/// in `N` dimensions. To sample an implementing type as a [`Distribution`], use the [`BinSampler`] wrapper
-/// type.
+/// in `N` dimensions. To sample an implementing type as a [`Distribution`], use [`Binned::binned_dist`].
 pub trait Binned<const N: usize> {
     /// The type defining the sample space discretized by this type.
     type IntermediateValue;
@@ -11,7 +10,8 @@ pub trait Binned<const N: usize> {
     /// The inner distribution type whose samples are to be discretized.
     type InnerDistribution: Distribution<Self::IntermediateValue>;
 
-    /// The concrete inner distribution of this distribution, used to sample into an `N`-dimensional histogram.
+    /// The concrete inner distribution of this distribution whose samples are later mapped into an `N`-dimensional
+    /// histogram by [`Binned::bin`].
     fn inner_dist(&self) -> Self::InnerDistribution;
 
     /// A function that takes output from the inner distribution and maps it to `N` bins. This allows
@@ -23,6 +23,14 @@ pub trait Binned<const N: usize> {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Option<[usize; N]> {
         let v = self.inner_dist().sample(rng);
         self.bin(v)
+    }
+
+    /// Convert this binned distribution into a [`Distribution`] in order to sample from its bins.
+    fn binned_dist(self) -> BinSampler<N, Self>
+    where
+        Self: Sized,
+    {
+        BinSampler(self)
     }
 }
 

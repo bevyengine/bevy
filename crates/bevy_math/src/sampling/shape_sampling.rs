@@ -39,6 +39,50 @@ pub trait ShapeSample {
     /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's interior, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s interior:
+    /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn interior_dist(self) -> InteriorOf<Self>
+    where
+        Self: Sized,
+    {
+        InteriorOf(self)
+    }
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's boundary, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s boundary:
+    /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn boundary_dist(self) -> BoundaryOf<Self>
+    where
+        Self: Sized,
+    {
+        BoundaryOf(self)
+    }
 }
 
 #[derive(Clone, Copy)]

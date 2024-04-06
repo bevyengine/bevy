@@ -2,7 +2,7 @@ use super::traits::{BinDistribution, Binned, WithBinDistributions};
 use crate::{
     primitives::*,
     sampling::{BoundaryOf, InteriorOf},
-    Vec2, Vec3, Vec3Swizzles,
+    ShapeSample, Vec2, Vec3, Vec3Swizzles,
 };
 use std::f32::consts::PI;
 
@@ -59,7 +59,7 @@ impl CircleInteriorBins {
     /// distributed radially in concentric annuli and `angular_bins` bins distributed angularly as "pie slices".
     pub fn new(circle: Circle, radial_bins: usize, angular_bins: usize) -> Self {
         Self {
-            circle: InteriorOf(circle),
+            circle: circle.interior_dist(),
             radial_bins,
             angular_bins,
         }
@@ -122,7 +122,7 @@ impl CircleBoundaryBins {
     /// distributed evenly around the edge.
     pub fn new(circle: Circle, angular_bins: usize) -> Self {
         Self {
-            circle: BoundaryOf(circle),
+            circle: circle.boundary_dist(),
             angular_bins,
         }
     }
@@ -176,7 +176,7 @@ impl SphereInteriorBins {
         polar_bins: usize,
     ) -> Self {
         Self {
-            sphere: InteriorOf(sphere),
+            sphere: sphere.interior_dist(),
             radial_bins,
             azimuthal_bins,
             polar_bins,
@@ -258,7 +258,7 @@ impl SphereBoundaryBins {
     /// swept out along the azimuth and `polar_bins` swept out along the polar angle.
     pub fn new(sphere: Sphere, azimuthal_bins: usize, polar_bins: usize) -> Self {
         Self {
-            sphere: BoundaryOf(sphere),
+            sphere: sphere.boundary_dist(),
             azimuthal_bins,
             polar_bins,
         }
@@ -314,25 +314,23 @@ impl WithBinDistributions<2> for SphereBoundaryBins {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        super::{stats::*, traits::BinSampler},
-        *,
-    };
+    use super::{super::stats::*, *};
     use rand::{distributions::Distribution, rngs::StdRng, SeedableRng};
 
     /// Run goodness-of-fit tests for all directional components of this distribution.
-    fn test_components<const N: usize, T>(binned_dist: T, samples: usize)
+    fn test_components<const N: usize, T>(binned: T, samples: usize)
     where
         T: Binned<N> + WithBinDistributions<N> + Copy,
     {
         let rng = StdRng::from_entropy();
-        let histogram: Histogram<N> = BinSampler(binned_dist)
+        let histogram: Histogram<N> = binned
+            .binned_dist()
             .sample_iter(rng)
             .take(samples)
             .collect();
         assert!(histogram.is_clean());
-        let bin_dists = binned_dist.get_bins();
-        let dfs = binned_dist.dfs();
+        let bin_dists = binned.get_bins();
+        let dfs = binned.dfs();
         for i in 0..N {
             let chi_squared = chi_squared_fit(&histogram.project(i).unwrap(), &bin_dists[i]);
             assert!(
@@ -343,18 +341,19 @@ mod tests {
     }
 
     /// Run independence tests for each pair of directional components of this distribution.
-    fn test_independence<const N: usize, T>(binned_dist: T, samples: usize)
+    fn test_independence<const N: usize, T>(binned: T, samples: usize)
     where
         T: Binned<N> + WithBinDistributions<N> + Copy,
     {
         let rng = StdRng::from_entropy();
-        let histogram: Histogram<N> = BinSampler(binned_dist)
+        let histogram: Histogram<N> = binned
+            .binned_dist()
             .sample_iter(rng)
             .take(samples)
             .collect();
         assert!(histogram.is_clean()); // This is cheap, so we do it here as well
-        let bin_dists = binned_dist.get_bins();
-        let dfs = binned_dist.dfs();
+        let bin_dists = binned.get_bins();
+        let dfs = binned.dfs();
         for i in 0..N {
             for j in (i + 1)..N {
                 let chi_squared = chi_squared_independence(
