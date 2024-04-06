@@ -43,6 +43,7 @@ fn main() {
             GameOfLifeComputePlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, switch_textures)
         .run();
 }
 
@@ -63,7 +64,6 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let image0 = images.add(image.clone());
     let image1 = images.add(image);
 
-    // Note that we only display one of the textures to the user.
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
@@ -82,6 +82,16 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         texture_a: image0,
         texture_b: image1,
     });
+}
+
+// Switch texture to display every frame to show the one that was written to most recently.
+fn switch_textures(images: Res<GameOfLifeImages>, mut displayed: Query<&mut Handle<Image>>) {
+    let mut displayed = displayed.single_mut();
+    if *displayed == images.texture_a {
+        *displayed = images.texture_b.clone_weak();
+    } else {
+        *displayed = images.texture_a.clone_weak();
+    }
 }
 
 struct GameOfLifeComputePlugin;
