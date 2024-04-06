@@ -1,12 +1,72 @@
 use super::*;
-use crate::storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr};
+use crate::storage::{
+    blob_array::{new_blob_array, BlobArray, BlobArrayCreation},
+    thin_array_ptr::ThinArrayPtr,
+};
+use std::num::NonZeroUsize;
 
 // TODO: Docs
-pub struct ColumnTwo<const IS_ZST: bool> {
-    data: BlobArray<IS_ZST>,
-    added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+pub struct ColumnWIP<const IS_ZST: bool> {
+    pub(super) data: BlobArray<IS_ZST>,
+    pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
 }
+
+#[doc(hidden)]
+pub enum ColumnCreationResult {
+    ZST(ColumnWIP<true>),
+    NotZST(ColumnWIP<false>),
+}
+
+/// Create a new [`Column`] for the given [`ComponentInfo`] with some `capacity`
+pub(super) fn column_with_capacity(
+    capacity: usize,
+    component_info: &ComponentInfo,
+) -> ColumnCreationResult {
+    // SAFETY: `ComponentInfo` has the correct `Layout` and drop function
+    let blob_arr = unsafe { new_blob_array(component_info.layout(), component_info.drop()) };
+    let added_ticks = ThinArrayPtr::with_capacity(capacity);
+    let changed_ticks = ThinArrayPtr::with_capacity(capacity);
+
+    match blob_arr {
+        BlobArrayCreation::NotZST(mut data) => {
+            if let Some(cap) = NonZeroUsize::new(capacity) {
+                data.alloc(cap);
+            }
+            ColumnCreationResult::NotZST(ColumnWIP {
+                data,
+                added_ticks,
+                changed_ticks,
+            })
+        }
+        BlobArrayCreation::ZST(data) => ColumnCreationResult::ZST(ColumnWIP {
+            data,
+            added_ticks,
+            changed_ticks,
+        }),
+    }
+}
+
+impl ColumnWIP<false> {
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `row.as_usize()` < `len`
+    /// - ensure that `last_element_index` = `len - 1`
+    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    pub unsafe fn swap_remove_unchecked(&mut self, last_element_index: usize, row: TableRow) {
+        self.data
+            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+        self.added_ticks
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
+        self.changed_ticks
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
+    }
+}
+
+//
+//
+//
+//
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///

@@ -137,6 +137,7 @@ impl TableRow {
     }
 }
 
+// TODO: Docs
 /// A builder type for constructing [`Table`]s.
 ///
 ///  - Use [`with_capacity`] to initialize the builder.
@@ -146,27 +147,27 @@ impl TableRow {
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
-pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, Column>,
+pub struct TableBuilder {
+    columns: SparseSet<ComponentId, ColumnWIP<false>>,
+    zst_columns: SparseSet<ComponentId, ColumnWIP<true>>,
     capacity: usize,
 }
 
 impl TableBuilder {
-    /// Creates a blank [`Table`], allocating space for `column_capacity` columns
-    /// with the capacity to hold `capacity` entities worth of components each.
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
+            zst_columns: SparseSet::with_capacity(column_capacity),
             capacity,
         }
     }
 
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.insert(
-            component_info.id(),
-            Column::with_capacity(component_info, self.capacity),
-        );
+        match column_with_capacity(self.capacity, component_info) {
+            ColumnCreationResult::ZST(col) => self.zst_columns.insert(component_info.id(), col),
+            ColumnCreationResult::NotZST(col) => self.columns.insert(component_info.id(), col),
+        }
         self
     }
 
@@ -174,6 +175,7 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
+            zst_columns: self.zst_columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
         }
     }
@@ -192,10 +194,12 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, Column>,
+    columns: ImmutableSparseSet<ComponentId, ColumnWIP<false>>,
+    zst_columns: ImmutableSparseSet<ComponentId, ColumnWIP<true>>,
     entities: Vec<Entity>,
 }
 
+// TODO: Check all methods and make sure documentation is up to date
 impl Table {
     /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
@@ -207,10 +211,16 @@ impl Table {
     /// entity was swapped in)
     ///
     /// # Safety
-    /// `row` must be in-bounds
+    /// `row` must be in-bounds (`row` < `len`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
+        debug_assert!(row.as_usize() < self.entities.len());
+        let last_element_index = self.entities.len() - 1;
         for column in self.columns.values_mut() {
-            column.swap_remove_unchecked(row);
+            // SAFETY:
+            // - `row` < `len`
+            // - `last_element_index` = `len`
+            // - the `len` is kept within `self.entities`, it will update accordingly.
+            unsafe { column.swap_remove_unchecked(last_element_index, row) };
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
         self.entities.swap_remove(row.as_usize());
@@ -324,7 +334,8 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        self.columns.get(component_id)
+        todo!()
+        // self.columns.get(component_id)
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -335,7 +346,8 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        self.columns.get_mut(component_id)
+        todo!()
+        // self.columns.get_mut(component_id)
     }
 
     /// Checks if the table contains a [`Column`] for a given [`Component`].
@@ -356,7 +368,7 @@ impl Table {
             // use entities vector capacity as driving capacity for all related allocations
             let new_capacity = self.entities.capacity();
 
-            for column in self.columns.values_mut() {
+            for column in self.columns.columns.values_mut() {
                 column.reserve_exact(new_capacity - column.len());
             }
         }

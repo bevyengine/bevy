@@ -10,6 +10,72 @@ pub struct ThinArrayPtr<T> {
 }
 
 impl<T> ThinArrayPtr<T> {
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut arr = ThinArrayPtr {
+            data: NonNull::dangling(),
+        };
+        if capacity > 0 {
+            // SAFETY:
+            // - The `current_capacity` is 0 because it was just created
+            unsafe { arr.reserve_exact(0, 0, capacity) };
+        }
+        arr
+    }
+
+    // TODO: Is this actually needed? I think it can save a lot of branching because using `grow_exact` will check if the capacity is 0 every time.
+    // But if the caller has the capacity saved, and they are sure the capacity is 0, they can use `alloc` and save a branch.
+    /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `usize`
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - Ensure that the current capacity is indeed 0
+    /// - Update their saved `capacity` value to reflect the fact that it was changed
+    pub unsafe fn alloc(&mut self, count: NonZeroUsize) {
+        let new_layout =
+            Layout::array::<T>(count.get()).expect("layout should be valid (arithmatic overflow)");
+        // SAFETY:
+        // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
+        self.data = NonNull::new(unsafe { alloc(new_layout) })
+            .unwrap_or_else(|| handle_alloc_error(new_layout))
+            .cast();
+    }
+
+    // TODO: Is this actually needed? I think it can save a lot of branching because using `grow_exact` will check if the capacity is 0 every time.
+    // But if the caller has the capacity saved, and they are sure that capacity > 0, they can use `realloc` and save a branch.
+    /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `usize`
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - Ensure that the current capacity is indeed greater than 0
+    /// - Update their saved `capacity` value to reflect the fact that it was changed
+    pub unsafe fn realloc(&mut self, current_capacity: usize, new_capacity: NonZeroUsize) {
+        let new_layout = Layout::array::<T>(new_capacity.get())
+            .expect("layout should be valid (arithmatic overflow)");
+        // SAFETY:
+        // - ptr was be allocated via this allocator
+        // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
+        // - the size of `T` is non 0 (ZSTs aren't supported in this type), and `new_capacity` > 0
+        // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+        // since the item size is always a multiple of its align, the rounding cannot happen
+        // here and the overflow is handled in `Layout::array`
+        self.data = NonNull::new(unsafe {
+            realloc(
+                self.data.cast().as_ptr(),
+                // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
+                Layout::array::<T>(current_capacity).unwrap_unchecked(),
+                new_layout.size(),
+            )
+        })
+        .unwrap_or_else(|| handle_alloc_error(new_layout))
+        .cast();
+    }
+
     /// Grow the array's capacity by exactly `increment` elements.
     ///
     /// # Panics
@@ -20,35 +86,18 @@ impl<T> ThinArrayPtr<T> {
     /// - Ensure that `current_capacity` is indeed the current capacity of this array
     /// - Update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn grow_exact(&mut self, current_capacity: usize, increment: NonZeroUsize) {
-        let new_capacity = current_capacity
-            .checked_add(increment.get())
-            .expect("capacity overflow");
-        let new_layout =
-            Layout::array::<T>(new_capacity).expect("layout should be valid (arithmatic overflow)");
-        let new_data = if current_capacity == 0 {
+        let new_capacity = NonZeroUsize::new_unchecked(
+            current_capacity
+                .checked_add(increment.get())
+                .expect("capacity overflow"),
+        );
+        if current_capacity == 0 {
             // SAFETY:
-            // - layout has non-zero size as per safety requirement
-            unsafe { alloc(new_layout) }
+            // - The current capacity is indeed 0, and the `new_capacity` > 0
+            unsafe { self.alloc(new_capacity) }
         } else {
-            // SAFETY:
-            // - ptr was be allocated via this allocator
-            // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
-            // - `item_layout.size() > 0` and `new_capacity > 0`, so the layout size is non-zero
-            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-            // since the item size is always a multiple of its align, the rounding cannot happen
-            // here and the overflow is handled in `Layout::array`
-            unsafe {
-                realloc(
-                    self.data.cast().as_ptr(),
-                    // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
-                    Layout::array::<T>(current_capacity).unwrap_unchecked(),
-                    new_layout.size(),
-                )
-            }
+            self.realloc(current_capacity, new_capacity);
         };
-        self.data = NonNull::new(new_data)
-            .unwrap_or_else(|| handle_alloc_error(new_layout))
-            .cast();
     }
 
     /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
@@ -203,13 +252,17 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// The caller must:
     /// - ensure that `index < len`
-    /// - ensure that `len` is indeed the length of the array
+    /// - ensure that `last_element_index` = `len - 1`
     /// - update their saved length to reflect that the last element has been removed (decrement it)
-    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, len: usize) -> *mut T {
-        if index != len {
+    pub unsafe fn swap_remove_unchecked(
+        &mut self,
+        index: usize,
+        last_element_index: usize,
+    ) -> *mut T {
+        if index != last_element_index {
             std::ptr::swap_nonoverlapping(
                 self.get_unchecked_raw(index),
-                self.get_unchecked_raw(len - 1),
+                self.get_unchecked_raw(last_element_index),
                 1,
             );
         }
