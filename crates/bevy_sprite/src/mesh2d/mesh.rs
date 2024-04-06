@@ -14,8 +14,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
-        batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
+        allocate_batch_buffer, batch_and_prepare_sorted_render_phase, clear_batch_buffer,
+        reserve_sorted_batch_buffer, GetBatchData, NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh},
@@ -101,10 +101,14 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
+                        (
+                            clear_batch_buffer::<Mesh2dPipeline>,
+                            reserve_sorted_batch_buffer::<Transparent2d, Mesh2dPipeline>,
+                            allocate_batch_buffer::<Mesh2dPipeline>,
+                            batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>,
+                        )
+                            .chain()
                             .in_set(RenderSet::PrepareResources),
-                        write_batched_instance_buffer::<Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
@@ -126,7 +130,7 @@ impl Plugin for Mesh2dRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
+                .insert_resource(GpuArrayBufferPool::<Mesh2dUniform>::new(
                     render_app.world().resource::<RenderDevice>(),
                 ))
                 .init_resource::<Mesh2dPipeline>();
@@ -571,7 +575,7 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<GpuArrayBufferPool<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(Mesh2dBindGroup {

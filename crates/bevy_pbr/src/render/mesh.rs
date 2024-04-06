@@ -13,8 +13,9 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec4};
 use bevy_render::{
     batching::{
-        batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
-        sort_binned_render_phase, write_batched_instance_buffer, GetBatchData, GetBinnedBatchData,
+        allocate_batch_buffer, batch_and_prepare_binned_render_phase,
+        batch_and_prepare_sorted_render_phase, clear_batch_buffer, reserve_binned_batch_buffer,
+        reserve_sorted_batch_buffer, sort_binned_render_phase, GetBatchData, GetBinnedBatchData,
         NoAutomaticBatching,
     },
     mesh::*,
@@ -118,7 +119,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
-                .allow_ambiguous_resource::<GpuArrayBuffer<MeshUniform>>()
+                .allow_ambiguous_resource::<GpuArrayBufferPool<MeshUniform>>()
                 .add_systems(
                     ExtractSchedule,
                     (extract_meshes, extract_skins, extract_morphs),
@@ -126,6 +127,20 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        clear_batch_buffer::<MeshPipeline>,
+                        (
+                            reserve_binned_batch_buffer::<Opaque3d, MeshPipeline>,
+                            reserve_sorted_batch_buffer::<Transmissive3d, MeshPipeline>,
+                            reserve_sorted_batch_buffer::<Transparent3d, MeshPipeline>,
+                            reserve_binned_batch_buffer::<AlphaMask3d, MeshPipeline>,
+                            reserve_binned_batch_buffer::<Shadow, MeshPipeline>,
+                            reserve_binned_batch_buffer::<Opaque3dDeferred, MeshPipeline>,
+                            reserve_binned_batch_buffer::<AlphaMask3dDeferred, MeshPipeline>,
+                        )
+                            .in_set(RenderSet::PrepareResources)
+                            .before(allocate_batch_buffer::<MeshPipeline>)
+                            .after(clear_batch_buffer::<MeshPipeline>),
+                        allocate_batch_buffer::<MeshPipeline>.in_set(RenderSet::PrepareResources),
                         (
                             sort_binned_render_phase::<Opaque3d>,
                             sort_binned_render_phase::<AlphaMask3d>,
@@ -146,9 +161,8 @@ impl Plugin for MeshRenderPlugin {
                                 MeshPipeline,
                             >,
                         )
-                            .in_set(RenderSet::PrepareResources),
-                        write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
+                            .in_set(RenderSet::PrepareResources)
+                            .after(allocate_batch_buffer::<MeshPipeline>),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -172,7 +186,7 @@ impl Plugin for MeshRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
+                .insert_resource(GpuArrayBufferPool::<MeshUniform>::new(
                     render_app.world().resource::<RenderDevice>(),
                 ))
                 .init_resource::<MeshPipeline>();
@@ -1031,7 +1045,7 @@ pub fn prepare_mesh_bind_group(
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
-    mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
+    mesh_uniforms: Res<GpuArrayBufferPool<MeshUniform>>,
     skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
     render_lightmaps: Res<RenderLightmaps>,

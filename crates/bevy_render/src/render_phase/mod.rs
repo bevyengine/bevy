@@ -36,7 +36,9 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache};
+use crate::render_resource::{
+    BufferPoolSlice, CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache,
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -97,6 +99,8 @@ where
     /// The unbatchable entities immediately follow the batches in the storage
     /// buffers.
     pub(crate) batch_sets: Vec<SmallVec<[BinnedRenderPhaseBatch; 1]>>,
+
+    pub reserved_range: Option<BufferPoolSlice>,
 }
 
 /// Information about a single batch of entities rendered using binned phase
@@ -271,6 +275,21 @@ where
         }
     }
 
+    /// Gets the total number of enqueued items.
+    pub fn len(&self) -> usize {
+        let batched: usize = self
+            .batchable_values
+            .values()
+            .map(|batch| batch.len())
+            .sum();
+        let unbatched: usize = self
+            .unbatchable_values
+            .values()
+            .map(|set| set.entities.len())
+            .sum();
+        batched + unbatched
+    }
+
     pub fn is_empty(&self) -> bool {
         self.batchable_keys.is_empty() && self.unbatchable_keys.is_empty()
     }
@@ -287,6 +306,7 @@ where
             unbatchable_keys: vec![],
             unbatchable_values: HashMap::default(),
             batch_sets: vec![],
+            reserved_range: None,
         }
     }
 }
@@ -384,6 +404,7 @@ where
     I: SortedPhaseItem,
 {
     pub items: Vec<I>,
+    pub reserved_range: Option<BufferPoolSlice>,
 }
 
 impl<I> Default for SortedRenderPhase<I>
@@ -391,7 +412,10 @@ where
     I: SortedPhaseItem,
 {
     fn default() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: Vec::new(),
+            reserved_range: None,
+        }
     }
 }
 

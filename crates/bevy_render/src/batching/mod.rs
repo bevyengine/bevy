@@ -12,7 +12,7 @@ use crate::{
         BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
         DrawFunctionId, SortedPhaseItem, SortedRenderPhase,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBuffer, GpuArrayBufferable},
+    render_resource::{CachedRenderPipelineId, GpuArrayBufferPool, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
 };
 
@@ -80,6 +80,39 @@ pub trait GetBatchData {
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
+pub fn clear_batch_buffer<F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+) {
+    gpu_array_buffer.clear();
+}
+
+pub fn reserve_binned_batch_buffer<I: BinnedPhaseItem, F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    mut views: Query<&mut BinnedRenderPhase<I>>,
+) {
+    for mut phase in &mut views {
+        phase.reserved_range =
+            wgpu::BufferSize::new(phase.len() as u64).map(|size| gpu_array_buffer.reserve(size));
+    }
+}
+
+pub fn reserve_sorted_batch_buffer<I: SortedPhaseItem, F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    mut views: Query<&mut SortedRenderPhase<I>>,
+) {
+    for mut phase in &mut views {
+        phase.reserved_range = wgpu::BufferSize::new(phase.items.len() as u64)
+            .map(|size| gpu_array_buffer.reserve(size));
+    }
+}
+
+pub fn allocate_batch_buffer<F: GetBatchData>(
+    mut gpu_array_buffer: ResMut<GpuArrayBufferPool<F::BufferData>>,
+    device: Res<RenderDevice>,
+) {
+    gpu_array_buffer.allocate(&device);
+}
+
 /// When implemented on a pipeline, this trait allows the batching logic to
 /// compute the per-batch data that will be uploaded to the GPU.
 ///
@@ -102,32 +135,41 @@ pub trait GetBinnedBatchData {
 /// Batch the items in a sorted render phase. This means comparing metadata
 /// needed to draw each phase item and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, F>(
-    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
+    gpu_array_buffer: Res<GpuArrayBufferPool<F::BufferData>>,
     mut views: Query<&mut SortedRenderPhase<I>>,
+    render_queue: Res<RenderQueue>,
     param: StaticSystemParam<F::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     F: GetBatchData,
+    for<'w, 's> <<F as GetBatchData>::Param as SystemParam>::Item<'w, 's>: Sync,
 {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    let mut process_item = |item: &mut I| {
-        let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
-        let buffer_index = gpu_array_buffer.push(buffer_data);
+    views.par_iter_mut().for_each(|mut phase| {
+        let Some(slice) = phase.reserved_range else {
+            return;
+        };
+        let mut writer = gpu_array_buffer
+            .get_writer(slice, &render_queue)
+            .expect("GPU Array Buffer was not allocated.");
 
-        let index = buffer_index.index;
-        *item.batch_range_mut() = index..index + 1;
-        *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+        let mut process_item = |item: &mut I| {
+            let (buffer_data, compare_data) = F::get_batch_data(&system_param_item, item.entity())?;
+            let buffer_index = writer.write(buffer_data);
 
-        if I::AUTOMATIC_BATCHING {
-            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
-        } else {
-            None
-        }
-    };
+            let index = buffer_index.index;
+            *item.batch_range_mut() = index..index + 1;
+            *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-    for mut phase in &mut views {
+            if I::AUTOMATIC_BATCHING {
+                compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
+            } else {
+                None
+            }
+        };
+
         let items = phase.items.iter_mut().map(|item| {
             let batch_data = process_item(item);
             (item.batch_range_mut(), batch_data)
@@ -140,7 +182,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, F>(
                 (range, batch_meta)
             }
         });
-    }
+    });
 }
 
 /// Sorts a render phase that uses bins.
@@ -156,18 +198,26 @@ where
 
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
-    gpu_array_buffer: ResMut<GpuArrayBuffer<GBBD::BufferData>>,
+    gpu_array_buffer: ResMut<GpuArrayBufferPool<GBBD::BufferData>>,
     mut views: Query<&mut BinnedRenderPhase<BPI>>,
+    render_queue: Res<RenderQueue>,
     param: StaticSystemParam<GBBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
     GBBD: GetBinnedBatchData,
+    for<'w, 's> <<GBBD as GetBinnedBatchData>::Param as SystemParam>::Item<'w, 's>: Sync,
 {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    for mut phase in &mut views {
+    views.par_iter_mut().for_each(|mut phase| {
         let phase = &mut *phase; // Borrow checker.
+        let Some(slice) = phase.reserved_range else {
+            return;
+        };
+        let mut writer = gpu_array_buffer
+            .get_writer(slice, &render_queue)
+            .expect("GPU Array Buffer was not allocated.");
 
         // Prepare batchables.
 
@@ -178,7 +228,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
                     continue;
                 };
 
-                let instance = gpu_array_buffer.push(buffer_data);
+                let instance = writer.write(buffer_data);
 
                 // If the dynamic offset has changed, flush the batch.
                 //
@@ -209,20 +259,10 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GBBD>(
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
                 if let Some(buffer_data) = GBBD::get_batch_data(&system_param_item, entity) {
-                    let instance = gpu_array_buffer.push(buffer_data);
+                    let instance = writer.write(buffer_data);
                     unbatchables.buffer_indices.add(instance);
                 }
             }
         }
-    }
-}
-
-pub fn write_batched_instance_buffer<F: GetBatchData>(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
-) {
-    let gpu_array_buffer = gpu_array_buffer.into_inner();
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
-    gpu_array_buffer.clear();
+    });
 }

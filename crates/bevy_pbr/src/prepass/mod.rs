@@ -1,6 +1,9 @@
 mod prepass_bindings;
 
-use bevy_render::batching::{batch_and_prepare_binned_render_phase, sort_binned_render_phase};
+use bevy_render::batching::{
+    allocate_batch_buffer, batch_and_prepare_binned_render_phase, clear_batch_buffer,
+    reserve_binned_batch_buffer, sort_binned_render_phase,
+};
 use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::render_resource::binding_types::uniform_buffer;
 pub use prepass_bindings::*;
@@ -160,15 +163,31 @@ where
                     (
                         (
                             sort_binned_render_phase::<Opaque3dPrepass>,
-                            sort_binned_render_phase::<AlphaMask3dPrepass>
-                        ).in_set(RenderSet::PhaseSort),
+                            sort_binned_render_phase::<AlphaMask3dPrepass>,
+                        )
+                            .in_set(RenderSet::PhaseSort),
                         (
                             prepare_previous_view_projection_uniforms,
-                            batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
-                                MeshPipeline>,
-                        ).in_set(RenderSet::PrepareResources),
-                    )
+                            (
+                                reserve_binned_batch_buffer::<Opaque3dPrepass, MeshPipeline>,
+                                reserve_binned_batch_buffer::<AlphaMask3dPrepass, MeshPipeline>,
+                            )
+                                .before(allocate_batch_buffer::<MeshPipeline>)
+                                .after(clear_batch_buffer::<MeshPipeline>),
+                            (
+                                batch_and_prepare_binned_render_phase::<
+                                    Opaque3dPrepass,
+                                    MeshPipeline,
+                                >,
+                                batch_and_prepare_binned_render_phase::<
+                                    AlphaMask3dPrepass,
+                                    MeshPipeline,
+                                >,
+                            )
+                                .after(allocate_batch_buffer::<MeshPipeline>),
+                        )
+                            .in_set(RenderSet::PrepareResources),
+                    ),
                 );
         }
 
