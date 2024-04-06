@@ -35,7 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // for the format and you'll notice, the only non-default option is setting Nearest
     // filtering. This tends to work much better for pixel art assets.
     // A good reference when filling this out is to check out [ImageLoaderSettings::default()]
-    // and follow to the default implementation of each fields type.
+    // and follow to the default implementation of each fields type. 
+    // https://docs.rs/bevy/latest/bevy/render/texture/struct.ImageLoaderSettings.html#
     commands.spawn(SpriteBundle {
         texture: asset_server.load("bevy_pixel_dark_with_meta.png"),
         sprite: Sprite {
