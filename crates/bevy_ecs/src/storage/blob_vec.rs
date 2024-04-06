@@ -368,7 +368,7 @@ impl BlobVec {
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
         //   so adding a multiple of `size` will preserve alignment.
-        // - The element at `index` lives as long as this vector's reference.
+        // - The element at `index` outlives this vector's reference.
         unsafe { self.get_ptr().byte_add(index * size) }
     }
 
@@ -385,7 +385,7 @@ impl BlobVec {
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
         //   so adding a multiple of `size` will preserve alignment.
-        // - The element at `index` lives as long as this vector's mutable reference.
+        // - The element at `index` outlives this vector's mutable reference.
         unsafe { self.get_ptr_mut().byte_add(index * size) }
     }
 
