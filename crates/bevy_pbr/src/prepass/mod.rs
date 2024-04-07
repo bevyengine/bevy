@@ -144,7 +144,7 @@ where
                     PreUpdate,
                     (
                         update_mesh_previous_global_transforms,
-                        update_previous_view_projections,
+                        update_previous_view_data,
                     ),
                 );
         }
@@ -155,7 +155,7 @@ where
 
         if no_prepass_plugin_loaded {
             render_app
-                .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
+                .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
                     (
@@ -164,7 +164,7 @@ where
                             sort_binned_render_phase::<AlphaMask3dPrepass>
                         ).in_set(RenderSet::PhaseSort),
                         (
-                            prepare_previous_view_projection_uniforms,
+                            prepare_previous_view_uniforms,
                             batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
                             batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
                                 MeshPipeline>,
@@ -202,7 +202,8 @@ where
 struct AnyPrepassPluginLoaded;
 
 #[derive(Component, ShaderType, Clone)]
-pub struct PreviousViewProjection {
+pub struct PreviousViewData {
+    pub inverse_view: Mat4,
     pub view_proj: Mat4,
 }
 
@@ -211,13 +212,15 @@ type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
 #[cfg(feature = "meshlet")]
 type PreviousViewFilter = With<Camera3d>;
 
-pub fn update_previous_view_projections(
+pub fn update_previous_view_data(
     mut commands: Commands,
     query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        commands.entity(entity).try_insert(PreviousViewProjection {
-            view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
+        let inverse_view = camera_transform.compute_matrix().inverse();
+        commands.entity(entity).try_insert(PreviousViewData {
+            inverse_view,
+            view_proj: camera.projection_matrix() * inverse_view,
         });
     }
 }
@@ -274,8 +277,8 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                     uniform_buffer::<ViewUniform>(true),
                     // Globals
                     uniform_buffer::<GlobalsUniform>(false),
-                    // PreviousViewProjection
-                    uniform_buffer::<PreviousViewProjection>(true),
+                    // PreviousViewUniforms
+                    uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
         );
@@ -614,16 +617,16 @@ where
 }
 
 // Extract the render phases for the prepass
-pub fn extract_camera_previous_view_projection(
+pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewProjection>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
-    for (entity, camera, maybe_previous_view_proj) in cameras_3d.iter() {
+    for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            if let Some(previous_view) = maybe_previous_view_proj {
-                entity.insert(previous_view.clone());
+            if let Some(previous_view_data) = maybe_previous_view_data {
+                entity.insert(previous_view_data.clone());
             }
         }
     }
@@ -631,23 +634,20 @@ pub fn extract_camera_previous_view_projection(
 
 #[derive(Resource, Default)]
 pub struct PreviousViewProjectionUniforms {
-    pub uniforms: DynamicUniformBuffer<PreviousViewProjection>,
+    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
 }
 
 #[derive(Component)]
-pub struct PreviousViewProjectionUniformOffset {
+pub struct PreviousViewUniformOffset {
     pub offset: u32,
 }
 
-pub fn prepare_previous_view_projection_uniforms(
+pub fn prepare_previous_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
-    views: Query<
-        (Entity, &ExtractedView, Option<&PreviousViewProjection>),
-        With<MotionVectorPrepass>,
-    >,
+    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), With<MotionVectorPrepass>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -658,18 +658,22 @@ pub fn prepare_previous_view_projection_uniforms(
     else {
         return;
     };
-    for (entity, camera, maybe_previous_view_proj) in views_iter {
-        let view_projection = match maybe_previous_view_proj {
+
+    for (entity, camera, maybe_previous_view_uniforms) in views_iter {
+        let view_projection = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
-            None => PreviousViewProjection {
-                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
-            },
+            None => {
+                let inverse_view = camera.transform.compute_matrix().inverse();
+                PreviousViewData {
+                    inverse_view,
+                    view_proj: camera.projection * inverse_view,
+                }
+            }
         };
-        commands
-            .entity(entity)
-            .insert(PreviousViewProjectionUniformOffset {
-                offset: writer.write(&view_projection),
-            });
+
+        commands.entity(entity).insert(PreviousViewUniformOffset {
+            offset: writer.write(&view_projection),
+        });
     }
 }
 
@@ -684,7 +688,7 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
-    previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
+    previous_view_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -697,14 +701,14 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
             &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
         ));
 
-        if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
+        if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::sequential((
                     view_binding,
                     globals_binding,
-                    previous_view_proj_binding,
+                    previous_view_uniforms_binding,
                 )),
             ));
         }
@@ -929,16 +933,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
-        Option<Read<PreviousViewProjectionUniformOffset>>,
+        Option<Read<PreviousViewUniformOffset>>,
     );
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform_offset, previous_view_projection_uniform_offset): (
+        (view_uniform_offset, previous_view_uniform_offset): (
             &'_ ViewUniformOffset,
-            Option<&'_ PreviousViewProjectionUniformOffset>,
+            Option<&'_ PreviousViewUniformOffset>,
         ),
         _entity: Option<()>,
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
@@ -946,15 +950,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
 
-        if let Some(previous_view_projection_uniform_offset) =
-            previous_view_projection_uniform_offset
-        {
+        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
             pass.set_bind_group(
                 I,
                 prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
                 &[
                     view_uniform_offset.offset,
-                    previous_view_projection_uniform_offset.offset,
+                    previous_view_uniform_offset.offset,
                 ],
             );
         } else {

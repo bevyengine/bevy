@@ -92,7 +92,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access modify a Mesh's attributes after creating it.
 ///
@@ -1482,6 +1482,16 @@ impl RenderAsset for Mesh {
             Self::Param,
         >,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let morph_targets = match self.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(self));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
         let vertex_buffer_data = self.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
@@ -1518,9 +1528,7 @@ impl RenderAsset for Mesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            morph_targets: self
-                .morph_targets
-                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }
