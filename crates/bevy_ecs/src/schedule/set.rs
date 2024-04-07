@@ -16,7 +16,7 @@ use crate::{
 };
 
 define_label!(
-    /// A strongly-typed class of labels used to identify an [`Schedule`].
+    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
