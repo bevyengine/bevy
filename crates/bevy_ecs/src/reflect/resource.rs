@@ -9,7 +9,7 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypeRegistry};
 
 use super::from_reflect_or_world;
 
@@ -43,11 +43,11 @@ pub struct ReflectResource(ReflectResourceFns);
 #[derive(Clone)]
 pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::insert()`].
-    pub insert: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::apply()`].
-    pub apply: fn(&mut World, &dyn Reflect),
+    pub apply: fn(&mut World, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectResource::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
@@ -74,7 +74,12 @@ impl ReflectResourceFns {
 
 impl ReflectResource {
     /// Insert a reflected [`Resource`] into the world like [`insert()`](World::insert_resource).
-    pub fn insert(&self, world: &mut World, resource: &dyn Reflect, registry: &TypeRegistry) {
+    pub fn insert(
+        &self,
+        world: &mut World,
+        resource: &dyn PartialReflect,
+        registry: &TypeRegistry,
+    ) {
         (self.0.insert)(world, resource, registry);
     }
 
@@ -83,7 +88,7 @@ impl ReflectResource {
     /// # Panics
     ///
     /// Panics if there is no [`Resource`] of the given type.
-    pub fn apply(&self, world: &mut World, resource: &dyn Reflect) {
+    pub fn apply(&self, world: &mut World, resource: &dyn PartialReflect) {
         (self.0.apply)(world, resource);
     }
 
@@ -91,7 +96,7 @@ impl ReflectResource {
     pub fn apply_or_insert(
         &self,
         world: &mut World,
-        resource: &dyn Reflect,
+        resource: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(world, resource, registry);

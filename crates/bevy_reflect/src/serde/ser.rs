@@ -1,6 +1,6 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
-    TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -29,22 +29,21 @@ impl<'a> Serializable<'a> {
 }
 
 fn get_serializable<'a, E: Error>(
-    reflect_value: &'a dyn Reflect,
+    reflect_value: &'a dyn PartialReflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
-    let info = reflect_value.get_represented_type_info().ok_or_else(|| {
-        Error::custom(format_args!(
-            "Type '{}' does not represent any type",
-            reflect_value.reflect_type_path(),
-        ))
-    })?;
-
+    let Some(reflect_value) = reflect_value.try_as_reflect() else {
+        return Err(Error::custom(format_args!(
+            "Type '{}' does not implement `Reflect`",
+            reflect_value.reflect_type_path()
+        )));
+    };
     let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(info.type_id())
+        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
         .ok_or_else(|| {
             Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
-                info.type_path(),
+                reflect_value.reflect_type_path(),
             ))
         })?;
     Ok(reflect_serialize.get_serializable(reflect_value))
@@ -87,12 +86,12 @@ fn get_serializable<'a, E: Error>(
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct ReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         ReflectSerializer { value, registry }
     }
 }
@@ -165,12 +164,12 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct TypedReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         TypedReflectSerializer { value, registry }
     }
 }
@@ -229,7 +228,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
 
 pub struct ReflectValueSerializer<'a> {
     pub registry: &'a TypeRegistry,
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
 }
 
 impl<'a> Serialize for ReflectValueSerializer<'a> {
@@ -536,7 +535,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 #[cfg(test)]
 mod tests {
     use crate::serde::ReflectSerializer;
-    use crate::{self as bevy_reflect, Struct};
+    use crate::{self as bevy_reflect, PartialReflect, Struct};
     use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
@@ -907,7 +906,7 @@ mod tests {
             none: None,
         };
         let dynamic = value.clone_dynamic();
-        let reflect = dynamic.as_reflect();
+        let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();
 

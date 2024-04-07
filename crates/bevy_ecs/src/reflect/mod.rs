@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
-use bevy_reflect::{FromReflect, Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{FromReflect, PartialReflect, TypeRegistry, TypeRegistryArc};
 
 mod bundle;
 mod component;
@@ -42,7 +42,7 @@ impl DerefMut for AppTypeRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn Reflect`.
+/// Creates a `T` from a `&dyn PartialReflect`.
 ///
 /// The first approach uses `T`'s implementation of `FromReflect`.
 /// If this fails, it falls back to default-initializing a new instance of `T` using its
@@ -51,7 +51,7 @@ impl DerefMut for AppTypeRegistry {
 ///
 /// Panics if both approaches fail.
 fn from_reflect_or_world<T: FromReflect>(
-    reflected: &dyn Reflect,
+    reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {

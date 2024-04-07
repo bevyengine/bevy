@@ -1,17 +1,13 @@
-use crate::impls::{impl_type_path, impl_typed};
+use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
 use crate::utility::WhereClauseOptions;
 use crate::ReflectMeta;
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
 pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
-
-    let hash_fn = meta.attrs().get_hash_impl(bevy_reflect_path);
-    let partial_eq_fn = meta.attrs().get_partial_eq_impl(bevy_reflect_path);
-    let debug_fn = meta.attrs().get_debug_impl();
 
     #[cfg(feature = "documentation")]
     let with_docs = {
@@ -32,6 +28,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     );
 
     let type_path_impl = impl_type_path(meta);
+    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options);
+    let common_methods = common_partial_reflect_methods(meta, || None, || None);
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
@@ -44,61 +42,26 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
+        #full_reflect_impl
+
+        impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause {
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
-                self
-            }
-
-            #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
+            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
                 #FQBox::new(#FQClone::clone(self))
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                let value = #bevy_reflect_path::Reflect::as_any(value);
-                if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+            fn apply(&mut self, value: &dyn #bevy_reflect_path::PartialReflect) {
+                if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value) {
                     *self = #FQClone::clone(value);
                 } else {
                     panic!("Value is not {}.", <Self as #bevy_reflect_path::TypePath>::type_path());
                 }
-            }
-
-            #[inline]
-            fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
-                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
-                #FQResult::Ok(())
             }
 
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
@@ -117,11 +80,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 #bevy_reflect_path::ReflectOwned::Value(self)
             }
 
-            #hash_fn
-
-            #partial_eq_fn
-
-            #debug_fn
+            #common_methods
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{Reflect, TypePath, TypePathTable};
+use crate::{PartialReflect, TypePath, TypePathTable};
 use std::any::{Any, TypeId};
 
 /// The named field of a reflected struct.
@@ -13,7 +13,7 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
+    pub fn new<T: PartialReflect + TypePath>(name: &'static str) -> Self {
         Self {
             name,
             type_path: TypePathTable::of::<T>(),
@@ -79,7 +79,7 @@ pub struct UnnamedField {
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect + TypePath>(index: usize) -> Self {
+    pub fn new<T: PartialReflect + TypePath>(index: usize) -> Self {
         Self {
             index,
             type_path: TypePathTable::of::<T>(),
