@@ -143,7 +143,7 @@ where
                     PreUpdate,
                     (
                         update_mesh_previous_global_transforms,
-                        update_previous_view_projections,
+                        update_previous_view_data,
                     ),
                 );
         }
@@ -154,7 +154,7 @@ where
 
         if no_prepass_plugin_loaded {
             render_app
-                .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
+                .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
                     (
@@ -163,7 +163,7 @@ where
                             sort_binned_render_phase::<AlphaMask3dPrepass>
                         ).in_set(RenderSet::PhaseSort),
                         (
-                            prepare_previous_view_projection_uniforms,
+                            prepare_previous_view_uniforms,
                             batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
                             batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
                                 MeshPipeline>,
@@ -201,17 +201,20 @@ where
 struct AnyPrepassPluginLoaded;
 
 #[derive(Component, ShaderType, Clone)]
-pub struct PreviousViewProjection {
+pub struct PreviousViewData {
+    pub inverse_view: Mat4,
     pub view_proj: Mat4,
 }
 
-pub fn update_previous_view_projections(
+pub fn update_previous_view_data(
     mut commands: Commands,
     query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        commands.entity(entity).try_insert(PreviousViewProjection {
-            view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
+        let inverse_view = camera_transform.compute_matrix().inverse();
+        commands.entity(entity).try_insert(PreviousViewData {
+            inverse_view,
+            view_proj: camera.projection_matrix() * inverse_view,
         });
     }
 }
@@ -263,8 +266,8 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                     uniform_buffer::<ViewUniform>(true),
                     // Globals
                     uniform_buffer::<GlobalsUniform>(false),
-                    // PreviousViewProjection
-                    uniform_buffer::<PreviousViewProjection>(true),
+                    // PreviousViewUniforms
+                    uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
         );
@@ -603,16 +606,16 @@ where
 }
 
 // Extract the render phases for the prepass
-pub fn extract_camera_previous_view_projection(
+pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewProjection>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
-    for (entity, camera, maybe_previous_view_proj) in cameras_3d.iter() {
+    for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            if let Some(previous_view) = maybe_previous_view_proj {
-                entity.insert(previous_view.clone());
+            if let Some(previous_view_data) = maybe_previous_view_data {
+                entity.insert(previous_view_data.clone());
             }
         }
     }
@@ -620,7 +623,7 @@ pub fn extract_camera_previous_view_projection(
 
 #[derive(Resource, Default)]
 pub struct PreviousViewProjectionUniforms {
-    pub uniforms: DynamicUniformBuffer<PreviousViewProjection>,
+    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
 }
 
 #[derive(Component)]
@@ -628,15 +631,12 @@ pub struct PreviousViewProjectionUniformOffset {
     pub offset: u32,
 }
 
-pub fn prepare_previous_view_projection_uniforms(
+pub fn prepare_previous_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
-    views: Query<
-        (Entity, &ExtractedView, Option<&PreviousViewProjection>),
-        With<MotionVectorPrepass>,
-    >,
+    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), With<MotionVectorPrepass>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -647,13 +647,19 @@ pub fn prepare_previous_view_projection_uniforms(
     else {
         return;
     };
+
     for (entity, camera, maybe_previous_view_proj) in views_iter {
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
-            None => PreviousViewProjection {
-                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
-            },
+            None => {
+                let inverse_view = camera.transform.compute_matrix().inverse();
+                PreviousViewData {
+                    inverse_view,
+                    view_proj: camera.projection * inverse_view,
+                }
+            }
         };
+
         commands
             .entity(entity)
             .insert(PreviousViewProjectionUniformOffset {
