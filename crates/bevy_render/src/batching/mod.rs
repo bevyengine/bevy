@@ -153,14 +153,8 @@ pub fn clear_batched_instance_buffers<GFBD>(
     if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
         cpu_batched_instance_buffer.clear();
     }
-
     if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        gpu_batched_instance_buffers.data_buffer.clear();
-        gpu_batched_instance_buffers.current_input_buffer.clear();
-        gpu_batched_instance_buffers.previous_input_buffer.clear();
-        for work_item_buffer in gpu_batched_instance_buffers.work_item_buffers.values_mut() {
-            work_item_buffer.clear();
-        }
+        gpu_batched_instance_buffers.clear();
     }
 }
 

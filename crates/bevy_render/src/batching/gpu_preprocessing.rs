@@ -103,6 +103,16 @@ where
             .buffer()
             .map(|buffer| buffer.as_entire_binding())
     }
+
+    /// Clears out the buffers in preparation for a new frame.
+    pub fn clear(&mut self) {
+        self.data_buffer.clear();
+        self.current_input_buffer.clear();
+        self.previous_input_buffer.clear();
+        for work_item_buffer in self.work_item_buffers.values_mut() {
+            work_item_buffer.clear();
+        }
+    }
 }
 
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
