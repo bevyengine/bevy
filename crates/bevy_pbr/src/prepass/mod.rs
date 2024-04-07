@@ -648,8 +648,8 @@ pub fn prepare_previous_view_uniforms(
         return;
     };
 
-    for (entity, camera, maybe_previous_view_proj) in views_iter {
-        let view_projection = match maybe_previous_view_proj {
+    for (entity, camera, maybe_previous_view_uniforms) in views_iter {
+        let view_projection = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
                 let inverse_view = camera.transform.compute_matrix().inverse();
@@ -677,7 +677,7 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
-    previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
+    previous_view_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -690,14 +690,14 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
             &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
         ));
 
-        if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
+        if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &prepass_pipeline.view_layout_motion_vectors,
                 &BindGroupEntries::sequential((
                     view_binding,
                     globals_binding,
-                    previous_view_proj_binding,
+                    previous_view_uniforms_binding,
                 )),
             ));
         }
