@@ -13,7 +13,7 @@ impl Meshable for Triangle3d {
         let positions: Vec<_> = self.vertices.into();
         let uvs: Vec<_> = uv_coords(self).into();
 
-        // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate)
+        // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate).
         let normal: Vec3 = self.normal().map_or(Vec3::ZERO, |n| n.into());
         let normals = vec![normal; 3];
 
