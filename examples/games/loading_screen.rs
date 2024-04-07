@@ -142,20 +142,20 @@ fn load_level_1(
     // Spawn the camera.
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 5.0, -5.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+            transform: Transform::from_xyz(155.0, 155.0, 155.0)
+                .looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
             ..default()
         },
         LevelComponents,
     ));
 
     // Save the asset into the `loading_assets` vector.
-    let house_scene = asset_server.load("models/HouseInTheWoods/HouseInTheWoods.glb#Scene0");
-    loading_data.loading_assets.push(house_scene.clone().into());
-    // Spawn the house.
+    let fox = asset_server.load("models/animated/Fox.glb#Scene0");
+    loading_data.loading_assets.push(fox.clone().into());
+    // Spawn the fox.
     commands.spawn((
         SceneBundle {
-            scene: house_scene.clone(),
+            scene: fox.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
