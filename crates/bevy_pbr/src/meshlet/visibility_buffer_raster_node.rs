@@ -2,7 +2,7 @@ use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     pipelines::MeshletPipelines,
 };
-use crate::{LightEntity, ShadowView, ViewLightEntities};
+use crate::{LightEntity, PreviousViewUniformOffset, ShadowView, ViewLightEntities};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     query::QueryState,
@@ -22,6 +22,7 @@ pub struct MeshletVisibilityBufferRasterPassNode {
         &'static ExtractedCamera,
         &'static ViewDepthTexture,
         &'static ViewUniformOffset,
+        &'static PreviousViewUniformOffset,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
         &'static ViewLightEntities,
@@ -30,6 +31,7 @@ pub struct MeshletVisibilityBufferRasterPassNode {
         &'static ShadowView,
         &'static LightEntity,
         &'static ViewUniformOffset,
+        &'static PreviousViewUniformOffset,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     )>,
@@ -60,6 +62,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             camera,
             view_depth,
             view_offset,
+            previous_view_offset,
             meshlet_view_bind_groups,
             meshlet_view_resources,
             lights,
@@ -103,6 +106,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             &meshlet_view_bind_groups.culling_first,
             view_offset,
+            previous_view_offset,
             culling_first_pipeline,
             culling_workgroups,
         );
@@ -140,6 +144,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             &meshlet_view_bind_groups.culling_second,
             view_offset,
+            previous_view_offset,
             culling_second_pipeline,
             culling_workgroups,
         );
@@ -181,6 +186,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 shadow_view,
                 light_type,
                 view_offset,
+                previous_view_offset,
                 meshlet_view_bind_groups,
                 meshlet_view_resources,
             )) = self.view_light_query.get_manual(world, *light_entity)
@@ -209,6 +215,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 &meshlet_view_bind_groups.culling_first,
                 view_offset,
+                previous_view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
             );
@@ -246,6 +253,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 &meshlet_view_bind_groups.culling_second,
                 view_offset,
+                previous_view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
             );
@@ -285,6 +293,7 @@ fn cull_pass(
     render_context: &mut RenderContext,
     culling_bind_group: &BindGroup,
     view_offset: &ViewUniformOffset,
+    previous_view_offset: &PreviousViewUniformOffset,
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
 ) {
@@ -293,7 +302,11 @@ fn cull_pass(
         label: Some(label),
         timestamp_writes: None,
     });
-    cull_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
+    cull_pass.set_bind_group(
+        0,
+        culling_bind_group,
+        &[view_offset.offset, previous_view_offset.offset],
+    );
     cull_pass.set_pipeline(culling_pipeline);
     cull_pass.dispatch_workgroups(culling_workgroups, 1, 1);
 }

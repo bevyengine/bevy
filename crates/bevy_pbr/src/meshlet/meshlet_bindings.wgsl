@@ -2,6 +2,7 @@
 
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
+#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 
 struct PackedMeshletVertex {
     a: vec4<f32>,
@@ -59,6 +60,7 @@ struct DrawIndirectArgs {
 @group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 2 bits per cluster (instance of a meshlet), packed as a bitmask
 @group(0) @binding(6) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
 @group(0) @binding(7) var<uniform> view: View;
+@group(0) @binding(8) var<uniform> previous_view: PreviousViewUniforms;
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;

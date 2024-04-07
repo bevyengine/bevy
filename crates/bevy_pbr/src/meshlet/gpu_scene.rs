@@ -4,7 +4,8 @@ use super::{
 };
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
+    PreviousGlobalTransform, PreviousViewData, PreviousViewUniforms, RenderMaterialInstances,
+    ShadowView,
 };
 use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_core_pipeline::core_3d::Camera3d;
@@ -445,10 +446,14 @@ pub fn prepare_meshlet_view_bind_groups(
         AnyOf<(&ViewDepthTexture, &ShadowView)>,
     )>,
     view_uniforms: Res<ViewUniforms>,
+    previous_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
+    let (Some(view_uniforms), Some(previous_view_uniforms)) = (
+        view_uniforms.uniforms.binding(),
+        previous_view_uniforms.uniforms.binding(),
+    ) else {
         return;
     };
 
@@ -464,6 +469,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.occlusion_buffer.as_entire_binding(),
             &view_resources.previous_depth_pyramid,
             view_uniforms.clone(),
+            previous_view_uniforms.clone(),
         ));
         let culling_first = render_device.create_bind_group(
             "meshlet_culling_first_bind_group",
@@ -482,6 +488,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources.occlusion_buffer.as_entire_binding(),
             &view_resources.depth_pyramid.default_view,
             view_uniforms.clone(),
+            previous_view_uniforms.clone(),
         ));
         let culling_second = render_device.create_bind_group(
             "meshlet_culling_second_bind_group",
@@ -714,6 +721,7 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_sized(false, None),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         uniform_buffer::<ViewUniform>(true),
+                        uniform_buffer::<PreviousViewData>(true),
                     ),
                 ),
             ),
