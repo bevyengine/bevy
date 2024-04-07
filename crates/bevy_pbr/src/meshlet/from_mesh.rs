@@ -180,6 +180,7 @@ fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
 
     for i in 0..meshlets.len() {
         let meshlet = meshlets.meshlets[i];
+        #[allow(unsafe_code)]
         #[allow(clippy::undocumented_unsafe_blocks)]
         unsafe {
             meshopt_optimizeMeshlet(
