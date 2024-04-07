@@ -138,7 +138,7 @@ impl Node for GpuPreprocessNode {
         }) = world.get_resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
         else {
             error!(
-                "Attempted to preprocess meshes on GPU, but `GpuBuilt` batched instance buffers \
+                "Attempted to preprocess meshes on GPU, but GPU-built batched instance buffers \
                 weren't available"
             );
             return Ok(());
@@ -148,7 +148,7 @@ impl Node for GpuPreprocessNode {
         let preprocess_pipeline = world.resource::<PreprocessPipeline>();
 
         let Some(preprocess_pipeline_id) = preprocess_pipeline.pipeline_id else {
-            warn!("The build mesh uniforms pipeline wasn't uploaded");
+            warn!("The build mesh uniforms pipeline wasn't created");
             return Ok(());
         };
 
@@ -176,7 +176,7 @@ impl Node for GpuPreprocessNode {
             };
 
             compute_pass.set_bind_group(0, &bind_group.0, &[]);
-            let workgroup_count = div_round_up(index_buffer.len(), WORKGROUP_SIZE);
+            let workgroup_count = index_buffer.len().div_ceil(WORKGROUP_SIZE);
             compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
         }
 
@@ -297,9 +297,4 @@ pub fn prepare_preprocess_bind_groups(
                 )),
             )));
     }
-}
-
-/// Returns `a / b`, rounded toward positive infinity.
-fn div_round_up(a: usize, b: usize) -> usize {
-    (a + b - 1) / b
 }

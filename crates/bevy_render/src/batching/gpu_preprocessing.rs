@@ -32,9 +32,9 @@ use super::{BatchMeta, GetFullBatchData};
 ///
 /// We have a separate *buffer data input* type (`BDI`) here, which a compute
 /// shader is expected to expand to the full buffer data (`BD`) type. GPU
-/// uniform building is generally faster and uses less GPU bus bandwidth, but
-/// only implemented for some pipelines (for example, not in the 2D pipeline at
-/// present) and only when compute shader is available.
+/// uniform building is generally faster and uses less system RAM to VRAM bus
+/// bandwidth, but only implemented for some pipelines (for example, not in the
+/// 2D pipeline at present) and only when compute shader is available.
 #[derive(Resource)]
 pub struct BatchedInstanceBuffers<BD, BDI>
 where
@@ -135,8 +135,8 @@ pub fn delete_old_work_item_buffers<GFBD>(
 }
 
 /// Batch the items in a sorted render phase, when GPU instance buffer building
-/// isn't in use. This means comparing metadata needed to draw each phase item
-/// and trying to combine the draws into a batch.
+/// is in use. This means comparing metadata needed to draw each phase item and
+/// trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_batched_instance_buffers: ResMut<
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,

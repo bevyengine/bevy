@@ -926,8 +926,7 @@ impl GetFullBatchData for MeshPipeline {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
-                "`get_batch_index` should never be called in CPU mesh uniform \
-                building mode"
+                "`get_batch_input_index` should never be called in CPU mesh uniform building mode"
             );
             return None;
         };
@@ -951,8 +950,7 @@ impl GetFullBatchData for MeshPipeline {
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
-                "`get_batch_data` should never be called in GPU mesh uniform \
-                building mode"
+                "`get_binned_batch_data` should never be called in GPU mesh uniform building mode"
             );
             return None;
         };
@@ -972,7 +970,7 @@ impl GetFullBatchData for MeshPipeline {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
-                "`get_batch_index` should never be called in CPU mesh uniform \
+                "`get_binned_batch_input_index` should never be called in CPU mesh uniform \
                 building mode"
             );
             return None;

@@ -45,10 +45,9 @@ fn inverse_mat3x3(matrix: mat3x3<f32>) -> mat3x3<f32> {
 
 // Returns the inverse of an affine matrix.
 //
-// Recall that an affine matrix is just a 4x4 matrix with the last column of [0,
-// 0, 0, 1]; thus the inverse is well-defined.
+// https://en.wikipedia.org/wiki/Affine_transformation#Groups
 fn inverse_affine3(affine: mat4x3<f32>) -> mat4x3<f32> {
     let matrix3 = affine3_to_mat3x3(affine);
     let inv_matrix3 = inverse_mat3x3(matrix3);
-    return mat4x3<f32>(inv_matrix3[0], inv_matrix3[1], inv_matrix3[2], -(matrix3 * affine[3]));
+    return mat4x3<f32>(inv_matrix3[0], inv_matrix3[1], inv_matrix3[2], -(inv_matrix3 * affine[3]));
 }
