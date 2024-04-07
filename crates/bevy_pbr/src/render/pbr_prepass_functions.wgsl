@@ -25,7 +25,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
     }
 #endif // VERTEX_UVS
 
-    let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = pbr_bindings::material.alpha_mode_flags;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if output_color.a < pbr_bindings::material.alpha_cutoff {
             discard;
