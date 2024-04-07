@@ -834,14 +834,14 @@ impl Primitive3d for Tetrahedron {}
 
 impl Default for Tetrahedron {
     /// Returns the default [`Tetrahedron`] with the vertices
-    /// `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, `[0.5, -0.5, 0.0]` and `[0.0, 0.0, 0.5]`.
+    /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
     fn default() -> Self {
         Self {
             vertices: [
-                Vec3::new(0.0, 0.5, 0.0),
-                Vec3::new(-0.5, -0.5, 0.0),
-                Vec3::new(0.5, -0.5, 0.0),
-                Vec3::new(0.0, 0.0, 0.5),
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+                Vec3::new(0.5, -0.5, -0.5),
             ],
         }
     }
@@ -1085,20 +1085,17 @@ mod tests {
         );
         assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
 
-        assert_eq!(Tetrahedron::default().area(), 1.4659258, "incorrect area");
+        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
         assert_eq!(
             Tetrahedron::default().volume(),
-            0.083333336,
+            0.33333334,
             "incorrect volume"
         );
         assert_eq!(
             Tetrahedron::default().signed_volume(),
-            0.083333336,
+            -0.33333334,
             "incorrect signed volume"
         );
-        assert_relative_eq!(
-            Tetrahedron::default().centroid(),
-            Vec3::new(0.0, -0.125, 0.125)
-        );
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
     }
 }

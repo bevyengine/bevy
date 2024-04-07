@@ -576,7 +576,7 @@ bitflags::bitflags! {
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = Self::LAST_FLAG.bits().trailing_zeros();
+    const MSAA_SHIFT_BITS: u32 = Self::LAST_FLAG.bits().trailing_zeros() + 1;
 
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 = Self::MSAA_MASK_BITS.count_ones() + Self::MSAA_SHIFT_BITS;
