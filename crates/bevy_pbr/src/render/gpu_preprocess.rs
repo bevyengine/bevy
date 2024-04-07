@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::tracing::warn;
 
 use crate::{graph::NodePbr, MeshInputUniform, MeshUniform};
 
@@ -130,19 +130,11 @@ impl Node for GpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // Grab the [`BatchedInstanceBuffers`]. If we aren't using GPU mesh
-        // uniform building, bail out.
-        let Some(BatchedInstanceBuffers {
+        // Grab the [`BatchedInstanceBuffers`].
+        let BatchedInstanceBuffers {
             work_item_buffers: ref index_buffers,
             ..
-        }) = world.get_resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
-        else {
-            error!(
-                "Attempted to preprocess meshes on GPU, but GPU-built batched instance buffers \
-                weren't available"
-            );
-            return Ok(());
-        };
+        } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
 
         let pipeline_cache = world.resource::<PipelineCache>();
         let preprocess_pipeline = world.resource::<PreprocessPipeline>();
@@ -168,13 +160,9 @@ impl Node for GpuPreprocessNode {
 
         compute_pass.set_pipeline(preprocess_pipeline);
 
+        // Run the compute passes.
         for (view, bind_group) in self.view_query.iter_manual(world) {
-            // Grab the index buffer for this view.
-            let Some(index_buffer) = index_buffers.get(&view) else {
-                warn!("The preprocessing index buffer wasn't present");
-                return Ok(());
-            };
-
+            let index_buffer = &index_buffers[&view];
             compute_pass.set_bind_group(0, &bind_group.0, &[]);
             let workgroup_count = index_buffer.len().div_ceil(WORKGROUP_SIZE);
             compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);

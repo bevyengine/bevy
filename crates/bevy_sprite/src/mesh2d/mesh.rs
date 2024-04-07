@@ -153,7 +153,6 @@ pub struct Mesh2dTransforms {
 }
 
 #[derive(ShaderType, Clone)]
-#[repr(C)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
     pub transform: [Vec4; 3],

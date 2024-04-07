@@ -1681,17 +1681,41 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
-    type ViewQuery = ();
+    type Param = (
+        SRes<RenderAssets<Mesh>>,
+        SRes<RenderMeshInstances>,
+        SRes<PipelineCache>,
+        SRes<PreprocessPipeline>,
+    );
+    type ViewQuery = Has<PreprocessBindGroup>;
     type ItemQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
-        _view: (),
+        has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
         _item_query: Option<()>,
-        (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, mesh_instances, pipeline_cache, preprocess_pipeline): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        // If we're using GPU preprocessing, then we're dependent on that
+        // compute shader having been run, which of course can only happen if
+        // it's compiled. Otherwise, our mesh instance data won't be present.
+        if !has_preprocess_bind_group
+            || !preprocess_pipeline
+                .pipeline_id
+                .is_some_and(|preprocess_pipeline_id| {
+                    pipeline_cache
+                        .get_compute_pipeline(preprocess_pipeline_id)
+                        .is_some()
+                })
+        {
+            return RenderCommandResult::Failure;
+        }
+
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
 
