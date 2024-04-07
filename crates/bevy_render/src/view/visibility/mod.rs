@@ -1,6 +1,8 @@
+mod propagate_render_layers;
 mod render_layers;
 
 use bevy_derive::Deref;
+pub use propagate_render_layers::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
@@ -198,8 +200,8 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
-    /// Label for the system propagating the [`InheritedVisibility`] in a
-    /// [`hierarchy`](bevy_hierarchy).
+    /// Label for the system propagating [`InheritedVisibility`] and applying [`PropagateRenderLayers`]
+    /// in a [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
@@ -212,42 +214,48 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
-            PostUpdate,
-            (
-                calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<Projection>
-                    .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
-                    .after(TransformSystem::TransformPropagate),
-                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility
-                    .in_set(CheckVisibility)
-                    .after(CalculateBounds)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
-            ),
-        );
+        app.add_plugins(PropagateRenderLayersPlugin)
+            .configure_sets(
+                PostUpdate,
+                PropagateRenderLayersSet.in_set(VisibilityPropagate),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    update_frusta::<OrthographicProjection>
+                        .in_set(UpdateOrthographicFrusta)
+                        .after(camera_system::<OrthographicProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<PerspectiveProjection>
+                        .in_set(UpdatePerspectiveFrusta)
+                        .after(camera_system::<PerspectiveProjection>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(update_frusta::<Projection>),
+                    update_frusta::<Projection>
+                        .in_set(UpdateProjectionFrusta)
+                        .after(camera_system::<Projection>)
+                        .after(TransformSystem::TransformPropagate),
+                    (visibility_propagate_system, reset_view_visibility)
+                        .in_set(VisibilityPropagate),
+                    check_visibility
+                        .in_set(CheckVisibility)
+                        .after(CalculateBounds)
+                        .after(UpdateOrthographicFrusta)
+                        .after(UpdatePerspectiveFrusta)
+                        .after(UpdateProjectionFrusta)
+                        .after(VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
+                ),
+            );
     }
 }
 
@@ -374,7 +382,7 @@ pub fn check_visibility(
     mut view_query: Query<(
         &mut VisibleEntities,
         &Frustum,
-        Option<&RenderLayers>,
+        Option<&CameraLayer>,
         &Camera,
     )>,
     mut visible_aabb_query: Query<(
@@ -382,17 +390,19 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
+        Option<&InheritedRenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    for (mut visible_entities, frustum, maybe_camera_view, camera) in &mut view_query {
         if !camera.is_active {
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let default_camera_view = CameraLayer::default();
+        let camera_view = maybe_camera_view.unwrap_or(&default_camera_view);
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each(|query_item| {
@@ -400,7 +410,8 @@ pub fn check_visibility(
                 entity,
                 inherited_visibility,
                 mut view_visibility,
-                maybe_entity_mask,
+                maybe_layers,
+                maybe_inherited,
                 maybe_model_aabb,
                 transform,
                 no_frustum_culling,
@@ -412,8 +423,9 @@ pub fn check_visibility(
                 return;
             }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
+            // Check if this camera can see the entity.
+            if !camera_view.entity_is_visible(&derive_render_layers(maybe_inherited, maybe_layers))
+            {
                 return;
             }
 

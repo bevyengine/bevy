@@ -20,7 +20,7 @@ use bevy_render::{
     render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedRenderLayers, ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
@@ -257,7 +257,7 @@ fn queue_line_gizmos_2d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
+        Option<&ExtractedRenderLayers>,
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
@@ -267,8 +267,7 @@ fn queue_line_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 
@@ -310,7 +309,7 @@ fn queue_line_joint_gizmos_2d(
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
+        Option<&ExtractedRenderLayers>,
     )>,
 ) {
     let draw_function = draw_functions
@@ -323,8 +322,7 @@ fn queue_line_joint_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects_extracted(render_layers) {
                 continue;
             }
 

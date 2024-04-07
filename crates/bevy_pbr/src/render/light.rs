@@ -14,7 +14,10 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{
+        extract_render_layers, ExtractedRenderLayers, ExtractedView, InheritedRenderLayers,
+        RenderLayers, ViewVisibility, VisibleEntities,
+    },
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -51,7 +54,7 @@ pub struct ExtractedDirectionalLight {
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
-    pub render_layers: RenderLayers,
+    pub render_layers: ExtractedRenderLayers,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -164,6 +167,7 @@ pub struct GpuDirectionalCascade {
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalLight {
+    skip: u32,
     cascades: [GpuDirectionalCascade; MAX_CASCADES_PER_LIGHT],
     color: Vec4,
     dir_to_light: Vec3,
@@ -173,7 +177,6 @@ pub struct GpuDirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
-    render_layers: u32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -346,6 +349,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&RenderLayers>,
+                Option<&InheritedRenderLayers>,
             ),
             Without<SpotLight>,
         >,
@@ -467,7 +471,8 @@ pub fn extract_lights(
         frusta,
         transform,
         view_visibility,
-        maybe_layers,
+        maybe_groups,
+        maybe_inherited,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -488,7 +493,7 @@ pub fn extract_lights(
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
-                render_layers: maybe_layers.copied().unwrap_or_default(),
+                render_layers: extract_render_layers(maybe_inherited, maybe_groups),
             },
             render_visible_entities,
         ));
@@ -684,7 +689,12 @@ pub fn prepare_lights(
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig),
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            &ExtractedRenderLayers,
+        ),
         With<SortedRenderPhase<Transparent3d>>,
     >,
     ambient_light: Res<AmbientLight>,
@@ -904,6 +914,8 @@ pub fn prepare_lights(
             .len()
             .min(MAX_CASCADES_PER_LIGHT);
         gpu_directional_lights[index] = GpuDirectionalLight {
+            // Set to true later when necessary.
+            skip: 0u32,
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
             // premultiply color by illuminance
@@ -917,7 +929,6 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
-            render_layers: light.render_layers.bits(),
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;
@@ -930,7 +941,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters) in &views {
+    for (entity, extracted_view, clusters, extracted_render_layers) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -1130,8 +1141,21 @@ pub fn prepare_lights(
         for (light_index, &(light_entity, light)) in directional_lights
             .iter()
             .enumerate()
-            .take(directional_shadow_enabled_count)
+            .take(MAX_DIRECTIONAL_LIGHTS)
         {
+            let gpu_light = &mut gpu_lights.directional_lights[light_index];
+
+            // Check if the light intersects with the view.
+            if !extracted_render_layers.intersects(&light.render_layers) {
+                gpu_light.skip = 1u32;
+                continue;
+            }
+
+            // Only deal with cascades when shadows are enabled.
+            if (gpu_light.flags & DirectionalLightFlags::SHADOWS_ENABLED.bits()) == 0u32 {
+                continue;
+            }
+
             let cascades = light
                 .cascades
                 .get(&entity)
@@ -1149,12 +1173,11 @@ pub fn prepare_lights(
                 .zip(&light.cascade_shadow_config.bounds)
                 .enumerate()
             {
-                gpu_lights.directional_lights[light_index].cascades[cascade_index] =
-                    GpuDirectionalCascade {
-                        view_projection: cascade.view_projection,
-                        texel_size: cascade.texel_size,
-                        far_bound: *bound,
-                    };
+                gpu_light.cascades[cascade_index] = GpuDirectionalCascade {
+                    view_projection: cascade.view_projection,
+                    texel_size: cascade.texel_size,
+                    far_bound: *bound,
+                };
 
                 let depth_texture_view =
                     directional_light_depth_texture
