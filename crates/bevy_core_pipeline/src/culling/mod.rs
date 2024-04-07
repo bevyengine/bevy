@@ -286,6 +286,7 @@ impl ViewNode for LateDownsampleDepthBufferNode {
     }
 }
 
+/// Runs a single downsample pass, either early or late.
 fn run_downsample_depth_buffer_node(
     render_context: &mut RenderContext,
     culling_view_resources: Option<&HierarchicalDepthBufferViewResources>,
@@ -730,6 +731,8 @@ fn resolve_depth_buffer(
     }
 }
 
+/// Performs repeated draw operations to build a hierarchical Z buffer from a
+/// depth buffer.
 fn downsample_depth(
     render_context: &mut RenderContext,
     depth_pyramid_mips: &[TextureView],
