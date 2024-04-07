@@ -354,13 +354,6 @@ fn handle_winit_event(
         runner_state.redraw_requested = true;
     }
 
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        if app_exit_event_reader.read(app_exit_events).last().is_some() {
-            event_loop.exit();
-            return;
-        }
-    }
-
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
     create_windows(event_loop, create_window.get_mut(app.world_mut()));
@@ -783,6 +776,13 @@ fn handle_winit_event(
             runner_state.redraw_requested = true;
         }
         _ => (),
+    }
+
+    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
+        if app_exit_event_reader.read(app_exit_events).last().is_some() {
+            event_loop.exit();
+            return;
+        }
     }
 
     // We drain events after every received winit event in addition to on app update to ensure
