@@ -7,8 +7,8 @@ use super::{
     MeshletGpuScene,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, PreviousViewProjectionUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, PreviousViewUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
@@ -135,7 +135,7 @@ impl ViewNode for MeshletPrepassNode {
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
-        Option<&'static PreviousViewProjectionUniformOffset>,
+        Option<&'static PreviousViewUniformOffset>,
         &'static MeshletViewMaterialsPrepass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -256,7 +256,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
-        Option<&'static PreviousViewProjectionUniformOffset>,
+        Option<&'static PreviousViewUniformOffset>,
         &'static MeshletViewMaterialsDeferredGBufferPrepass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
