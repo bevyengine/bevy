@@ -9,6 +9,7 @@ use nonmax::NonMaxU32;
 use crate::{
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem, DrawFunctionId,
+        SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
@@ -167,4 +168,37 @@ where
         phase.batchable_keys.sort_unstable();
         phase.unbatchable_keys.sort_unstable();
     }
+}
+
+/// Batches the items in a sorted render phase.
+///
+/// This means comparing metadata needed to draw each phase item and trying to
+/// combine the draws into a batch.
+///
+/// This is common code factored out from
+/// [`gpu_preprocessing::batch_and_prepare_sorted_render_phase`] and
+/// [`no_gpu_preprocessing::batch_and_prepare_sorted_render_phase`].
+fn batch_and_prepare_sorted_render_phase<I, GBD>(
+    phase: &mut SortedRenderPhase<I>,
+    mut process_item: impl FnMut(&mut I) -> Option<GBD::CompareData>,
+) where
+    I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
+    GBD: GetBatchData,
+{
+    let items = phase.items.iter_mut().map(|item| {
+        let batch_data = match process_item(item) {
+            Some(compare_data) if I::AUTOMATIC_BATCHING => Some(BatchMeta::new(item, compare_data)),
+            _ => None,
+        };
+        (item.batch_range_mut(), batch_data)
+    });
+
+    items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
+        if batch_meta.is_some() && prev_batch_meta == batch_meta {
+            start_range.end = range.end;
+            (start_range, prev_batch_meta)
+        } else {
+            (range, batch_meta)
+        }
+    });
 }

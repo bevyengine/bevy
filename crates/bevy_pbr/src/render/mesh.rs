@@ -5,7 +5,7 @@ use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
-use bevy_derive::Deref;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
@@ -471,50 +471,89 @@ impl RenderMeshInstanceShared {
 /// [`MeshUniform`] building is in use.
 #[derive(Resource)]
 pub enum RenderMeshInstances {
-    /// Information needed when using CPU mesh uniform building.
-    CpuBuilding(EntityHashMap<RenderMeshInstanceCpu>),
-    /// Information needed when using GPU mesh uniform building.
-    GpuBuilding(EntityHashMap<RenderMeshInstanceGpu>),
+    /// Information needed when using CPU mesh instance data building.
+    CpuBuilding(RenderMeshInstancesCpu),
+    /// Information needed when using GPU mesh instance data building.
+    GpuBuilding(RenderMeshInstancesGpu),
 }
 
+/// Information that the render world keeps about each entity that contains a
+/// mesh, when using CPU mesh instance data building.
+#[derive(Default, Deref, DerefMut)]
+struct RenderMeshInstancesCpu(EntityHashMap<RenderMeshInstanceCpu>);
+
+/// Information that the render world keeps about each entity that contains a
+/// mesh, when using GPU mesh instance data building.
+#[derive(Default, Deref, DerefMut)]
+struct RenderMeshInstancesGpu(EntityHashMap<RenderMeshInstanceGpu>);
+
 impl RenderMeshInstances {
+    /// Creates a new [`RenderMeshInstances`] instance.
     fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
         if use_gpu_instance_buffer_builder {
-            RenderMeshInstances::GpuBuilding(EntityHashMap::default())
+            RenderMeshInstances::GpuBuilding(RenderMeshInstancesGpu::default())
         } else {
-            RenderMeshInstances::CpuBuilding(EntityHashMap::default())
+            RenderMeshInstances::CpuBuilding(RenderMeshInstancesCpu::default())
         }
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
     pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
         match *self {
-            RenderMeshInstances::CpuBuilding(ref instances) => instances
-                .get(&entity)
-                .map(|instance| instance.mesh_asset_id),
-            RenderMeshInstances::GpuBuilding(ref instances) => instances
-                .get(&entity)
-                .map(|instance| instance.mesh_asset_id),
+            RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+            RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
         }
     }
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+    /*pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
-                instances.get(&entity).map(|instance| RenderMeshQueueData {
-                    shared: &instance.shared,
-                    translation: instance.transforms.transform.translation,
-                })
+                instances.render_mesh_queue_data(entity)
             }
             RenderMeshInstances::GpuBuilding(ref instances) => {
-                instances.get(&entity).map(|instance| RenderMeshQueueData {
-                    shared: &instance.shared,
-                    translation: instance.translation,
-                })
+                instances.render_mesh_queue_data(entity)
             }
         }
+    }*/
+}
+
+pub(crate) trait RenderMeshInstancesTable {
+    /// Returns the ID of the mesh asset attached to the given entity, if any.
+    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>>;
+
+    /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
+    /// mesh attached.
+    fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData>;
+}
+
+impl RenderMeshInstancesTable for RenderMeshInstancesCpu {
+    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+        self.get(&entity).map(|instance| instance.mesh_asset_id)
+    }
+
+    fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+        self.get(&entity).map(|instance| RenderMeshQueueData {
+            shared: &instance.shared,
+            translation: instance.transforms.transform.translation,
+        })
+    }
+}
+
+impl RenderMeshInstancesTable for RenderMeshInstancesGpu {
+    /// Returns the ID of the mesh asset attached to the given entity, if any.
+    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+        self.get(&entity).map(|instance| instance.mesh_asset_id)
+    }
+
+    /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
+    /// mesh attached.
+    fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+        self.get(&entity).map(|instance| RenderMeshQueueData {
+            shared: &instance.shared,
+            translation: instance.translation,
+        })
     }
 }
 
@@ -628,7 +667,7 @@ pub fn extract_meshes_for_gpu_building(
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
-    mut prev_render_mesh_instances: Local<EntityHashMap<RenderMeshInstanceGpu>>,
+    mut prev_render_mesh_instances: Local<RenderMeshInstancesGpu>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -705,7 +744,7 @@ fn collect_meshes_for_gpu_building(
         MeshInputUniform,
     >,
     render_mesh_instance_queues: &mut Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>,
-    prev_render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
+    prev_render_mesh_instances: &mut RenderMeshInstancesGpu,
 ) {
     // Collect render mesh instances. Build up the uniform buffer.
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances

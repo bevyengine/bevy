@@ -14,7 +14,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 
-use super::{BatchMeta, GetBatchData, GetFullBatchData};
+use super::{GetBatchData, GetFullBatchData};
 
 /// The GPU buffers holding the data needed to render batches.
 ///
@@ -56,36 +56,20 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
 {
     let system_param_item = param.into_inner();
 
-    let process_item = |item: &mut I, buffer: &mut GpuArrayBuffer<GBD::BufferData>| {
-        let (buffer_data, compare_data) = GBD::get_batch_data(&system_param_item, item.entity())?;
-        let buffer_index = buffer.push(buffer_data);
-
-        let index = buffer_index.index;
-        *item.batch_range_mut() = index..index + 1;
-        *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
-
-        if I::AUTOMATIC_BATCHING {
-            compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
-        } else {
-            None
-        }
-    };
-
     // We only process CPU-built batch data in this function.
     let batched_instance_buffer = batched_instance_buffer.into_inner();
 
     for mut phase in &mut views {
-        let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item, batched_instance_buffer);
-            (item.batch_range_mut(), batch_data)
-        });
-        items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
-            if batch_meta.is_some() && prev_batch_meta == batch_meta {
-                start_range.end = range.end;
-                (start_range, prev_batch_meta)
-            } else {
-                (range, batch_meta)
-            }
+        super::batch_and_prepare_sorted_render_phase::<I, GBD>(&mut phase, |item| {
+            let (buffer_data, compare_data) =
+                GBD::get_batch_data(&system_param_item, item.entity())?;
+            let buffer_index = batched_instance_buffer.push(buffer_data);
+
+            let index = buffer_index.index;
+            *item.batch_range_mut() = index..index + 1;
+            *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+
+            compare_data
         });
     }
 }

@@ -23,7 +23,7 @@ use crate::{
     view::ViewTarget,
 };
 
-use super::{BatchMeta, GetFullBatchData};
+use super::GetFullBatchData;
 
 /// The GPU buffers holding the data needed to render batches.
 ///
@@ -159,10 +159,20 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 {
     let system_param_item = param.into_inner();
 
-    let process_item =
-        |item: &mut I,
-         data_buffer: &mut UninitBufferVec<GFBD::BufferData>,
-         work_item_buffer: &mut BufferVec<PreprocessWorkItem>| {
+    // We only process GPU-built batch data in this function.
+    let BatchedInstanceBuffers {
+        ref mut data_buffer,
+        ref mut work_item_buffers,
+        ..
+    } = gpu_batched_instance_buffers.into_inner();
+
+    for (view, mut phase) in &mut views {
+        // Create the work item buffer if necessary.
+        let work_item_buffer = work_item_buffers
+            .entry(view)
+            .or_insert_with(|| BufferVec::new(BufferUsages::STORAGE));
+
+        super::batch_and_prepare_sorted_render_phase::<I, GFBD>(&mut phase, |item| {
             let (input_index, compare_data) =
                 GFBD::get_batch_input_index(&system_param_item, item.entity())?;
             let output_index = data_buffer.add() as u32;
@@ -174,38 +184,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
             *item.batch_range_mut() = output_index..output_index + 1;
 
-            if I::AUTOMATIC_BATCHING {
-                compare_data.map(|compare_data| BatchMeta::new(item, compare_data))
-            } else {
-                None
-            }
-        };
-
-    // We only process GPU-built batch data in this function.
-    let BatchedInstanceBuffers {
-        ref mut data_buffer,
-        ref mut work_item_buffers,
-        ..
-    } = gpu_batched_instance_buffers.into_inner();
-
-    for (view, mut phase) in &mut views {
-        // Create the work item buffer if necessary; otherwise, just mark it as
-        // used this frame.
-        let work_item_buffer = work_item_buffers
-            .entry(view)
-            .or_insert_with(|| BufferVec::new(BufferUsages::STORAGE));
-
-        let items = phase.items.iter_mut().map(|item| {
-            let batch_data = process_item(item, data_buffer, work_item_buffer);
-            (item.batch_range_mut(), batch_data)
-        });
-        items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
-            if batch_meta.is_some() && prev_batch_meta == batch_meta {
-                start_range.end = range.end;
-                (start_range, prev_batch_meta)
-            } else {
-                (range, batch_meta)
-            }
+            compare_data
         });
     }
 }
