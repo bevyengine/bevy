@@ -627,7 +627,7 @@ pub struct PreviousViewProjectionUniforms {
 }
 
 #[derive(Component)]
-pub struct PreviousViewProjectionUniformOffset {
+pub struct PreviousViewUniformOffset {
     pub offset: u32,
 }
 
@@ -660,11 +660,9 @@ pub fn prepare_previous_view_uniforms(
             }
         };
 
-        commands
-            .entity(entity)
-            .insert(PreviousViewProjectionUniformOffset {
-                offset: writer.write(&view_projection),
-            });
+        commands.entity(entity).insert(PreviousViewUniformOffset {
+            offset: writer.write(&view_projection),
+        });
     }
 }
 
@@ -924,16 +922,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
-        Option<Read<PreviousViewProjectionUniformOffset>>,
+        Option<Read<PreviousViewUniformOffset>>,
     );
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform_offset, previous_view_projection_uniform_offset): (
+        (view_uniform_offset, previous_view_uniform_offset): (
             &'_ ViewUniformOffset,
-            Option<&'_ PreviousViewProjectionUniformOffset>,
+            Option<&'_ PreviousViewUniformOffset>,
         ),
         _entity: Option<()>,
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
@@ -941,15 +939,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
 
-        if let Some(previous_view_projection_uniform_offset) =
-            previous_view_projection_uniform_offset
-        {
+        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
             pass.set_bind_group(
                 I,
                 prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
                 &[
                     view_uniform_offset.offset,
-                    previous_view_projection_uniform_offset.offset,
+                    previous_view_uniform_offset.offset,
                 ],
             );
         } else {
