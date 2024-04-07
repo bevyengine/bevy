@@ -103,7 +103,7 @@ where
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .init_resource::<PreviousViewProjectionUniforms>();
+            .init_resource::<PreviousViewUniforms>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -633,7 +633,7 @@ pub fn extract_camera_previous_view_data(
 }
 
 #[derive(Resource, Default)]
-pub struct PreviousViewProjectionUniforms {
+pub struct PreviousViewUniforms {
     pub uniforms: DynamicUniformBuffer<PreviousViewData>,
 }
 
@@ -646,13 +646,13 @@ pub fn prepare_previous_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
+    mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
     views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), With<MotionVectorPrepass>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
     let Some(mut writer) =
-        view_uniforms
+        previous_view_uniforms
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
@@ -688,7 +688,7 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
-    previous_view_uniforms: Res<PreviousViewProjectionUniforms>,
+    previous_view_uniforms: Res<PreviousViewUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
