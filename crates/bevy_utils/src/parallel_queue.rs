@@ -71,7 +71,7 @@ impl<T: Default + Send> Parallel<T> {
     /// Get the guard of Parallel
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
-    pub fn guard<'a>(&'a self) -> ParallelGuard<'a, T> {
+    pub fn guard(&self) -> ParallelGuard<'_, T> {
         let cell = self.locals.get_or_default();
         let value = cell.take();
         ParallelGuard {
