@@ -153,9 +153,11 @@ impl InfinitePlane3d {
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
-    pub fn new(normal: Vec3) -> Self {
+    pub fn new(normal: TryInto<Dir3>) -> Self {
         Self {
-            normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
         }
     }
 
