@@ -178,7 +178,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             let output_index = data_buffer.add() as u32;
 
             work_item_buffer.push(PreprocessWorkItem {
-                input_index,
+                input_index: input_index.into(),
                 output_index,
             });
 
@@ -230,7 +230,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 let output_index = data_buffer.add() as u32;
 
                 work_item_buffer.push(PreprocessWorkItem {
-                    input_index,
+                    input_index: input_index.into(),
                     output_index,
                 });
 
@@ -261,7 +261,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 let output_index = data_buffer.add() as u32;
 
                 work_item_buffer.push(PreprocessWorkItem {
-                    input_index,
+                    input_index: input_index.into(),
                     output_index,
                 });
 

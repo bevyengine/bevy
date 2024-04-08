@@ -36,6 +36,7 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
+use nonmax::NonMaxU32;
 use static_assertions::const_assert_eq;
 
 use crate::render::{
@@ -379,7 +380,7 @@ pub struct RenderMeshInstanceGpu {
     /// distance sorting).
     pub translation: Vec3,
     /// The index of the [`MeshInputUniform`] in the buffer.
-    pub current_uniform_index: u32,
+    pub current_uniform_index: NonMaxU32,
 }
 
 /// CPU data that the render world needs to keep about each entity that contains
@@ -778,7 +779,10 @@ fn collect_meshes_for_gpu_building(
                 transform: builder.transform.to_transpose(),
                 lightmap_uv_rect: builder.lightmap_uv_rect,
                 flags: builder.mesh_flags.bits(),
-                previous_input_index: previous_input_index.unwrap_or(u32::MAX),
+                previous_input_index: match previous_input_index {
+                    Some(previous_input_index) => previous_input_index.into(),
+                    None => u32::MAX,
+                },
             }) as u32;
 
             // Record the [`RenderMeshInstance`].
@@ -787,7 +791,8 @@ fn collect_meshes_for_gpu_building(
                 RenderMeshInstanceGpu {
                     translation: builder.transform.translation,
                     shared: builder.shared,
-                    current_uniform_index,
+                    current_uniform_index: NonMaxU32::try_from(current_uniform_index)
+                        .unwrap_or_default(),
                 },
             );
         }
@@ -953,7 +958,7 @@ impl GetFullBatchData for MeshPipeline {
     fn get_index_of_batch_input(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
-    ) -> Option<(u32, Option<Self::CompareData>)> {
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -998,7 +1003,7 @@ impl GetFullBatchData for MeshPipeline {
     fn get_index_of_binned_batch_input(
         (mesh_instances, _): &SystemParamItem<Self::Param>,
         entity: Entity,
-    ) -> Option<u32> {
+    ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(

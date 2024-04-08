@@ -120,7 +120,7 @@ pub trait GetFullBatchData: GetBatchData {
     fn get_index_of_batch_input(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
-    ) -> Option<(u32, Option<Self::CompareData>)>;
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
     /// GPU preprocessing phase will use, for the binning path.
@@ -132,7 +132,7 @@ pub trait GetFullBatchData: GetBatchData {
     fn get_index_of_binned_batch_input(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
-    ) -> Option<u32>;
+    ) -> Option<NonMaxU32>;
 }
 
 /// A system that runs early in extraction and clears out all the
