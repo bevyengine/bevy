@@ -5,11 +5,9 @@ use crate::{
 };
 
 use super::Meshable;
-use bevy_math::{
-    primitives::{
-        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
-        WindingOrder,
-    },
+use bevy_math::primitives::{
+    Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
+    WindingOrder,
 };
 use wgpu::PrimitiveTopology;
 
