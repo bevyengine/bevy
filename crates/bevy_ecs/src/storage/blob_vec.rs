@@ -310,8 +310,11 @@ impl BlobVec {
         // - `new_len` is less than the old len, so it must fit in this vector's allocation.
         // - `size` is a multiple of the erased type's alignment,
         //   so adding a multiple of `size` will preserve alignment.
+        // - The removed element lives as long as this vector's mutable reference.
         let p = unsafe { self.get_ptr_mut().byte_add(new_len * size) };
-        p.promote()
+        // SAFETY: The removed element is unreachable by this vector so it's safe to promote the
+        // `PtrMut` to an `OwningPtr`.
+        unsafe { p.promote() }
     }
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
@@ -364,7 +367,8 @@ impl BlobVec {
         // - The caller ensures that `index` fits in this vector,
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
-        //  so adding a multiple of `size` will preserve alignment.
+        //   so adding a multiple of `size` will preserve alignment.
+        // - The element at `index` outlives this vector's reference.
         unsafe { self.get_ptr().byte_add(index * size) }
     }
 
@@ -380,7 +384,8 @@ impl BlobVec {
         // - The caller ensures that `index` fits in this vector,
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
-        //  so adding a multiple of `size` will preserve alignment.
+        //   so adding a multiple of `size` will preserve alignment.
+        // - The element at `index` outlives this vector's mutable reference.
         unsafe { self.get_ptr_mut().byte_add(index * size) }
     }
 
@@ -422,6 +427,7 @@ impl BlobVec {
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
                 // * `size` is a multiple of the erased type's alignment,
                 //   so adding a multiple of `size` will preserve alignment.
+                // * The item lives until it's dropped.
                 // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
                 // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
                 // would panic due to `self.len` being set to 0.
