@@ -1484,6 +1484,16 @@ impl RenderAsset for GpuMesh {
             Self::Param,
         >,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let morph_targets = match mesh.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
@@ -1520,10 +1530,7 @@ impl RenderAsset for GpuMesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            morph_targets: mesh
-                .morph_targets
-                .as_ref()
-                .and_then(|mt| images.get(mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }

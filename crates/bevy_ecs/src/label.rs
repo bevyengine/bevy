@@ -63,7 +63,7 @@ where
 /// # Example
 ///
 /// ```
-/// # use bevy_utils::define_label;
+/// # use bevy_ecs::define_label;
 /// define_label!(
 ///     /// Documentation of label trait
 ///     MyNewLabelTrait,
@@ -125,7 +125,7 @@ macro_rules! define_label {
             /// Feeds this value into the given [`Hasher`].
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
 
-            /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.
+            /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
             where Self: Sized {
                 $interner_name.intern(self)
@@ -175,7 +175,7 @@ macro_rules! define_label {
 
             fn ref_eq(&self, other: &Self) -> bool {
                 if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
-                    (self as *const Self as *const ()) == (other as *const Self as *const ())
+                    (self as *const Self).cast::<()>() == (other as *const Self).cast::<()>()
                 } else {
                     false
                 }
@@ -184,7 +184,7 @@ macro_rules! define_label {
             fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
                 use ::std::hash::Hash;
                 self.as_dyn_eq().type_id().hash(state);
-                (self as *const Self as *const ()).hash(state);
+                (self as *const Self).cast::<()>().hash(state);
             }
         }
 
