@@ -480,12 +480,12 @@ pub enum RenderMeshInstances {
 /// Information that the render world keeps about each entity that contains a
 /// mesh, when using CPU mesh instance data building.
 #[derive(Default, Deref, DerefMut)]
-struct RenderMeshInstancesCpu(EntityHashMap<RenderMeshInstanceCpu>);
+pub struct RenderMeshInstancesCpu(EntityHashMap<RenderMeshInstanceCpu>);
 
 /// Information that the render world keeps about each entity that contains a
 /// mesh, when using GPU mesh instance data building.
 #[derive(Default, Deref, DerefMut)]
-struct RenderMeshInstancesGpu(EntityHashMap<RenderMeshInstanceGpu>);
+pub struct RenderMeshInstancesGpu(EntityHashMap<RenderMeshInstanceGpu>);
 
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
@@ -507,7 +507,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    /*pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -516,7 +516,7 @@ impl RenderMeshInstances {
                 instances.render_mesh_queue_data(entity)
             }
         }
-    }*/
+    }
 }
 
 pub(crate) trait RenderMeshInstancesTable {
