@@ -7,11 +7,13 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub(crate) use column::*;
-use std::{alloc::Layout, num::NonZeroUsize};
+use std::{alloc::Layout, any::Any, num::NonZeroUsize, ptr::NonNull};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
 };
+
+use super::blob_array::BlobArray;
 
 mod column;
 
@@ -148,8 +150,8 @@ impl TableRow {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub struct TableBuilder {
-    columns: SparseSet<ComponentId, ColumnWIP<false>>,
-    zst_columns: SparseSet<ComponentId, ColumnWIP<true>>,
+    columns: SparseSet<ComponentId, ThinColumn<false>>,
+    zst_columns: SparseSet<ComponentId, ThinColumn<true>>,
     capacity: usize,
 }
 
@@ -194,8 +196,8 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ColumnWIP<false>>,
-    zst_columns: ImmutableSparseSet<ComponentId, ColumnWIP<true>>,
+    columns: ImmutableSparseSet<ComponentId, ThinColumn<false>>,
+    zst_columns: ImmutableSparseSet<ComponentId, ThinColumn<true>>,
     entities: Vec<Entity>,
 }
 
@@ -266,7 +268,7 @@ impl Table {
         let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
                     column,
                     other_last_element_index,
@@ -279,7 +281,7 @@ impl Table {
             }
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
-            if let Some(new_column) = new_table.get_zst_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
                     zst_column,
                     other_last_element_index,
@@ -318,7 +320,7 @@ impl Table {
         let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
                     column,
                     other_last_element_index,
@@ -330,7 +332,7 @@ impl Table {
             }
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
-            if let Some(new_column) = new_table.get_zst_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
                     zst_column,
                     other_last_element_index,
@@ -348,6 +350,30 @@ impl Table {
             } else {
                 Some(self.entities[row.as_usize()])
             },
+        }
+    }
+
+    pub unsafe fn initialize_component(
+        &mut self,
+        row: TableRow,
+        component_id: ComponentId,
+        comp_ptr: OwningPtr<'_>,
+        change_tick: Tick,
+    ) {
+        if let Some(col) = self.get_thin_column_mut(component_id) {
+            col.initialize(row, comp_ptr, change_tick)
+        }
+    }
+
+    pub unsafe fn replace_component(
+        &mut self,
+        row: TableRow,
+        component_id: ComponentId,
+        comp_ptr: OwningPtr<'_>,
+        change_tick: Tick,
+    ) {
+        if let Some(col) = self.get_thin_column_mut(component_id) {
+            col.replace(row, comp_ptr, change_tick)
         }
     }
 
@@ -369,13 +395,13 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
-                .get_column_mut(*component_id)
+                .get_thin_column_mut(*component_id)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, other_last_element_index, row, new_row);
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
             new_table
-                .get_zst_column_mut(*component_id)
+                .get_thin_zst_column_mut(*component_id)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(zst_column, other_last_element_index, row, new_row);
         }
@@ -389,6 +415,100 @@ impl Table {
         }
     }
 
+    // TODO: Docs
+    /// # Safety
+    /// - `T` must match the `component_id`
+    pub unsafe fn get_column_data_slice<T>(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&[UnsafeCell<T>]> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return Some(col.data.get_sub_slice(self.len()));
+        }
+        self.get_thin_zst_column(component_id)
+            .map(|col| col.data.get_sub_slice(self.len()))
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// - `T` must match the `component_id`
+    pub unsafe fn get_column_added_ticks(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&[UnsafeCell<Tick>]> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return Some(col.added_ticks.to_slice(self.len()));
+        }
+        self.get_thin_zst_column(component_id)
+            .map(|col| col.added_ticks.to_slice(self.len()))
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// - `T` must match the `component_id`
+    pub unsafe fn get_column_changed_ticks(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&[UnsafeCell<Tick>]> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return Some(col.changed_ticks.to_slice(self.len()));
+        }
+        self.get_thin_zst_column(component_id)
+            .map(|col| col.changed_ticks.to_slice(self.len()))
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// - `T` must match the `component_id`
+    pub unsafe fn get_column_changed_tick(
+        &self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> &UnsafeCell<Tick> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return col.changed_ticks.get_unchecked(row.as_usize());
+        }
+        self.get_thin_zst_column(component_id)
+            .debug_checked_unwrap()
+            .changed_ticks
+            .get_unchecked(row.as_usize())
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// - `T` must match the `component_id`
+    pub unsafe fn get_column_added_tick(
+        &self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> &UnsafeCell<Tick> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return col.added_ticks.get_unchecked(row.as_usize());
+        }
+        self.get_thin_zst_column(component_id)
+            .debug_checked_unwrap()
+            .added_ticks
+            .get_unchecked(row.as_usize())
+    }
+
+    pub unsafe fn get_ticks_unchecked(
+        &self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> Option<ComponentTicks> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return Some(ComponentTicks {
+                added: col.added_ticks.get_unchecked(row.as_usize()).read(),
+                changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
+            });
+        }
+        self.get_thin_zst_column(component_id)
+            .map(|col| ComponentTicks {
+                added: col.added_ticks.get_unchecked(row.as_usize()).read(),
+                changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
+            })
+    }
+
     /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the
     /// table.
     ///
@@ -396,7 +516,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&ColumnWIP<false>> {
+    pub fn get_thin_column(&self, component_id: ComponentId) -> Option<&ThinColumn<false>> {
         self.columns.get(component_id)
     }
 
@@ -407,10 +527,10 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(
+    pub(crate) fn get_thin_column_mut(
         &mut self,
         component_id: ComponentId,
-    ) -> Option<&mut ColumnWIP<false>> {
+    ) -> Option<&mut ThinColumn<false>> {
         self.columns.get_mut(component_id)
     }
 
@@ -421,7 +541,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_zst_column(&self, component_id: ComponentId) -> Option<&ColumnWIP<true>> {
+    pub fn get_thin_zst_column(&self, component_id: ComponentId) -> Option<&ThinColumn<true>> {
         self.zst_columns.get(component_id)
     }
 
@@ -432,10 +552,10 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_zst_column_mut(
+    pub(crate) fn get_thin_zst_column_mut(
         &mut self,
         component_id: ComponentId,
-    ) -> Option<&mut ColumnWIP<true>> {
+    ) -> Option<&mut ThinColumn<true>> {
         self.zst_columns.get_mut(component_id)
     }
 
@@ -560,12 +680,12 @@ impl Table {
     }
 
     /// Iterates over the [`Column`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ColumnWIP<false>> {
+    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn<false>> {
         self.columns.values()
     }
 
     /// Iterates over the ZST [`Column`]s of the [`Table`].
-    pub fn iter_zst_columns(&self) -> impl Iterator<Item = &ColumnWIP<true>> {
+    pub fn iter_zst_columns(&self) -> impl Iterator<Item = &ThinColumn<true>> {
         self.zst_columns.values()
     }
 
@@ -580,6 +700,45 @@ impl Table {
             unsafe { zst_column.clear(len) };
         }
         self.entities.clear();
+    }
+
+    /// Moves component data out of the [`Table`].
+    ///
+    /// This function leaves the underlying memory unchanged, but the component behind
+    /// returned pointer is semantically owned by the caller and will not be dropped in its original location.
+    /// Caller is responsible to drop component data behind returned pointer.
+    ///
+    /// # Safety
+    /// - this table must hold the component matching `component_id`
+    /// - `row` must be in bounds
+    pub unsafe fn take_component(
+        &mut self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> OwningPtr<'_> {
+        if let Some(col) = self.get_thin_column_mut(component_id) {
+            return col.data.get_unchecked_mut(row.as_usize()).promote();
+        }
+        // TODO: ___ THIS IS A PLACE HOLDER TO TEST!!!! ____
+        OwningPtr::new(NonNull::dangling())
+    }
+
+    pub unsafe fn get_component(&self, component_id: ComponentId, row: TableRow) -> Ptr<'_> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return col.data.get_unchecked(row.as_usize());
+        }
+        self.get_thin_zst_column(component_id)
+            .debug_checked_unwrap()
+            .data
+            .get_unchecked(row.as_usize())
+    }
+
+    pub unsafe fn get_column_raw_parts(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&ColumnRawParts> {
+        // Some(ColumnRawParts { len: self.len(), data: self.get_column_data_slice(component_id), added_ticks: (), changed_ticks: () })
+        todo!()
     }
 }
 
@@ -735,7 +894,7 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table.get_column_mut(component_id).unwrap().initialize(
+                    table.get_thin_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
                         Tick::new(0),

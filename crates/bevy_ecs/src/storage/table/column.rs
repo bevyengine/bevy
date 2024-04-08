@@ -4,8 +4,23 @@ use crate::storage::{
     thin_array_ptr::ThinArrayPtr,
 };
 
-// TODO: Docs
-pub struct ColumnWIP<const IS_ZST: bool> {
+pub struct ColumnRawParts<'a> {
+    pub len: usize,
+    pub data: BlobArray,
+    pub added_ticks: &'a [UnsafeCell<Tick>],
+    pub changed_ticks: &'a [UnsafeCell<Tick>],
+}
+
+/// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+/// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
+///
+/// [`ThinColumn`] makes a compile-time distinction between [`ZST`] types, and non-[`ZST`] types - for performance reasons.
+/// It's also much less flexible when it comes to allocations.
+///
+/// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
+/// interface. It's highly advised to use higher level types and their safe abstractions
+/// instead of working directly with [`ThinColumn`].
+pub struct ThinColumn<const IS_ZST: bool> {
     pub(super) data: BlobArray<IS_ZST>,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
@@ -13,11 +28,11 @@ pub struct ColumnWIP<const IS_ZST: bool> {
 
 #[doc(hidden)]
 pub enum ColumnCreationResult {
-    ZST(ColumnWIP<true>),
-    NotZST(ColumnWIP<false>),
+    ZST(ThinColumn<true>),
+    NotZST(ThinColumn<false>),
 }
 
-/// Create a new [`Column`] for the given [`ComponentInfo`] with some `capacity`
+/// Create a new [`ThinColumn`] for the given [`ComponentInfo`] with some `capacity`
 pub(super) fn column_with_capacity(
     capacity: usize,
     component_info: &ComponentInfo,
@@ -32,13 +47,13 @@ pub(super) fn column_with_capacity(
             if let Some(cap) = NonZeroUsize::new(capacity) {
                 data.alloc(cap);
             }
-            ColumnCreationResult::NotZST(ColumnWIP {
+            ColumnCreationResult::NotZST(ThinColumn {
                 data,
                 added_ticks,
                 changed_ticks,
             })
         }
-        BlobArrayCreation::ZST(data) => ColumnCreationResult::ZST(ColumnWIP {
+        BlobArrayCreation::ZST(data) => ColumnCreationResult::ZST(ThinColumn {
             data,
             added_ticks,
             changed_ticks,
@@ -46,7 +61,7 @@ pub(super) fn column_with_capacity(
     }
 }
 
-impl<const IS_ZST: bool> ColumnWIP<IS_ZST> {
+impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
@@ -144,7 +159,7 @@ impl<const IS_ZST: bool> ColumnWIP<IS_ZST> {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut ColumnWIP<IS_ZST>,
+        other: &mut ThinColumn<IS_ZST>,
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,

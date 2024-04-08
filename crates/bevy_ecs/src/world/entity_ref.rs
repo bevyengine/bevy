@@ -2385,16 +2385,11 @@ pub(crate) unsafe fn take_component<'a>(
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &mut storages.tables[location.table_id];
-            let components = table.get_column_mut(component_id).unwrap();
             // SAFETY:
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            unsafe {
-                components
-                    .get_data_unchecked_mut(location.table_row)
-                    .promote()
-            }
+            unsafe { table.take_component(component_id, location.table_row) }
         }
         StorageType::SparseSet => storages
             .sparse_sets

@@ -2,6 +2,10 @@ use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
 
+use bevy_ptr::ThinSlicePtr;
+
+use crate::query::DebugCheckedUnwrap;
+
 // TODO: Better docs
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
 /// Similar to [`ThinSlicePtr`], but [`ThinArrayPtr`] supports reallocs (extending / shrinking the array), and swap-removes.
@@ -69,7 +73,7 @@ impl<T> ThinArrayPtr<T> {
             realloc(
                 self.data.cast().as_ptr(),
                 // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
-                Layout::array::<T>(current_capacity.get()).unwrap_unchecked(),
+                Layout::array::<T>(current_capacity.get()).debug_checked_unwrap(),
                 new_layout.size(),
             )
         })
@@ -336,6 +340,18 @@ impl<T> ThinArrayPtr<T> {
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
             std::alloc::dealloc(self.data.as_ptr().cast(), layout);
         }
+    }
+
+    // TODO: Docs
+    /// # Safety
+    /// - `slice_len` must match the actual length of the array
+    /// but if `slice_len` will be smaller, the slice will just be smaller than need be - no UB
+    pub unsafe fn to_slice<'a>(&'a self, slice_len: usize) -> &'a [T] {
+        // SAFETY:
+        // - the data is valid - allocated with the same allocater
+        // - non-null and well-aligned
+        // - we have a shared refernce to self - the data will not be mutated during 'a
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
     }
 }
 
