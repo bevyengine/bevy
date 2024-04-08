@@ -1,4 +1,9 @@
 use core::cell::Cell;
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+    ptr::drop_in_place,
+};
 use thread_local::ThreadLocal;
 
 /// A cohesive set of thread-local values of a given type.
@@ -9,6 +14,37 @@ pub struct Parallel<T: Send> {
     locals: ThreadLocal<Cell<T>>,
 }
 
+/// A scope guard of a `Parallel`, when this struct is dropped ,the value will writeback to its `Parallel`
+pub struct ParallelGuard<'a, T: Send + Default> {
+    value: T,
+    parallel: &'a Parallel<T>,
+}
+impl<'a, T: Send + Default> Drop for ParallelGuard<'a, T> {
+    fn drop(&mut self) {
+        let cell = self.parallel.locals.get().unwrap();
+        let mut value = T::default();
+        std::mem::swap(&mut value, &mut self.value);
+        cell.set(value);
+        // SAFETY:
+        // value is longer needed
+        unsafe {
+            drop_in_place(&mut self.value);
+        }
+    }
+}
+impl<'a, T: Send + Default> Deref for ParallelGuard<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+impl<'a, T: Send + Default> DerefMut for ParallelGuard<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
@@ -31,6 +67,18 @@ impl<T: Default + Send> Parallel<T> {
         let ret = f(&mut value);
         cell.set(value);
         ret
+    }
+
+    /// Get the guard of Parallel
+    ///
+    /// If there is no thread-local value, it will be initialized to it's default.
+    pub fn guard<'a>(&'a self) -> ParallelGuard<'a, T> {
+        let cell = self.locals.get_or_default();
+        let value = cell.take();
+        ParallelGuard {
+            value,
+            parallel: self,
+        }
     }
 }
 

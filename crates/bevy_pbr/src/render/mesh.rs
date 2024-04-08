@@ -284,8 +284,10 @@ pub fn extract_meshes(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_with_init(
+        || thread_local_queues.guard(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -317,18 +319,16 @@ pub fn extract_meshes(
                 previous_transform: (&previous_transform).into(),
                 flags: flags.bits(),
             };
-            thread_local_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    RenderMeshInstance {
-                        mesh_asset_id: handle.id(),
-                        transforms,
-                        shadow_caster: !not_shadow_caster,
-                        material_bind_group_id: AtomicMaterialBindGroupId::default(),
-                        automatic_batching: !no_automatic_batching,
-                    },
-                ));
-            });
+            queue.push((
+                entity,
+                RenderMeshInstance {
+                    mesh_asset_id: handle.id(),
+                    transforms,
+                    shadow_caster: !not_shadow_caster,
+                    material_bind_group_id: AtomicMaterialBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                },
+            ));
         },
     );
 

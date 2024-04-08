@@ -109,6 +109,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+        self.for_each_with_init(|| {}, |_, item| func(item))
+    }
+
+    /// Runs `func` on each query result in parallel on a value returned by `init`.
+    ///
+    /// Like rayon, `init` function will be called only when necessary for a value to
+    /// be paired with the group of items in each bevy's task.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    pub fn for_each_with_init<FN, INIT, T>(self, init: INIT, func: FN)
+    where
+        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        INIT: Fn() -> T + Sync + Send + Clone,
+    {
+        let func = |mut init, item| {
+            func(&mut init, item);
+            init
+        };
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         {
             // SAFETY:
@@ -118,9 +140,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
+                let init = init();
                 self.state
                     .iter_unchecked_manual(self.world, self.last_run, self.this_run)
-                    .for_each(func);
+                    .fold(init, func);
             }
         }
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
@@ -129,16 +152,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             if thread_count <= 1 {
                 // SAFETY: See the safety comment above.
                 unsafe {
+                    let init = init();
                     self.state
                         .iter_unchecked_manual(self.world, self.last_run, self.this_run)
-                        .for_each(func);
+                        .fold(init, func);
                 }
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.par_for_each_unchecked_manual(
+                    self.state.par_fold_init_unchecked_manual(
+                        init,
                         self.world,
                         batch_size,
                         func,

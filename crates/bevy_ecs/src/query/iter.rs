@@ -41,54 +41,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
-    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
-    /// from a table.
-    ///
-    /// # Safety
-    ///  - all `rows` must be in `[0, table.entity_count)`.
-    ///  - `table` must match D and F
-    ///  - Both `D::IS_DENSE` and `F::IS_DENSE` must be true.
-    #[inline]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    pub(super) unsafe fn for_each_in_table_range<Func>(
-        &mut self,
-        func: &mut Func,
-        table: &'w Table,
-        rows: Range<usize>,
-    ) where
-        Func: FnMut(D::Item<'w>),
-    {
-        // SAFETY: Caller assures that D::IS_DENSE and F::IS_DENSE are true, that table matches D and F
-        // and all indices in rows are in range.
-        unsafe {
-            self.fold_over_table_range((), &mut |_, item| func(item), table, rows);
-        }
-    }
-
-    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
-    /// from an archetype.
-    ///
-    /// # Safety
-    ///  - all `indices` must be in `[0, archetype.len())`.
-    ///  - `archetype` must match D and F
-    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
-    #[inline]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    pub(super) unsafe fn for_each_in_archetype_range<Func>(
-        &mut self,
-        func: &mut Func,
-        archetype: &'w Archetype,
-        rows: Range<usize>,
-    ) where
-        Func: FnMut(D::Item<'w>),
-    {
-        // SAFETY: Caller assures that either D::IS_DENSE or F::IS_DENSE are false, that archetype matches D and F
-        // and all indices in rows are in range.
-        unsafe {
-            self.fold_over_archetype_range((), &mut |_, item| func(item), archetype, rows);
-        }
-    }
-
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
