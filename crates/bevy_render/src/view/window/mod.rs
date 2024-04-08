@@ -4,10 +4,12 @@ use crate::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+#[cfg(target_os = "linux")]
+use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
@@ -35,7 +37,7 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
@@ -51,7 +53,7 @@ impl Plugin for WindowRenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
@@ -198,7 +200,7 @@ fn extract_windows(
 
 struct SurfaceData {
     // TODO: what lifetime should this be?
-    surface: wgpu::Surface<'static>,
+    surface: WgpuWrapper<wgpu::Surface<'static>>,
     configuration: SurfaceConfiguration,
 }
 
@@ -215,6 +217,9 @@ impl WindowSurfaces {
         self.configured_windows.remove(window);
     }
 }
+
+#[cfg(target_os = "linux")]
+const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
@@ -304,18 +309,40 @@ pub fn prepare_windows(
                 })
         };
 
+        #[cfg(target_os = "linux")]
+        let is_nvidia = || {
+            render_instance
+                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
+                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
+        };
+
         let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
-            window.set_swapchain_texture(frame);
+            match surface.get_current_texture() {
+                Ok(frame) => window.set_swapchain_texture(frame),
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
+                }
+                Err(err) => panic!("Error configuring surface: {err}"),
+            };
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
                     window.set_swapchain_texture(frame);
+                }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_data.configuration);
@@ -488,7 +515,7 @@ pub fn create_surfaces(
                 render_device.configure_surface(&surface, &configuration);
 
                 SurfaceData {
-                    surface,
+                    surface: WgpuWrapper::new(surface),
                     configuration,
                 }
             });

@@ -45,6 +45,8 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);

@@ -1,11 +1,18 @@
+#[cfg(feature = "meshlet")]
+use crate::meshlet::{
+    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
+    MeshletGpuScene,
+};
 use crate::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
-        Transparent3d,
+        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
+        Transmissive3d, Transparent3d,
     },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -170,6 +177,36 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh prepass fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh deferred fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
@@ -216,7 +253,7 @@ where
         app.init_asset::<M>()
             .add_plugins(ExtractInstancesPlugin::<AssetId<M>>::extract_visible());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
@@ -248,6 +285,18 @@ where
                         .after(prepare_materials::<M>),),
                 );
             }
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                (
+                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
+                    queue_material_meshlet_meshes::<M>,
+                )
+                    .chain()
+                    .in_set(RenderSet::Queue)
+                    .run_if(resource_exists::<MeshletGpuScene>),
+            );
         }
 
         if self.shadows_enabled || self.prepass_enabled {
@@ -261,7 +310,7 @@ where
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<MaterialPipeline<M>>();
         }
     }
@@ -494,10 +543,10 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transmissive3d>,
-        &mut RenderPhase<Transparent3d>,
+        &mut BinnedRenderPhase<Opaque3d>,
+        &mut BinnedRenderPhase<AlphaMask3d>,
+        &mut SortedRenderPhase<Transmissive3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -612,30 +661,15 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
 
-            let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
-                OpaqueRendererMethod::Deferred => false,
-                OpaqueRendererMethod::Auto => unreachable!(),
-            };
+            let mut mesh_key = view_key
+                | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                | material.properties.mesh_pipeline_key_bits;
 
-            let mut mesh_key = view_key;
-
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-            }
-
-            if material.properties.reads_view_transmission_texture {
-                mesh_key |= MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE;
-            }
-
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
-
-            if render_lightmaps
+            let lightmap_image = render_lightmaps
                 .render_lightmaps
-                .contains_key(visible_entity)
-            {
+                .get(visible_entity)
+                .map(|lightmap| lightmap.image);
+            if lightmap_image.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -674,15 +708,15 @@ pub fn queue_material_meshes<M: Material>(
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
-                    } else if forward {
-                        opaque_phase.add(Opaque3d {
-                            entity: *visible_entity,
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let bin_key = Opaque3dBinKey {
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                            lightmap_image,
+                        };
+                        opaque_phase.add(bin_key, *visible_entity, mesh_instance.should_batch());
                     }
                 }
                 AlphaMode::Mask(_) => {
@@ -698,15 +732,18 @@ pub fn queue_material_meshes<M: Material>(
                             batch_range: 0..1,
                             dynamic_offset: None,
                         });
-                    } else if forward {
-                        alpha_mask_phase.add(AlphaMask3d {
-                            entity: *visible_entity,
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let bin_key = OpaqueNoLightmap3dBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                            material_bind_group_id: material.get_bind_group_id().0,
+                        };
+                        alpha_mask_phase.add(
+                            bin_key,
+                            *visible_entity,
+                            mesh_instance.should_batch(),
+                        );
                     }
                 }
                 AlphaMode::Blend
@@ -770,7 +807,7 @@ impl DefaultOpaqueRendererMethod {
 /// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained devices.
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
-#[derive(Default, Clone, Copy, Debug, Reflect)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
@@ -785,6 +822,11 @@ pub struct MaterialProperties {
     pub render_method: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
+    /// The bits in the [`MeshPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material_meshes`].
+    pub mesh_pipeline_key_bits: MeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
@@ -1008,6 +1050,14 @@ fn prepare_material<M: Material>(
         OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
         OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
+
+    let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
+    mesh_pipeline_key_bits.set(
+        MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
+        material.reads_view_transmission_texture(),
+    );
+    mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
+
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
@@ -1015,8 +1065,10 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            reads_view_transmission_texture: material.reads_view_transmission_texture(),
+            reads_view_transmission_texture: mesh_pipeline_key_bits
+                .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
             render_method: method,
+            mesh_pipeline_key_bits,
         },
     })
 }

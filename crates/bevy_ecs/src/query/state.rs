@@ -21,6 +21,25 @@ use super::{
     QuerySingleError, ROQueryItem,
 };
 
+/// An ID for either a table or an archetype. Used for Query iteration.
+///
+/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
+/// both `D::IS_DENSE` and `F::IS_DENSE` are true or not.
+///
+/// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
+/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
+/// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
+/// a safety invariant be verified when disambiguating them.
+///
+/// # Safety
+/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
+/// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
+#[derive(Clone, Copy)]
+pub(super) union StorageId {
+    pub(super) table_id: TableId,
+    pub(super) archetype_id: ArchetypeId,
+}
+
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
 ///
 /// This data is cached between system runs, and is used to:
@@ -47,10 +66,8 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
     pub(crate) component_access: FilteredAccess<ComponentId>,
-    // NOTE: we maintain both a TableId bitset and a vec because iterating the vec is faster
-    pub(crate) matched_table_ids: Vec<TableId>,
-    // NOTE: we maintain both a ArchetypeId bitset and a vec because iterating the vec is faster
-    pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
+    // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
+    pub(super) matched_storage_ids: Vec<StorageId>,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
@@ -61,8 +78,11 @@ impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
-            .field("matched_table_count", &self.matched_table_ids.len())
-            .field("matched_archetype_count", &self.matched_archetype_ids.len())
+            .field("matched_table_count", &self.matched_tables.count_ones(..))
+            .field(
+                "matched_archetype_count",
+                &self.matched_archetypes.count_ones(..),
+            )
             .finish_non_exhaustive()
     }
 }
@@ -86,7 +106,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This doesn't use `NopWorldQuery` as it loses filter functionality, for example
     /// `NopWorldQuery<Changed<T>>` is functionally equivalent to `With<T>`.
-    pub fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
+    pub(crate) fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `D` for table/archetype matching
         unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F>() }
@@ -116,13 +136,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns the tables matched by this query.
-    pub fn matched_tables(&self) -> &[TableId] {
-        &self.matched_table_ids
+    pub fn matched_tables(&self) -> impl Iterator<Item = TableId> + '_ {
+        self.matched_tables.ones().map(TableId::from_usize)
     }
 
     /// Returns the archetypes matched by this query.
-    pub fn matched_archetypes(&self) -> &[ArchetypeId] {
-        &self.matched_archetype_ids
+    pub fn matched_archetypes(&self) -> impl Iterator<Item = ArchetypeId> + '_ {
+        self.matched_archetypes.ones().map(ArchetypeId::new)
     }
 }
 
@@ -173,8 +193,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_table_ids: Vec::new(),
-            matched_archetype_ids: Vec::new(),
+            matched_storage_ids: Vec::new(),
             fetch_state,
             filter_state,
             component_access,
@@ -198,8 +217,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_table_ids: Vec::new(),
-            matched_archetype_ids: Vec::new(),
+            matched_storage_ids: Vec::new(),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),
@@ -241,6 +259,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 last_run,
                 this_run,
             )
+        }
+    }
+
+    /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    #[inline]
+    pub fn contains(&self, entity: Entity, world: &World, last_run: Tick, this_run: Tick) -> bool {
+        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        unsafe {
+            self.as_nop()
+                .get_unchecked_manual(
+                    world.as_unsafe_world_cell_readonly(),
+                    entity,
+                    last_run,
+                    this_run,
+                )
+                .is_ok()
         }
     }
 
@@ -358,12 +394,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                self.matched_archetype_ids.push(archetype.id());
+                if !D::IS_DENSE || !F::IS_DENSE {
+                    self.matched_storage_ids.push(StorageId {
+                        archetype_id: archetype.id(),
+                    });
+                }
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                self.matched_table_ids.push(archetype.table_id());
+                if D::IS_DENSE && F::IS_DENSE {
+                    self.matched_storage_ids.push(StorageId {
+                        table_id: archetype.table_id(),
+                    });
+                }
             }
             true
         } else {
@@ -444,8 +488,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_table_ids: self.matched_table_ids.clone(),
-            matched_archetype_ids: self.matched_archetype_ids.clone(),
+            matched_storage_ids: self.matched_storage_ids.clone(),
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -535,24 +578,30 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         // take the intersection of the matched ids
-        let matched_tables: FixedBitSet = self
-            .matched_tables
-            .intersection(&other.matched_tables)
-            .collect();
-        let matched_table_ids: Vec<TableId> =
-            matched_tables.ones().map(TableId::from_usize).collect();
-        let matched_archetypes: FixedBitSet = self
-            .matched_archetypes
-            .intersection(&other.matched_archetypes)
-            .collect();
-        let matched_archetype_ids: Vec<ArchetypeId> =
-            matched_archetypes.ones().map(ArchetypeId::new).collect();
+        let mut matched_tables = self.matched_tables.clone();
+        let mut matched_archetypes = self.matched_archetypes.clone();
+        matched_tables.intersect_with(&other.matched_tables);
+        matched_archetypes.intersect_with(&other.matched_archetypes);
+        let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
+            matched_tables
+                .ones()
+                .map(|id| StorageId {
+                    table_id: TableId::from_usize(id),
+                })
+                .collect()
+        } else {
+            matched_archetypes
+                .ones()
+                .map(|id| StorageId {
+                    archetype_id: ArchetypeId::new(id),
+                })
+                .collect()
+        };
 
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_table_ids,
-            matched_archetype_ids,
+            matched_storage_ids,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -570,6 +619,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
@@ -642,6 +693,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_mut<'w>(
         &mut self,
@@ -733,6 +786,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// access to `self`.
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get_manual<'w>(
         &self,
@@ -753,6 +808,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -769,6 +826,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -849,6 +908,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1326,60 +1387,99 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            if D::IS_DENSE && F::IS_DENSE {
-                // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = unsafe { &world.storages().tables };
-                for table_id in &self.matched_table_ids {
-                    let table = &tables[*table_id];
-                    if table.is_empty() {
-                        continue;
-                    }
+        use arrayvec::ArrayVec;
 
-                    let mut offset = 0;
-                    while offset < table.entity_count() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(table.entity_count() - offset);
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
-                            let table = &world
-                                .storages()
-                                .tables
-                                .get(*table_id)
-                                .debug_checked_unwrap();
-                            let batch = offset..offset + len;
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+            let tables = unsafe { &world.storages().tables };
+            let archetypes = world.archetypes();
+            let mut batch_queue = ArrayVec::new();
+            let mut queue_entity_count = 0;
+
+            // submit a list of storages which smaller than batch_size as single task
+            let submit_batch_queue = |queue: &mut ArrayVec<StorageId, 128>| {
+                if queue.is_empty() {
+                    return;
+                }
+                let queue = std::mem::take(queue);
+                let mut func = func.clone();
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                    for storage_id in queue {
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let id = storage_id.table_id;
+                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
+                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count());
+                        } else {
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
+                            iter.for_each_in_archetype_range(
+                                &mut func,
+                                archetype,
+                                0..archetype.len(),
+                            );
+                        }
+                    }
+                });
+            };
+
+            // submit single storage larger than batch_size
+            let submit_single = |count, storage_id: StorageId| {
+                for offset in (0..count).step_by(batch_size) {
+                    let mut func = func.clone();
+                    let len = batch_size.min(count - offset);
+                    let batch = offset..offset + len;
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = self.par_iter_span.enter();
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let id = storage_id.table_id;
+                            let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_table_range(&mut func, table, batch);
-                        });
-                        offset += batch_size;
-                    }
-                }
-            } else {
-                let archetypes = world.archetypes();
-                for archetype_id in &self.matched_archetype_ids {
-                    let mut offset = 0;
-                    let archetype = &archetypes[*archetype_id];
-                    if archetype.is_empty() {
-                        continue;
-                    }
-
-                    while offset < archetype.len() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(archetype.len() - offset);
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
-                            let archetype =
-                                world.archetypes().get(*archetype_id).debug_checked_unwrap();
-                            let batch = offset..offset + len;
+                        } else {
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
                                 .for_each_in_archetype_range(&mut func, archetype, batch);
-                        });
-                        offset += batch_size;
-                    }
+                        }
+                    });
+                }
+            };
+
+            let storage_entity_count = |storage_id: StorageId| -> usize {
+                if D::IS_DENSE && F::IS_DENSE {
+                    tables[storage_id.table_id].entity_count()
+                } else {
+                    archetypes[storage_id.archetype_id].len()
+                }
+            };
+
+            for storage_id in &self.matched_storage_ids {
+                let count = storage_entity_count(*storage_id);
+
+                // skip empty storage
+                if count == 0 {
+                    continue;
+                }
+                // immediately submit large storage
+                if count >= batch_size {
+                    submit_single(count, *storage_id);
+                    continue;
+                }
+                // merge small storage
+                batch_queue.push(*storage_id);
+                queue_entity_count += count;
+
+                // submit batch_queue
+                if queue_entity_count >= batch_size || batch_queue.is_full() {
+                    submit_batch_queue(&mut batch_queue);
+                    queue_entity_count = 0;
                 }
             }
+            submit_batch_queue(&mut batch_queue);
         });
     }
 

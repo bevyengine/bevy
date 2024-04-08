@@ -1,6 +1,6 @@
 use crate::{
-    config::GizmoMeshConfig, line_gizmo_vertex_buffer_layouts,
-    line_joint_gizmo_vertex_buffer_layouts, prelude::GizmoLineJoint, DrawLineGizmo,
+    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
+    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
     DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
@@ -21,7 +21,7 @@ use bevy_ecs::{
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -32,7 +32,7 @@ use bevy_utils::tracing::error;
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -43,7 +43,9 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos3d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
@@ -54,7 +56,7 @@ impl Plugin for LineGizmo3dPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -86,6 +88,7 @@ struct LineGizmoPipelineKey {
     view_key: MeshPipelineKey,
     strip: bool,
     perspective: bool,
+    line_style: GizmoLineStyle,
 }
 
 impl SpecializedRenderPipeline for LineGizmoPipeline {
@@ -114,6 +117,11 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         let layout = vec![view_layout, self.uniform_layout.clone()];
 
+        let fragment_entry_point = match key.line_style {
+            GizmoLineStyle::Solid => "fragment_solid",
+            GizmoLineStyle::Dotted => "fragment_dotted",
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: LINE_SHADER_HANDLE,
@@ -124,7 +132,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE,
                 shader_defs,
-                entry_point: "fragment".into(),
+                entry_point: fragment_entry_point.into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -273,7 +281,7 @@ fn queue_line_gizmos_3d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
@@ -329,6 +337,7 @@ fn queue_line_gizmos_3d(
                     view_key,
                     strip: line_gizmo.strip,
                     perspective: config.line_perspective,
+                    line_style: config.line_style,
                 },
             );
 
@@ -355,7 +364,7 @@ fn queue_line_joint_gizmos_3d(
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
