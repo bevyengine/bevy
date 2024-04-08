@@ -958,14 +958,15 @@ impl GetBatchData for MeshPipeline {
 impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
-    fn get_batch_input_index(
+    fn get_index_of_batch_input(
         (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(u32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
-                "`get_batch_input_index` should never be called in CPU mesh uniform building mode"
+                "`get_index_of_batch_input` should never be called in CPU mesh uniform building \
+                mode"
             );
             return None;
         };
@@ -1002,14 +1003,14 @@ impl GetFullBatchData for MeshPipeline {
         ))
     }
 
-    fn get_binned_batch_input_index(
+    fn get_index_of_binned_batch_input(
         (mesh_instances, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<u32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
-                "`get_binned_batch_input_index` should never be called in CPU mesh uniform \
+                "`get_index_of_binned_batch_input` should never be called in CPU mesh uniform \
                 building mode"
             );
             return None;

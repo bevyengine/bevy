@@ -174,7 +174,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
         super::batch_and_prepare_sorted_render_phase::<I, GFBD>(&mut phase, |item| {
             let (input_index, compare_data) =
-                GFBD::get_batch_input_index(&system_param_item, item.entity())?;
+                GFBD::get_index_of_batch_input(&system_param_item, item.entity())?;
             let output_index = data_buffer.add() as u32;
 
             work_item_buffer.push(PreprocessWorkItem {
@@ -223,7 +223,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &entity in &phase.batchable_values[key] {
                 let Some(input_index) =
-                    GFBD::get_binned_batch_input_index(&system_param_item, entity)
+                    GFBD::get_index_of_binned_batch_input(&system_param_item, entity)
                 else {
                     continue;
                 };
@@ -254,7 +254,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
                 let Some(input_index) =
-                    GFBD::get_binned_batch_input_index(&system_param_item, entity)
+                    GFBD::get_index_of_binned_batch_input(&system_param_item, entity)
                 else {
                     continue;
                 };
