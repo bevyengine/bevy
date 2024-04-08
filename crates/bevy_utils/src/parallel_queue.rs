@@ -1,6 +1,5 @@
 use core::cell::Cell;
 use std::{
-    mem,
     ops::{Deref, DerefMut},
     ptr::drop_in_place,
 };
