@@ -1,7 +1,8 @@
 mod build;
 //mod compute_pass;
-mod configurator;
-mod resource;
+pub mod configurator;
+pub mod pipeline;
+pub mod resource;
 
 use self::resource::{
     AsRenderBindGroup, IntoRenderResource, RenderBindGroup, RenderHandle, RenderResource,
