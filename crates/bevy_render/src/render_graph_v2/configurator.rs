@@ -1,4 +1,4 @@
-use super::RenderGraph;
+use super::{RenderGraph, RenderGraphBuilder};
 use bevy_ecs::{component::Component, entity::Entity, world::World};
 
 /// Component for automatically configuring the [`RenderGraph`] each frame for an entity.
@@ -11,11 +11,11 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// that it wants for the current frame.
 #[derive(Component)]
 pub struct RenderGraphConfigurator(
-    pub(crate) Box<dyn Fn(Entity, &World, &mut RenderGraph) + Send + Sync + 'static>,
+    pub(crate) Box<dyn Fn(RenderGraphBuilder) + Send + Sync + 'static>,
 );
 
 impl RenderGraphConfigurator {
-    pub fn new(f: impl Fn(Entity, &World, &mut RenderGraph) + Send + Sync + 'static) -> Self {
+    pub fn new(f: impl Fn(RenderGraphBuilder) + Send + Sync + 'static) -> Self {
         Self(Box::new(f))
     }
 }
@@ -28,7 +28,12 @@ pub fn setup_view_render_graph_nodes(world: &mut World) {
             .query::<(Entity, &RenderGraphConfigurator)>()
             .iter(world)
         {
-            (configurator.0)(view_entity, world, &mut render_graph);
+            let builder = RenderGraphBuilder {
+                graph: &mut render_graph,
+                world,
+                view_entity,
+            };
+            (configurator.0)(builder);
         }
     });
 }
