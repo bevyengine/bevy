@@ -1242,6 +1242,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_settings"
+path = "examples/asset/asset_settings.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_settings]
+name = "Asset Settings"
+description = "Demonstrates various methods of applying settings when loading an asset"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_decompression"
 path = "examples/asset/asset_decompression.rs"
 doc-scrape-examples = true
