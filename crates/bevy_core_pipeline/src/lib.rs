@@ -1,6 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
-#![forbid(unsafe_code)]
+#![allow(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -13,6 +13,8 @@ pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
+#[cfg(feature = "fsr")]
+pub mod fsr;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;

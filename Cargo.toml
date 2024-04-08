@@ -330,6 +330,9 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
 
+# Enable support for FidelityFX Super Resolution
+fsr = ["bevy_internal/fsr"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
@@ -346,6 +349,10 @@ futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/JMS55/wgpu", branch = "more_hal" }
+naga = { git = "https://github.com/JMS55/wgpu", branch = "more_hal" }
 
 [[example]]
 name = "hello_world"
