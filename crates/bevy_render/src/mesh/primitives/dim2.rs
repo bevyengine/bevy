@@ -10,7 +10,6 @@ use bevy_math::{
         Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
         WindingOrder,
     },
-    Vec2,
 };
 use wgpu::PrimitiveTopology;
 
