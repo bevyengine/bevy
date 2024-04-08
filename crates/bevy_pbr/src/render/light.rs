@@ -1598,77 +1598,11 @@ pub fn prepare_clusters(
 /// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
 /// appropriate.
 #[allow(clippy::too_many_arguments)]
-pub fn queue_shadows<M>(
+pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderMaterials<M>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_lightmaps: Res<RenderLightmaps>,
-    view_lights: Query<(Entity, &ViewLightEntities)>,
-    view_light_shadow_phases: Query<(&LightEntity, &mut BinnedRenderPhase<Shadow>)>,
-    point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
-) where
-    M: Material,
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    match *render_mesh_instances {
-        RenderMeshInstances::CpuBuilding(ref render_mesh_instances) => {
-            queue_shadows_with_render_mesh_instances(
-                shadow_draw_functions,
-                prepass_pipeline,
-                render_meshes,
-                render_mesh_instances,
-                render_materials,
-                render_material_instances,
-                pipelines,
-                pipeline_cache,
-                render_lightmaps,
-                view_lights,
-                view_light_shadow_phases,
-                point_light_entities,
-                directional_light_entities,
-                spot_light_entities,
-            );
-        }
-        RenderMeshInstances::GpuBuilding(ref render_mesh_instances) => {
-            queue_shadows_with_render_mesh_instances(
-                shadow_draw_functions,
-                prepass_pipeline,
-                render_meshes,
-                render_mesh_instances,
-                render_materials,
-                render_material_instances,
-                pipelines,
-                pipeline_cache,
-                render_lightmaps,
-                view_lights,
-                view_light_shadow_phases,
-                point_light_entities,
-                directional_light_entities,
-                spot_light_entities,
-            );
-        }
-    }
-}
-
-/// For each shadow cascade, iterates over all the meshes "visible" from it and
-/// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
-/// appropriate.
-///
-/// This is a helper function. We dispatch to it in order to avoid branching on
-/// the variant of [`RenderMeshInstances`] in a hot loop.
-#[allow(clippy::too_many_arguments)]
-fn queue_shadows_with_render_mesh_instances<M, RMIT>(
-    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: &RMIT,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
@@ -1680,9 +1614,7 @@ fn queue_shadows_with_render_mesh_instances<M, RMIT>(
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) where
-    M: Material,
     M::Data: PartialEq + Eq + Hash + Clone,
-    RMIT: RenderMeshInstancesTable,
 {
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();

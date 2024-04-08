@@ -706,89 +706,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
     opaque_deferred_draw_functions: Res<DrawFunctions<Opaque3dDeferred>>,
     alpha_mask_deferred_draw_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderMaterials<M>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    render_lightmaps: Res<RenderLightmaps>,
-    views: Query<
-        (
-            &ExtractedView,
-            &VisibleEntities,
-            Option<&mut BinnedRenderPhase<Opaque3dPrepass>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dPrepass>>,
-            Option<&mut BinnedRenderPhase<Opaque3dDeferred>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dDeferred>>,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
-        ),
-        Or<(
-            With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
-            With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
-        )>,
-    >,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    match *render_mesh_instances {
-        RenderMeshInstances::CpuBuilding(ref render_mesh_instances) => {
-            queue_prepass_material_meshes_with_render_mesh_instances(
-                opaque_draw_functions,
-                alpha_mask_draw_functions,
-                opaque_deferred_draw_functions,
-                alpha_mask_deferred_draw_functions,
-                prepass_pipeline,
-                pipelines,
-                pipeline_cache,
-                msaa,
-                render_meshes,
-                render_mesh_instances,
-                render_materials,
-                render_material_instances,
-                render_lightmaps,
-                views,
-            );
-        }
-        RenderMeshInstances::GpuBuilding(ref render_mesh_instances) => {
-            queue_prepass_material_meshes_with_render_mesh_instances(
-                opaque_draw_functions,
-                alpha_mask_draw_functions,
-                opaque_deferred_draw_functions,
-                alpha_mask_deferred_draw_functions,
-                prepass_pipeline,
-                pipelines,
-                pipeline_cache,
-                msaa,
-                render_meshes,
-                render_mesh_instances,
-                render_materials,
-                render_material_instances,
-                render_lightmaps,
-                views,
-            );
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn queue_prepass_material_meshes_with_render_mesh_instances<M, RMIT>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
-    opaque_deferred_draw_functions: Res<DrawFunctions<Opaque3dDeferred>>,
-    alpha_mask_deferred_draw_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_mesh_instances: &RMIT,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
@@ -813,9 +735,7 @@ fn queue_prepass_material_meshes_with_render_mesh_instances<M, RMIT>(
         )>,
     >,
 ) where
-    M: Material,
     M::Data: PartialEq + Eq + Hash + Clone,
-    RMIT: RenderMeshInstancesTable,
 {
     let opaque_draw_prepass = opaque_draw_functions
         .read()

@@ -515,96 +515,7 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 /// For each view, iterates over all the meshes visible from that view and adds
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 #[allow(clippy::too_many_arguments)]
-pub fn queue_material_meshes<M>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
-    transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
-    material_pipeline: Res<MaterialPipeline<M>>,
-    pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderMaterials<M>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    render_lightmaps: Res<RenderLightmaps>,
-    views: Query<(
-        &ExtractedView,
-        &VisibleEntities,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusionSettings>,
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
-        Option<&Camera3d>,
-        Has<TemporalJitter>,
-        Option<&Projection>,
-        &mut BinnedRenderPhase<Opaque3d>,
-        &mut BinnedRenderPhase<AlphaMask3d>,
-        &mut SortedRenderPhase<Transmissive3d>,
-        &mut SortedRenderPhase<Transparent3d>,
-        (
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
-        ),
-    )>,
-) where
-    M: Material,
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    match *render_mesh_instances {
-        RenderMeshInstances::CpuBuilding(ref render_mesh_instances) => {
-            queue_material_meshes_with_render_mesh_instances(
-                opaque_draw_functions,
-                alpha_mask_draw_functions,
-                transmissive_draw_functions,
-                transparent_draw_functions,
-                material_pipeline,
-                pipelines,
-                pipeline_cache,
-                msaa,
-                render_meshes,
-                render_materials,
-                render_mesh_instances,
-                render_material_instances,
-                render_lightmaps,
-                views,
-            );
-        }
-        RenderMeshInstances::GpuBuilding(ref render_mesh_instances) => {
-            queue_material_meshes_with_render_mesh_instances(
-                opaque_draw_functions,
-                alpha_mask_draw_functions,
-                transmissive_draw_functions,
-                transparent_draw_functions,
-                material_pipeline,
-                pipelines,
-                pipeline_cache,
-                msaa,
-                render_meshes,
-                render_materials,
-                render_mesh_instances,
-                render_material_instances,
-                render_lightmaps,
-                views,
-            );
-        }
-    }
-}
-
-/// For each view, iterates over all the meshes visible from that view and adds
-/// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
-///
-/// This is a helper function. We dispatch to it in order to avoid branching on
-/// the variant of [`RenderMeshInstances`] in a hot loop.
-#[allow(clippy::too_many_arguments)]
-fn queue_material_meshes_with_render_mesh_instances<M, RMIT>(
+pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
@@ -615,7 +526,7 @@ fn queue_material_meshes_with_render_mesh_instances<M, RMIT>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    render_mesh_instances: &RMIT,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<(
@@ -644,9 +555,7 @@ fn queue_material_meshes_with_render_mesh_instances<M, RMIT>(
         ),
     )>,
 ) where
-    M: Material,
     M::Data: PartialEq + Eq + Hash + Clone,
-    RMIT: RenderMeshInstancesTable,
 {
     for (
         view,
