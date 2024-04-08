@@ -109,7 +109,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
-        self.for_each_with_init(|| {}, |_, item| func(item));
+        self.for_each_init(|| {}, |_, item| func(item));
     }
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
@@ -122,7 +122,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each_with_init<FN, INIT, T>(self, init: INIT, func: FN)
+    pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
         FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,

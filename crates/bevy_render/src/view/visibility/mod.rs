@@ -395,7 +395,7 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each_with_init(
+        visible_aabb_query.par_iter_mut().for_each_init(
             || thread_queues.guard(),
             |queue, query_item| {
                 let (
