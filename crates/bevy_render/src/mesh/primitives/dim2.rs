@@ -7,7 +7,8 @@ use crate::{
 use super::Meshable;
 use bevy_math::{
     primitives::{
-        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d, WindingOrder,
+        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
+        WindingOrder,
     },
     Vec2,
 };
