@@ -137,7 +137,8 @@ pub struct PbrPlugin {
     pub add_default_deferred_lighting_plugin: bool,
     /// Controls if GPU [`MeshUniform`] building is enabled.
     ///
-    /// This requires compute shader support.
+    /// This requires compute shader support and so will be forcibly disabled if
+    /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
 }
 
@@ -146,14 +147,7 @@ impl Default for PbrPlugin {
         Self {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
-
-            // The GPU instance buffer builder requires compute shaders, which
-            // aren't available on any version of WebGL.
-            use_gpu_instance_buffer_builder: cfg!(any(
-                feature = "webgpu",
-                not(feature = "webgl"),
-                not(target_arch = "wasm32"),
-            )),
+            use_gpu_instance_buffer_builder: true,
         }
     }
 }
@@ -308,6 +302,9 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
+                GpuMeshPreprocessPlugin {
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                },
             ))
             .configure_sets(
                 PostUpdate,
@@ -366,10 +363,6 @@ impl Plugin for PbrPlugin {
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
-        }
-
-        if self.use_gpu_instance_buffer_builder {
-            app.add_plugins(GpuMeshPreprocessPlugin);
         }
 
         app.world_mut()

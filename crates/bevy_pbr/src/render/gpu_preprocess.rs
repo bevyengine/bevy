@@ -20,7 +20,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    batching::gpu_preprocessing::{BatchedInstanceBuffers, PreprocessWorkItem},
+    batching::gpu_preprocessing::{self, BatchedInstanceBuffers, PreprocessWorkItem},
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only},
@@ -47,7 +47,13 @@ const WORKGROUP_SIZE: usize = 64;
 ///
 /// This will only be added if the platform supports compute shaders (e.g. not
 /// on WebGL 2).
-pub struct GpuMeshPreprocessPlugin;
+pub struct GpuMeshPreprocessPlugin {
+    /// Whether we're building [`MeshUniform`]s on GPU.
+    ///
+    /// This requires compute shader support and so will be forcibly disabled if
+    /// the platform doesn't support those.
+    pub use_gpu_instance_buffer_builder: bool,
+}
 
 /// The render node for the mesh uniform building pass.
 pub struct GpuPreprocessNode {
@@ -79,22 +85,6 @@ impl Plugin for GpuMeshPreprocessPlugin {
             "mesh_preprocess.wgsl",
             Shader::from_wgsl
         );
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            (
-                prepare_preprocess_pipeline.in_set(RenderSet::Prepare),
-                prepare_preprocess_bind_groups
-                    .run_if(
-                        resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
-                    )
-                    .in_set(RenderSet::PrepareBindGroups),
-            ),
-        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -102,12 +92,32 @@ impl Plugin for GpuMeshPreprocessPlugin {
             return;
         };
 
+        // This plugin does nothing if GPU instance buffer building isn't in
+        // use.
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if !self.use_gpu_instance_buffer_builder
+            || !gpu_preprocessing::can_preprocess_on_gpu(render_device)
+        {
+            return;
+        }
+
         // Stitch the node in.
         render_app
             .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
             .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
             .init_resource::<PreprocessPipeline>()
-            .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>();
+            .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
+            .add_systems(
+                Render,
+                (
+                    prepare_preprocess_pipeline.in_set(RenderSet::Prepare),
+                    prepare_preprocess_bind_groups
+                        .run_if(
+                            resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+                        )
+                        .in_set(RenderSet::PrepareBindGroups),
+                )
+            );
     }
 }
 

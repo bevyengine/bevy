@@ -51,10 +51,12 @@ use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use super::skin::SkinIndices;
 
 /// Provides support for rendering PBR meshes.
+#[derive(Default)]
 pub struct MeshRenderPlugin {
     /// Whether we're building [`MeshUniform`]s on GPU.
     ///
-    /// If this is false, we're building them on CPU.
+    /// This requires compute shader support and so will be forcibly disabled if
+    /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
 }
 
@@ -78,14 +80,6 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 /// See: <https://gpuweb.github.io/gpuweb/#limits>
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
-
-impl Default for MeshRenderPlugin {
-    fn default() -> Self {
-        Self {
-            use_gpu_instance_buffer_builder: true,
-        }
-    }
-}
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -138,16 +132,12 @@ impl Plugin for MeshRenderPlugin {
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_mesh_instances =
-                RenderMeshInstances::new(self.use_gpu_instance_buffer_builder);
-
             render_app
                 .init_resource::<MeshBindGroups>()
                 .init_resource::<SkinUniform>()
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
-                .insert_resource(render_mesh_instances)
                 .add_systems(ExtractSchedule, (extract_skins, extract_morphs))
                 .add_systems(
                     ExtractSchedule,
@@ -162,9 +152,24 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
+        }
+    }
 
-            if self.use_gpu_instance_buffer_builder {
+    fn finish(&self, app: &mut App) {
+        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
+            let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
+                && gpu_preprocessing::can_preprocess_on_gpu(render_device);
+
+            let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
+            render_app.insert_resource(render_mesh_instances);
+
+            if use_gpu_instance_buffer_builder {
                 render_app
+                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
+                    )
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
@@ -180,7 +185,11 @@ impl Plugin for MeshRenderPlugin {
                         ),
                     );
             } else {
+                let render_device = render_app.world().resource::<RenderDevice>();
+                let cpu_batched_instance_buffer =
+                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
                 render_app
+                    .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
@@ -190,23 +199,6 @@ impl Plugin for MeshRenderPlugin {
                         no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                     );
-            }
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            if self.use_gpu_instance_buffer_builder {
-                render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
-                    );
-            } else {
-                let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
-                render_app.insert_resource(cpu_batched_instance_buffer);
             };
 
             let render_device = render_app.world().resource::<RenderDevice>();
@@ -1725,7 +1717,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         SRes<RenderAssets<Mesh>>,
         SRes<RenderMeshInstances>,
         SRes<PipelineCache>,
-        SRes<PreprocessPipeline>,
+        Option<SRes<PreprocessPipeline>>,
     );
     type ViewQuery = Has<PreprocessBindGroup>;
     type ItemQuery = ();
@@ -1744,16 +1736,18 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // If we're using GPU preprocessing, then we're dependent on that
         // compute shader having been run, which of course can only happen if
         // it's compiled. Otherwise, our mesh instance data won't be present.
-        if !has_preprocess_bind_group
-            || !preprocess_pipeline
-                .pipeline_id
-                .is_some_and(|preprocess_pipeline_id| {
-                    pipeline_cache
-                        .get_compute_pipeline(preprocess_pipeline_id)
-                        .is_some()
-                })
-        {
-            return RenderCommandResult::Failure;
+        if let Some(preprocess_pipeline) = preprocess_pipeline {
+            if !has_preprocess_bind_group
+                || !preprocess_pipeline
+                    .pipeline_id
+                    .is_some_and(|preprocess_pipeline_id| {
+                        pipeline_cache
+                            .get_compute_pipeline(preprocess_pipeline_id)
+                            .is_some()
+                    })
+            {
+                return RenderCommandResult::Failure;
+            }
         }
 
         let meshes = meshes.into_inner();

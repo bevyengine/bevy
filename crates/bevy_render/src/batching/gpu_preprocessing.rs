@@ -300,3 +300,10 @@ pub fn write_batched_instance_buffers<GFBD>(
         work_item_buffer.write_buffer(&render_device, &render_queue);
     }
 }
+
+/// Determines whether it's possible to run preprocessing on the GPU.
+///
+/// Currently, this simply checks to see whether compute shaders are supported.
+pub fn can_preprocess_on_gpu(render_device: &RenderDevice) -> bool {
+    render_device.limits().max_compute_workgroup_size_x > 0
+}
