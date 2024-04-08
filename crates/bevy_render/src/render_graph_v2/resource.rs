@@ -65,6 +65,13 @@ pub struct RenderHandle<T: RenderResource> {
     data: PhantomData<T>,
 }
 
+impl<T: RenderResource> Copy for RenderHandle<T> {}
+impl<T: RenderResource> Clone for RenderHandle<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 pub struct RenderResourceId {
     type_id: TypeId,
     index: u16,
@@ -96,6 +103,12 @@ impl<R: RenderResource> Into<RenderResourceId> for &mut RenderHandle<R> {
 
 pub trait IntoRenderResourceIds<const N: usize> {
     fn into_resource_ids(self) -> [RenderResourceId; N];
+}
+
+impl<T: Into<RenderResourceId>> IntoRenderResourceIds<1> for T {
+    fn into_resource_ids(self) -> [RenderResourceId; 1] {
+        [self.into()]
+    }
 }
 
 macro_rules! impl_into_render_resource_ids {

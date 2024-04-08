@@ -15,11 +15,11 @@ use super::resource::IntoRenderResource;
 
 pub struct SpecializeRenderPipeline<'a, P: SpecializedRenderPipeline>(pub &'a P, pub P::Key)
 where
-    <P as SpecializedRenderPipeline>::Key: Send + Sync + 'static;
+    <P as SpecializedRenderPipeline>::Key: Send + Sync;
 
 impl<'a, P: SpecializedRenderPipeline> IntoRenderResource for SpecializeRenderPipeline<'a, P>
 where
-    <P as SpecializedRenderPipeline>::Key: Send + Sync + 'static,
+    <P as SpecializedRenderPipeline>::Key: Send + Sync,
 {
     type Resource = CachedRenderPipelineId;
 
@@ -32,11 +32,11 @@ where
 
 pub struct SpecializeComputePipeline<'a, P: SpecializedComputePipeline>(pub &'a P, pub P::Key)
 where
-    <P as SpecializedComputePipeline>::Key: Send + Sync + 'static;
+    <P as SpecializedComputePipeline>::Key: Send + Sync;
 
 impl<'a, P: SpecializedComputePipeline> IntoRenderResource for SpecializeComputePipeline<'a, P>
 where
-    <P as SpecializedComputePipeline>::Key: Send + Sync + 'static,
+    <P as SpecializedComputePipeline>::Key: Send + Sync,
 {
     type Resource = CachedComputePipelineId;
 
@@ -53,11 +53,11 @@ pub struct SpecializeMeshPipeline<'a, P: SpecializedMeshPipeline>(
     pub &'a MeshVertexBufferLayoutRef,
 )
 where
-    <P as SpecializedMeshPipeline>::Key: Send + Sync + 'static;
+    <P as SpecializedMeshPipeline>::Key: Send + Sync;
 
 impl<'a, P: SpecializedMeshPipeline> IntoRenderResource for SpecializeMeshPipeline<'a, P>
 where
-    <P as SpecializedMeshPipeline>::Key: Send + Sync + 'static,
+    <P as SpecializedMeshPipeline>::Key: Send + Sync,
 {
     type Resource = CachedRenderPipelineId;
 

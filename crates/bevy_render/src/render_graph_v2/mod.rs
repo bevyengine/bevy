@@ -3,9 +3,11 @@ mod build;
 pub mod configurator;
 pub mod pipeline;
 pub mod resource;
+pub mod texture;
 
 use self::resource::{
-    AsRenderBindGroup, IntoRenderResource, RenderBindGroup, RenderHandle, RenderResource,
+    AsRenderBindGroup, IntoRenderResource, IntoRenderResourceIds, RenderBindGroup, RenderHandle,
+    RenderResource,
 };
 use crate::{
     render_resource::PipelineCache,
@@ -99,8 +101,12 @@ impl<'a> RenderGraphBuilder<'a> {
         todo!()
     }
 
-    pub fn add_node<F: FnOnce(NodeContext, &RenderDevice, &RenderQueue)>(
+    pub fn add_node<
+        const N: usize,
+        F: FnOnce(NodeContext, &RenderDevice, &RenderQueue) + 'static,
+    >(
         &mut self,
+        dependencies: impl IntoRenderResourceIds<N>,
         node: F,
     ) -> &mut Self {
         self
