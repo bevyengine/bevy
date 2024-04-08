@@ -112,10 +112,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
-            ShadowFilteringMethod::Castano13 => {
+            ShadowFilteringMethod::Gaussian => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             }
-            ShadowFilteringMethod::Jimenez14 => {
+            ShadowFilteringMethod::Temporal => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
             }
         }
