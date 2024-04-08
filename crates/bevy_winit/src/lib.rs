@@ -286,7 +286,7 @@ pub fn winit_runner(mut app: App) {
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
-    let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
+    let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
         SystemState::new(app.world_mut());
 
     let mut event_writer_system_state: SystemState<(
@@ -334,7 +334,7 @@ fn handle_winit_event(
         Query<(&mut Window, &mut CachedWindow)>,
         NonSend<AccessKitAdapters>,
     )>,
-    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
+    focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
     event: Event<UserEvent>,
@@ -368,7 +368,7 @@ fn handle_winit_event(
             }
 
             let (config, windows) = focused_windows_state.get(app.world());
-            let focused = windows.iter().any(|window| window.focused);
+            let focused = windows.iter().any(|(_, window)| window.focused);
             let next_update_mode = config.update_mode(focused);
 
             // Trigger next redraw if we're changing the update mode
@@ -377,14 +377,17 @@ fn handle_winit_event(
                 runner_state.update_mode = next_update_mode;
             }
 
-            // Trigger next redraw if mode is continuous
+            // Trigger next redraw if mode is continuous and waiting
             if next_update_mode == UpdateMode::Continuous {
-                runner_state.redraw_requested = true;
+                if let ControlFlow::Wait = event_loop.control_flow() {
+                    runner_state.redraw_requested = true;
+                }
             }
 
             let mut should_update = match next_update_mode {
                 UpdateMode::Continuous => {
-                    runner_state.redraw_requested
+                    runner_state.wait_elapsed
+                        || runner_state.redraw_requested
                         || runner_state.window_event_received
                         || runner_state.device_event_received
                 }
@@ -472,11 +475,11 @@ fn handle_winit_event(
 
             if should_update {
                 if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
-                    let (_, winit_windows, _, _) =
-                        event_writer_system_state.get_mut(app.world_mut());
+                    let winit_windows = app.world().non_send_resource::<WinitWindows>();
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
+                    runner_state.redraw_requested = false;
                 } else if runner_state.wait_elapsed {
                     // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(runner_state, app, winit_events);
@@ -496,8 +499,10 @@ fn handle_winit_event(
                             all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                         )))]
                         {
-                            let (_, windows) = focused_windows_state.get(app.world());
-                            let visible = windows.iter().any(|window| window.visible);
+                            let winit_windows = app.world().non_send_resource::<WinitWindows>();
+                            let visible = winit_windows.windows.iter().any(|(_, w)| {
+                                w.is_visible().unwrap_or(false)
+                            });
 
                             match event_loop.control_flow() {
                                 ControlFlow::Poll if visible => {
