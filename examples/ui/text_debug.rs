@@ -1,10 +1,10 @@
 //! Shows various text layout options.
 
 use bevy::{
-    color::palettes::{basic::RED, css::*},
+    color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::PresentMode,
 };
 
 fn main() {

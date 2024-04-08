@@ -23,6 +23,8 @@ approx = "0.5"
 # Supply rngs for examples and tests
 rand = "0.8"
 rand_chacha = "0.3"
+# Enable the approx feature when testing.
+bevy_math = { path = ".", version = "0.14.0-dev", features = ["approx"] }
 
 [features]
 default = ["rand"]
@@ -39,7 +41,7 @@ glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
-rand = ["dep:rand"]
+rand = ["dep:rand", "glam/rand"]
 
 [lints]
 workspace = true

@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{RenderPhase, TrackedRenderPass},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::ViewDepthTexture,
@@ -23,8 +23,8 @@ pub struct PrepassNode;
 impl ViewNode for PrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3dPrepass>,
-        &'static RenderPhase<AlphaMask3dPrepass>,
+        &'static BinnedRenderPhase<Opaque3dPrepass>,
+        &'static BinnedRenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         Option<&'static DeferredPrepass>,
@@ -95,14 +95,16 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.items.is_empty() {
+            if !opaque_prepass_phase.batchable_keys.is_empty()
+                || !opaque_prepass_phase.unbatchable_keys.is_empty()
+            {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha masked draws
-            if !alpha_mask_prepass_phase.items.is_empty() {
+            if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);

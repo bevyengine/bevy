@@ -1,5 +1,5 @@
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -122,7 +122,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
@@ -138,17 +138,17 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 
 // helper to allow specifying dependencies between render assets
 pub trait RenderAssetDependency {
-    fn register_system(render_app: &mut App, system: SystemConfigs);
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs);
 }
 
 impl RenderAssetDependency for () {
-    fn register_system(render_app: &mut App, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
         render_app.add_systems(Render, system);
     }
 }
 
 impl<A: RenderAsset> RenderAssetDependency for A {
-    fn register_system(render_app: &mut App, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
         render_app.add_systems(Render, system.after(prepare_assets::<A>));
     }
 }
