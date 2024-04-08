@@ -385,13 +385,7 @@ fn handle_winit_event(
             }
 
             let mut should_update = match next_update_mode {
-                UpdateMode::Continuous => {
-                    runner_state.wait_elapsed
-                        || runner_state.redraw_requested
-                        || runner_state.window_event_received
-                        || runner_state.device_event_received
-                }
-                UpdateMode::Reactive { .. } => {
+                UpdateMode::Continuous | UpdateMode::Reactive => {
                     runner_state.wait_elapsed
                         || runner_state.redraw_requested
                         || runner_state.window_event_received
