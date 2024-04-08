@@ -157,6 +157,7 @@ Example | Description
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
+[Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
 ## Animation

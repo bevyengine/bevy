@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::mesh_functions
 
 #import bevy_pbr::{
-    mesh_view_bindings::view,
+    mesh_view_bindings::{view, visibility_ranges},
     mesh_bindings::mesh,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::position_world_to_clip,
@@ -83,3 +83,33 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, in
         return vertex_tangent;
     }
 }
+
+// Returns an appropriate dither level for the current mesh instance.
+//
+// This looks up the LOD range in the `visibility_ranges` table and compares the
+// camera distance to determine the dithering level.
+#ifdef VISIBILITY_RANGE_DITHER
+fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
+    let visibility_buffer_index = mesh[instance_index].flags & 0xffffu;
+    if (visibility_buffer_index > arrayLength(&visibility_ranges)) {
+        return -16;
+    }
+
+    let lod_range = visibility_ranges[visibility_buffer_index];
+    let camera_distance = length(view.world_position.xyz - world_position.xyz);
+
+    if (camera_distance < lod_range.x) {
+        return -16;
+    }
+    if (camera_distance < lod_range.y) {
+        return -16 + i32(round((camera_distance - lod_range.x) / (lod_range.y - lod_range.x) * 16.0));
+    }
+    if (camera_distance < lod_range.z) {
+        return 0;
+    }
+    if (camera_distance < lod_range.w) {
+        return i32(round((camera_distance - lod_range.z) / (lod_range.w - lod_range.z) * 16.0));
+    }
+    return 16;
+}
+#endif

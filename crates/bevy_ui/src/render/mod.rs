@@ -25,7 +25,9 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    vec3, FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -684,14 +686,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 0.0,
                 UI_CAMERA_FAR,
             );
+            let translation = vec3(0.0, 0.0, UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET);
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
+                    transform: GlobalTransform::from_translation(translation),
                     view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
