@@ -22,7 +22,7 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, DefaultImageSampler, GpuImage, ImageSampler, TextureFormatPixelInfo},
+    texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{ViewTarget, ViewUniformOffset, ViewVisibility},
     Extract,
 };
@@ -427,7 +427,7 @@ impl FromWorld for MeshPipeline {
 impl MeshPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -1026,8 +1026,8 @@ impl MeshBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
-    meshes: Res<RenderAssets<Mesh>>,
-    images: Res<RenderAssets<Image>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
+    images: Res<RenderAssets<GpuImage>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -1187,7 +1187,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
+    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMeshInstances>);
     type ViewQuery = ();
     type ItemQuery = ();
     #[inline]
