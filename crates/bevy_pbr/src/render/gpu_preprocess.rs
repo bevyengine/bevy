@@ -105,6 +105,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         render_app
             .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
             .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
+            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
             .init_resource::<PreprocessPipeline>()
             .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
             .add_systems(
