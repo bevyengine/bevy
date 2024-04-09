@@ -11,7 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     removal_detection::RemovedComponentEvents,
-    storage::{Column, ComponentSparseSet, Storages, Table},
+    storage::{ComponentSparseSet, Storages, Table},
     system::{Res, Resource},
 };
 use bevy_ptr::Ptr;

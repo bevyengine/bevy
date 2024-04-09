@@ -93,12 +93,14 @@ impl BlobVec {
     }
 
     /// Returns the total number of elements the vector can hold without reallocating.
+    #[allow(dead_code)]
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
     /// Returns the [`Layout`] of the element type stored in the vector.
+    #[allow(dead_code)]
     #[inline]
     pub fn layout(&self) -> Layout {
         self.item_layout
@@ -276,6 +278,7 @@ impl BlobVec {
     /// Newly added items must be immediately populated with valid values and length must be
     /// increased. For better unwind safety, call [`BlobVec::set_len`] _after_ populating a new
     /// value.
+    #[allow(dead_code)]
     #[inline]
     pub unsafe fn set_len(&mut self, len: usize) {
         debug_assert!(len <= self.capacity());
@@ -320,6 +323,7 @@ impl BlobVec {
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is < `self.len()`
     /// and that `self[index]` has been properly initialized.
+    #[allow(dead_code)]
     #[inline]
     pub unsafe fn swap_remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
         debug_assert!(index < self.len());
@@ -401,6 +405,7 @@ impl BlobVec {
     ///
     /// # Safety
     /// The type `T` must be the type of the items in this [`BlobVec`].
+    #[allow(dead_code)]
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFETY: the inner data will remain valid for as long as 'self.
         unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }

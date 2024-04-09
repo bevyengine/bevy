@@ -1,10 +1,10 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub(crate) use column::*;
 use std::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
@@ -153,6 +153,7 @@ pub struct TableBuilder {
 }
 
 impl TableBuilder {
+    ///  Start building a new [`Table`] with a specified `column_capacity` (How many components per column?) and a `capacity` (How many columns?)
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
@@ -161,6 +162,7 @@ impl TableBuilder {
         }
     }
 
+    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         match column_with_capacity(self.capacity, component_info) {
@@ -170,6 +172,7 @@ impl TableBuilder {
         self
     }
 
+    /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
     #[must_use]
     pub fn build(self) -> Table {
         Table {
@@ -470,6 +473,8 @@ impl Table {
             .get_unchecked(row.as_usize())
     }
 
+    // TODO: Docs
+    ///
     pub unsafe fn get_ticks_unchecked(
         &self,
         component_id: ComponentId,

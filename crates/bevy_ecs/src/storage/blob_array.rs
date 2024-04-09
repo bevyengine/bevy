@@ -232,66 +232,6 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
         }
     }
 
-    // TODO: Better docs
-    /// # Safety
-    /// The caller must ensure that:
-    /// 1) `current_capacity` + `increment` doesn't overflow `usize`
-    /// 2) The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
-    /// 3) `current_capacity` is indeed the current capacity of this array.
-    /// After calling this method, the caller must update their saved capacity to reflect the change.
-    pub(super) unsafe fn grow_exact_unchecked(
-        &mut self,
-        current_capacity: NonZeroUsize,
-        increment: NonZeroUsize,
-    ) {
-        if !IS_ZST {
-            let new_capacity = NonZeroUsize::new_unchecked(
-                // SAFETY: This may overflow in release builds, safety dependant on safety requirement 1
-                current_capacity.get() + increment.get(),
-            );
-            self.realloc(current_capacity, new_capacity);
-        }
-    }
-
-    /// Grows the capacity by `increment` elements.
-    ///
-    /// # Panics
-    /// - `current_capacity` + `increment` overflows `usize`
-    /// - The resulting size of the array in bytes overflows `usize`
-    ///
-    /// # Safety
-    /// The caller must ensure that:
-    /// - `current_capacity` is indeed the current capacity of this array.
-    /// After calling this method, the caller must update their saved capacity to reflect the change.
-    pub(super) unsafe fn grow_exact(
-        &mut self,
-        current_capacity: NonZeroUsize,
-        increment: NonZeroUsize,
-    ) {
-        if !IS_ZST {
-            let new_capacity = current_capacity
-                .get()
-                .checked_add(increment.get())
-                .expect("capacity overflow");
-            let new_layout = array_layout(&self.item_layout, new_capacity)
-                .expect("array layout should be valid");
-            // SAFETY:
-            // - ptr was be allocated via this allocator
-            // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
-            // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
-            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-            // since the item size is always a multiple of its align, the rounding cannot happen
-            // here and the overflow is handled in `array_layout`
-            let new_data = std::alloc::realloc(
-                self.get_ptr_mut().as_ptr(),
-                // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-                array_layout_unchecked(&self.item_layout, current_capacity.get()),
-                new_layout.size(),
-            );
-            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
-        }
-    }
-
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety

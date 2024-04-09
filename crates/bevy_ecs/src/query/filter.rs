@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{Column, ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
