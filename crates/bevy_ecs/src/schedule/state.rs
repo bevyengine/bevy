@@ -574,7 +574,7 @@ pub trait StateSet: sealed::StateSetSealed {
 }
 
 /// The `InnnerStateSet` trait is used to isolate [`ComputedStates`] & [`SubStates`] from
-/// needing to use only [`Option<S>`] via the (removed) `StateSet::OptionalStateSet` associated type.
+/// needing to wrap all state dependencies in an [`Option<S>`].
 ///
 /// Some [`ComputedStates`]'s might need to exist in different states based on the existence
 /// of other states. So we needed the ability to use[`Option<S>`] when appropriate.
