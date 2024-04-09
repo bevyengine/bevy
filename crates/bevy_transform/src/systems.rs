@@ -188,10 +188,9 @@ mod test {
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
-    use crate::components::{GlobalTransform, Transform};
     use crate::systems::*;
     use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren};
 
     #[test]
     fn correct_parent_removed() {

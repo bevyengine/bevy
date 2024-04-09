@@ -991,7 +991,8 @@ pub fn prepare_lights(
                 cluster_factors_zw.y,
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
-            n_directional_lights: directional_lights.iter().len() as u32,
+            n_directional_lights: directional_lights.iter().len().min(MAX_DIRECTIONAL_LIGHTS)
+                as u32,
             // spotlight shadow maps are stored in the directional light array, starting at num_directional_cascades_enabled.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
@@ -1644,6 +1645,10 @@ pub fn queue_shadows<M: Material>(
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
+
+            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
+            light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
+
             for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                     continue;
@@ -1662,14 +1667,7 @@ pub fn queue_shadows<M: Material>(
                 };
 
                 let mut mesh_key =
-                    MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | MeshPipelineKey::DEPTH_PREPASS;
-                if mesh.morph_targets.is_some() {
-                    mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-                }
-                if is_directional_light {
-                    mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
-                }
+                    light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
 
                 // Even though we don't use the lightmap in the shadow map, the
                 // `SetMeshBindGroup` render command will bind the data for it. So

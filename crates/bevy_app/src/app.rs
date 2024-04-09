@@ -3,24 +3,25 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    intern::Interned,
     prelude::*,
     schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{intern::Interned, tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use thiserror::Error;
 
-bevy_utils::define_label!(
+bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
     APP_LABEL_INTERNER
 );
 
-pub use bevy_utils::label::DynEq;
+pub use bevy_ecs::label::DynEq;
 
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
