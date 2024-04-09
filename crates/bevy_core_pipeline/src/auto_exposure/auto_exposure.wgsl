@@ -1,4 +1,5 @@
 #import bevy_render::view::View
+#import bevy_render::globals::Globals
 
 // Constant to convert RGB to luminance, taken from RTR vol 4 pg. 278
 const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
@@ -11,8 +12,7 @@ struct AutoExposure {
     high_percent: f32,
     speed_up: f32,
     speed_down: f32,
-    exp_up: f32,
-    exp_down: f32,
+    exponential_transition_distance: f32,
 }
 
 struct CompensationCurve {
@@ -22,21 +22,23 @@ struct CompensationCurve {
     compensation_range: f32,
 }
 
-@group(0) @binding(0) var<uniform> settings: AutoExposure;
+@group(0) @binding(0) var<uniform> globals: Globals;
 
-@group(0) @binding(1) var tex_color: texture_2d<f32>;
+@group(0) @binding(1) var<uniform> settings: AutoExposure;
 
-@group(0) @binding(2) var tex_mask: texture_2d<f32>;
+@group(0) @binding(2) var tex_color: texture_2d<f32>;
 
-@group(0) @binding(3) var tex_compensation: texture_1d<f32>;
+@group(0) @binding(3) var tex_mask: texture_2d<f32>;
 
-@group(0) @binding(4) var<uniform> compensation_curve: CompensationCurve;
+@group(0) @binding(4) var tex_compensation: texture_1d<f32>;
 
-@group(0) @binding(5) var<storage, read_write> histogram: array<atomic<u32>, 64>;
+@group(0) @binding(5) var<uniform> compensation_curve: CompensationCurve;
 
-@group(0) @binding(6) var<storage, read_write> exposure: f32;
+@group(0) @binding(6) var<storage, read_write> histogram: array<atomic<u32>, 64>;
 
-@group(0) @binding(7) var<storage, read_write> view: View;
+@group(0) @binding(7) var<storage, read_write> exposure: f32;
+
+@group(0) @binding(8) var<storage, read_write> view: View;
 
 var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 
@@ -155,9 +157,13 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // Smoothly adjust the `exposure` towards the `target_exposure`
     let delta = target_exposure - exposure;
     if target_exposure > exposure {
-        exposure = exposure + min(settings.speed_down, delta * settings.exp_down);
+        let speed_down = settings.speed_down * globals.delta_time;
+        let exp_down = speed_down / settings.exponential_transition_distance;
+        exposure = exposure + min(speed_down, delta * exp_down);
     } else {
-        exposure = exposure + max(-settings.speed_up, delta * settings.exp_up);
+        let speed_up = settings.speed_up * globals.delta_time;
+        let exp_up = speed_up / settings.exponential_transition_distance;
+        exposure = exposure + max(-speed_up, delta * exp_up);
     }
 
     // Apply the exposure to the color grading settings, from where it will be used for the color

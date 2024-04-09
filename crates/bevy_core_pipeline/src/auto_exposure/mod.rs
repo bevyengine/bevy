@@ -13,7 +13,6 @@ use bevy_render::{
     renderer::RenderDevice,
     Render, RenderApp, RenderSet,
 };
-use bevy_time::Time;
 
 mod compensation_curve;
 mod node;
@@ -23,10 +22,7 @@ mod state;
 
 pub use compensation_curve::AutoExposureCompensationCurve;
 use node::AutoExposureNode;
-use pipeline::{
-    AutoExposurePipeline, AutoExposureUniform, Pass, ViewAutoExposurePipeline,
-    METERING_SHADER_HANDLE,
-};
+use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SHADER_HANDLE};
 pub use settings::AutoExposureSettings;
 use state::{extract_state_buffers, prepare_state_buffers, AutoExposureStateBuffers};
 
@@ -115,7 +111,6 @@ fn queue_view_auto_exposure_pipelines(
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     pipeline: Res<AutoExposurePipeline>,
     buffers: Res<AutoExposureStateBuffers>,
-    time: Res<Time>,
     view_targets: Query<(Entity, &AutoExposureSettings)>,
 ) {
     for (entity, settings) in view_targets.iter() {
@@ -128,28 +123,12 @@ fn queue_view_auto_exposure_pipelines(
             continue;
         };
 
-        let (min_log_lum, max_log_lum) = settings.range.clone().into_inner();
-        let (low_percent, high_percent) = settings.filter.clone().into_inner();
-
-        let brighten = settings.speed_brighten * time.delta_seconds();
-        let darken = settings.speed_darken * time.delta_seconds();
-
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
             state: buffer.state.clone(),
+            settings: buffer.settings.clone(),
             compensation_curve: settings.compensation_curve.clone(),
-            uniform: AutoExposureUniform {
-                min_log_lum,
-                inv_log_lum_range: 1.0 / (max_log_lum - min_log_lum),
-                log_lum_range: max_log_lum - min_log_lum,
-                low_percent,
-                high_percent,
-                speed_up: brighten,
-                speed_down: darken,
-                exp_up: brighten / settings.exponential_transition_distance,
-                exp_down: darken / settings.exponential_transition_distance,
-            },
             metering_mask: settings.metering_mask.clone(),
         });
     }

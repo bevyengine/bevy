@@ -4,6 +4,7 @@ use super::compensation_curve::{
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    globals::GlobalsUniform,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
     texture::Image,
@@ -22,8 +23,8 @@ pub struct ViewAutoExposurePipeline {
     pub histogram_pipeline: CachedComputePipelineId,
     pub mean_luminance_pipeline: CachedComputePipelineId,
     pub state: Buffer,
+    pub settings: Buffer,
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
-    pub uniform: AutoExposureUniform,
     pub metering_mask: Handle<Image>,
 }
 
@@ -36,8 +37,7 @@ pub struct AutoExposureUniform {
     pub(super) high_percent: f32,
     pub(super) speed_up: f32,
     pub(super) speed_down: f32,
-    pub(super) exp_up: f32,
-    pub(super) exp_down: f32,
+    pub(super) exponential_transition_distance: f32,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -60,17 +60,15 @@ impl FromWorld for AutoExposurePipeline {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
-                        uniform_buffer_sized(false, Some(AutoExposureUniform::min_size())),
+                        uniform_buffer::<GlobalsUniform>(false),
+                        uniform_buffer::<AutoExposureUniform>(false),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_1d(TextureSampleType::Float { filterable: false }),
-                        uniform_buffer_sized(
-                            false,
-                            Some(AutoExposureCompensationCurveUniform::min_size()),
-                        ),
+                        uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
                         storage_buffer_sized(false, NonZeroU64::new(HISTOGRAM_BIN_COUNT * 4)),
                         storage_buffer_sized(false, NonZeroU64::new(4)),
-                        storage_buffer_sized(true, Some(ViewUniform::min_size())),
+                        storage_buffer::<ViewUniform>(true),
                     ),
                 ),
             ),

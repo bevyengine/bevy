@@ -9,6 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
     render_resource::*,
@@ -57,6 +58,8 @@ impl Node for AutoExposureNode {
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_buffer = view_uniforms.buffer().unwrap();
 
+        let globals_buffer = world.resource::<GlobalsBuffer>();
+
         let Ok((view_uniform_offset, view_target, auto_exposure, view)) =
             self.query.get_manual(world, view_entity)
         else {
@@ -87,22 +90,12 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let mut uniform = encase::UniformBuffer::new(Vec::new());
-        uniform.write(&auto_exposure.uniform).unwrap();
-        let uniform =
-            render_context
-                .render_device()
-                .create_buffer_with_data(&BufferInitDescriptor {
-                    label: None,
-                    contents: uniform.as_ref(),
-                    usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-                });
-
         let compute_bind_group = render_context.render_device().create_bind_group(
             None,
             &pipeline.histogram_layout,
             &BindGroupEntries::sequential((
-                uniform.as_entire_buffer_binding(),
+                &globals_buffer.buffer,
+                auto_exposure.settings.as_entire_buffer_binding(),
                 source,
                 mask,
                 &compensation_curve.texture_view,
@@ -128,8 +121,8 @@ impl Node for AutoExposureNode {
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
         compute_pass.dispatch_workgroups(
-            (view.viewport.z + 15) / 16,
-            (view.viewport.w + 15) / 16,
+            view.viewport.z.div_ceil(16),
+            view.viewport.w.div_ceil(16),
             1,
         );
         compute_pass.set_pipeline(average_pipeline);

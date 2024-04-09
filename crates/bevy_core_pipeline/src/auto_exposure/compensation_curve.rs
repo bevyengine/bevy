@@ -121,7 +121,6 @@ const MAX_ERROR: f32 = 1e-5;
 const MAX_ITERS: u8 = 8;
 
 /// Find the `y` value of the curve at the given `x` value using the Newton-Raphson method.
-#[inline]
 fn find_y_given_x(segment: &CubicSegment<Vec2>, x: f32) -> f32 {
     let mut t_guess = x;
     let mut pos_guess = Vec2::ZERO;
