@@ -4,6 +4,7 @@
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub mod accessibility;
 mod converters;
@@ -15,7 +16,8 @@ mod winit_windows;
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
-use system::{changed_windows, create_windows, despawn_windows, CachedWindow};
+pub use system::create_windows;
+use system::{changed_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
 pub use winit_event::*;
@@ -231,7 +233,8 @@ impl Default for WinitAppRunnerState {
     }
 }
 
-type CreateWindowParams<'w, 's, F = ()> = (
+/// The parameters of the [`create_windows`] system.
+pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
     Query<'w, 's, (Entity, &'static mut Window), F>,
     EventWriter<'w, WindowCreated>,
@@ -767,8 +770,8 @@ fn run_app_update_if_should(
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
                 // TODO(bug): this is unexpected behavior.
                 // When Reactive, user expects bevy to actually wait that amount of time,
-                // and not potentially infinitely depending on plateform specifics (which this does)
-                // Need to verify the plateform specifics (whether this can occur in
+                // and not potentially infinitely depending on platform specifics (which this does)
+                // Need to verify the platform specifics (whether this can occur in
                 // rare-but-possible cases) and replace this with a panic or a log warn!
                 if let Some(next) = runner_state.last_update.checked_add(*wait) {
                     event_loop.set_control_flow(ControlFlow::WaitUntil(next));

@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,
-    pbr::{light_consts, CascadeShadowConfigBuilder},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
 };
@@ -99,7 +99,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
-                base_color: PINK.into(),
+                base_color: DEEP_PINK.into(),
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
@@ -145,7 +145,7 @@ fn setup(
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: RED.into(),
-                    emissive: Color::linear_rgba(7.13, 0.0, 0.0, 0.0),
+                    emissive: Color::linear_rgba(713.0, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -173,7 +173,7 @@ fn setup(
                 mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
                     base_color: LIME.into(),
-                    emissive: Color::linear_rgba(0.0, 7.13, 0.0, 0.0),
+                    emissive: Color::linear_rgba(0.0, 713.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -198,7 +198,7 @@ fn setup(
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: BLUE.into(),
-                    emissive: Color::linear_rgba(0.0, 0.0, 7.13, 0.0),
+                    emissive: Color::linear_rgba(0.0, 0.0, 713.0, 0.0),
                     ..default()
                 }),
                 ..default()

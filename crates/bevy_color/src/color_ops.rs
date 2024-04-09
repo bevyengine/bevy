@@ -61,3 +61,56 @@ pub trait Alpha: Sized {
         self.alpha() >= 1.0
     }
 }
+
+/// Trait for manipulating the hue of a color.
+pub trait Hue: Sized {
+    /// Return a new version of this color with the hue channel set to the given value.
+    fn with_hue(&self, hue: f32) -> Self;
+
+    /// Return the hue of this color [0.0, 360.0].
+    fn hue(&self) -> f32;
+
+    /// Sets the hue of this color.
+    fn set_hue(&mut self, hue: f32);
+
+    /// Return a new version of this color with the hue channel rotated by the given degrees.
+    fn rotate_hue(&self, degrees: f32) -> Self {
+        let rotated_hue = (self.hue() + degrees).rem_euclid(360.);
+        self.with_hue(rotated_hue)
+    }
+}
+
+/// Trait with methods for asserting a colorspace is within bounds.
+///
+/// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
+/// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
+pub trait ClampColor: Sized {
+    /// Return a new version of this color clamped, with all fields in bounds.
+    fn clamped(&self) -> Self;
+
+    /// Changes all the fields of this color to ensure they are within bounds.
+    fn clamp(&mut self) {
+        *self = self.clamped();
+    }
+
+    /// Are all the fields of this color in bounds?
+    fn is_within_bounds(&self) -> bool;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Hsla;
+
+    #[test]
+    fn test_rotate_hue() {
+        let hsla = Hsla::hsl(180.0, 1.0, 0.5);
+        assert_eq!(hsla.rotate_hue(90.0), Hsla::hsl(270.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-90.0), Hsla::hsl(90.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(0.0), hsla);
+        assert_eq!(hsla.rotate_hue(360.0), hsla);
+        assert_eq!(hsla.rotate_hue(-360.0), hsla);
+    }
+}

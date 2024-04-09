@@ -1,6 +1,7 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -83,6 +84,7 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
+    #[allow(dead_code)]
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
@@ -101,6 +103,8 @@ mod tests {
         }
     }
 
+    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
+    #[allow(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -1723,9 +1727,12 @@ mod tests {
         );
     }
 
+    // These fields are never read so we get a dead code lint here.
+    #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentA(u32);
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentB(u32);
 

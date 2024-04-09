@@ -25,7 +25,7 @@ petgraph = "0.6"
 
 bitflags = "2.3"
 concurrent-queue = "2.4.0"
-fixedbitset = "0.4.2"
+fixedbitset = "0.5"
 rustc-hash = "1.1"
 serde = "1"
 thiserror = "1.0"
@@ -49,3 +49,6 @@ path = "examples/change_detection.rs"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

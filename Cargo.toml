@@ -981,6 +981,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "animation_graph"
+path = "examples/animation/animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_graph]
+name = "Animation Graph"
+description = "Blends multiple animations together with a graph"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "morph_targets"
 path = "examples/animation/morph_targets.rs"
 doc-scrape-examples = true
@@ -999,6 +1010,17 @@ doc-scrape-examples = true
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "color_animation"
+path = "examples/animation/color_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_animation]
+name = "Color animation"
+description = "Demonstrates how to animate colors using mixing and splines in different color spaces"
 category = "Animation"
 wasm = true
 
@@ -2274,6 +2296,17 @@ category = "Transforms"
 wasm = true
 
 [[example]]
+name = "align"
+path = "examples/transforms/align.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.align]
+name = "Alignment"
+description = "A demonstration of Transform's axis-alignment feature"
+category = "Transforms"
+wasm = true
+
+[[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 doc-scrape-examples = true
@@ -2315,6 +2348,17 @@ doc-scrape-examples = true
 [package.metadata.example.borders]
 name = "Borders"
 description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "rounded_borders"
+path = "examples/ui/rounded_borders.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.rounded_borders]
+name = "Rounded Borders"
+description = "Demonstrates how to create a node with a rounded border"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2752,6 +2796,18 @@ description = "A scene showcasing light gizmos"
 category = "Gizmos"
 wasm = true
 
+[[example]]
+name = "fps_overlay"
+path = "examples/dev_tools/fps_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -2765,3 +2821,4 @@ panic = "abort"
 
 [package.metadata.docs.rs]
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+all-features = true
