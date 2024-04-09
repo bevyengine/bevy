@@ -114,8 +114,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
-    /// Like rayon, `init` function will be called only when necessary for a value to
+    /// `init` function will be called only when necessary for a value to
     /// be paired with the group of items in each bevy's task.
+    /// its useful to init a thread-local value for each task.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::preclude::*;
+    /// use bevy_utils::Parallel;
+    /// #[derive(Component)]
+    /// struct T;
+    /// fn system(query: Query<&T>){
+    ///     let queue: Parallel<usize> = Parallel::default();
+    ///     // queue.borrow_mut() will get or create a thread_local queue for each task/thread;
+    ///     query.par_iter().for_each_init(|| queue.borrow_mut(),|local_queue,item| {
+    ///         local_queue += 1;
+    ///      });
+    ///     
+    ///     // collect value from every thread
+    ///     let entity_count = queue.drain().sum();
+    /// }
+    /// ```
     ///
     /// # Panics
     /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
