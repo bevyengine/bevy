@@ -5,6 +5,7 @@
     utils::{PI, interleaved_gradient_noise},
     utils,
 }
+#import bevy_render::maths::orthonormalize
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -28,7 +29,7 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
 
 // Numbers determined by trial and error that gave nice results.
 const SPOT_SHADOW_TEXEL_SIZE: f32 = 0.0134277345;
-const POINT_SHADOW_TEXEL_SIZE: f32 = 0.003;
+const POINT_SHADOW_SCALE: f32 = 0.003;
 const POINT_SHADOW_TEMPORAL_OFFSET_SCALE: f32 = 0.5;
 
 // These are the standard MSAA sample point positions from D3D. They were chosen
@@ -47,8 +48,8 @@ const D3D_SAMPLE_POINT_POSITIONS: array<vec2<f32>, 8> = array(
 );
 
 // And these are the coefficients corresponding to the probability distribution
-// function of a 2D Gaussian lobe with zero mean and the identity covariance matrix
-// ] at those points.
+// function of a 2D Gaussian lobe with zero mean and the identity covariance
+// matrix at those points.
 const D3D_SAMPLE_POINT_COEFFS: array<f32, 8> = array(
     0.157112,
     0.157112,
@@ -181,7 +182,7 @@ fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: 
 #endif
 }
 
-fn tap_shadow_cubemap(
+fn sample_shadow_cubemap_at_offset(
     position: vec2<f32>,
     coeff: f32,
     x_basis: vec3<f32>,
@@ -199,52 +200,49 @@ fn tap_shadow_cubemap(
 
 // This more or less does what Castano13 does, but in 3D space. Castano13 is
 // essentially an optimized 2D Gaussian filter that takes advantage of the
-// bilinear filtering hardware to reduce the number of taps needed. This trick
-// doesn't apply to cubemaps, so we manually apply a Gaussian filter over the
-// standard 8xMSAA pattern instead.
+// bilinear filtering hardware to reduce the number of samples needed. This
+// trick doesn't apply to cubemaps, so we manually apply a Gaussian filter over
+// the standard 8xMSAA pattern instead.
 fn sample_shadow_cubemap_gaussian(
     light_local: vec3<f32>,
     depth: f32,
-    texel_size: f32,
+    scale: f32,
     distance_to_light: f32,
     light_id: u32,
 ) -> f32 {
-    // Create an orthonormal basis via Gram-Schmidt normalization so we can
-    // apply a 2D sampling pattern to a cubemap.
+    // Create an orthonormal basis so we can apply a 2D sampling pattern to a
+    // cubemap.
     var up = vec3(0.0, 1.0, 0.0);
     if (dot(up, normalize(light_local)) > 0.99) {
         up = vec3(1.0, 0.0, 0.0);   // Avoid creating a degenerate basis.
     }
-
-    let scale = texel_size * distance_to_light;
-    let x_basis = normalize(cross(light_local, up)) * scale;
-    let y_basis = normalize(cross(light_local, x_basis)) * scale;
+    let basis = orthonormalize(light_local, up) * scale * distance_to_light;
 
     var sum: f32 = 0.0;
-    sum += tap_shadow_cubemap(
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[0], D3D_SAMPLE_POINT_COEFFS[0],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[1], D3D_SAMPLE_POINT_COEFFS[1],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[2], D3D_SAMPLE_POINT_COEFFS[2],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[3], D3D_SAMPLE_POINT_COEFFS[3],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[4], D3D_SAMPLE_POINT_COEFFS[4],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[5], D3D_SAMPLE_POINT_COEFFS[5],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[6], D3D_SAMPLE_POINT_COEFFS[6],
-        x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
+        basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[7], D3D_SAMPLE_POINT_COEFFS[7],
-        x_basis, y_basis, light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, light_id);
     return sum;
 }
 
@@ -254,20 +252,17 @@ fn sample_shadow_cubemap_gaussian(
 fn sample_shadow_cubemap_temporal(
     light_local: vec3<f32>,
     depth: f32,
-    texel_size: f32,
+    scale: f32,
     distance_to_light: f32,
     light_id: u32,
 ) -> f32 {
-    // Create an orthonormal basis via Gram-Schmidt normalization so we can
-    // apply a 2D sampling pattern to a cubemap.
+    // Create an orthonormal basis so we can apply a 2D sampling pattern to a
+    // cubemap.
     var up = vec3(0.0, 1.0, 0.0);
     if (dot(up, normalize(light_local)) > 0.99) {
         up = vec3(1.0, 0.0, 0.0);   // Avoid creating a degenerate basis.
     }
-
-    let scale = texel_size * distance_to_light;
-    let x_basis = normalize(cross(light_local, up)) * scale;
-    let y_basis = normalize(cross(light_local, x_basis)) * scale;
+    let basis = orthonormalize(light_local, up) * scale * distance_to_light;
 
     let rotation_matrix = random_rotation_matrix(vec2(1.0));
 
@@ -289,22 +284,22 @@ fn sample_shadow_cubemap_temporal(
         POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
 
     var sum: f32 = 0.0;
-    sum += tap_shadow_cubemap(
-        sample_offset0, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset1, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset2, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset3, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset4, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset5, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset6, 0.125, x_basis, y_basis, light_local, depth, light_id);
-    sum += tap_shadow_cubemap(
-        sample_offset7, 0.125, x_basis, y_basis, light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset0, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset1, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset2, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset3, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset4, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset5, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset6, 0.125, basis[0], basis[1], light_local, depth, light_id);
+    sum += sample_shadow_cubemap_at_offset(
+        sample_offset7, 0.125, basis[0], basis[1], light_local, depth, light_id);
     return sum;
 }
 
@@ -316,10 +311,10 @@ fn sample_shadow_cubemap(
 ) -> f32 {
 #ifdef SHADOW_FILTER_METHOD_GAUSSIAN
     return sample_shadow_cubemap_gaussian(
-        light_local, depth, POINT_SHADOW_TEXEL_SIZE, distance_to_light, light_id);
+        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
 #else ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_cubemap_temporal(
-        light_local, depth, POINT_SHADOW_TEXEL_SIZE, distance_to_light, light_id);
+        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_cubemap_hardware(light_local, depth, light_id);
 #else
