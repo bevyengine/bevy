@@ -97,7 +97,7 @@ use bevy_render::{
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
-    texture::Image,
+    texture::{GpuImage, Image},
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -388,7 +388,7 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<Image>),
+                        .after(prepare_assets::<GpuImage>),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
