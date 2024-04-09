@@ -1,9 +1,26 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
+#[cfg(feature = "meshlet")]
+mod meshlet;
 pub mod wireframe;
 
-mod alpha;
+/// Experimental features that are not yet finished. Please report any issues you encounter!
+///
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
+#[cfg(feature = "meshlet")]
+pub mod experimental {
+    pub mod meshlet {
+        pub use crate::meshlet::*;
+    }
+}
+
 mod bundle;
 pub mod deferred;
 mod extended_material;
@@ -18,8 +35,7 @@ mod prepass;
 mod render;
 mod ssao;
 
-pub use alpha::*;
-use bevy_core_pipeline::core_3d::graph::{Labels3d, SubGraph3d};
+use bevy_color::{Color, LinearRgba};
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -36,13 +52,12 @@ pub use ssao::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode,
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
         fog::{FogFalloff, FogSettings},
-        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
             LightProbe,
@@ -58,7 +73,7 @@ pub mod graph {
     use bevy_render::render_graph::RenderLabel;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum LabelsPbr {
+    pub enum NodePbr {
         /// Label for the shadow pass node.
         ShadowPass,
         /// Label for the screen space ambient occlusion render node.
@@ -67,25 +82,24 @@ pub mod graph {
     }
 }
 
+use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    alpha::AlphaMode,
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    prelude::Color,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
-    render_phase::sort_phase_system,
     render_resource::Shader,
     texture::Image,
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
-
-use crate::{deferred::DeferredPbrLightingPlugin, graph::LabelsPbr};
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -109,6 +123,8 @@ pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
 pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
 pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2325134235233421);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -234,17 +250,19 @@ impl Plugin for PbrPlugin {
             "render/view_transformations.wgsl",
             Shader::from_wgsl
         );
+        // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            "meshlet/dummy_visibility_buffer_resolve.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
-            .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterFarZMode>()
-            .register_type::<ClusterZConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
@@ -254,10 +272,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<FogSettings>()
-            .register_type::<FogFalloff>()
             .register_type::<ShadowFilteringMethod>()
-            .register_type::<ParallaxMappingMethod>()
-            .register_type::<OpaqueRendererMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -337,16 +352,18 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            Handle::<StandardMaterial>::default(),
-            StandardMaterial {
-                base_color: Color::rgb(1.0, 0.0, 0.5),
-                unlit: true,
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .insert(
+                &Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::srgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -359,22 +376,21 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_assets::<Image>),
-                    sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();
 
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph.get_sub_graph_mut(SubGraph3d).unwrap();
-        draw_3d_graph.add_node(LabelsPbr::ShadowPass, shadow_pass_node);
-        draw_3d_graph.add_node_edge(LabelsPbr::ShadowPass, Labels3d::StartMainPass);
+        let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
+        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
+        draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
+        draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
 
         render_app.ignore_ambiguity(
             bevy_render::Render,
             bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
-            bevy_render::batching::batch_and_prepare_render_phase::<
+            bevy_render::batching::batch_and_prepare_sorted_render_phase::<
                 bevy_core_pipeline::core_3d::Transmissive3d,
                 MeshPipeline,
             >,
@@ -382,7 +398,7 @@ impl Plugin for PbrPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

@@ -1,5 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! Provides 2D sprite rendering functionality.
 mod bundle;
@@ -12,9 +18,13 @@ mod texture_atlas_builder;
 mod texture_slice;
 
 pub mod prelude {
+    #[allow(deprecated)]
+    #[doc(hidden)]
+    pub use crate::bundle::SpriteSheetBundle;
+
     #[doc(hidden)]
     pub use crate::{
-        bundle::{SpriteBundle, SpriteSheetBundle},
+        bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
@@ -87,7 +97,7 @@ impl Plugin for SpritePlugin {
                 ),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
@@ -115,7 +125,7 @@ impl Plugin for SpritePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpritePipeline>();
         }
     }
@@ -153,7 +163,9 @@ pub fn calculate_bounds_2d(
             // We default to the texture size for regular sprites
             None => images.get(texture_handle).map(|image| image.size_f32()),
             // We default to the drawn rect for atlas sprites
-            Some(atlas) => atlas.texture_rect(&atlases).map(|rect| rect.size()),
+            Some(atlas) => atlas
+                .texture_rect(&atlases)
+                .map(|rect| rect.size().as_vec2()),
         }) {
             let aabb = Aabb {
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
@@ -189,12 +201,15 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
-        let entity = app.world.spawn((Sprite::default(), image_handle)).id();
+        // Add entities
+        let entity = app
+            .world_mut()
+            .spawn((Sprite::default(), image_handle))
+            .id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -204,7 +219,7 @@ mod test {
 
         // Verify the AABB exists
         assert!(app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -227,9 +242,9 @@ mod test {
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
 
-        // Add entites
+        // Add entities
         let entity = app
-            .world
+            .world_mut()
             .spawn((
                 Sprite {
                     custom_size: Some(Vec2::ZERO),
@@ -244,7 +259,7 @@ mod test {
 
         // Get the initial AABB
         let first_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
@@ -252,7 +267,7 @@ mod test {
 
         // Change `custom_size` of sprite
         let mut binding = app
-            .world
+            .world_mut()
             .get_entity_mut(entity)
             .expect("Could not find entity");
         let mut sprite = binding
@@ -265,7 +280,7 @@ mod test {
 
         // Get the re-calculated AABB
         let second_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()

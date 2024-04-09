@@ -1,5 +1,6 @@
 use crate::io::{AssetSourceEvent, AssetWatcher};
-use bevy_log::error;
+use crate::path::normalize_path;
+use bevy_utils::tracing::error;
 use bevy_utils::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
@@ -28,7 +29,7 @@ impl FileWatcher {
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = super::get_base_path().join(root);
+        let root = normalize_path(super::get_base_path().join(root).as_path());
         let watcher = new_asset_event_debouncer(
             root.clone(),
             debounce_wait_time,

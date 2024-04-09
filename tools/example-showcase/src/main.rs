@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
@@ -12,7 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -462,7 +464,19 @@ header_message = \"Examples (WebGL2)\"
                 if !to_show.wasm {
                     continue;
                 }
-                let category_path = root_path.join(&to_show.category);
+
+                // This beautifys the path
+                // to make it a good looking URL
+                // rather than having weird whitespace
+                // and other characters that don't
+                // work well in a URL path.
+                let category_path = root_path.join(
+                    &to_show
+                        .category
+                        .replace(['(', ')'], "")
+                        .replace(' ', "-")
+                        .to_lowercase(),
+                );
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -498,6 +512,10 @@ title = \"{}\"
 template = \"example{}.html\"
 weight = {}
 description = \"{}\"
+# This creates redirection pages
+# for the old URLs which used
+# uppercase letters and whitespace.
+aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
@@ -514,6 +532,12 @@ header_message = \"Examples ({})\"
                             },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
+                            to_show.category,
+                            &to_show.technical_name.replace('_', "-"),
                             &to_show.technical_name.replace('_', "-"),
                             match api {
                                 WebApi::Webgpu => "-webgpu",
@@ -659,7 +683,7 @@ header_message = \"Examples ({})\"
 
 fn parse_examples() -> Vec<Example> {
     let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()

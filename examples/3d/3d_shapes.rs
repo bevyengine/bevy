@@ -4,6 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::basic::SILVER,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -70,9 +71,9 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500000.0,
-            range: 100.,
             shadows_enabled: true,
+            intensity: 10_000_000.,
+            range: 100.0,
             ..default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
@@ -82,7 +83,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::SILVER),
+        material: materials.add(Color::from(SILVER)),
         ..default()
     });
 

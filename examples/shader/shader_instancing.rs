@@ -12,11 +12,11 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        mesh::{GpuBufferInfo, MeshVertexBufferLayoutRef},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            RenderPhase, SetItemPipeline, TrackedRenderPass,
+            SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 .map(|(x, y)| InstanceData {
                     position: Vec3::new(x * 10.0 - 5.0, y * 10.0 - 5.0, 0.0),
                     scale: 1.0,
-                    color: Color::hsla(x * 360., y, 0.5, 1.0).as_rgba_f32(),
+                    color: LinearRgba::from(Color::hsla(x * 360., y, 0.5, 1.0)).to_f32_array(),
                 })
                 .collect(),
         ),
@@ -117,7 +117,7 @@ fn queue_custom(
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
@@ -133,7 +133,8 @@ fn queue_custom(
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let key = view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let key =
+                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
@@ -182,13 +183,10 @@ struct CustomPipeline {
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let shader = asset_server.load("shaders/instancing.wgsl");
-
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
-            shader,
+            shader: world.load_asset("shaders/instancing.wgsl"),
             mesh_pipeline: mesh_pipeline.clone(),
         }
     }
@@ -200,7 +198,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
 
@@ -244,7 +242,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     fn render<'w>(
         item: &P,
         _view: (),
-        instance_buffer: &'w InstanceBuffer,
+        instance_buffer: Option<&'w InstanceBuffer>,
         (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -252,6 +250,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
             return RenderCommandResult::Failure;
         };
         let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Failure;
         };
 

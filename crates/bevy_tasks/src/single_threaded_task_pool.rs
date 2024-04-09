@@ -94,6 +94,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
+    #[allow(unsafe_code)]
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
@@ -202,7 +203,7 @@ impl FakeTask {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'env async_executor::LocalExecutor<'env>,
+    executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
 
@@ -219,7 +220,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -230,7 +231,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_external<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn_on_external<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -239,7 +240,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         let result = Rc::new(RefCell::new(None));
         self.results.borrow_mut().push(result.clone());
         let f = async move {

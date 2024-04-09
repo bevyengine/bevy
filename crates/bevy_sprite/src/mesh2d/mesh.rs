@@ -3,20 +3,22 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::mesh::MeshVertexBufferLayoutRef;
 use bevy_render::{
     batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, GetBatchData,
         NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
@@ -30,7 +32,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::EntityHashMap;
 
 use crate::Material2dBindGroupId;
 
@@ -38,7 +39,7 @@ use crate::Material2dBindGroupId;
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2dHandle {
@@ -92,7 +93,7 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
@@ -100,7 +101,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_render_phase::<Transparent2d, Mesh2dPipeline>
+                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
@@ -114,9 +115,9 @@ impl Plugin for Mesh2dRenderPlugin {
     fn finish(&self, app: &mut bevy_app::App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world().resource::<RenderDevice>(),
             ) {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -126,7 +127,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world().resource::<RenderDevice>(),
                 ))
                 .init_resource::<Mesh2dPipeline>();
         }
@@ -192,7 +193,7 @@ pub struct RenderMesh2dInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2d;
@@ -304,7 +305,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size_f32(),
+                size: image.size(),
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -436,32 +437,32 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+        if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+        if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+        if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+        if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+        if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
@@ -504,7 +505,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             }
         }
 
-        let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+        let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let format = match key.contains(Mesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
@@ -624,7 +625,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     fn render<'w>(
         _item: &P,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
-        _view: (),
+        _view: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -644,7 +645,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -673,7 +674,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: Option<()>,
         (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -115,12 +115,14 @@ pub struct WindowDestroyed {
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
-/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate.
+/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition of `delta`.
 ///
-/// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
+/// Not to be confused with the `MouseMotion` event from `bevy_input`.
+///
+/// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
+/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-/// [`MouseMotion`]: bevy_input::mouse::MouseMotion
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -133,6 +135,13 @@ pub struct CursorMoved {
     pub window: Entity,
     /// The cursor position in logical pixels.
     pub position: Vec2,
+    /// The change in the position of the cursor since the last event was sent.
+    /// This value is `None` if the cursor was outside the window area during the last frame.
+    //
+    // Because the range of this data is limited by the display area and it may have been
+    //  transformed by the OS to implement effects such as cursor acceleration, it should
+    // not be used to implement non-cursor-like interactions such as 3D camera control.
+    pub delta: Option<Vec2>,
 }
 
 /// An event that is sent whenever the user's cursor enters a window.

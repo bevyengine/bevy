@@ -30,6 +30,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -43,7 +44,7 @@ use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
-use bevy_utils::{EntityHashMap, HashSet};
+use bevy_utils::HashSet;
 
 use crate::RenderMeshInstances;
 
@@ -104,7 +105,7 @@ pub struct RenderLightmaps {
     ///
     /// Entities without lightmaps, or for which the mesh or lightmap isn't
     /// loaded, won't have entries in this table.
-    pub(crate) render_lightmaps: EntityHashMap<Entity, RenderLightmap>,
+    pub(crate) render_lightmaps: EntityHashMap<RenderLightmap>,
 
     /// All active lightmap images in the scene.
     ///
@@ -125,7 +126,7 @@ impl Plugin for LightmapPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -158,7 +159,7 @@ fn extract_lightmaps(
             || !render_mesh_instances
                 .get(&entity)
                 .and_then(|mesh_instance| meshes.get(mesh_instance.mesh_asset_id))
-                .is_some_and(|mesh| mesh.layout.contains(Mesh::ATTRIBUTE_UV_1.id))
+                .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;
         }

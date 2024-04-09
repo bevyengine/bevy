@@ -1,7 +1,7 @@
+use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::color::Color;
 
 use crate::TextureSlicer;
 
@@ -32,12 +32,9 @@ pub struct Sprite {
 }
 
 /// Controls how the image is altered when scaled.
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub enum ImageScaleMode {
-    /// The entire texture stretches when its dimensions change. This is the default option.
-    #[default]
-    Stretched,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`

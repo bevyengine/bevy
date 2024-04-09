@@ -1,7 +1,7 @@
 use core::fmt;
 
-use crate::container_attributes::{FromReflectAttrs, ReflectTraits, TypePathAttrs};
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
+use crate::field_attributes::FieldAttributes;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
@@ -42,7 +42,7 @@ pub(crate) enum ReflectDerive<'a> {
 /// ```
 pub(crate) struct ReflectMeta<'a> {
     /// The registered traits for this type.
-    traits: ReflectTraits,
+    attrs: ContainerAttributes,
     /// The path to this type.
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
@@ -95,7 +95,7 @@ pub(crate) struct StructField<'a> {
     /// The raw field.
     pub data: &'a Field,
     /// The reflection-based attributes on the field.
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this field within the struct.
     pub declaration_index: usize,
     /// The index of this field as seen by the reflection API.
@@ -118,7 +118,7 @@ pub(crate) struct EnumVariant<'a> {
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
     #[allow(dead_code)]
-    pub attrs: ReflectFieldAttr,
+    pub attrs: FieldAttributes,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
@@ -183,7 +183,7 @@ impl<'a> ReflectDerive<'a> {
         input: &'a DeriveInput,
         provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
-        let mut traits = ReflectTraits::default();
+        let mut traits = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
@@ -205,7 +205,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits =
+                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -217,7 +218,8 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits = ReflectTraits::from_meta_list(meta_list, provenance.trait_)?;
+                    let new_traits =
+                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
                     traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
@@ -361,7 +363,7 @@ impl<'a> ReflectDerive<'a> {
             .enumerate()
             .map(
                 |(declaration_index, field)| -> Result<StructField, syn::Error> {
-                    let attrs = parse_field_attrs(&field.attrs)?;
+                    let attrs = FieldAttributes::parse_attributes(&field.attrs)?;
 
                     let reflection_index = if attrs.ignore.is_ignored() {
                         None
@@ -404,7 +406,7 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: parse_field_attrs(&variant.attrs)?,
+                    attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]
@@ -421,9 +423,9 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_path: ReflectTypePath<'a>, traits: ReflectTraits) -> Self {
+    pub fn new(type_path: ReflectTypePath<'a>, attrs: ContainerAttributes) -> Self {
         Self {
-            traits,
+            attrs,
             type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
@@ -438,19 +440,19 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The registered reflect traits on this struct.
-    pub fn traits(&self) -> &ReflectTraits {
-        &self.traits
+    pub fn attrs(&self) -> &ContainerAttributes {
+        &self.attrs
     }
 
     /// The `FromReflect` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.traits.from_reflect_attrs()
+        self.attrs.from_reflect_attrs()
     }
 
     /// The `TypePath` attributes on this type.
     pub fn type_path_attrs(&self) -> &TypePathAttrs {
-        self.traits.type_path_attrs()
+        self.attrs.type_path_attrs()
     }
 
     /// The path to this type.
@@ -468,7 +470,12 @@ impl<'a> ReflectMeta<'a> {
         &self,
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
-        crate::registration::impl_get_type_registration(self, where_clause_options, None)
+        crate::registration::impl_get_type_registration(
+            self,
+            where_clause_options,
+            None,
+            Option::<std::iter::Empty<&Type>>::None,
+        )
     }
 
     /// The collection of docstrings for this type, if any.
@@ -500,6 +507,7 @@ impl<'a> ReflectStruct<'a> {
             self.meta(),
             where_clause_options,
             self.serialization_data(),
+            Some(self.active_types().iter()),
         )
     }
 
@@ -510,22 +518,21 @@ impl<'a> ReflectStruct<'a> {
             .collect()
     }
 
-    /// Get an iterator of fields which are exposed to the reflection API
+    /// Get an iterator of fields which are exposed to the reflection API.
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
+        self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_active())
     }
 
     /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields
+        self.fields()
             .iter()
             .filter(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
-    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
     }
@@ -570,6 +577,21 @@ impl<'a> ReflectEnum<'a> {
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for enums and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    pub fn get_type_registration(
+        &self,
+        where_clause_options: &WhereClauseOptions,
+    ) -> proc_macro2::TokenStream {
+        crate::registration::impl_get_type_registration(
+            self.meta(),
+            where_clause_options,
+            None,
+            Some(self.active_fields().map(|field| &field.data.ty)),
+        )
     }
 }
 

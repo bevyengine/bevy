@@ -7,7 +7,7 @@ pub use window::*;
 
 use crate::{
     camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, ExposureSettings, ExtractedCamera,
+        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -55,7 +55,7 @@ impl Plugin for ViewPlugin {
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ViewUniforms>().add_systems(
                 Render,
                 (
@@ -90,7 +90,7 @@ impl Plugin for ViewPlugin {
 #[derive(
     Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
 )]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -434,7 +434,7 @@ pub fn prepare_view_uniforms(
                 world_position: extracted_view.transform.translation(),
                 exposure: extracted_camera
                     .map(|c| c.exposure)
-                    .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                    .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
                 frustum,
                 color_grading: extracted_view.color_grading,
@@ -493,11 +493,12 @@ pub fn prepare_view_targets(
                 };
 
                 let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => color,
-                    _ => clear_color_global.0,
+                    ClearColorConfig::Custom(color) => Some(color),
+                    ClearColorConfig::None => None,
+                    _ => Some(clear_color_global.0),
                 };
 
-                let (a, b, sampled) = textures
+                let (a, b, sampled, main_texture) = textures
                     .entry((camera.target.clone(), view.hdr))
                     .or_insert_with(|| {
                         let descriptor = TextureDescriptor {
@@ -546,13 +547,16 @@ pub fn prepare_view_targets(
                         } else {
                             None
                         };
-                        (a, b, sampled)
+                        let main_texture = Arc::new(AtomicUsize::new(0));
+                        (a, b, sampled, main_texture)
                     });
 
+                let converted_clear_color = clear_color.map(|color| color.into());
+
                 let main_textures = MainTargetTextures {
-                    a: ColorAttachment::new(a.clone(), sampled.clone(), clear_color),
-                    b: ColorAttachment::new(b.clone(), sampled.clone(), clear_color),
-                    main_texture: Arc::new(AtomicUsize::new(0)),
+                    a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
+                    b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+                    main_texture: main_texture.clone(),
                 };
 
                 commands.entity(entity).insert(ViewTarget {

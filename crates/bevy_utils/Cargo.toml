@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -12,16 +12,12 @@ keywords = ["bevy"]
 detailed_trace = []
 
 [dependencies]
-ahash = "0.8.3"
+ahash = "0.8.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 web-time = { version = "0.2" }
-uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.14", features = ["serde"] }
-bevy_utils_proc_macros = { version = "0.12.0", path = "macros" }
-petgraph = "0.6"
-thiserror = "1.0"
-nonmax = "0.5"
-smallvec = { version = "1.11", features = ["serde", "union", "const_generics"] }
+bevy_utils_proc_macros = { version = "0.14.0-dev", path = "macros" }
+thread_local = "1.0"
 
 [dev-dependencies]
 static_assertions = "1.1.0"
@@ -31,3 +27,7 @@ getrandom = { version = "0.2.0", features = ["js"] }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

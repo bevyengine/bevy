@@ -1,7 +1,8 @@
+use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
@@ -37,8 +38,6 @@ use bevy_utils::{
 };
 use std::mem;
 
-use crate::LabelsPbr;
-
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
 const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(466162052558226);
@@ -73,12 +72,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         if !render_app
-            .world
+            .world()
             .resource::<RenderAdapter>()
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
@@ -89,7 +88,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         if render_app
-            .world
+            .world()
             .resource::<RenderDevice>()
             .limits()
             .max_storage_textures_per_shader_stage
@@ -112,16 +111,16 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
-                SubGraph3d,
-                LabelsPbr::ScreenSpaceAmbientOcclusion,
+                Core3d,
+                NodePbr::ScreenSpaceAmbientOcclusion,
             )
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
                     // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    Labels3d::EndPrepasses,
-                    LabelsPbr::ScreenSpaceAmbientOcclusion,
-                    Labels3d::StartMainPass,
+                    Node3d::EndPrepasses,
+                    NodePbr::ScreenSpaceAmbientOcclusion,
+                    Node3d::StartMainPass,
                 ),
             );
     }

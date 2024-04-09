@@ -222,7 +222,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
 impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
-            bevy_log::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
+            bevy_utils::tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
         }
         BindGroupLayoutEntryBuilder {
             ty: self.ty,
@@ -354,7 +354,7 @@ pub mod binding_types {
     };
     use encase::ShaderType;
     use std::num::NonZeroU64;
-    use wgpu::{BindingType, StorageTextureAccess, TextureFormat};
+    use wgpu::{StorageTextureAccess, TextureFormat};
 
     use super::*;
 

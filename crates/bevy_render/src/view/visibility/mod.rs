@@ -9,10 +9,8 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use std::cell::Cell;
-use thread_local::ThreadLocal;
+use bevy_utils::Parallel;
 
-use crate::deterministic::DeterministicRenderingConfig;
 use crate::{
     camera::{
         camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
@@ -50,7 +48,8 @@ pub enum Visibility {
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
     fn eq(&self, other: &Visibility) -> bool {
-        **self == *other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(*self, other)
     }
 }
 
@@ -58,7 +57,8 @@ impl PartialEq<Visibility> for &Visibility {
 impl PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
-        *self == **other
+        // Use the base Visibility == Visibility implementation.
+        <Visibility as PartialEq<Visibility>>::eq(self, *other)
     }
 }
 
@@ -167,7 +167,7 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
@@ -189,7 +189,7 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
     /// Label for the [`update_frusta<OrthographicProjection>`] system.
@@ -356,12 +356,12 @@ fn propagate_recursive(
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
 fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    for mut view_visibility in &mut query {
+    query.iter_mut().for_each(|mut view_visibility| {
         // NOTE: We do not use `set_if_neq` here, as we don't care about
         // change detection for view visibility, and adding a branch to every
         // loop iteration would pessimize performance.
-        *view_visibility = ViewVisibility::HIDDEN;
-    }
+        *view_visibility.bypass_change_detection() = ViewVisibility::HIDDEN;
+    });
 }
 
 /// System updating the visibility of entities each frame.
@@ -370,7 +370,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
-    mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
         &mut VisibleEntities,
         &Frustum,
@@ -386,7 +386,6 @@ pub fn check_visibility(
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
-    deterministic_rendering_config: Res<DeterministicRenderingConfig>,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
         if !camera.is_active {
@@ -438,20 +437,13 @@ pub fn check_visibility(
             }
 
             view_visibility.set();
-            let cell = thread_queues.get_or_default();
-            let mut queue = cell.take();
-            queue.push(entity);
-            cell.set(queue);
+            thread_queues.scope(|queue| {
+                queue.push(entity);
+            });
         });
 
-        for cell in &mut thread_queues {
-            visible_entities.entities.append(cell.get_mut());
-        }
-        if deterministic_rendering_config.stable_sort_z_fighting {
-            // We can use the faster unstable sort here because
-            // the values (`Entity`) are guaranteed to be unique.
-            visible_entities.entities.sort_unstable();
-        }
+        visible_entities.entities.clear();
+        thread_queues.drain_into(&mut visible_entities.entities);
     }
 }
 
@@ -476,42 +468,51 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root1_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root1_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root1_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root1_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
+        let root1 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root1_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1_child2 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root1)
             .push_children(&[root1_child1, root1_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child1)
             .push_children(&[root1_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
-        let root2 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        let root2_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
+        let root2 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child2 = app
+            .world_mut()
+            .spawn(visibility_bundle(Visibility::Hidden))
+            .id();
+        let root2_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root2)
             .push_children(&[root2_child1, root2_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root2_child1)
             .push_children(&[root2_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root2_child2)
             .push_children(&[root2_child2_grandchild1]);
 
         app.update();
 
         let is_visible = |e: Entity| {
-            app.world
+            app.world()
                 .entity(e)
                 .get::<InheritedVisibility>()
                 .unwrap()
@@ -567,29 +568,29 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world.spawn(visibility_bundle(Visible)).id();
-        let root1_child1 = app.world.spawn(visibility_bundle(Inherited)).id();
-        let root1_child2 = app.world.spawn(visibility_bundle(Hidden)).id();
-        let root1_child1_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
-        let root1_child2_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
+        let root1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1_child1 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
+        let root1_child2 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
 
-        let root2 = app.world.spawn(visibility_bundle(Inherited)).id();
-        let root3 = app.world.spawn(visibility_bundle(Hidden)).id();
+        let root2 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
+        let root3 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
 
-        app.world
+        app.world_mut()
             .entity_mut(root1)
             .push_children(&[root1_child1, root1_child2]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child1)
             .push_children(&[root1_child1_grandchild1]);
-        app.world
+        app.world_mut()
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
         app.update();
 
         let is_visible = |e: Entity| {
-            app.world
+            app.world()
                 .entity(e)
                 .get::<InheritedVisibility>()
                 .unwrap()

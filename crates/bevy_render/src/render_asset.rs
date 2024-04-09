@@ -1,5 +1,5 @@
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -7,14 +7,11 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_reflect::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    Typed, ValueInfo,
-};
-use bevy_utils::{thiserror::Error, HashMap, HashSet};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -66,8 +63,16 @@ bitflags::bitflags! {
     ///
     /// If you have an asset that doesn't actually need to end up in the render world, like an Image
     /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
+    ///
+    /// ## Platform-specific
+    ///
+    /// On Wasm, it is not possible for now to free reserved memory. To control memory usage, load assets
+    /// in sequence and unload one before loading the next. See this
+    /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
+    /// details.
     #[repr(transparent)]
-    #[derive(Serialize, TypePath, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug)]
+    #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[reflect_value(Serialize, Deserialize, Hash, PartialEq, Debug)]
     pub struct RenderAssetUsages: u8 {
         const MAIN_WORLD = 1 << 0;
         const RENDER_WORLD = 1 << 1;
@@ -85,87 +90,6 @@ impl Default for RenderAssetUsages {
     /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
     fn default() -> Self {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
-}
-
-impl Reflect for RenderAssetUsages {
-    fn get_represented_type_info(&self) -> Option<&'static bevy_reflect::TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
-        self
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
-            *self = value;
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-    fn reflect_kind(&self) -> bevy_reflect::ReflectKind {
-        ReflectKind::Value
-    }
-    fn reflect_ref(&self) -> bevy_reflect::ReflectRef {
-        ReflectRef::Value(self)
-    }
-    fn reflect_mut(&mut self) -> bevy_reflect::ReflectMut {
-        ReflectMut::Value(self)
-    }
-    fn reflect_owned(self: Box<Self>) -> bevy_reflect::ReflectOwned {
-        ReflectOwned::Value(self)
-    }
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(*self)
-    }
-    fn reflect_hash(&self) -> Option<u64> {
-        use std::hash::Hash;
-        use std::hash::Hasher;
-        let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
-        Hash::hash(self, &mut hasher);
-        Some(hasher.finish())
-    }
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
-    }
-}
-
-impl FromReflect for RenderAssetUsages {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        let raw_value = *reflect.as_any().downcast_ref::<u8>()?;
-        Self::from_bits(raw_value)
-    }
-}
-
-impl Typed for RenderAssetUsages {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
 
@@ -198,7 +122,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
@@ -214,17 +138,17 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 
 // helper to allow specifying dependencies between render assets
 pub trait RenderAssetDependency {
-    fn register_system(render_app: &mut App, system: SystemConfigs);
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs);
 }
 
 impl RenderAssetDependency for () {
-    fn register_system(render_app: &mut App, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
         render_app.add_systems(Render, system);
     }
 }
 
 impl<A: RenderAsset> RenderAssetDependency for A {
-    fn register_system(render_app: &mut App, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
         render_app.add_systems(Render, system.after(prepare_assets::<A>));
     }
 }
@@ -380,6 +304,10 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
+        if extracted_assets.removed.contains(&id) {
+            continue;
+        }
+
         match extracted_asset.prepare_asset(&mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);

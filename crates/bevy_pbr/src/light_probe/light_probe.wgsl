@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::light_probe
 
+#import bevy_pbr::mesh_view_bindings::light_probes
 #import bevy_pbr::mesh_view_types::LightProbe
 
 // The result of searching for a light probe.
@@ -28,20 +29,28 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
 //
 // TODO: Interpolate between multiple light probes.
 fn query_light_probe(
-    in_light_probes: array<LightProbe, 8u>,
-    light_probe_count: i32,
     world_position: vec3<f32>,
+    is_irradiance_volume: bool,
 ) -> LightProbeQueryResult {
-    // This is needed to index into the array with a non-constant expression.
-    var light_probes = in_light_probes;
-
     var result: LightProbeQueryResult;
     result.texture_index = -1;
+
+    var light_probe_count: i32;
+    if is_irradiance_volume {
+        light_probe_count = light_probes.irradiance_volume_count;
+    } else {
+        light_probe_count = light_probes.reflection_probe_count;
+    }
 
     for (var light_probe_index: i32 = 0;
             light_probe_index < light_probe_count && result.texture_index < 0;
             light_probe_index += 1) {
-        let light_probe = light_probes[light_probe_index];
+        var light_probe: LightProbe;
+        if is_irradiance_volume {
+            light_probe = light_probes.irradiance_volumes[light_probe_index];
+        } else {
+            light_probe = light_probes.reflection_probes[light_probe_index];
+        }
 
         // Unpack the inverse transform.
         let inverse_transform =

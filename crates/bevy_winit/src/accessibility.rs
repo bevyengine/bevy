@@ -8,13 +8,14 @@ use std::{
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     accesskit::{
-        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, TreeUpdate,
+        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate,
     },
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
@@ -22,16 +23,15 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_utils::EntityHashMap;
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
-pub struct AccessKitAdapters(pub EntityHashMap<Entity, Adapter>);
+pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
 /// Maps window entities to their respective [`WinitActionHandler`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub EntityHashMap<Entity, WinitActionHandler>);
+pub struct WinitActionHandlers(pub EntityHashMap<WinitActionHandler>);
 
 /// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default, Deref, DerefMut)]
@@ -42,6 +42,37 @@ impl ActionHandler for WinitActionHandler {
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
     }
+}
+
+/// Prepares accessibility for a winit window.
+pub(crate) fn prepare_accessibility_for_window(
+    winit_window: &winit::window::Window,
+    entity: Entity,
+    name: String,
+    accessibility_requested: AccessibilityRequested,
+    adapters: &mut AccessKitAdapters,
+    handlers: &mut WinitActionHandlers,
+) {
+    let mut root_builder = NodeBuilder::new(Role::Window);
+    root_builder.set_name(name.into_boxed_str());
+    let root = root_builder.build(&mut NodeClassSet::lock_global());
+
+    let accesskit_window_id = NodeId(entity.to_bits());
+    let handler = WinitActionHandler::default();
+    let adapter = Adapter::with_action_handler(
+        winit_window,
+        move || {
+            accessibility_requested.set(true);
+            TreeUpdate {
+                nodes: vec![(accesskit_window_id, root)],
+                tree: Some(Tree::new(accesskit_window_id)),
+                focus: accesskit_window_id,
+            }
+        },
+        Box::new(handler.clone()),
+    );
+    adapters.insert(entity, adapter);
+    handlers.insert(entity, handler);
 }
 
 fn window_closed(

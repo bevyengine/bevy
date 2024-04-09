@@ -766,67 +766,6 @@ pub mod common_conditions {
         }
     }
 
-    /// Identical to [`in_state`] - use that instead.
-    ///
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the state machine exists and is currently in `state`.
-    ///
-    /// The condition will return `false` if the state does not exist.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, Default)]
-    /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
-    /// enum GameState {
-    ///     #[default]
-    ///     Playing,
-    ///     Paused,
-    /// }
-    ///
-    /// app.add_systems((
-    ///     // `state_exists_and_equals` will only return true if the
-    ///     // given state exists and equals the given value
-    ///     play_system.run_if(state_exists_and_equals(GameState::Playing)),
-    ///     pause_system.run_if(state_exists_and_equals(GameState::Paused)),
-    /// ));
-    ///
-    /// fn play_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// fn pause_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 -= 1;
-    /// }
-    ///
-    /// // `GameState` does not yet exists so neither system will run
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 0);
-    ///
-    /// world.init_resource::<State<GameState>>();
-    ///
-    /// // We default to `GameState::Playing` so `play_system` runs
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    ///
-    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
-    ///
-    /// // Now that we are in `GameState::Pause`, `pause_system` will run
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 0);
-    /// ```
-    #[deprecated(since = "0.13.0", note = "use `in_state` instead.")]
-    pub fn state_exists_and_equals<S: States>(
-        state: S,
-    ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        in_state(state)
-    }
-
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the state machine changed state.
     ///
@@ -1093,7 +1032,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::component::Component;
     use crate::schedule::IntoSystemConfigs;
-    use crate::schedule::{common_conditions::not, State, States};
+    use crate::schedule::{State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Event;

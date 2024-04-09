@@ -1,7 +1,5 @@
-use crate::{
-    core_3d::graph::SubGraph3d,
-    tonemapping::{DebandDither, Tonemapping},
-};
+use crate::core_2d::graph::Core2d;
+use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -15,8 +13,6 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-use super::graph::SubGraph2d;
-
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -26,6 +22,10 @@ pub struct Camera2d;
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
+    /// Note: default value for `OrthographicProjection.near` is `0.0`
+    /// which makes objects on the screen plane invisible to 2D camera.
+    /// `Camera2dBundle::default()` sets `near` to negative value,
+    /// so be careful when initializing this field manually.
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
@@ -47,7 +47,7 @@ impl Default for Camera2dBundle {
         let transform = Transform::default();
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(SubGraph2d),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,
@@ -79,7 +79,7 @@ impl Camera2dBundle {
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
-            camera_render_graph: CameraRenderGraph::new(SubGraph3d),
+            camera_render_graph: CameraRenderGraph::new(Core2d),
             projection,
             visible_entities: VisibleEntities::default(),
             frustum,

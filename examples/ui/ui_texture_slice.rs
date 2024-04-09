@@ -1,7 +1,11 @@
-//! This example illustrates how to create a button that has its image sliced
+//! This example illustrates how to create buttons with their textures sliced
 //! and kept in proportion instead of being stretched by the button dimensions
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{
+    color::palettes::css::{GOLD, ORANGE},
+    prelude::*,
+    winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -14,20 +18,26 @@ fn main() {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Children), (Changed<Interaction>, With<Button>)>,
+    mut interaction_query: Query<
+        (&Interaction, &Children, &mut UiImage),
+        (Changed<Interaction>, With<Button>),
+    >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children) in &mut interaction_query {
+    for (interaction, children, mut image) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
+                image.color = GOLD.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
+                image.color = ORANGE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
+                image.color = Color::WHITE;
             }
         }
     }
@@ -58,28 +68,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
                 parent
-                    .spawn(ButtonBundle {
-                        style: Style {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            margin: UiRect::all(Val::Px(20.0)),
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(w),
+                                height: Val::Px(h),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                margin: UiRect::all(Val::Px(20.0)),
+                                ..default()
+                            },
+                            image: image.clone().into(),
                             ..default()
                         },
-                        image: image.clone().into(),
-                        scale_mode: ImageScaleMode::Sliced(slicer.clone()),
-                        ..default()
-                    })
+                        ImageScaleMode::Sliced(slicer.clone()),
+                    ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
                             "Button",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: Color::rgb(0.9, 0.9, 0.9),
+                                color: Color::srgb(0.9, 0.9, 0.9),
                             },
                         ));
                     });
