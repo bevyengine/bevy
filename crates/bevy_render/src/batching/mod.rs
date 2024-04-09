@@ -83,7 +83,7 @@ pub trait GetBatchData {
     ///
     /// This is only called when building instance data on CPU. In the GPU
     /// instance data building path, we use
-    /// [`GetFullBatchData::get_index_of_batch_input`] instead.
+    /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -104,7 +104,7 @@ pub trait GetFullBatchData: GetBatchData {
     ///
     /// This is only called when building uniforms on CPU. In the GPU instance
     /// buffer building path, we use
-    /// [`GetFullBatchData::get_index_of_batch_input`] instead.
+    /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
@@ -117,7 +117,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// extraction phase before we got here, so this function shouldn't need to
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
-    fn get_index_of_batch_input(
+    fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
@@ -129,7 +129,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// extraction phase before we got here, so this function shouldn't need to
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
-    fn get_index_of_binned_batch_input(
+    fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<NonMaxU32>;
