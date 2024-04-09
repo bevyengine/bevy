@@ -140,8 +140,8 @@ fn draw_example_collection(
     // You can create more complex arrows using the arrow builder.
     gizmos
         .arrow(
-            Vec3::from_array([2., 0., 2.]),
-            Vec3::from_array([2., 2., 2.]),
+            Vec3::new(2., 0., 2.),
+            Vec3::new(2., 2., 2.),
             ORANGE_RED,
         )
         .with_double_end()
