@@ -122,6 +122,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
         FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
@@ -133,6 +134,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         };
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         {
+            let init = init();
             // SAFETY:
             // This method can only be called once per instance of QueryParIter,
             // which ensures that mutable queries cannot be executed multiple times at once.
@@ -140,7 +142,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
             // at the same time.
             unsafe {
-                let init = init();
                 self.state
                     .iter_unchecked_manual(self.world, self.last_run, self.this_run)
                     .fold(init, func);
@@ -150,9 +151,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
+                let init = init();
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    let init = init();
                     self.state
                         .iter_unchecked_manual(self.world, self.last_run, self.this_run)
                         .fold(init, func);

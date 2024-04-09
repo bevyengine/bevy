@@ -1,7 +1,6 @@
-use core::cell::Cell;
 use std::{
-    ops::{Deref, DerefMut},
-    ptr::drop_in_place,
+    cell::{RefCell, RefMut},
+    ops::DerefMut,
 };
 use thread_local::ThreadLocal;
 
@@ -10,40 +9,11 @@ use thread_local::ThreadLocal;
 /// Mutable references can be fetched if `T: Default` via [`Parallel::scope`].
 #[derive(Default)]
 pub struct Parallel<T: Send> {
-    locals: ThreadLocal<Cell<T>>,
+    locals: ThreadLocal<RefCell<T>>,
 }
 
 /// A scope guard of a `Parallel`, when this struct is dropped ,the value will writeback to its `Parallel`
-pub struct ParallelGuard<'a, T: Send + Default> {
-    value: T,
-    parallel: &'a Parallel<T>,
-}
-impl<'a, T: Send + Default> Drop for ParallelGuard<'a, T> {
-    fn drop(&mut self) {
-        let cell = self.parallel.locals.get().unwrap();
-        let mut value = T::default();
-        std::mem::swap(&mut value, &mut self.value);
-        cell.set(value);
-        // SAFETY:
-        // value is longer needed
-        unsafe {
-            drop_in_place(&mut self.value);
-        }
-    }
-}
-impl<'a, T: Send + Default> Deref for ParallelGuard<'a, T> {
-    type Target = T;
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-impl<'a, T: Send + Default> DerefMut for ParallelGuard<'a, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
+
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
@@ -61,23 +31,16 @@ impl<T: Default + Send> Parallel<T> {
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let cell = self.locals.get_or_default();
-        let mut value = cell.take();
-        let ret = f(&mut value);
-        cell.set(value);
+        let mut cell = self.locals.get_or_default().borrow_mut();
+        let ret = f(cell.deref_mut());
         ret
     }
 
-    /// Get the guard of Parallel
+    /// Mutably borrows the thread-local value.
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
-    pub fn guard(&self) -> ParallelGuard<'_, T> {
-        let cell = self.locals.get_or_default();
-        let value = cell.take();
-        ParallelGuard {
-            value,
-            parallel: self,
-        }
+    pub fn borrow_mut(&self) -> RefMut<'_, T> {
+        self.locals.get_or_default().borrow_mut()
     }
 }
 

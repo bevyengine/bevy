@@ -285,7 +285,7 @@ pub fn extract_meshes(
     >,
 ) {
     meshes_query.par_iter().for_each_init(
-        || thread_local_queues.guard(),
+        || thread_local_queues.borrow_mut(),
         |queue,
          (
             entity,

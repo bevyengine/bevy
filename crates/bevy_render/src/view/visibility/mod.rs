@@ -396,7 +396,7 @@ pub fn check_visibility(
 
         visible_entities.entities.clear();
         visible_aabb_query.par_iter_mut().for_each_init(
-            || thread_queues.guard(),
+            || thread_queues.borrow_mut(),
             |queue, query_item| {
                 let (
                     entity,
