@@ -51,7 +51,7 @@ use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 use super::skin::SkinIndices;
 
-/// Provides support for rendering PBR meshes.
+/// Provides support for rendering 3D meshes.
 #[derive(Default)]
 pub struct MeshRenderPlugin {
     /// Whether we're building [`MeshUniform`]s on GPU.

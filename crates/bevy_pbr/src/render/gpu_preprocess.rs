@@ -206,13 +206,13 @@ impl FromWorld for PreprocessPipeline {
             ShaderStages::COMPUTE,
             (
                 // `current_input`
-                storage_buffer_read_only::<MeshInputUniform>(/*has_dynamic_offset=*/ false),
+                storage_buffer_read_only::<MeshInputUniform>(false),
                 // `previous_input`
-                storage_buffer_read_only::<MeshInputUniform>(/*has_dynamic_offset=*/ false),
+                storage_buffer_read_only::<MeshInputUniform>(false),
                 // `indices`
-                storage_buffer_read_only::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
+                storage_buffer_read_only::<PreprocessWorkItem>(false),
                 // `output`
-                storage_buffer::<MeshUniform>(/*has_dynamic_offset=*/ false),
+                storage_buffer::<MeshUniform>(false),
             ),
         );
 

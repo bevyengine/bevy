@@ -144,14 +144,11 @@ where
                         update_mesh_previous_global_transforms,
                         update_previous_view_data,
                     ),
-                );
-        }
-
-        if no_prepass_plugin_loaded {
-            app.add_plugins((
-                BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
-            ));
+                )
+                .add_plugins((
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                ));
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
