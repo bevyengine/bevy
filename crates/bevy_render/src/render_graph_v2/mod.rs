@@ -1,4 +1,4 @@
-mod build;
+//mod build;
 //mod compute_pass;
 pub mod configurator;
 pub mod pipeline;
@@ -7,17 +7,18 @@ pub mod texture;
 
 use self::resource::{
     AsRenderBindGroup, IntoRenderResource, IntoRenderResourceIds, RenderBindGroup, RenderHandle,
-    RenderResource,
+    RenderResource, RenderResourceId,
 };
 use crate::{
     render_resource::PipelineCache,
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     query::{QueryData, QueryEntityError, QueryFilter, QueryState, ROQueryItem},
     system::{Res, ResMut, Resource},
-    world::{EntityRef, World},
+    world::{EntityRef, Ref, World},
 };
 
 // Roadmap:
@@ -78,14 +79,14 @@ pub fn run_render_graph(
     pipeline_cache: Res<PipelineCache>,
 ) {
     render_graph.reset();
-    render_graph.build(render_device, &pipeline_cache);
+    //render_graph.build(render_device, &pipeline_cache);
     render_graph.run(render_device, render_queue);
 }
 
 pub struct RenderGraphBuilder<'a> {
     graph: &'a mut RenderGraph,
     world: &'a World,
-    view_entity: Entity,
+    view_entity: EntityRef<'a>,
 }
 
 impl<'a> RenderGraphBuilder<'a> {
@@ -101,12 +102,9 @@ impl<'a> RenderGraphBuilder<'a> {
         todo!()
     }
 
-    pub fn add_node<
-        const N: usize,
-        F: FnOnce(NodeContext, &RenderDevice, &RenderQueue) + 'static,
-    >(
+    pub fn add_node<F: FnOnce(NodeContext, &RenderDevice, &RenderQueue) + 'static>(
         &mut self,
-        dependencies: impl IntoRenderResourceIds<N>,
+        dependencies: &[RenderResourceId],
         node: F,
     ) -> &mut Self {
         self
@@ -114,73 +112,83 @@ impl<'a> RenderGraphBuilder<'a> {
 }
 
 impl<'a> RenderGraphBuilder<'a> {
-    pub fn world_query<Q: QueryData>(&self) -> QueryState<Q> {
-        self.world.query::<Q>()
-    }
-
-    pub fn world_query_filtered<Q: QueryData, F: QueryFilter>(&self) -> QueryState<Q, F> {
-        self.world.query_filtered::<Q, F>()
-    }
-
-    pub fn view_query<Q: QueryData>(&self) -> Result<ROQueryItem<Q>, QueryEntityError> {
-        self.world.query::<Q>().get(&self.world, self.view_entity)
-    }
-
-    pub fn view_query_filtered<Q: QueryData, F: QueryFilter>(
-        &self,
-    ) -> Result<ROQueryItem<Q>, QueryEntityError> {
-        self.world
-            .query_filtered::<Q, F>()
-            .get(&self.world, self.view_entity)
-    }
-
-    pub fn resource<R: Resource>(&self) -> &'a R {
+    pub fn resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }
 
-    pub fn get_resource<R: Resource>(&self) -> Option<&'a R> {
+    pub fn get_resource<R: Resource>(&'a self) -> Option<&'a R> {
         self.world.get_resource()
+    }
+
+    pub fn view_id(&self) -> Entity {
+        self.view_entity.id()
+    }
+
+    pub fn view_contains<C: Component>(&'a self) -> bool {
+        self.view_entity.contains::<C>()
+    }
+
+    pub fn view_get<C: Component>(&'a self) -> Option<&'a C> {
+        self.view_entity.get()
+    }
+
+    pub fn view_get_ref<C: Component>(&'a self) -> Option<Ref<'a, C>> {
+        self.view_entity.get_ref()
+    }
+
+    pub fn view_entity(&'a self) -> EntityRef<'a> {
+        self.view_entity
+    }
+
+    pub fn world(&'a self) -> &'a World {
+        self.world
     }
 }
 
 pub struct NodeContext<'a> {
     graph: &'a RenderGraph,
     world: &'a World,
-    view_entity: Entity,
+    view_entity: EntityRef<'a>,
     resource_dependencies: (),
     bind_group_dependencies: (),
 }
 
 impl<'a> NodeContext<'a> {
-    pub fn world_query<Q: QueryData>(&self) -> QueryState<Q> {
-        self.world.query::<Q>()
-    }
-
-    pub fn world_query_filtered<Q: QueryData, F: QueryFilter>(&self) -> QueryState<Q, F> {
-        self.world.query_filtered::<Q, F>()
-    }
-
-    pub fn view_query<Q: QueryData>(&self) -> Result<ROQueryItem<Q>, QueryEntityError> {
-        self.world.query::<Q>().get(&self.world, self.view_entity)
-    }
-
-    pub fn view_query_filtered<Q: QueryData, F: QueryFilter>(
-        &self,
-    ) -> Result<ROQueryItem<Q>, QueryEntityError> {
-        self.world
-            .query_filtered::<Q, F>()
-            .get(&self.world, self.view_entity)
-    }
-
-    pub fn get<R: RenderResource>(&self, handle: &RenderHandle<R>) -> &'a R {
+    pub fn get<R: RenderResource>(&self, handle: RenderHandle<R>) -> &'a R {
         todo!()
     }
+}
 
-    pub fn resource<R: Resource>(&self) -> &'a R {
+impl<'a> NodeContext<'a> {
+    pub fn resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }
 
-    pub fn get_resource<R: Resource>(&self) -> Option<&'a R> {
+    pub fn get_resource<R: Resource>(&'a self) -> Option<&'a R> {
         self.world.get_resource()
+    }
+
+    pub fn view_id(&self) -> Entity {
+        self.view_entity.id()
+    }
+
+    pub fn view_contains<C: Component>(&'a self) -> bool {
+        self.view_entity.contains::<C>()
+    }
+
+    pub fn view_get<C: Component>(&'a self) -> Option<&'a C> {
+        self.view_entity.get()
+    }
+
+    pub fn view_get_ref<C: Component>(&'a self) -> Option<Ref<'a, C>> {
+        self.view_entity.get_ref()
+    }
+
+    pub fn view_entity(&'a self) -> EntityRef<'a> {
+        self.view_entity
+    }
+
+    pub fn world(&'a self) -> &'a World {
+        self.world
     }
 }

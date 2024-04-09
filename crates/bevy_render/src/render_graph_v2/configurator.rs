@@ -31,7 +31,7 @@ pub fn setup_view_render_graph_nodes(world: &mut World) {
             let builder = RenderGraphBuilder {
                 graph: &mut render_graph,
                 world,
-                view_entity,
+                view_entity: world.entity(view_entity),
             };
             (configurator.0)(builder);
         }

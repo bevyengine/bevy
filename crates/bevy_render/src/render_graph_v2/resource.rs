@@ -65,6 +65,18 @@ pub struct RenderHandle<T: RenderResource> {
     data: PhantomData<T>,
 }
 
+impl<T: RenderResource> RenderHandle<T> {
+    pub fn r(&self) -> RenderResourceId {
+        todo!()
+    }
+
+    pub fn w(&mut self) -> RenderResourceId {
+        //get id before incremenet
+        self.generation += 1;
+        todo!()
+    }
+}
+
 impl<T: RenderResource> Copy for RenderHandle<T> {}
 impl<T: RenderResource> Clone for RenderHandle<T> {
     fn clone(&self) -> Self {
@@ -139,7 +151,7 @@ pub trait AsRenderBindGroup {
     fn bind_group_layout_entries(&self, render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>;
 
     fn bind_group(
-        &self,
+        self,
         node_context: NodeContext,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
@@ -156,7 +168,7 @@ impl<B: AsBindGroup> AsRenderBindGroup for B {
     }
 
     fn bind_group(
-        &self,
+        self,
         node_context: NodeContext,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
@@ -168,8 +180,14 @@ impl<B: AsBindGroup> AsRenderBindGroup for B {
             .get_resource::<FallbackImage>()
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
         Ok(
-            <B as AsBindGroup>::as_bind_group(self, layout, render_device, images, fallback_image)?
-                .bind_group,
+            <B as AsBindGroup>::as_bind_group(
+                &self,
+                layout,
+                render_device,
+                images,
+                fallback_image,
+            )?
+            .bind_group,
         )
     }
 }
@@ -182,14 +200,17 @@ impl<
         Some(self.0)
     }
 
-    fn bind_group_layout_entries(&self, render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry> {
+    fn bind_group_layout_entries(
+        &self,
+        _render_device: &RenderDevice,
+    ) -> Vec<BindGroupLayoutEntry> {
         let mut entries = Vec::new();
         entries.extend_from_slice(self.1);
         entries
     }
 
     fn bind_group(
-        &self,
+        self,
         node_context: NodeContext,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
@@ -206,14 +227,17 @@ impl<
         None
     }
 
-    fn bind_group_layout_entries(&self, render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry> {
+    fn bind_group_layout_entries(
+        &self,
+        _render_device: &RenderDevice,
+    ) -> Vec<BindGroupLayoutEntry> {
         let mut entries = Vec::new();
         entries.extend_from_slice(self.0);
         entries
     }
 
     fn bind_group(
-        &self,
+        self,
         node_context: NodeContext,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,

@@ -1,44 +1,37 @@
-use wgpu::{ImageDataLayout, Texture, TextureDescriptor};
+use bevy_ecs::world::World;
+use wgpu::{ImageDataLayout, TextureDescriptor};
 
-use crate::{
-    renderer::RenderDevice,
-    texture::{CachedTexture, TextureCache},
-};
+use crate::{render_resource::Texture, renderer::RenderDevice};
 
 use super::{
     resource::{IntoRenderResource, RenderHandle, RenderResource},
     RenderGraphBuilder,
 };
 
-impl RenderResource for CachedTexture {}
+impl RenderResource for Texture {}
 
 impl IntoRenderResource for TextureDescriptor<'static> {
-    type Resource = CachedTexture;
+    type Resource = Texture;
 
-    fn into_render_resource(
-        self,
-        render_device: &RenderDevice,
-        world: &bevy_ecs::world::World,
-    ) -> Self::Resource {
-        let mut texture_cache = world.resource_mut::<TextureCache>();
-        texture_cache.get(render_device, self)
+    fn into_render_resource(self, render_device: &RenderDevice, _world: &World) -> Self::Resource {
+        render_device.create_texture(&self)
     }
 }
 
 pub fn new_texture_with_data(
     builder: &mut RenderGraphBuilder,
-    descriptor: TextureDescriptor,
+    descriptor: TextureDescriptor<'static>,
     data_layout: ImageDataLayout,
-    data: &[u8],
-) -> RenderHandle<CachedTexture> {
-    let mut tex = builder.new_resource(descriptor);
-    builder.add_node(&mut tex, move |ctx, device, queue| {
+    data: &'static [u8],
+) -> RenderHandle<Texture> {
+    let mut tex = builder.new_resource(descriptor.clone());
+    builder.add_node(&[tex.w()], move |ctx, _, queue| {
         queue.write_texture(
-            ctx.get(&tex).texture.as_image_copy(),
+            ctx.get(tex).as_image_copy(),
             data,
             data_layout,
             descriptor.size,
-        )
+        );
     });
     tex
 }
