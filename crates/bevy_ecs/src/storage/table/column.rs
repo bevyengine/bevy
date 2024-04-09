@@ -67,7 +67,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         last_element_index: usize,
         row: TableRow,
     ) {
-        dbg!(last_element_index, row);
         self.data
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
@@ -88,7 +87,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         last_element_index: usize,
         row: TableRow,
     ) {
-        dbg!(last_element_index, row);
         let _ = self
             .data
             .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
@@ -161,7 +159,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         dst_row: TableRow,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
-        dbg!(other_last_element_index, src_row, dst_row);
         // Init the data
         let src_val = other
             .data

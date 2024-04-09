@@ -557,10 +557,30 @@ impl Table {
             // use entities vector capacity as driving capacity for all related allocations
             let new_capacity = self.entities.capacity();
 
-            // SAFETY:
-            // - `column_cap` is indeed the columns' capacity
-            // - 0 < `additional` <= `self.len() + additional` <= `new_capacity`
-            unsafe { self.realloc_columns(column_cap, NonZeroUsize::new_unchecked(new_capacity)) };
+            if column_cap == 0 {
+                unsafe { self.alloc_columns(NonZeroUsize::new_unchecked(new_capacity)) };
+            } else {
+                // SAFETY:
+                // - `column_cap` is indeed the columns' capacity
+                // - 0 < `additional` <= `self.len() + additional` <= `new_capacity`
+                unsafe {
+                    self.realloc_columns(
+                        NonZeroUsize::new_unchecked(column_cap),
+                        NonZeroUsize::new_unchecked(new_capacity),
+                    )
+                };
+            }
+        }
+    }
+
+    /// # Safety
+    /// - The current capacity of the columns in 0
+    pub(crate) unsafe fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
+        for col in self.columns.values_mut() {
+            col.alloc(new_capacity);
+        }
+        for zst_col in self.zst_columns.values_mut() {
+            zst_col.alloc(new_capacity);
         }
     }
 
@@ -568,28 +588,18 @@ impl Table {
     /// - `current_column_capacity` is indeed the capacity of the columns
     pub(crate) unsafe fn realloc_columns(
         &mut self,
-        current_column_capacity: usize,
+        current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
         // SAFETY:
         // - There's no overflow
         // - `current_capacity` is indeed the capacity - safety requirement
-        if current_column_capacity > 0 {
-            // SAFETY: current capacity > 0
-            let curr_cap = unsafe { NonZeroUsize::new_unchecked(current_column_capacity) };
-            for col in self.columns.values_mut() {
-                col.realloc(curr_cap, new_capacity);
-            }
-            for zst_col in self.zst_columns.values_mut() {
-                zst_col.realloc(curr_cap, new_capacity);
-            }
-        } else {
-            for col in self.columns.values_mut() {
-                col.alloc(new_capacity);
-            }
-            for zst_col in self.zst_columns.values_mut() {
-                zst_col.alloc(new_capacity);
-            }
+        // - current capacity > 0
+        for col in self.columns.values_mut() {
+            col.realloc(current_column_capacity, new_capacity);
+        }
+        for zst_col in self.zst_columns.values_mut() {
+            zst_col.realloc(current_column_capacity, new_capacity);
         }
     }
 
@@ -698,7 +708,7 @@ impl Table {
         if let Some(col) = self.get_thin_column_mut(component_id) {
             return col.data.get_unchecked_mut(row.as_usize()).promote();
         }
-        // TODO: ___ THIS IS A PLACE HOLDER TO TEST!!!! ____
+        // TODO: Is this actually safe? We're need to return a pointer to a ZST - but this is no different than if we actually fetched the data, right?
         OwningPtr::new(NonNull::dangling())
     }
 

@@ -460,13 +460,16 @@ mod tests {
         // Regression test for issue #762
         fn query_system(
             mut ran: ResMut<SystemRan>,
-            mut set: ParamSet<(
-                Query<(), Or<(Changed<A>, Changed<B>)>>,
-                Query<(), Or<(Added<A>, Added<B>)>>,
-            )>,
+            // TODO: un-comment these out
+            // mut set: ParamSet<(
+            //     Query<(), Or<(Changed<A>, Changed<B>)>>,
+            //     Query<(), Or<(Added<A>, Added<B>)>>,
+            // )>,
+            changed: Query<(), Or<(Changed<A>, Changed<B>)>>,
+            added: Query<(), Or<(Added<A>, Added<B>)>>,
         ) {
-            let changed = set.p0().iter().count();
-            let added = set.p1().iter().count();
+            let changed = changed.iter().count();
+            let added = added.iter().count();
 
             assert_eq!(changed, 1);
             assert_eq!(added, 1);

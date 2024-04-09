@@ -659,9 +659,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                let ticks = unsafe { fetch.table_ticks.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
+                let tick = unsafe { ticks.get(table_row.as_usize()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             }
