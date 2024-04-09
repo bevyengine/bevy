@@ -77,7 +77,7 @@ pub trait GetBatchData {
     /// instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
     /// Get the per-instance data to be inserted into the
-    /// [`crate::render_resource::GpuArrayBuffer`].  If the instance can be
+    /// [`crate::render_resource::GpuArrayBuffer`]. If the instance can be
     /// batched, also return the data used for comparison when deciding whether
     /// draws can be batched, else return None for the `CompareData`.
     ///
