@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::{
         batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -323,7 +323,7 @@ impl FromWorld for Mesh2dPipeline {
 impl Mesh2dPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -666,7 +666,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
+    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMesh2dInstances>);
     type ViewQuery = ();
     type ItemQuery = ();
 

@@ -1,14 +1,13 @@
 use crate::{
+    mesh::primitives::dim3::triangle3d,
     mesh::{Indices, Mesh},
     render_asset::RenderAssetUsages,
 };
 
 use super::Meshable;
-use bevy_math::{
-    primitives::{
-        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, WindingOrder,
-    },
-    Vec2,
+use bevy_math::primitives::{
+    Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
+    WindingOrder,
 };
 use wgpu::PrimitiveTopology;
 
@@ -317,25 +316,23 @@ impl Meshable for Triangle2d {
     type Output = Mesh;
 
     fn mesh(&self) -> Self::Output {
-        let [a, b, c] = self.vertices;
+        let vertices_3d = self.vertices.map(|v| v.extend(0.));
 
-        let positions = vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0], [c.x, c.y, 0.0]];
+        let positions: Vec<_> = vertices_3d.into();
         let normals = vec![[0.0, 0.0, 1.0]; 3];
 
-        // The extents of the bounding box of the triangle,
-        // used to compute the UV coordinates of the points.
-        let extents = a.min(b).min(c).abs().max(a.max(b).max(c)) * Vec2::new(1.0, -1.0);
-        let uvs = vec![
-            a / extents / 2.0 + 0.5,
-            b / extents / 2.0 + 0.5,
-            c / extents / 2.0 + 0.5,
-        ];
+        let uvs: Vec<_> = triangle3d::uv_coords(&Triangle3d::new(
+            vertices_3d[0],
+            vertices_3d[1],
+            vertices_3d[2],
+        ))
+        .into();
 
         let is_ccw = self.winding_order() == WindingOrder::CounterClockwise;
         let indices = if is_ccw {
             Indices::U32(vec![0, 1, 2])
         } else {
-            Indices::U32(vec![0, 2, 1])
+            Indices::U32(vec![2, 1, 0])
         };
 
         Mesh::new(
