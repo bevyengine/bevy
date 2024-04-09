@@ -16,7 +16,7 @@ shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = []
+meshlet = ["dep:range-alloc", "dep:bincode"]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = ["dep:meshopt", "dep:thiserror"]
 
@@ -47,8 +47,8 @@ bytemuck = { version = "1", features = ["derive", "must_cast"] }
 radsort = "0.1"
 smallvec = "1.6"
 serde = { version = "1", features = ["derive", "rc"] }
-bincode = "1"
-range-alloc = "0.1"
+bincode = { version = "1", optional = true }
+range-alloc = { version = "0.1", optional = true }
 nonmax = "0.5"
 static_assertions = "1"
 
