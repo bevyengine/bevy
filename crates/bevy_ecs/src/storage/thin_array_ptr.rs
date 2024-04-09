@@ -1,10 +1,7 @@
+use crate::query::DebugCheckedUnwrap;
 use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
-
-use bevy_ptr::ThinSlicePtr;
-
-use crate::query::DebugCheckedUnwrap;
 
 // TODO: Better docs
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
@@ -334,7 +331,7 @@ impl<T> ThinArrayPtr<T> {
     /// The caller must:
     /// - ensure that `current_len` is indeed the length of the array
     /// - ensure that `current_capacity` is indeed the capacity of the array
-    pub unsafe fn drop(mut self, current_capacity: usize, current_len: usize) {
+    pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");

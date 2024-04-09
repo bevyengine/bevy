@@ -527,7 +527,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
-pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZeroUsize`.

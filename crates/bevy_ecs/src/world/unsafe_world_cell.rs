@@ -930,7 +930,7 @@ unsafe fn get_component(
         StorageType::Table => {
             let table = world.fetch_table(location);
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(table.get_component(component_id, location.table_row))
+            table.get_component(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
     }
@@ -958,7 +958,7 @@ unsafe fn get_component_and_ticks(
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
-                table.get_component(component_id, location.table_row),
+                table.get_component(component_id, location.table_row)?,
                 TickCells {
                     added: table.get_column_added_tick(component_id, location.table_row),
                     changed: table.get_column_changed_tick(component_id, location.table_row),

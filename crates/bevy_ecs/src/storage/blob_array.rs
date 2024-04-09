@@ -173,6 +173,12 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
             }
         }
     }
+
+    pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+        self.clear_elements(len);
+        let layout = array_layout(&self.item_layout, cap).expect("array layout should be valid");
+        std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+    }
 }
 
 // TODO: documentation
@@ -393,7 +399,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
     /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
-    #[must_use = "The returned pointer should be used to dropped the removed element"]
+    #[must_use = "The returned pointer should be used to drop the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         index_to_remove: usize,

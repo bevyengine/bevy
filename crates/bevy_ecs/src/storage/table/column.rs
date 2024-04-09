@@ -4,13 +4,6 @@ use crate::storage::{
     thin_array_ptr::ThinArrayPtr,
 };
 
-pub struct ColumnRawParts<'a> {
-    pub len: usize,
-    pub data: BlobArray,
-    pub added_ticks: &'a [UnsafeCell<Tick>],
-    pub changed_ticks: &'a [UnsafeCell<Tick>],
-}
-
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
 ///
@@ -74,6 +67,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         last_element_index: usize,
         row: TableRow,
     ) {
+        dbg!(last_element_index, row);
         self.data
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
@@ -94,7 +88,9 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         last_element_index: usize,
         row: TableRow,
     ) {
-        self.data
+        dbg!(last_element_index, row);
+        let _ = self
+            .data
             .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
             .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
@@ -165,6 +161,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         dst_row: TableRow,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
+        dbg!(other_last_element_index, src_row, dst_row);
         // Init the data
         let src_val = other
             .data
@@ -210,6 +207,14 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         self.data.clear_elements(len);
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
+    }
+
+    pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+        self.added_ticks.drop(cap, len);
+        self.changed_ticks.drop(cap, len);
+        if !IS_ZST {
+            self.data.drop(cap, len);
+        }
     }
 }
 

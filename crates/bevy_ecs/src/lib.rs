@@ -600,7 +600,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             &[(e1, A(1), B(3)), (e2, A(2), B(4))]
         );
-
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world

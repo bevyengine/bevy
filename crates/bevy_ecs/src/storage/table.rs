@@ -7,14 +7,11 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub(crate) use column::*;
-use std::{alloc::Layout, any::Any, num::NonZeroUsize, ptr::NonNull};
+use std::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
 };
-
-use super::blob_array::BlobArray;
-
 mod column;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
@@ -265,16 +262,10 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.len() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    column,
-                    other_last_element_index,
-                    row,
-                    new_row,
-                );
+                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
                 column.swap_remove_and_forget_unchecked(last_element_index, row);
@@ -282,12 +273,7 @@ impl Table {
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
             if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    zst_column,
-                    other_last_element_index,
-                    row,
-                    new_row,
-                );
+                new_column.initialize_from_unchecked(zst_column, last_element_index, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
                 zst_column.swap_remove_and_forget_unchecked(last_element_index, row);
@@ -317,28 +303,17 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.len() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let other_last_element_index = new_table.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    column,
-                    other_last_element_index,
-                    row,
-                    new_row,
-                );
+                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
             if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    zst_column,
-                    other_last_element_index,
-                    row,
-                    new_row,
-                );
+                new_column.initialize_from_unchecked(zst_column, last_element_index, row, new_row);
             } else {
                 zst_column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
@@ -353,6 +328,8 @@ impl Table {
         }
     }
 
+    // TODO: Docs
+    ///
     pub unsafe fn initialize_component(
         &mut self,
         row: TableRow,
@@ -365,6 +342,8 @@ impl Table {
         }
     }
 
+    // TODO: Docs
+    ///
     pub unsafe fn replace_component(
         &mut self,
         row: TableRow,
@@ -390,20 +369,20 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let is_last = row.as_usize() == self.entities.len() - 1;
-        let other_last_element_index = new_table.len() - 1;
+        let last_element_index = self.len() - 1;
+        let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_thin_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(column, other_last_element_index, row, new_row);
+                .initialize_from_unchecked(column, last_element_index, row, new_row);
         }
         for (component_id, zst_column) in self.zst_columns.iter_mut() {
             new_table
                 .get_thin_zst_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(zst_column, other_last_element_index, row, new_row);
+                .initialize_from_unchecked(zst_column, last_element_index, row, new_row);
         }
         TableMoveResult {
             new_row,
@@ -723,22 +702,18 @@ impl Table {
         OwningPtr::new(NonNull::dangling())
     }
 
-    pub unsafe fn get_component(&self, component_id: ComponentId, row: TableRow) -> Ptr<'_> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return col.data.get_unchecked(row.as_usize());
-        }
-        self.get_thin_zst_column(component_id)
-            .debug_checked_unwrap()
-            .data
-            .get_unchecked(row.as_usize())
-    }
-
-    pub unsafe fn get_column_raw_parts(
+    // TODO: Docs
+    ///
+    pub unsafe fn get_component(
         &self,
         component_id: ComponentId,
-    ) -> Option<&ColumnRawParts> {
-        // Some(ColumnRawParts { len: self.len(), data: self.get_column_data_slice(component_id), added_ticks: (), changed_ticks: () })
-        todo!()
+        row: TableRow,
+    ) -> Option<Ptr<'_>> {
+        if let Some(col) = self.get_thin_column(component_id) {
+            return Some(col.data.get_unchecked(row.as_usize()));
+        }
+        self.get_thin_zst_column(component_id)
+            .map(|col| col.data.get_unchecked(row.as_usize()))
     }
 }
 
@@ -861,6 +836,25 @@ impl IndexMut<TableId> for Tables {
     #[inline]
     fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
         &mut self.tables[index.as_usize()]
+    }
+}
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        let len = self.len();
+        let cap = self.capacity();
+        for col in self.columns.values_mut() {
+            // SAFETY: `cap` and `len` are correct
+            unsafe {
+                col.drop(cap, len);
+            }
+        }
+        for col in self.zst_columns.values_mut() {
+            // SAFETY: `cap` and `len` are correct
+            unsafe {
+                col.drop(cap, len);
+            }
+        }
     }
 }
 
