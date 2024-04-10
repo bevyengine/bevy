@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{prelude::Image, render_asset::RenderAssetPlugin, RenderApp};
+use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::{entity::Entity, system::Resource};
@@ -27,7 +27,7 @@ impl Plugin for MeshPlugin {
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<Mesh, Image>::default());
+            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

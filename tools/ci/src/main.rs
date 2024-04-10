@@ -1,31 +1,31 @@
 //! CI script used for Bevy.
 
 use bitflags::bitflags;
-use core::panic;
 use std::collections::BTreeMap;
 use xshell::{cmd, Cmd, Shell};
 
 bitflags! {
+    /// A collection of individual checks that can be run in CI.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     struct Check: u32 {
-        const FORMAT = 0b00000001;
-        const CLIPPY = 0b00000010;
-        const COMPILE_FAIL = 0b00000100;
-        const TEST = 0b00001000;
-        const DOC_TEST = 0b00010000;
-        const DOC_CHECK = 0b00100000;
-        const BENCH_CHECK = 0b01000000;
-        const EXAMPLE_CHECK = 0b10000000;
-        const COMPILE_CHECK = 0b100000000;
-        const CFG_CHECK = 0b1000000000;
-        const TEST_CHECK = 0b10000000000;
+        const FORMAT = 1 << 0;
+        const CLIPPY = 1 << 1;
+        const COMPILE_FAIL = 1 << 2;
+        const TEST = 1 << 3;
+        const DOC_TEST = 1 << 4;
+        const DOC_CHECK = 1 << 5;
+        const BENCH_CHECK = 1 << 6;
+        const EXAMPLE_CHECK = 1 << 7;
+        const COMPILE_CHECK = 1 << 8;
+        const CFG_CHECK = 1 << 9;
+        const TEST_CHECK = 1 << 10;
     }
-}
 
-bitflags! {
+    /// A collection of flags that can modify how checks are run.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Flag: u32 {
-        const KEEP_GOING = 0b00000001;
+        /// Forces certain checks to continue running even if they hit an error.
+        const KEEP_GOING = 1 << 0;
     }
 }
 
@@ -80,27 +80,30 @@ fn main() {
     // the executable, so it is ignored. Any parameter may either be a flag or the name of a battery of tests
     // to include.
     let (mut checks, mut flags) = (Check::empty(), Flag::empty());
+
+    // Skip first argument, which is usually the path of the executable.
     for arg in std::env::args().skip(1) {
-        if let Some((_, flag)) = flag_arguments.iter().find(|(flag_arg, _)| *flag_arg == arg) {
-            flags.insert(*flag);
-            continue;
-        }
         if let Some((_, check)) = arguments.iter().find(|(check_arg, _)| *check_arg == arg) {
             // Note that this actually adds all of the constituent checks to the test suite.
             checks.insert(*check);
-            continue;
+        } else if let Some((_, flag)) = flag_arguments.iter().find(|(flag_arg, _)| *flag_arg == arg)
+        {
+            flags.insert(*flag);
+        } else {
+            // We encountered an invalid parameter:
+            eprintln!(
+                "Invalid argument: {arg:?}.\n\
+                Valid parameters: {}.",
+                // Skip first argument so it can be added in fold(), when displaying as a comma separated list.
+                arguments[1..]
+                    .iter()
+                    .map(|(s, _)| s)
+                    .chain(flag_arguments.iter().map(|(s, _)| s))
+                    .fold(arguments[0].0.to_owned(), |c, v| c + ", " + v)
+            );
+
+            return;
         }
-        // We encountered an invalid parameter:
-        println!(
-            "Invalid argument: {arg:?}.\n\
-            Valid parameters: {}.",
-            arguments[1..]
-                .iter()
-                .map(|(s, _)| s)
-                .chain(flag_arguments.iter().map(|(s, _)| s))
-                .fold(arguments[0].0.to_owned(), |c, v| c + ", " + v)
-        );
-        return;
     }
 
     // If no checks are specified, we run every check
