@@ -114,9 +114,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
-    /// `init` function will be called only when necessary for a value to
-    /// be paired with the group of items in each bevy's task.
-    /// its useful to init a thread-local value for each task.
+    /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
+    /// Callers should avoid using this function as if it were a a parallel version
+    /// of [`Iterator::fold`].
     ///
     /// # Example
     ///
