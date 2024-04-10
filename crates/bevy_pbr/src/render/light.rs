@@ -1,9 +1,8 @@
-use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::mesh::Mesh;
+use bevy_render::render_asset::RenderAssetKey;
 use bevy_render::{
     camera::Camera,
     diagnostic::RecordDiagnostics,
@@ -1664,13 +1663,13 @@ pub fn queue_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&entity) else {
+                let Some(&material_asset_id) = render_material_instances.get(&entity) else {
                     continue;
                 };
-                let Some(material) = render_materials.get(*material_asset_id) else {
+                let Some(material) = render_materials.get_with_key(material_asset_id) else {
                     continue;
                 };
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                     continue;
                 };
 
@@ -1720,7 +1719,7 @@ pub fn queue_shadows<M: Material>(
                     ShadowBinKey {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
-                        asset_id: mesh_instance.mesh_asset_id,
+                        mesh_asset_key: mesh_instance.mesh_asset_key,
                     },
                     entity,
                     mesh_instance.should_batch(),
@@ -1746,7 +1745,7 @@ pub struct ShadowBinKey {
     pub draw_function: DrawFunctionId,
 
     /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    pub mesh_asset_key: RenderAssetKey,
 }
 
 impl PhaseItem for Shadow {

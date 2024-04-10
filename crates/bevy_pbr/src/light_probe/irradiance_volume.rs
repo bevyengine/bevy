@@ -134,7 +134,7 @@
 
 use bevy_ecs::component::Component;
 use bevy_render::{
-    render_asset::RenderAssets,
+    render_asset::{RenderAssetKey, RenderAssets},
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
@@ -144,7 +144,7 @@ use bevy_render::{
 };
 use std::{num::NonZeroU32, ops::Deref};
 
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::Handle;
 use bevy_reflect::Reflect;
 
 use crate::{
@@ -275,11 +275,11 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
             if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
                 if irradiance_volume.texture_index >= 0 {
-                    if let Some(image_id) = irradiance_volumes
+                    if let Some(image_key) = irradiance_volumes
                         .binding_index_to_textures
                         .get(irradiance_volume.texture_index as usize)
                     {
-                        if let Some(image) = images.get(*image_id) {
+                        if let Some(image) = images.get_with_key(*image_key) {
                             return RenderViewIrradianceVolumeBindGroupEntries::Single {
                                 texture_view: &image.texture_view,
                                 sampler: &image.sampler,
@@ -316,18 +316,14 @@ pub(crate) fn get_bind_group_layout_entries(
 }
 
 impl LightProbeComponent for IrradianceVolume {
-    type AssetId = AssetId<Image>;
+    type AssetId = RenderAssetKey;
 
     // Irradiance volumes can't be attached to the view, so we store nothing
     // here.
     type ViewLightProbeInfo = ();
 
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
-        if image_assets.get(&self.voxels).is_none() {
-            None
-        } else {
-            Some(self.voxels.id())
-        }
+        image_assets.get_key(&self.voxels)
     }
 
     fn intensity(&self) -> f32 {

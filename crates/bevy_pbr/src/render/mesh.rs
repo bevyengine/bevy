@@ -18,8 +18,11 @@ use bevy_render::{
         gpu_preprocessing, no_gpu_preprocessing, GetBatchData, GetFullBatchData,
         NoAutomaticBatching,
     },
+    extract_instances::{
+        PendingRenderAssets, SetRenderAssetKey, UpdatePendingRenderAssetKeyPlugin,
+    },
     mesh::*,
-    render_asset::RenderAssets,
+    render_asset::{RenderAssetKey, RenderAssets},
     render_phase::{
         BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,
         SortedRenderPhasePlugin, TrackedRenderPass,
@@ -31,7 +34,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
+use bevy_utils::{slotmap::Key, tracing::error, Entry, HashMap, Parallel};
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
@@ -123,6 +126,7 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
+            UpdatePendingRenderAssetKeyPlugin::<GpuMesh, RenderMeshInstances>::default(),
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
             BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
             BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
@@ -394,7 +398,7 @@ pub struct RenderMeshInstanceGpu {
 /// a mesh.
 pub struct RenderMeshInstanceShared {
     /// The [`AssetId`] of the mesh.
-    pub mesh_asset_id: AssetId<Mesh>,
+    pub mesh_asset_key: RenderAssetKey,
     /// A slot for the material bind group ID.
     ///
     /// This is filled in during [`crate::material::queue_material_meshes`].
@@ -432,7 +436,7 @@ pub struct RenderMeshInstanceGpuBuilder {
 impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
-        handle: &Handle<Mesh>,
+        mesh_asset_key: RenderAssetKey,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -448,8 +452,7 @@ impl RenderMeshInstanceShared {
         );
 
         RenderMeshInstanceShared {
-            mesh_asset_id: handle.id(),
-
+            mesh_asset_key,
             flags: mesh_instance_flags,
             material_bind_group_id: AtomicMaterialBindGroupId::default(),
         }
@@ -498,10 +501,10 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+    pub(crate) fn mesh_asset_key(&self, entity: Entity) -> Option<RenderAssetKey> {
         match *self {
-            RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
-            RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+            RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_key(entity),
+            RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_key(entity),
         }
     }
 
@@ -519,9 +522,24 @@ impl RenderMeshInstances {
     }
 }
 
+impl SetRenderAssetKey for RenderMeshInstances {
+    #[inline]
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref mut instances) => {
+                instances.set_mesh_asset_key(entity, key)
+            }
+            RenderMeshInstances::GpuBuilding(ref mut instances) => {
+                instances.set_mesh_asset_key(entity, key)
+            }
+        }
+    }
+}
+
 pub(crate) trait RenderMeshInstancesTable {
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>>;
+    fn mesh_asset_key(&self, entity: Entity) -> Option<RenderAssetKey>;
+    fn set_mesh_asset_key(&mut self, entity: Entity, key: RenderAssetKey);
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
@@ -529,8 +547,14 @@ pub(crate) trait RenderMeshInstancesTable {
 }
 
 impl RenderMeshInstancesTable for RenderMeshInstancesCpu {
-    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
-        self.get(&entity).map(|instance| instance.mesh_asset_id)
+    fn mesh_asset_key(&self, entity: Entity) -> Option<RenderAssetKey> {
+        self.get(&entity).map(|instance| instance.mesh_asset_key)
+    }
+
+    fn set_mesh_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.get_mut(&entity).map(|instance| {
+            instance.shared.mesh_asset_key = key;
+        });
     }
 
     fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
@@ -543,8 +567,14 @@ impl RenderMeshInstancesTable for RenderMeshInstancesCpu {
 
 impl RenderMeshInstancesTable for RenderMeshInstancesGpu {
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
-        self.get(&entity).map(|instance| instance.mesh_asset_id)
+    fn mesh_asset_key(&self, entity: Entity) -> Option<RenderAssetKey> {
+        self.get(&entity).map(|instance| instance.mesh_asset_key)
+    }
+
+    fn set_mesh_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.get_mut(&entity).map(|instance| {
+            instance.shared.mesh_asset_key = key;
+        });
     }
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
@@ -581,6 +611,9 @@ pub struct ExtractMeshesSet;
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
+    mut pending_mesh_asset_maps: Local<Parallel<HashMap<AssetId<Mesh>, Vec<Entity>>>>,
+    mut pending_mesh_assets: ResMut<PendingRenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -614,9 +647,17 @@ pub fn extract_meshes_for_cpu_building(
             let mesh_flags =
                 MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
 
+            let mesh_asset_key = match meshes.get_key(handle) {
+                Some(mesh_asset_key) => mesh_asset_key,
+                None => {
+                    pending_mesh_asset_maps
+                        .scope(|map| map.entry(handle.id()).or_default().push(entity));
+                    RenderAssetKey::null()
+                }
+            };
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
-                handle,
+                mesh_asset_key,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -654,6 +695,15 @@ pub fn extract_meshes_for_cpu_building(
     for queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instances.extend(queue.drain(..));
     }
+
+    for map in pending_mesh_asset_maps.iter_mut() {
+        for (asset_id, mut entities) in map.drain() {
+            pending_mesh_assets
+                .entry(asset_id)
+                .or_default()
+                .extend(entities.drain(..));
+        }
+    }
 }
 
 /// Extracts meshes from the main world into the render world and queues
@@ -668,6 +718,9 @@ pub fn extract_meshes_for_gpu_building(
     >,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
     mut prev_render_mesh_instances: Local<RenderMeshInstancesGpu>,
+    mut pending_mesh_asset_maps: Local<Parallel<HashMap<AssetId<Mesh>, Vec<Entity>>>>,
+    mut pending_mesh_assets: ResMut<PendingRenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -703,9 +756,17 @@ pub fn extract_meshes_for_gpu_building(
             let mesh_flags =
                 MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
 
+            let mesh_asset_key = match meshes.get_key(handle) {
+                Some(mesh_asset_key) => mesh_asset_key,
+                None => {
+                    pending_mesh_asset_maps
+                        .scope(|map| map.entry(handle.id()).or_default().push(entity));
+                    RenderAssetKey::null()
+                }
+            };
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
-                handle,
+                mesh_asset_key,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -733,6 +794,15 @@ pub fn extract_meshes_for_gpu_building(
         &mut render_mesh_instance_queues,
         &mut prev_render_mesh_instances,
     );
+
+    for map in pending_mesh_asset_maps.iter_mut() {
+        for (asset_id, mut entities) in map.drain() {
+            pending_mesh_assets
+                .entry(asset_id)
+                .or_default()
+                .extend(entities.drain(..));
+        }
+    }
 }
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
@@ -927,7 +997,7 @@ impl GetBatchData for MeshPipeline {
     type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
-    type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
+    type CompareData = (MaterialBindGroupId, RenderAssetKey, Option<RenderAssetKey>);
 
     type BufferData = MeshUniform;
 
@@ -952,7 +1022,7 @@ impl GetBatchData for MeshPipeline {
             ),
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
-                mesh_instance.mesh_asset_id,
+                mesh_instance.mesh_asset_key,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         ))
@@ -982,7 +1052,7 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.current_uniform_index,
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
-                mesh_instance.mesh_asset_id,
+                mesh_instance.mesh_asset_key,
                 maybe_lightmap.map(|lightmap| lightmap.image),
             )),
         ))
@@ -1531,8 +1601,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
 pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
-    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
-    lightmaps: HashMap<AssetId<Image>, BindGroup>,
+    morph_targets: HashMap<RenderAssetKey, BindGroup>,
+    lightmaps: HashMap<RenderAssetKey, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -1545,13 +1615,13 @@ impl MeshBindGroups {
     /// key `lightmap`.
     pub fn get(
         &self,
-        asset_id: AssetId<Mesh>,
-        lightmap: Option<AssetId<Image>>,
+        asset_key: RenderAssetKey,
+        lightmap: Option<RenderAssetKey>,
         is_skinned: bool,
         morph: bool,
     ) -> Option<&BindGroup> {
         match (is_skinned, morph, lightmap) {
-            (_, true, _) => self.morph_targets.get(&asset_id),
+            (_, true, _) => self.morph_targets.get(&asset_key),
             (true, false, _) => self.skinned.as_ref(),
             (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
             (false, false, None) => self.model_only.as_ref(),
@@ -1600,23 +1670,24 @@ pub fn prepare_mesh_bind_group(
     }
 
     if let Some(weights) = weights_uniform.buffer.buffer() {
-        for (id, gpu_mesh) in meshes.iter() {
+        for (key, gpu_mesh) in meshes.iter_with_keys() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
                 let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
                     layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
                 } else {
                     layouts.morphed(&render_device, &model, weights, targets)
                 };
-                groups.morph_targets.insert(id, group);
+                groups.morph_targets.insert(key, group);
             }
         }
     }
 
     // Create lightmap bindgroups.
-    for &image_id in &render_lightmaps.all_lightmap_images {
-        if let (Entry::Vacant(entry), Some(image)) =
-            (groups.lightmaps.entry(image_id), images.get(image_id))
-        {
+    for &image_key in &render_lightmaps.all_lightmap_images {
+        if let (Entry::Vacant(entry), Some(image)) = (
+            groups.lightmaps.entry(image_key),
+            images.get_with_key(image_key),
+        ) {
             entry.insert(layouts.lightmapped(&render_device, &model, image));
         }
     }
@@ -1691,7 +1762,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let entity = &item.entity();
 
-        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
+        let Some(mesh_asset_key) = mesh_instances.mesh_asset_key(*entity) else {
             return RenderCommandResult::Success;
         };
         let skin_index = skin_indices.get(entity);
@@ -1705,7 +1776,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .get(entity)
             .map(|render_lightmap| render_lightmap.image);
 
-        let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
+        let Some(bind_group) = bind_groups.get(mesh_asset_key, lightmap, is_skinned, is_morphed)
         else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
@@ -1777,10 +1848,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
 
-        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
+        let Some(mesh_asset_key) = mesh_instances.mesh_asset_key(item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.get_with_key(mesh_asset_key) else {
             return RenderCommandResult::Failure;
         };
 

@@ -32,6 +32,7 @@ pub use cow_arc::*;
 pub use default::default;
 pub use hashbrown;
 pub use parallel_queue::*;
+pub use slotmap;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 

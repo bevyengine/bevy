@@ -413,7 +413,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let Some(material2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                 continue;
             };
             let mesh_key =

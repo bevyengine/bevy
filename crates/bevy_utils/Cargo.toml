@@ -18,6 +18,7 @@ web-time = { version = "0.2" }
 hashbrown = { version = "0.14", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.14.0-dev", path = "macros" }
 thread_local = "1.0"
+slotmap = "1.0"
 
 [dev-dependencies]
 static_assertions = "1.1.0"

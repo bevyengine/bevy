@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -15,13 +15,12 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
-    render_asset::RenderAssets,
+    render_asset::{prepare_assets, RenderAssetKey, RenderAssets},
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    texture::{FallbackImage, GpuImage, Image},
+    texture::{FallbackImage, GpuImage},
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -33,12 +32,16 @@ use std::ops::Deref;
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
-    },
+    light_probe::environment_map::{EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
 };
 
-use self::irradiance_volume::IrradianceVolume;
+use self::{
+    environment_map::{
+        extract_environment_maps, update_pending_environment_maps, EnvironmentMapInstances,
+        PendingEnvironmentMapLights,
+    },
+    irradiance_volume::IrradianceVolume,
+};
 
 pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
 
@@ -251,10 +254,10 @@ where
 /// probe. This allows much of the code to be shared and enables easy addition
 /// of more light probe types (e.g. real-time reflection planes) in the future.
 pub trait LightProbeComponent: Send + Sync + Component + Sized {
-    /// Holds [`AssetId`]s of the texture or textures that this light probe
+    /// Holds [`RenderAssetKey`]s of the texture or textures that this light probe
     /// references.
     ///
-    /// This can just be [`AssetId`] if the light probe only references one
+    /// This can just be [`RenderAssetKey`] if the light probe only references one
     /// texture. If it references multiple textures, it will be a structure
     /// containing those asset IDs.
     type AssetId: Send + Sync + Clone + Eq + Hash;
@@ -328,13 +331,25 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
-            .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
-            .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
+            .init_resource::<EnvironmentMapInstances>()
+            .init_resource::<PendingEnvironmentMapLights>()
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_environment_maps,
+                    gather_light_probes::<EnvironmentMapLight>,
+                    gather_light_probes::<IrradianceVolume>,
+                ),
+            )
             .add_systems(
                 Render,
-                upload_light_probes.in_set(RenderSet::PrepareResources),
+                (
+                    update_pending_environment_maps
+                        .in_set(RenderSet::PrepareAssets)
+                        .after(prepare_assets::<GpuImage>),
+                    upload_light_probes.in_set(RenderSet::PrepareResources),
+                ),
             );
     }
 }
@@ -633,11 +648,11 @@ where
 pub(crate) fn add_cubemap_texture_view<'a>(
     texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
-    image_id: AssetId<Image>,
+    image_key: RenderAssetKey,
     images: &'a RenderAssets<GpuImage>,
     fallback_image: &'a FallbackImage,
 ) {
-    match images.get(image_id) {
+    match images.get_with_key(image_key) {
         None => {
             // Use the fallback image if the cubemap isn't loaded yet.
             texture_views.push(&*fallback_image.cube.texture_view);

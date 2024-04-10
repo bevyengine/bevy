@@ -29,7 +29,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
@@ -40,12 +40,17 @@ use bevy_ecs::{
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_instances::{
+    PendingRenderAssets, SetRenderAssetKey, UpdatePendingRenderAssetKeyPlugin,
+};
 use bevy_render::mesh::GpuMesh;
+use bevy_render::render_asset::RenderAssetKey;
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
+use bevy_utils::slotmap::Key;
 use bevy_utils::HashSet;
 
 use crate::{ExtractMeshesSet, RenderMeshInstances};
@@ -87,7 +92,7 @@ pub struct Lightmap {
 #[derive(Debug)]
 pub(crate) struct RenderLightmap {
     /// The ID of the lightmap texture.
-    pub(crate) image: AssetId<Image>,
+    pub(crate) image: RenderAssetKey,
 
     /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
@@ -114,7 +119,16 @@ pub struct RenderLightmaps {
     /// Gathering all lightmap images into a set makes mesh bindgroup
     /// preparation slightly more efficient, because only one bindgroup needs to
     /// be created per lightmap texture.
-    pub(crate) all_lightmap_images: HashSet<AssetId<Image>>,
+    pub(crate) all_lightmap_images: HashSet<RenderAssetKey>,
+}
+
+impl SetRenderAssetKey for RenderLightmaps {
+    #[inline]
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.render_lightmaps
+            .get_mut(&entity)
+            .map(|render_lightmap| render_lightmap.image = key);
+    }
 }
 
 impl Plugin for LightmapPlugin {
@@ -125,6 +139,7 @@ impl Plugin for LightmapPlugin {
             "lightmap.wgsl",
             Shader::from_wgsl
         );
+        app.add_plugins(UpdatePendingRenderAssetKeyPlugin::<GpuImage, RenderLightmaps>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -144,6 +159,7 @@ fn extract_lightmaps(
     mut render_lightmaps: ResMut<RenderLightmaps>,
     lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    mut pending_lightmaps: ResMut<PendingRenderAssets<GpuImage>>,
     images: Res<RenderAssets<GpuImage>>,
     meshes: Res<RenderAssets<GpuMesh>>,
 ) {
@@ -158,30 +174,40 @@ fn extract_lightmaps(
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
             || !render_mesh_instances
-                .mesh_asset_id(entity)
-                .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
+                .mesh_asset_key(entity)
+                .and_then(|mesh_asset_key| meshes.get_with_key(mesh_asset_key))
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;
         }
 
-        // Store information about the lightmap in the render world.
-        render_lightmaps.render_lightmaps.insert(
-            entity,
-            RenderLightmap::new(lightmap.image.id(), lightmap.uv_rect),
-        );
+        let image_key = match images.get_key(lightmap.image.id()) {
+            Some(key) => key,
+            None => {
+                pending_lightmaps
+                    .entry(lightmap.image.id())
+                    .or_default()
+                    .push(entity);
+                RenderAssetKey::null()
+            }
+        };
 
-        // Make a note of the loaded lightmap image so we can efficiently
-        // process them later during mesh bindgroup creation.
+        // Store information about the lightmap in the render world.
         render_lightmaps
-            .all_lightmap_images
-            .insert(lightmap.image.id());
+            .render_lightmaps
+            .insert(entity, RenderLightmap::new(image_key, lightmap.uv_rect));
+
+        if image_key != RenderAssetKey::null() {
+            // Make a note of the loaded lightmap image so we can efficiently
+            // process them later during mesh bindgroup creation.
+            render_lightmaps.all_lightmap_images.insert(image_key);
+        }
     }
 }
 
 impl RenderLightmap {
     /// Creates a new lightmap from a texture and a UV rect.
-    fn new(image: AssetId<Image>, uv_rect: Rect) -> Self {
+    fn new(image: RenderAssetKey, uv_rect: Rect) -> Self {
         Self { image, uv_rect }
     }
 }

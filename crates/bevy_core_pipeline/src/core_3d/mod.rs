@@ -40,7 +40,6 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 use std::ops::Range;
 
-use bevy_asset::AssetId;
 use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -52,8 +51,8 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    mesh::Mesh,
     prelude::Msaa,
+    render_asset::RenderAssetKey,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
@@ -64,7 +63,7 @@ use bevy_render::{
         Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
+    texture::{BevyDefault, ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -196,7 +195,7 @@ pub struct Opaque3dBinKey {
     pub draw_function: DrawFunctionId,
 
     /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    pub mesh_asset_key: RenderAssetKey,
 
     /// The ID of a bind group specific to the material.
     ///
@@ -204,7 +203,7 @@ pub struct Opaque3dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 
     /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    pub lightmap_image: Option<RenderAssetKey>,
 }
 
 impl PhaseItem for Opaque3d {

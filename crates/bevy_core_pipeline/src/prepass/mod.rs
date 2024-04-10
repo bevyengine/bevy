@@ -29,11 +29,10 @@ pub mod node;
 
 use std::ops::Range;
 
-use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    mesh::Mesh,
+    render_asset::RenderAssetKey,
     render_phase::{BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
@@ -133,7 +132,7 @@ pub struct OpaqueNoLightmap3dBinKey {
     pub draw_function: DrawFunctionId,
 
     /// The ID of the mesh.
-    pub asset_id: AssetId<Mesh>,
+    pub mesh_asset_key: RenderAssetKey,
 
     /// The ID of a bind group specific to the material.
     ///

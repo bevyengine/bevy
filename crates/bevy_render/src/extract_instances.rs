@@ -7,16 +7,22 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
+use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap,
     prelude::Entity,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    schedule::IntoSystemConfigs,
+    system::{Query, Res, ResMut, Resource},
 };
+use bevy_utils::HashMap;
 
-use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
+use crate::{
+    prelude::ViewVisibility,
+    render_asset::{prepare_assets, RenderAsset, RenderAssetKey, RenderAssets},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+};
 
 /// Describes how to extract data needed for rendering from a component or
 /// components.
@@ -135,14 +141,67 @@ fn extract_visible<EI>(
     }
 }
 
-impl<A> ExtractInstance for AssetId<A>
-where
-    A: Asset,
-{
-    type QueryData = Read<Handle<A>>;
-    type QueryFilter = ();
+pub struct UpdatePendingRenderAssetKeyPlugin<A: RenderAsset, SRAK: SetRenderAssetKey> {
+    marker: PhantomData<(A, SRAK)>,
+}
 
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(item.id())
+impl<A: RenderAsset, SRAK: SetRenderAssetKey> Default
+    for UpdatePendingRenderAssetKeyPlugin<A, SRAK>
+{
+    fn default() -> Self {
+        Self {
+            marker: Default::default(),
+        }
+    }
+}
+
+impl<A: RenderAsset, SRAK: SetRenderAssetKey> Plugin
+    for UpdatePendingRenderAssetKeyPlugin<A, SRAK>
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .init_resource::<PendingRenderAssets<A>>()
+            .add_systems(
+                Render,
+                update_pending_render_assets::<A, SRAK>
+                    .in_set(RenderSet::PrepareAssets)
+                    .after(prepare_assets::<A>),
+            );
+    }
+}
+
+pub trait SetRenderAssetKey: Resource {
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey);
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct PendingRenderAssets<A: RenderAsset>(HashMap<AssetId<A::SourceAsset>, Vec<Entity>>);
+
+impl<A: RenderAsset> Default for PendingRenderAssets<A> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+pub fn update_pending_render_assets<A: RenderAsset, SRAK: SetRenderAssetKey>(
+    render_assets: Res<RenderAssets<A>>,
+    mut pending_render_assets: ResMut<PendingRenderAssets<A>>,
+    mut render_asset_instances: ResMut<SRAK>,
+) {
+    let mut to_remove = Vec::with_capacity(pending_render_assets.len());
+    for (asset_id, entities) in pending_render_assets.iter() {
+        let Some(key) = render_assets.get_key(*asset_id) else {
+            continue;
+        };
+        to_remove.push(*asset_id);
+        for entity in entities.iter().copied() {
+            render_asset_instances.set_asset_key(entity, key);
+        }
+    }
+    for id in to_remove.drain(..) {
+        pending_render_assets.remove(&id);
     }
 }

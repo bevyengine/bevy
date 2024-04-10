@@ -776,17 +776,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         for visible_entity in visible_entities.iter::<WithMesh>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(&material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get_with_key(material_asset_id) else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                 continue;
             };
 
@@ -859,7 +859,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
-                                asset_id: mesh_instance.mesh_asset_id,
+                                mesh_asset_key: mesh_instance.mesh_asset_key,
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
                             *visible_entity,
@@ -870,7 +870,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
-                                asset_id: mesh_instance.mesh_asset_id,
+                                mesh_asset_key: mesh_instance.mesh_asset_key,
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
                             *visible_entity,
@@ -884,7 +884,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            mesh_asset_key: mesh_instance.mesh_asset_key,
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
@@ -896,7 +896,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            mesh_asset_key: mesh_instance.mesh_asset_key,
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(

@@ -4,7 +4,7 @@ use crate::meshlet::{
     MeshletGpuScene,
 };
 use crate::*;
-use bevy_asset::{Asset, AssetId, AssetServer};
+use bevy_asset::{Asset, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
@@ -17,21 +17,27 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::TemporalJitter,
-    extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
+    extract_instances::{
+        PendingRenderAssets, SetRenderAssetKey, UpdatePendingRenderAssetKeyPlugin,
+    },
     extract_resource::ExtractResource,
     mesh::{GpuMesh, MeshVertexBufferLayoutRef},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_asset::{
+        PrepareAssetError, RenderAsset, RenderAssetKey, RenderAssetPlugin, RenderAssets,
+    },
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities, WithMesh},
+    view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities, WithMesh},
+    Extract,
 };
 use bevy_utils::tracing::error;
 use std::marker::PhantomData;
@@ -249,10 +255,8 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>().add_plugins((
-            ExtractInstancesPlugin::<AssetId<M>>::extract_visible(),
-            RenderAssetPlugin::<PreparedMaterial<M>>::default(),
-        ));
+        app.init_asset::<M>()
+            .add_plugins((RenderAssetPlugin::<PreparedMaterial<M>>::default(), UpdatePendingRenderAssetKeyPlugin::<PreparedMaterial<M>, RenderMaterialInstances<M>>::default()));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -263,6 +267,8 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+                .init_resource::<RenderMaterialInstances<M>>()
+                .add_systems(ExtractSchedule, extract_visible_material_instances::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -305,6 +311,27 @@ where
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<MaterialPipeline<M>>();
+        }
+    }
+}
+
+pub fn extract_visible_material_instances<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+    mut pending_render_assets: ResMut<PendingRenderAssets<PreparedMaterial<M>>>,
+) {
+    material_instances.clear();
+    for (entity, view_visibility, material) in &query {
+        if view_visibility.get() {
+            let Some(key) = materials.get_key(material.id()) else {
+                pending_render_assets
+                    .entry(material.id())
+                    .or_default()
+                    .push(entity);
+                continue;
+            };
+            material_instances.insert(entity, key);
         }
     }
 }
@@ -449,10 +476,10 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
 
-        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
+        let Some(&material_asset_id) = material_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(material) = materials.get(*material_asset_id) else {
+        let Some(material) = materials.get_with_key(material_asset_id) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
@@ -460,7 +487,28 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterialInstances<M: Material> {
+    #[deref]
+    map: EntityHashMap<RenderAssetKey>,
+    marker: PhantomData<M>,
+}
+
+impl<M: Material> Default for RenderMaterialInstances<M> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            marker: Default::default(),
+        }
+    }
+}
+
+impl<M: Material> SetRenderAssetKey for RenderMaterialInstances<M> {
+    #[inline]
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.get_mut(&entity).map(|asset_key| *asset_key = key);
+    }
+}
 
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
@@ -650,17 +698,17 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in visible_entities.iter::<WithMesh>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(&material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get_with_key(material_asset_id) else {
                 continue;
             };
 
@@ -716,7 +764,7 @@ pub fn queue_material_meshes<M: Material>(
                         let bin_key = Opaque3dBinKey {
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            mesh_asset_key: mesh_instance.mesh_asset_key,
                             material_bind_group_id: material.get_bind_group_id().0,
                             lightmap_image,
                         };
@@ -740,7 +788,7 @@ pub fn queue_material_meshes<M: Material>(
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            mesh_asset_key: mesh_instance.mesh_asset_key,
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(

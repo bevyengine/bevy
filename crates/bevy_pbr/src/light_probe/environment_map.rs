@@ -47,21 +47,26 @@
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
 use bevy_asset::{AssetId, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+    bundle::Bundle,
+    component::Component,
+    entity::{Entity, EntityHashMap},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_instances::ExtractInstance,
     prelude::SpatialBundle,
-    render_asset::RenderAssets,
+    render_asset::{RenderAssetKey, RenderAssets},
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
+    Extract,
 };
+use bevy_utils::HashMap;
 
 use std::num::NonZeroU32;
 use std::ops::Deref;
@@ -104,10 +109,10 @@ pub struct EnvironmentMapLight {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EnvironmentMapIds {
     /// The blurry image that represents diffuse radiance surrounding a region.
-    pub(crate) diffuse: AssetId<Image>,
+    pub(crate) diffuse: RenderAssetKey,
     /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
-    pub(crate) specular: AssetId<Image>,
+    pub(crate) specular: RenderAssetKey,
 }
 
 /// A bundle that contains everything needed to make an entity a reflection
@@ -176,16 +181,63 @@ pub struct EnvironmentMapViewLightProbeInfo {
     pub(crate) intensity: f32,
 }
 
-impl ExtractInstance for EnvironmentMapIds {
-    type QueryData = Read<EnvironmentMapLight>;
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct EnvironmentMapInstances(EntityHashMap<EnvironmentMapIds>);
 
-    type QueryFilter = ();
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PendingEnvironmentMapLight {
+    diffuse: AssetId<Image>,
+    specular: AssetId<Image>,
+}
 
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(EnvironmentMapIds {
-            diffuse: item.diffuse_map.id(),
-            specular: item.specular_map.id(),
-        })
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct PendingEnvironmentMapLights(HashMap<PendingEnvironmentMapLight, Vec<Entity>>);
+
+pub fn extract_environment_maps(
+    mut environment_maps: ResMut<EnvironmentMapInstances>,
+    query: Extract<Query<(Entity, &EnvironmentMapLight)>>,
+    images: Res<RenderAssets<GpuImage>>,
+    mut pending_environment_map_images: ResMut<PendingEnvironmentMapLights>,
+) {
+    environment_maps.clear();
+    for (entity, environment_map_light) in &query {
+        let (Some(diffuse), Some(specular)) = (
+            images.get_key(environment_map_light.diffuse_map.id()),
+            images.get_key(environment_map_light.specular_map.id()),
+        ) else {
+            pending_environment_map_images
+                .entry(PendingEnvironmentMapLight {
+                    diffuse: environment_map_light.diffuse_map.id(),
+                    specular: environment_map_light.specular_map.id(),
+                })
+                .or_default()
+                .push(entity);
+            continue;
+        };
+        environment_maps.insert(entity, EnvironmentMapIds { diffuse, specular });
+    }
+}
+
+pub fn update_pending_environment_maps(
+    mut pending_environment_map_images: ResMut<PendingEnvironmentMapLights>,
+    mut environment_maps: ResMut<EnvironmentMapInstances>,
+    images: Res<RenderAssets<GpuImage>>,
+) {
+    let mut to_remove = Vec::with_capacity(pending_environment_map_images.len());
+    for (asset_ids, entities) in pending_environment_map_images.iter() {
+        let (Some(diffuse), Some(specular)) = (
+            images.get_key(asset_ids.diffuse),
+            images.get_key(asset_ids.specular),
+        ) else {
+            continue;
+        };
+        to_remove.push(*asset_ids);
+        for entity in entities.iter().copied() {
+            environment_maps.insert(entity, EnvironmentMapIds { diffuse, specular });
+        }
+    }
+    for id in to_remove.drain(..) {
+        pending_environment_map_images.remove(&id);
     }
 }
 
@@ -256,9 +308,10 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
 
         if let Some(environment_maps) = render_view_environment_maps {
             if let Some(cubemap) = environment_maps.binding_index_to_textures.first() {
-                if let (Some(diffuse_image), Some(specular_image)) =
-                    (images.get(cubemap.diffuse), images.get(cubemap.specular))
-                {
+                if let (Some(diffuse_image), Some(specular_image)) = (
+                    images.get_with_key(cubemap.diffuse),
+                    images.get_with_key(cubemap.specular),
+                ) {
                     return RenderViewEnvironmentMapBindGroupEntries::Single {
                         diffuse_texture_view: &diffuse_image.texture_view,
                         specular_texture_view: &specular_image.texture_view,
@@ -284,15 +337,13 @@ impl LightProbeComponent for EnvironmentMapLight {
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
-        if image_assets.get(&self.diffuse_map).is_none()
-            || image_assets.get(&self.specular_map).is_none()
-        {
-            None
+        if let (Some(diffuse), Some(specular)) = (
+            image_assets.get_key(&self.diffuse_map),
+            image_assets.get_key(&self.specular_map),
+        ) {
+            Some(EnvironmentMapIds { diffuse, specular })
         } else {
-            Some(EnvironmentMapIds {
-                diffuse: self.diffuse_map.id(),
-                specular: self.specular_map.id(),
-            })
+            None
         }
     }
 
@@ -314,17 +365,15 @@ impl LightProbeComponent for EnvironmentMapLight {
             intensity,
         }) = view_component
         {
-            if let (Some(_), Some(specular_map)) = (
-                image_assets.get(diffuse_map_handle),
-                image_assets.get(specular_map_handle),
+            if let (Some(diffuse), Some(specular)) = (
+                image_assets.get_key(diffuse_map_handle),
+                image_assets.get_key(specular_map_handle),
             ) {
+                let specular_map = image_assets.get_with_key(specular).unwrap();
                 render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
-                    cubemap_index: render_view_light_probes.get_or_insert_cubemap(
-                        &EnvironmentMapIds {
-                            diffuse: diffuse_map_handle.id(),
-                            specular: specular_map_handle.id(),
-                        },
-                    ) as i32,
+                    cubemap_index: render_view_light_probes
+                        .get_or_insert_cubemap(&EnvironmentMapIds { diffuse, specular })
+                        as i32,
                     smallest_specular_mip_level: specular_map.mip_level_count - 1,
                     intensity: *intensity,
                 };

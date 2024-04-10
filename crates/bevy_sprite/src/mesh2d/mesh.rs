@@ -15,7 +15,11 @@ use bevy_render::batching::no_gpu_preprocessing::{
     self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
     BatchedInstanceBuffer,
 };
+use bevy_render::extract_instances::{
+    PendingRenderAssets, SetRenderAssetKey, UpdatePendingRenderAssetKeyPlugin,
+};
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::render_asset::RenderAssetKey;
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -33,6 +37,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::slotmap::Key;
+use bevy_utils::{HashMap, Parallel};
 
 use crate::Material2dBindGroupId;
 
@@ -93,6 +99,11 @@ impl Plugin for Mesh2dRenderPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+
+        app.add_plugins(UpdatePendingRenderAssetKeyPlugin::<
+            GpuMesh,
+            RenderMesh2dInstances,
+        >::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -193,13 +204,21 @@ bitflags::bitflags! {
 
 pub struct RenderMesh2dInstance {
     pub transforms: Mesh2dTransforms,
-    pub mesh_asset_id: AssetId<Mesh>,
+    pub mesh_asset_key: RenderAssetKey,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
+
+impl SetRenderAssetKey for RenderMesh2dInstances {
+    #[inline]
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.get_mut(&entity)
+            .map(|instance| instance.mesh_asset_key = key);
+    }
+}
 
 #[derive(Component)]
 pub struct Mesh2d;
@@ -208,6 +227,9 @@ pub fn extract_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    mut pending_mesh_asset_maps: Local<Parallel<HashMap<AssetId<Mesh>, Vec<Entity>>>>,
+    mut pending_mesh_assets: ResMut<PendingRenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     query: Extract<
         Query<(
             Entity,
@@ -228,6 +250,15 @@ pub fn extract_mesh2d(
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
         entities.push((entity, Mesh2d));
+
+        let mesh_asset_key = match meshes.get_key(&handle.0) {
+            Some(mesh_asset_key) => mesh_asset_key,
+            None => {
+                pending_mesh_asset_maps
+                    .scope(|map| map.entry(handle.0.id()).or_default().push(entity));
+                RenderAssetKey::null()
+            }
+        };
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
@@ -235,7 +266,7 @@ pub fn extract_mesh2d(
                     transform: (&transform.affine()).into(),
                     flags: MeshFlags::empty().bits(),
                 },
-                mesh_asset_id: handle.0.id(),
+                mesh_asset_key,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
             },
@@ -243,6 +274,15 @@ pub fn extract_mesh2d(
     }
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
+
+    for queue in pending_mesh_asset_maps.iter_mut() {
+        for (asset_id, mut entities) in queue.drain() {
+            pending_mesh_assets
+                .entry(asset_id)
+                .or_default()
+                .extend(entities.drain(..));
+        }
+    }
 }
 
 #[derive(Resource, Clone)]
@@ -346,7 +386,7 @@ impl Mesh2dPipeline {
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = SRes<RenderMesh2dInstances>;
-    type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
+    type CompareData = (Material2dBindGroupId, RenderAssetKey);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
@@ -358,7 +398,7 @@ impl GetBatchData for Mesh2dPipeline {
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
-                mesh_instance.mesh_asset_id,
+                mesh_instance.mesh_asset_key,
             )),
         ))
     }
@@ -687,12 +727,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
 
-        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+        let Some(RenderMesh2dInstance { mesh_asset_key, .. }) =
             render_mesh2d_instances.get(&item.entity())
         else {
             return RenderCommandResult::Failure;
         };
-        let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.get_with_key(*mesh_asset_key) else {
             return RenderCommandResult::Failure;
         };
 
