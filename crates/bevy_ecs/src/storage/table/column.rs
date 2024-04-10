@@ -110,12 +110,14 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         self.changed_ticks.alloc(new_capacity);
     }
 
-    /// Writes component data to the column at given row.
+    /// Writes component data to the column at the given row.
     /// Assumes the slot is uninitialized, drop is not called.
     /// To overwrite existing initialized value, use `replace` instead.
     ///
     /// # Safety
-    /// The caller must ensure that `row.as_usize()` < `len`
+    /// The caller must ensure that:
+    /// - `row.as_usize()` < `len`
+    /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
     pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
         self.data.initialize_unchecked(row.as_usize(), data);
@@ -126,11 +128,11 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
             .get_mut() = tick;
     }
 
-    /// Writes component data to the column at given row.
-    /// Assumes the slot is initialized, calls drop.
+    /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
     ///
-    /// # Safety
-    /// The caller must ensure that `row.as_usize()` < `len`
+    /// The caller must ensure that:
+    /// - `row.as_usize()` < `len`
+    /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         self.data.replace_unchecked(row.as_usize(), data);

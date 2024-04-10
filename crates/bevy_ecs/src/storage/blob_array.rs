@@ -10,8 +10,8 @@ use std::{
     ptr::NonNull,
 };
 
-// TODO: More docs
-/// A flat, type-erased data storage type
+/// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
+/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
 /// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the Blob that it stores,
@@ -24,7 +24,7 @@ pub(super) struct BlobArray<const IS_ZST: bool = false> {
     drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
 
-// TODO: Docs
+#[doc(hidden)]
 pub enum BlobArrayCreation {
     ZST(BlobArray<true>),
     NotZST(BlobArray),
@@ -177,9 +177,9 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     }
 }
 
-// TODO: documentation
 impl<const IS_ZST: bool> BlobArray<IS_ZST> {
-    // TODO: Better docs
+    /// Allocate a block of memory for the array. This should be used to initalize the array, do not use this
+    /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
         if !IS_ZST {
             let new_layout = array_layout(&self.item_layout, capacity.get())
@@ -193,7 +193,10 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
         }
     }
 
-    // TODO: Better docs
+    /// Reallocate memory for this array.
+    /// For example, if the length (number of stored elements) reached the capacity (number of elements the current allocation can store),
+    /// you might want to use this method to increase the allocation, so more data can be stored in the array.
+    ///
     /// # Safety
     /// The caller must ensure that:
     /// 1) `current_capacity` + `increment` doesn't overflow `usize`

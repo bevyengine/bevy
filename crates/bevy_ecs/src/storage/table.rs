@@ -136,7 +136,6 @@ impl TableRow {
     }
 }
 
-// TODO: Docs
 /// A builder type for constructing [`Table`]s.
 ///
 ///  - Use [`with_capacity`] to initialize the builder.
@@ -331,8 +330,14 @@ impl Table {
         }
     }
 
-    // TODO: Docs
+    /// Writes component data to its corresponding column at the given row.
+    /// Assumes the slot is uninitialized, drop is not called.
+    /// To overwrite an existing initialized value, use [`Self::replace_component`] instead.
     ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - `row.as_usize()` < `len`
+    /// - `comp_ptr` holds a component that matches the `component_id`
     pub unsafe fn initialize_component(
         &mut self,
         row: TableRow,
@@ -340,6 +345,7 @@ impl Table {
         comp_ptr: OwningPtr<'_>,
         change_tick: Tick,
     ) {
+        debug_assert!(row.as_usize() < self.len());
         if let Some(col) = self.get_thin_column_mut(component_id) {
             col.initialize(row, comp_ptr, change_tick)
         } else {
