@@ -343,7 +343,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::{AnyOf, Ref},
+        prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -457,16 +457,12 @@ mod tests {
 
     #[test]
     fn or_param_set_system() {
-        // TODO: Revert to original code of this test
         // Regression test for issue #762
         fn query_system(
             mut ran: ResMut<SystemRan>,
             mut set: ParamSet<(
-                // Query<(), Or<(Changed<A>, Changed<B>)>>,
-                // Query<(), Or<(Added<A>, Added<B>)>>,
-                Query<(), Or<()>>,
-                Query<(), Or<()>>,
-                Query<(Ref<A>, Ref<B>)>,
+                Query<(), Or<(Changed<A>, Changed<B>)>>,
+                Query<(), Or<(Added<A>, Added<B>)>>,
             )>,
         ) {
             let changed = set.p0().iter().count();

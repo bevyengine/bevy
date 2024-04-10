@@ -2623,6 +2623,7 @@ mod tests {
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
+        prelude::DetectChanges,
         ptr::OwningPtr,
         system::Resource,
     };
@@ -3123,5 +3124,28 @@ mod tests {
     fn spawn_empty_bundle() {
         let mut world = World::new();
         world.spawn(());
+    }
+
+    #[derive(Component, Default)]
+    struct Transform;
+
+    #[test]
+    fn test_clear_trackers() {
+        // a whole new world
+        let mut world = World::new();
+
+        // you changed it
+        let entity = world.spawn(Transform::default()).id();
+
+        // change is detected
+        let transform = world.get_mut::<Transform>(entity).unwrap();
+        assert!(transform.is_changed());
+
+        // update the last change tick
+        world.clear_trackers();
+
+        // change is no longer detected
+        let transform = world.get_mut::<Transform>(entity).unwrap();
+        assert!(!transform.is_changed());
     }
 }

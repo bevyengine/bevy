@@ -133,7 +133,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// The caller must ensure that `row.as_usize()` < `len`
     #[inline]
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
-        dbg!(row.as_usize());
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks

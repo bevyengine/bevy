@@ -342,6 +342,10 @@ impl Table {
     ) {
         if let Some(col) = self.get_thin_column_mut(component_id) {
             col.initialize(row, comp_ptr, change_tick)
+        } else {
+            self.get_thin_zst_column_mut(component_id)
+                .debug_checked_unwrap()
+                .initialize(row, comp_ptr, change_tick)
         }
     }
 
@@ -355,7 +359,11 @@ impl Table {
         change_tick: Tick,
     ) {
         if let Some(col) = self.get_thin_column_mut(component_id) {
-            col.replace(row, comp_ptr, change_tick)
+            col.replace(row, comp_ptr, change_tick);
+        } else {
+            self.get_thin_zst_column_mut(component_id)
+                .debug_checked_unwrap()
+                .replace(row, comp_ptr, change_tick)
         }
     }
 
@@ -550,7 +558,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
-        self.columns.contains(component_id)
+        self.columns.contains(component_id) || self.zst_columns.contains(component_id)
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
