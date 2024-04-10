@@ -38,7 +38,7 @@ impl<T: Default + Send> Parallel<T> {
     /// Mutably borrows the thread-local value.
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
-    pub fn borrow_local_mut(&self) -> RefMut<'_, T> {
+    pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
         self.locals.get_or_default().borrow_mut()
     }
 }
