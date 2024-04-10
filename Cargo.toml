@@ -1792,6 +1792,17 @@ description = "A simple game menu"
 category = "Games"
 wasm = true
 
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"

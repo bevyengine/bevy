@@ -17,7 +17,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
+    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
@@ -370,7 +370,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
-        Res<RenderAssets<Image>>,
+        Res<RenderAssets<GpuImage>>,
         FallbackImageMsaa,
         Res<FallbackImage>,
         Res<FallbackImageZero>,
