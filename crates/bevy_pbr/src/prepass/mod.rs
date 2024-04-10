@@ -1,6 +1,5 @@
 mod prepass_bindings;
 
-use bevy_render::batching::{batch_and_prepare_binned_render_phase, sort_binned_render_phase};
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 pub use prepass_bindings::*;
@@ -145,7 +144,11 @@ where
                         update_mesh_previous_global_transforms,
                         update_previous_view_data,
                     ),
-                );
+                )
+                .add_plugins((
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                ));
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -157,18 +160,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
-                    (
-                        (
-                            sort_binned_render_phase::<Opaque3dPrepass>,
-                            sort_binned_render_phase::<AlphaMask3dPrepass>
-                        ).in_set(RenderSet::PhaseSort),
-                        (
-                            prepare_previous_view_uniforms,
-                            batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
-                                MeshPipeline>,
-                        ).in_set(RenderSet::PrepareResources),
-                    )
+                    prepare_previous_view_uniforms.in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -786,7 +778,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
             let Some(material) = render_materials.get(*material_asset_id) else {

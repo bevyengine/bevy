@@ -48,7 +48,7 @@ use bevy_render::{
 };
 use bevy_utils::HashSet;
 
-use crate::RenderMeshInstances;
+use crate::{ExtractMeshesSet, RenderMeshInstances};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -132,10 +132,9 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app.init_resource::<RenderLightmaps>().add_systems(
-            ExtractSchedule,
-            extract_lightmaps.after(crate::extract_meshes),
-        );
+        render_app
+            .init_resource::<RenderLightmaps>()
+            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
     }
 }
 
@@ -159,8 +158,8 @@ fn extract_lightmaps(
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
             || !render_mesh_instances
-                .get(&entity)
-                .and_then(|mesh_instance| meshes.get(mesh_instance.mesh_asset_id))
+                .mesh_asset_id(entity)
+                .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;
