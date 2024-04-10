@@ -618,11 +618,11 @@ pub fn queue_material_meshes<M: Material>(
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
             }
         }
 
