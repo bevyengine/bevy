@@ -310,7 +310,7 @@ impl<T> ThinArrayPtr<T> {
         if current_len == 0 {
             None
         } else {
-            Some(std::ptr::read(self.data.as_ptr().add(current_len)))
+            Some(std::ptr::read(self.data.as_ptr().add(current_len - 1)))
         }
     }
 

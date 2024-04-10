@@ -465,8 +465,8 @@ mod tests {
             //     Query<(), Or<(Changed<A>, Changed<B>)>>,
             //     Query<(), Or<(Added<A>, Added<B>)>>,
             // )>,
-            changed: Query<(), Or<(Changed<A>, Changed<B>)>>,
-            added: Query<(), Or<(Added<A>, Added<B>)>>,
+            changed: Query<(), (Changed<A>, Changed<B>)>,
+            added: Query<(), (Added<A>, Added<B>)>,
         ) {
             let changed = changed.iter().count();
             let added = added.iter().count();
@@ -484,6 +484,7 @@ mod tests {
         run_system(&mut world, query_system);
 
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+        assert!(false); // TODO: Remove
     }
 
     #[test]
