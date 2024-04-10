@@ -14,17 +14,17 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
+mod buffers;
 mod compensation_curve;
 mod node;
 mod pipeline;
 mod settings;
-mod state;
 
+use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 pub use compensation_curve::AutoExposureCompensationCurve;
 use node::AutoExposureNode;
 use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SHADER_HANDLE};
 pub use settings::AutoExposureSettings;
-use state::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 
 use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::core_3d::graph::{Core3d, Node3d};

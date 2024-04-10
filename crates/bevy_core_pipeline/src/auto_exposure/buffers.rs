@@ -6,9 +6,8 @@ use bevy_render::{
 };
 use bevy_utils::{Entry, HashMap};
 
-use crate::auto_exposure::AutoExposureSettings;
-
 use super::pipeline::AutoExposureSettingsUniform;
+use super::AutoExposureSettings;
 
 #[derive(Resource, Default)]
 pub(super) struct AutoExposureBuffers {

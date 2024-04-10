@@ -1,5 +1,6 @@
-use super::{compensation_curve::GpuAutoExposureCompensationCurve, state::AutoExposureBuffers};
-use crate::auto_exposure::{
+use super::{
+    buffers::AutoExposureBuffers,
+    compensation_curve::GpuAutoExposureCompensationCurve,
     pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
     AutoExposureResources,
 };
