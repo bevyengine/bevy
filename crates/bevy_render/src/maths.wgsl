@@ -28,6 +28,30 @@ fn mat2x4_f32_to_mat3x3_unpack(
     );
 }
 
+// Extracts the square portion of an affine matrix: i.e. discards the
+// translation.
+fn affine3_to_mat3x3(affine: mat4x3<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(affine[0].xyz, affine[1].xyz, affine[2].xyz);
+}
+
+// Returns the inverse of a 3x3 matrix.
+fn inverse_mat3x3(matrix: mat3x3<f32>) -> mat3x3<f32> {
+    let tmp0 = cross(matrix[1], matrix[2]);
+    let tmp1 = cross(matrix[2], matrix[0]);
+    let tmp2 = cross(matrix[0], matrix[1]);
+    let inv_det = 1.0 / dot(matrix[2], tmp2);
+    return transpose(mat3x3<f32>(tmp0 * inv_det, tmp1 * inv_det, tmp2 * inv_det));
+}
+
+// Returns the inverse of an affine matrix.
+//
+// https://en.wikipedia.org/wiki/Affine_transformation#Groups
+fn inverse_affine3(affine: mat4x3<f32>) -> mat4x3<f32> {
+    let matrix3 = affine3_to_mat3x3(affine);
+    let inv_matrix3 = inverse_mat3x3(matrix3);
+    return mat4x3<f32>(inv_matrix3[0], inv_matrix3[1], inv_matrix3[2], -(inv_matrix3 * affine[3]));
+}
+
 // Creates an orthonormal basis given a Z vector and an up vector (which becomes
 // Y after orthonormalization).
 //

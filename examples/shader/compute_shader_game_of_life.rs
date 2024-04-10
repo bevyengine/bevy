@@ -11,6 +11,7 @@ use bevy::{
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
+        texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
 };
@@ -129,7 +130,7 @@ struct GameOfLifeImageBindGroups([BindGroup; 2]);
 fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<GameOfLifePipeline>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     game_of_life_images: Res<GameOfLifeImages>,
     render_device: Res<RenderDevice>,
 ) {

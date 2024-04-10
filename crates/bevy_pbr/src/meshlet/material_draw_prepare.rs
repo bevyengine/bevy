@@ -10,6 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_render::{
     camera::TemporalJitter,
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
+    render_asset::RenderAssets,
     render_resource::*,
     view::ExtractedView,
 };
@@ -29,7 +30,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mesh_pipeline: Res<MeshPipeline>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
@@ -139,7 +140,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(material_id) else {
+            let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
 
@@ -226,7 +227,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     asset_server: Res<AssetServer>,
@@ -264,7 +265,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(material_id) else {
+            let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
 
