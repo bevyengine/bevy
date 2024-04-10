@@ -138,7 +138,8 @@ fn find_y_given_x(segment: &CubicSegment<Vec2>, x: f32) -> f32 {
 }
 
 /// The GPU-representation of an [`AutoExposureCompensationCurve`].
-/// Consists of a [`TextureView`] with the curve's data, and a [`Buffer`] with the curve's extents.
+/// Consists of a [`TextureView`] with the curve's data,
+/// and a [`UniformBuffer`] with the curve's extents.
 pub struct GpuAutoExposureCompensationCurve {
     pub(super) texture_view: TextureView,
     pub(super) extents: UniformBuffer<AutoExposureCompensationCurveUniform>,
