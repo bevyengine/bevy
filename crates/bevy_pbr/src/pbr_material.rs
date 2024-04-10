@@ -1,6 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::Alpha;
-use bevy_math::{Affine2, Mat3, Vec4};
+use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
@@ -485,6 +485,66 @@ pub struct StandardMaterial {
 
     /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
     pub uv_transform: Affine2,
+}
+
+impl StandardMaterial {
+    /// Horizontal flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with horizontally flipped texture coords
+    pub const FLIP_HORIZONTAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::new(-1.0, 0.0), Vec2::Y),
+        translation: Vec2::X,
+    };
+
+    /// Vertical flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with vertically flipped texture coords
+    pub const FLIP_VERTICAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::X, Vec2::new(0.0, -1.0)),
+        translation: Vec2::Y,
+    };
+
+    /// Flipping X 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped X coords
+    pub const FLIP_X: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::new(-1.0, 0.0, 0.0), Vec3::Y, Vec3::Z),
+        translation: Vec3::X,
+    };
+
+    /// Flipping Y 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Y coords
+    pub const FLIP_Y: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::new(0.0, -1.0, 0.0), Vec3::Z),
+        translation: Vec3::Y,
+    };
+
+    /// Flipping Z 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Z coords
+    pub const FLIP_Z: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::Y, Vec3::new(0.0, 0.0, -1.0)),
+        translation: Vec3::Z,
+    };
+
+    /// Flip the texture coordinates of the material.
+    pub fn flip(&mut self, horizontal: bool, vertical: bool) {
+        if horizontal {
+            // Multiplication of `Affine2` is order dependent, which is why
+            // we do not use the `*=` operator.
+            self.uv_transform = Self::FLIP_HORIZONTAL * self.uv_transform;
+        }
+        if vertical {
+            self.uv_transform = Self::FLIP_VERTICAL * self.uv_transform;
+        }
+    }
+
+    /// Consumes the material and returns a material with flipped texture coordinates
+    pub fn flipped(mut self, horizontal: bool, vertical: bool) -> Self {
+        self.flip(horizontal, vertical);
+        self
+    }
 }
 
 impl Default for StandardMaterial {

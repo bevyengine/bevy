@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
@@ -941,5 +941,34 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
                     .short_arc_3d_between(center, from, to, *color)
                     .segments(*minor_segments);
             });
+    }
+}
+
+// tetrahedron
+
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: Tetrahedron,
+        position: Vec3,
+        rotation: Quat,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c, d] = primitive
+            .vertices
+            .map(rotate_then_translate_3d(rotation, position));
+
+        let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
+
+        let color = color.into();
+        for (a, b) in lines.into_iter() {
+            self.line(a, b, color);
+        }
     }
 }
