@@ -954,7 +954,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
         primitive: Tetrahedron,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -966,6 +966,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
 
         let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
 
+        let color = color.into();
         for (a, b) in lines.into_iter() {
             self.line(a, b, color);
         }
