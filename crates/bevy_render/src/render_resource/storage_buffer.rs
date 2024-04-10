@@ -8,6 +8,8 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
+use super::IntoBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
 /// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
@@ -136,6 +138,16 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
@@ -250,5 +262,12 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicStorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

@@ -22,14 +22,12 @@ pub struct AutoExposurePipeline {
 pub struct ViewAutoExposurePipeline {
     pub histogram_pipeline: CachedComputePipelineId,
     pub mean_luminance_pipeline: CachedComputePipelineId,
-    pub state: Buffer,
-    pub settings: Buffer,
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
     pub metering_mask: Handle<Image>,
 }
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct AutoExposureUniform {
+pub struct AutoExposureSettingsUniform {
     pub(super) min_log_lum: f32,
     pub(super) inv_log_lum_range: f32,
     pub(super) log_lum_range: f32,
@@ -61,7 +59,7 @@ impl FromWorld for AutoExposurePipeline {
                     ShaderStages::COMPUTE,
                     (
                         uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureUniform>(false),
+                        uniform_buffer::<AutoExposureSettingsUniform>(false),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_1d(TextureSampleType::Float { filterable: false }),

@@ -8,8 +8,8 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
     render_resource::{
-        encase, Buffer, BufferInitDescriptor, BufferUsages, Extent3d, ShaderType,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        Extent3d, ShaderType, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+        TextureView, UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
 };
@@ -139,10 +139,9 @@ fn find_y_given_x(segment: &CubicSegment<Vec2>, x: f32) -> f32 {
 
 /// The GPU-representation of an [`AutoExposureCompensationCurve`].
 /// Consists of a [`TextureView`] with the curve's data, and a [`Buffer`] with the curve's extents.
-#[derive(Debug, Clone)]
 pub struct GpuAutoExposureCompensationCurve {
     pub(super) texture_view: TextureView,
-    pub(super) extents: Buffer,
+    pub(super) extents: UniformBuffer<AutoExposureCompensationCurveUniform>,
 }
 
 #[derive(ShaderType, Clone, Copy)]
@@ -187,21 +186,14 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
         let texture_view = texture.create_view(&Default::default());
 
-        let mut settings = encase::UniformBuffer::new(Vec::new());
-        settings
-            .write(&AutoExposureCompensationCurveUniform {
-                min_log_lum: source.min_log_lum,
-                inv_log_lum_range: 1.0 / (source.max_log_lum - source.min_log_lum),
-                min_compensation: source.min_compensation,
-                compensation_range: source.max_compensation - source.min_compensation,
-            })
-            .unwrap();
-
-        let extents = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
-            contents: settings.as_ref(),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        let mut extents = UniformBuffer::from(AutoExposureCompensationCurveUniform {
+            min_log_lum: source.min_log_lum,
+            inv_log_lum_range: 1.0 / (source.max_log_lum - source.min_log_lum),
+            min_compensation: source.min_compensation,
+            compensation_range: source.max_compensation - source.min_compensation,
         });
+
+        extents.write_buffer(&render_device, &render_queue);
 
         Ok(GpuAutoExposureCompensationCurve {
             texture_view,

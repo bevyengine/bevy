@@ -1,23 +1,23 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{encase::UniformBuffer, Buffer, BufferInitDescriptor, BufferUsages},
-    renderer::RenderDevice,
+    render_resource::{StorageBuffer, UniformBuffer},
+    renderer::{RenderDevice, RenderQueue},
     Extract,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 
 use crate::auto_exposure::AutoExposureSettings;
 
-use super::pipeline::AutoExposureUniform;
+use super::pipeline::AutoExposureSettingsUniform;
 
 #[derive(Resource, Default)]
-pub(super) struct AutoExposureStateBuffers {
-    pub(super) buffers: HashMap<Entity, AutoExposureStateBuffer>,
+pub(super) struct AutoExposureBuffers {
+    pub(super) buffers: HashMap<Entity, AutoExposureBuffer>,
 }
 
-pub(super) struct AutoExposureStateBuffer {
-    pub(super) state: Buffer,
-    pub(super) settings: Buffer,
+pub(super) struct AutoExposureBuffer {
+    pub(super) state: StorageBuffer<f32>,
+    pub(super) settings: UniformBuffer<AutoExposureSettingsUniform>,
 }
 
 #[derive(Resource)]
@@ -26,7 +26,7 @@ pub(super) struct ExtractedStateBuffers {
     removed: Vec<Entity>,
 }
 
-pub(super) fn extract_state_buffers(
+pub(super) fn extract_buffers(
     mut commands: Commands,
     changed: Extract<Query<(Entity, &AutoExposureSettings), Changed<AutoExposureSettings>>>,
     mut removed: Extract<RemovedComponents<AutoExposureSettings>>,
@@ -40,48 +40,46 @@ pub(super) fn extract_state_buffers(
     });
 }
 
-pub(super) fn prepare_state_buffers(
+pub(super) fn prepare_buffers(
     device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
     mut extracted: ResMut<ExtractedStateBuffers>,
-    mut buffers: ResMut<AutoExposureStateBuffers>,
+    mut buffers: ResMut<AutoExposureBuffers>,
 ) {
     for (entity, settings) in extracted.changed.drain(..) {
         let (min_log_lum, max_log_lum) = settings.range.into_inner();
         let (low_percent, high_percent) = settings.filter.into_inner();
         let initial_state = 0.0f32.clamp(min_log_lum, max_log_lum);
 
-        let state_buffer = device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("auto exposure state buffer"),
-            contents: &initial_state.to_ne_bytes(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-        });
+        let settings = AutoExposureSettingsUniform {
+            min_log_lum,
+            inv_log_lum_range: 1.0 / (max_log_lum - min_log_lum),
+            log_lum_range: max_log_lum - min_log_lum,
+            low_percent,
+            high_percent,
+            speed_up: settings.speed_brighten,
+            speed_down: settings.speed_darken,
+            exponential_transition_distance: settings.exponential_transition_distance,
+        };
 
-        let mut settings_buffer = UniformBuffer::new(Vec::new());
-        settings_buffer
-            .write(&AutoExposureUniform {
-                min_log_lum,
-                inv_log_lum_range: 1.0 / (max_log_lum - min_log_lum),
-                log_lum_range: max_log_lum - min_log_lum,
-                low_percent,
-                high_percent,
-                speed_up: settings.speed_brighten,
-                speed_down: settings.speed_darken,
-                exponential_transition_distance: settings.exponential_transition_distance,
-            })
-            .unwrap();
-        let settings_buffer = device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
-            contents: settings_buffer.as_ref(),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
+        match buffers.buffers.entry(entity) {
+            Entry::Occupied(mut entry) => {
+                // Update the settings buffer, but skip updating the state buffer.
+                // The state buffer is skipped so that the animation stays continuous.
+                let value = entry.get_mut();
+                value.settings.set(settings);
+                value.settings.write_buffer(&device, &queue);
+            }
+            Entry::Vacant(entry) => {
+                let value = entry.insert(AutoExposureBuffer {
+                    state: StorageBuffer::from(initial_state),
+                    settings: UniformBuffer::from(settings),
+                });
 
-        buffers.buffers.insert(
-            entity,
-            AutoExposureStateBuffer {
-                state: state_buffer,
-                settings: settings_buffer,
-            },
-        );
+                value.state.write_buffer(&device, &queue);
+                value.settings.write_buffer(&device, &queue);
+            }
+        }
     }
 
     for entity in extracted.removed.drain(..) {

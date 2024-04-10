@@ -24,7 +24,7 @@ pub use compensation_curve::AutoExposureCompensationCurve;
 use node::AutoExposureNode;
 use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SHADER_HANDLE};
 pub use settings::AutoExposureSettings;
-use state::{extract_state_buffers, prepare_state_buffers, AutoExposureStateBuffers};
+use state::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 
 use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::core_3d::graph::{Core3d, Node3d};
@@ -65,12 +65,12 @@ impl Plugin for AutoExposurePlugin {
 
         render_app
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
-            .init_resource::<AutoExposureStateBuffers>()
-            .add_systems(ExtractSchedule, extract_state_buffers)
+            .init_resource::<AutoExposureBuffers>()
+            .add_systems(ExtractSchedule, extract_buffers)
             .add_systems(
                 Render,
                 (
-                    prepare_state_buffers.in_set(RenderSet::Prepare),
+                    prepare_buffers.in_set(RenderSet::Prepare),
                     queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
                 ),
             )
@@ -111,7 +111,6 @@ fn queue_view_auto_exposure_pipelines(
     pipeline_cache: ResMut<PipelineCache>,
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     pipeline: Res<AutoExposurePipeline>,
-    buffers: Res<AutoExposureStateBuffers>,
     view_targets: Query<(Entity, &AutoExposureSettings)>,
 ) {
     for (entity, settings) in view_targets.iter() {
@@ -120,15 +119,9 @@ fn queue_view_auto_exposure_pipelines(
         let average_pipeline =
             compute_pipelines.specialize(&pipeline_cache, &pipeline, Pass::Average);
 
-        let Some(buffer) = buffers.buffers.get(&entity) else {
-            continue;
-        };
-
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
-            state: buffer.state.clone(),
-            settings: buffer.settings.clone(),
             compensation_curve: settings.compensation_curve.clone(),
             metering_mask: settings.metering_mask.clone(),
         });

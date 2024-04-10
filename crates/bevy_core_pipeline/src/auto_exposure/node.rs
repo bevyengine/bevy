@@ -1,4 +1,4 @@
-use super::compensation_curve::GpuAutoExposureCompensationCurve;
+use super::{compensation_curve::GpuAutoExposureCompensationCurve, state::AutoExposureBuffers};
 use crate::auto_exposure::{
     pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
     AutoExposureResources,
@@ -60,8 +60,15 @@ impl Node for AutoExposureNode {
 
         let globals_buffer = world.resource::<GlobalsBuffer>();
 
-        let Ok((view_uniform_offset, view_target, auto_exposure, view)) =
-            self.query.get_manual(world, view_entity)
+        let auto_exposure_buffers = world.resource::<AutoExposureBuffers>();
+
+        let (
+            Ok((view_uniform_offset, view_target, auto_exposure, view)),
+            Some(auto_exposure_buffers),
+        ) = (
+            self.query.get_manual(world, view_entity),
+            auto_exposure_buffers.buffers.get(&view_entity),
+        )
         else {
             return Ok(());
         };
@@ -95,13 +102,13 @@ impl Node for AutoExposureNode {
             &pipeline.histogram_layout,
             &BindGroupEntries::sequential((
                 &globals_buffer.buffer,
-                auto_exposure.settings.as_entire_buffer_binding(),
+                &auto_exposure_buffers.settings,
                 source,
                 mask,
                 &compensation_curve.texture_view,
-                compensation_curve.extents.as_entire_buffer_binding(),
+                &compensation_curve.extents,
                 resources.histogram.as_entire_buffer_binding(),
-                auto_exposure.state.as_entire_buffer_binding(),
+                &auto_exposure_buffers.state,
                 BufferBinding {
                     buffer: view_uniforms_buffer,
                     size: Some(ViewUniform::min_size()),
