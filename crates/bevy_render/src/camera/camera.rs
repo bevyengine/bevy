@@ -1,11 +1,11 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    texture::GpuImage,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
@@ -581,7 +581,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
@@ -601,7 +601,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
