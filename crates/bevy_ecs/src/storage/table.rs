@@ -858,6 +858,11 @@ impl Drop for Table {
     fn drop(&mut self) {
         let len = self.len();
         let cap = self.capacity();
+        // println!("{}", len);
+        // println!("{}", cap);
+        self.entities.clear();
+        // println!("{}", self.len());
+        // println!("{}", self.capacity());
         for col in self.columns.values_mut() {
             // SAFETY: `cap` and `len` are correct
             unsafe {

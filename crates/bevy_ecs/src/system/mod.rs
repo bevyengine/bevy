@@ -343,7 +343,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, Ref},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -457,19 +457,20 @@ mod tests {
 
     #[test]
     fn or_param_set_system() {
+        // TODO: Revert to original code of this test
         // Regression test for issue #762
         fn query_system(
             mut ran: ResMut<SystemRan>,
-            // TODO: un-comment these out
-            // mut set: ParamSet<(
-            //     Query<(), Or<(Changed<A>, Changed<B>)>>,
-            //     Query<(), Or<(Added<A>, Added<B>)>>,
-            // )>,
-            changed: Query<(), (Changed<A>, Changed<B>)>,
-            added: Query<(), (Added<A>, Added<B>)>,
+            mut set: ParamSet<(
+                // Query<(), Or<(Changed<A>, Changed<B>)>>,
+                // Query<(), Or<(Added<A>, Added<B>)>>,
+                Query<(), Or<()>>,
+                Query<(), Or<()>>,
+                Query<(Ref<A>, Ref<B>)>,
+            )>,
         ) {
-            let changed = changed.iter().count();
-            let added = added.iter().count();
+            let changed = set.p0().iter().count();
+            let added = set.p1().iter().count();
 
             assert_eq!(changed, 1);
             assert_eq!(added, 1);
@@ -484,7 +485,6 @@ mod tests {
         run_system(&mut world, query_system);
 
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-        assert!(false); // TODO: Remove
     }
 
     #[test]

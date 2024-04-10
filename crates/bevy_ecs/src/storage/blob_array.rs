@@ -151,11 +151,6 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
     pub unsafe fn clear_elements(&mut self, elemenets_to_clear: usize) {
-        /*
-            // We set len to 0 before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.len = 0;
-        */
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
             // accidentally drop elements twice in the event of a drop impl panicking.
@@ -167,12 +162,11 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
                 // * `size` is a multiple of the erased type's alignment,
                 //   so adding a multiple of `size` will preserve alignment.
                 // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
-                // would panic due to `self.len` being set to 0.
                 let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
                 // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
                 unsafe { drop(item) };
             }
+            self.drop = Some(drop);
         }
     }
 
@@ -269,14 +263,9 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
             let source = value.as_ptr();
 
             if let Some(drop) = self.drop {
-                // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
-                /*
-                    // Temporarily set the length to zero, so that if `drop` panics the caller
-                    // will not be left with a `BlobArray` containing a dropped element within
-                    // its initialized range.
-                    let old_len = self.len;
-                    self.len = 0;
-                */
+                // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+                // accidentally drop elements twice in the event of a drop impl panicking.
+                self.drop = None;
 
                 // Transfer ownership of the old value out of the vector, so it can be dropped.
                 // SAFETY:
@@ -297,11 +286,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
                 // If the above code does not panic, make sure that `value` doesn't get dropped.
                 core::mem::forget(on_unwind);
 
-                // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
-                /*
-                    // Make the vector's contents observable again, since panics are no longer possible.
-                    self.len = old_len;
-                */
+                self.drop = Some(drop);
             }
 
             // Copy the new value into the vector, overwriting the previous value.
