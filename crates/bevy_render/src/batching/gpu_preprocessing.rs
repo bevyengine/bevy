@@ -126,7 +126,7 @@ where
 }
 
 /// A system that runs early in extraction and clears out all the
-/// [`gpu_preprocessing::BatchedInstanceBuffers`] for the frame.
+/// [`BatchedInstanceBuffers`] for the frame.
 ///
 /// We have to run this during extraction because, if GPU preprocessing is in
 /// use, the extraction phase will write to the mesh input uniform buffers
@@ -146,7 +146,7 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 /// A system that removes GPU preprocessing work item buffers that correspond to
 /// deleted [`ViewTarget`]s.
 ///
-/// This is a separate system from [`super::clear_batched_instance_buffers`]
+/// This is a separate system from [`clear_batched_gpu_instance_buffers`]
 /// because [`ViewTarget`]s aren't created until after the extraction phase is
 /// completed.
 pub fn delete_old_work_item_buffers<GFBD>(
