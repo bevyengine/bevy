@@ -26,6 +26,7 @@ use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SH
 pub use settings::AutoExposureSettings;
 use state::{extract_state_buffers, prepare_state_buffers, AutoExposureStateBuffers};
 
+use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::core_3d::graph::{Core3d, Node3d};
 
 /// Plugin for the auto exposure feature.
@@ -47,7 +48,7 @@ impl Plugin for AutoExposurePlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(RenderAssetPlugin::<AutoExposureCompensationCurve>::default())
+        app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
             .register_type::<AutoExposureCompensationCurve>()
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();

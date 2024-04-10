@@ -153,18 +153,18 @@ pub(super) struct AutoExposureCompensationCurveUniform {
     compensation_range: f32,
 }
 
-impl RenderAsset for AutoExposureCompensationCurve {
-    type PreparedAsset = GpuAutoExposureCompensationCurve;
+impl RenderAsset for GpuAutoExposureCompensationCurve {
+    type SourceAsset = AutoExposureCompensationCurve;
     type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
 
-    fn asset_usage(&self) -> RenderAssetUsages {
+    fn asset_usage(_: &Self::SourceAsset) -> RenderAssetUsages {
         RenderAssetUsages::RENDER_WORLD
     }
 
     fn prepare_asset(
-        self,
+        source: Self::SourceAsset,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, bevy_render::render_asset::PrepareAssetError<Self>> {
+    ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
             &TextureDescriptor {
@@ -182,7 +182,7 @@ impl RenderAsset for AutoExposureCompensationCurve {
                 view_formats: &[TextureFormat::R8Unorm],
             },
             Default::default(),
-            &self.data,
+            &source.data,
         );
 
         let texture_view = texture.create_view(&Default::default());
@@ -190,10 +190,10 @@ impl RenderAsset for AutoExposureCompensationCurve {
         let mut settings = encase::UniformBuffer::new(Vec::new());
         settings
             .write(&AutoExposureCompensationCurveUniform {
-                min_log_lum: self.min_log_lum,
-                inv_log_lum_range: 1.0 / (self.max_log_lum - self.min_log_lum),
-                min_compensation: self.min_compensation,
-                compensation_range: self.max_compensation - self.min_compensation,
+                min_log_lum: source.min_log_lum,
+                inv_log_lum_range: 1.0 / (source.max_log_lum - source.min_log_lum),
+                min_compensation: source.min_compensation,
+                compensation_range: source.max_compensation - source.min_compensation,
             })
             .unwrap();
 

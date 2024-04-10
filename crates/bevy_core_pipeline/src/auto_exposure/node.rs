@@ -1,4 +1,4 @@
-use super::compensation_curve::AutoExposureCompensationCurve;
+use super::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::auto_exposure::{
     pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
     AutoExposureResources,
@@ -14,7 +14,7 @@ use bevy_render::{
     render_graph::*,
     render_resource::*,
     renderer::RenderContext,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 
@@ -77,14 +77,14 @@ impl Node for AutoExposureNode {
 
         let fallback = world.resource::<FallbackImage>();
         let mask = world
-            .resource::<RenderAssets<Image>>()
+            .resource::<RenderAssets<GpuImage>>()
             .get(&auto_exposure.metering_mask);
         let mask = mask
             .map(|i| &i.texture_view)
             .unwrap_or(&fallback.d2.texture_view);
 
         let Some(compensation_curve) = world
-            .resource::<RenderAssets<AutoExposureCompensationCurve>>()
+            .resource::<RenderAssets<GpuAutoExposureCompensationCurve>>()
             .get(&auto_exposure.compensation_curve)
         else {
             return Ok(());
