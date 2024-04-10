@@ -531,11 +531,8 @@ impl StandardMaterial {
     /// Flip the texture coordinates of the material.
     pub fn flip(&mut self, horizontal: bool, vertical: bool) {
         if horizontal {
-            // self.uv_transform *= Self::FLIP_HORIZONTAL will not work as expected
-            // because it would be equivalent of
-            // self.uv_transform = self.uv_transform * Self::FLIP_HORIZONTAL;
-            // which means first flip, then original uv_transform application,
-            // which is reverse to expected sequence
+            // Multiplication of `Affine2` is order dependent, which is why
+            // we do not use the `*=` operator.
             self.uv_transform = Self::FLIP_HORIZONTAL * self.uv_transform;
         }
         if vertical {
