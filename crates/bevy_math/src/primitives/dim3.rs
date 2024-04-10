@@ -3,7 +3,7 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Primitive3d};
 use crate::{
     bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Quat, Vec3,
+    Dir3, InvalidDirectionError, Mat3, Quat, Vec3,
 };
 
 /// A sphere primitive
@@ -823,12 +823,91 @@ impl Bounded3d for Triangle3d {
     }
 }
 
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+impl Primitive3d for Tetrahedron {}
+
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+            ],
+        }
+    }
+}
+
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
+    }
+
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+
+    /// Get the signed volume of the tetrahedron.
+    ///
+    /// If it's negative, the normal vector of the face defined by
+    /// the first three points using the right-hand rule points
+    /// away from the fourth vertex.
+    #[inline(always)]
+    pub fn signed_volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        Mat3::from_cols(ab, ac, ad).determinant() / 6.0
+    }
+
+    /// Get the centroid of the tetrahedron.
+    ///
+    /// This function finds the geometric center of the tetrahedron
+    /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -985,5 +1064,38 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+        assert_eq!(
+            tetrahedron.signed_volume(),
+            3.2058334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
+
+        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.33333334,
+            "incorrect volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().signed_volume(),
+            -0.33333334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
     }
 }

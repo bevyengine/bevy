@@ -1,4 +1,4 @@
-use bevy::{ecs::event::Events, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
 struct Enemy {
