@@ -508,6 +508,8 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
+/// For each view, iterates over all the meshes visible from that view and adds
+/// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -647,7 +649,8 @@ pub fn queue_material_meshes<M: Material>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -693,8 +696,7 @@ pub fn queue_material_meshes<M: Material>(
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {
                     if material.properties.reads_view_transmission_texture {
-                        let distance = rangefinder
-                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                        let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
@@ -717,8 +719,7 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 AlphaMode::Mask(_) => {
                     if material.properties.reads_view_transmission_texture {
-                        let distance = rangefinder
-                            .distance_translation(&mesh_instance.transforms.transform.translation)
+                        let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
                             entity: *visible_entity,
@@ -746,8 +747,7 @@ pub fn queue_material_meshes<M: Material>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
-                    let distance = rangefinder
-                        .distance_translation(&mesh_instance.transforms.transform.translation)
+                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
                         + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
                         entity: *visible_entity,

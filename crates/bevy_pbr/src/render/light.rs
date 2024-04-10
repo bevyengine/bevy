@@ -1596,6 +1596,9 @@ pub fn prepare_clusters(
     }
 }
 
+/// For each shadow cascade, iterates over all the meshes "visible" from it and
+/// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
+/// appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
@@ -1651,10 +1654,14 @@ pub fn queue_shadows<M: Material>(
             light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
 
             for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
+                else {
                     continue;
                 };
-                if !mesh_instance.shadow_caster {
+                if !mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
+                {
                     continue;
                 }
                 let Some(material_asset_id) = render_material_instances.get(&entity) else {
