@@ -55,6 +55,7 @@ impl GltfPlugin {
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
+            .register_type::<GltfExtensions>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
@@ -155,5 +156,15 @@ pub struct GltfPrimitive {
 #[reflect(Component)]
 pub struct GltfExtras {
     /// Content of the extra data.
+    pub value: String,
+}
+
+/// Additional extension data that can be present standalone in the document
+/// as well as associated with nodes.
+/// See [the relevant gLTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfExtensions {
+    /// Contents of the extension
     pub value: String,
 }
