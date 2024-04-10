@@ -151,13 +151,15 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
     pub unsafe fn clear_elements(&mut self, elemenets_to_clear: usize) {
-        // TODO: What to do with this? (taken from BlobVec, is it applicable here?)
         /*
             // We set len to 0 before dropping elements for unwind safety. This ensures we don't
             // accidentally drop elements twice in the event of a drop impl panicking.
             self.len = 0;
         */
         if let Some(drop) = self.drop {
+            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+            // accidentally drop elements twice in the event of a drop impl panicking.
+            self.drop = None;
             let size = self.item_layout.size();
             for i in 0..elemenets_to_clear {
                 // SAFETY:
