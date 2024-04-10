@@ -193,7 +193,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
             compensation_range: source.max_compensation - source.min_compensation,
         });
 
-        extents.write_buffer(&render_device, &render_queue);
+        extents.write_buffer(render_device, render_queue);
 
         Ok(GpuAutoExposureCompensationCurve {
             texture_view,
