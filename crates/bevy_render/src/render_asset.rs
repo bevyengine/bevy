@@ -41,7 +41,7 @@ pub trait RenderAsset: Asset + Clone {
 
     /// Size of the data the asset will upload to the gpu. Specifying a return value
     /// will allow the asset to be throttled via [`RenderAssetBytesPerFrame`].
-    fn byte_len(&self) -> Option<usize> {
+    fn byte_len(source_asset: &Self::SourceAsset) -> Option<usize> {
         None
     }
 
@@ -324,7 +324,7 @@ pub fn prepare_assets<A: RenderAsset>(
             continue;
         }
 
-        if let Some(size) = extracted_asset.byte_len() {
+        if let Some(size) = A::byte_len(&extracted_asset) {
             if bpf.write_bytes(size) == 0 {
                 prepare_next_frame.assets.push((id, extracted_asset));
                 continue;
