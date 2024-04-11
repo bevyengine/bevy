@@ -46,7 +46,7 @@ pub(super) fn column_with_capacity(
                 changed_ticks,
             })
         }
-        BlobArrayCreation::ZST(data) => ColumnCreationResult::ZST(ThinColumn {
+        BlobArrayCreation::Zst(data) => ColumnCreationResult::ZST(ThinColumn {
             data,
             added_ticks,
             changed_ticks,
@@ -199,7 +199,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
             unsafe { self.added_ticks.get_unchecked_mut(i) }
                 .get_mut()
                 .check_tick(change_tick);
-
+            // SAFETY:
             // - `i` < `len`
             // we have a mutable reference to `self`
             unsafe { self.changed_ticks.get_unchecked_mut(i) }

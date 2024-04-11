@@ -228,14 +228,18 @@ impl Table {
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.len());
         let last_element_index = self.len() - 1;
-        // SAFETY:
-        // - `row` < `len`
-        // - `last_element_index` = `len` - 1
-        // - the `len` is kept within `self.entities`, it will update accordingly.
         for col in self.columns.values_mut() {
+            // SAFETY:
+            // - `row` < `len`
+            // - `last_element_index` = `len` - 1
+            // - the `len` is kept within `self.entities`, it will update accordingly.
             unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
         for zst_col in self.zst_columns.values_mut() {
+            // SAFETY:
+            // - `row` < `len`
+            // - `last_element_index` = `len` - 1
+            // - the `len` is kept within `self.entities`, it will update accordingly.
             unsafe { zst_col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
         let is_last = row.as_usize() == last_element_index;
@@ -346,11 +350,11 @@ impl Table {
     ) {
         debug_assert!(row.as_usize() < self.len());
         if let Some(col) = self.get_thin_column_mut(component_id) {
-            col.initialize(row, comp_ptr, change_tick)
+            col.initialize(row, comp_ptr, change_tick);
         } else {
             self.get_thin_zst_column_mut(component_id)
                 .debug_checked_unwrap()
-                .initialize(row, comp_ptr, change_tick)
+                .initialize(row, comp_ptr, change_tick);
         }
     }
 
@@ -371,7 +375,7 @@ impl Table {
         } else {
             self.get_thin_zst_column_mut(component_id)
                 .debug_checked_unwrap()
-                .replace(row, comp_ptr, change_tick)
+                .replace(row, comp_ptr, change_tick);
         }
     }
 
@@ -580,6 +584,7 @@ impl Table {
             let new_capacity = self.entities.capacity();
 
             if column_cap == 0 {
+                // SAFETY: 0 < `column_cap` <= `new_capacity`
                 unsafe { self.alloc_columns(NonZeroUsize::new_unchecked(new_capacity)) };
             } else {
                 // SAFETY:
@@ -589,7 +594,7 @@ impl Table {
                     self.realloc_columns(
                         NonZeroUsize::new_unchecked(column_cap),
                         NonZeroUsize::new_unchecked(new_capacity),
-                    )
+                    );
                 };
             }
         }
@@ -702,11 +707,14 @@ impl Table {
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         let len = self.len();
-        // SAFETY: we defer `self.entities.clear()` until after clearing the columns, so `self.len()` should match the columns' len
         for column in self.columns.values_mut() {
+            // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
+            // so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
         }
         for zst_column in self.zst_columns.values_mut() {
+            // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
+            // so `self.len()` should match the columns' len
             unsafe { zst_column.clear(len) };
         }
         self.entities.clear();

@@ -25,7 +25,7 @@ pub(super) struct BlobArray<const IS_ZST: bool = false> {
 
 #[doc(hidden)]
 pub enum BlobArrayCreation {
-    ZST(BlobArray<true>),
+    Zst(BlobArray<true>),
     NotZST(BlobArray),
 }
 
@@ -47,10 +47,11 @@ pub unsafe fn new_blob_array(
     drop: Option<unsafe fn(OwningPtr<'_>)>,
 ) -> BlobArrayCreation {
     assert!(item_layout.align() != 0, "align must be > 0");
+    // SAFETY: we checked that `item_layout.align() > 0`
     let align = unsafe { NonZeroUsize::new_unchecked(item_layout.align()) };
     let data = bevy_ptr::dangling_with_align(align);
     if item_layout.size() == 0 {
-        BlobArrayCreation::ZST(BlobArray::<true> {
+        BlobArrayCreation::Zst(BlobArray::<true> {
             data,
             item_layout,
             drop,

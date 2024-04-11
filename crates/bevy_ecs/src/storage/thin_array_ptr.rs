@@ -178,7 +178,7 @@ impl<T> ThinArrayPtr<T> {
         index: usize,
         last_element_index: usize,
     ) {
-        std::ptr::drop_in_place(self.swap_remove_and_forget_unchecked(index, last_element_index))
+        std::ptr::drop_in_place(self.swap_remove_and_forget_unchecked(index, last_element_index));
     }
 
     /// Pop the last element of the array.
@@ -225,7 +225,7 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - `slice_len` must match the actual length of the array
     /// but if `slice_len` will be smaller, the slice will just be smaller than need be - no UB
-    pub unsafe fn as_slice<'a>(&'a self, slice_len: usize) -> &'a [T] {
+    pub unsafe fn as_slice(&self, slice_len: usize) -> &[T] {
         // SAFETY:
         // - the data is valid - allocated with the same allocater
         // - non-null and well-aligned
