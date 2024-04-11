@@ -13,6 +13,8 @@ use crate::storage::{
 /// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
 /// instead of working directly with [`ThinColumn`].
+///
+/// [`ZST`]: https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts
 pub struct ThinColumn<const IS_ZST: bool> {
     pub(super) data: BlobArray<IS_ZST>,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
@@ -96,7 +98,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
             .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
     }
 
-    /// Call [`alloc::alloc::realloc`] to expand / shrink the memory allocation for this [`ThinColumn`]
+    /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
     ///
     /// # Safety
     /// `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
@@ -106,7 +108,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         self.changed_ticks.realloc(current_capacity, new_capacity);
     }
 
-    /// Call [`alloc::alloc::alloc`] to allocate memory for this [`ThinColumn`]
+    /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
     ///
     /// # Safety
     /// This will overwrite any previous allocation, so the caller must ensure that no previous allocation has been made (capacity = 0)
@@ -237,10 +239,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
 /// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
 /// It also stores the change detection ticks for its components, kept in two separate
 /// contiguous buffers internally. An element shares its data across these buffers by using the
-/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at
-/// index 3). A slice to these contiguous blocks of memory can be fetched
-/// via [`Column::get_data_slice`], [`Column::get_added_ticks_slice`], and
-/// [`Column::get_changed_ticks_slice`].
+/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at index 3).
 ///
 /// Like many other low-level storage types, [`Column`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
@@ -381,8 +380,7 @@ impl Column {
         self.data.get_slice()
     }
 
-    /// Fetches a read-only reference to the data at `row`. Unlike [`Column::get`] this does not
-    /// do any bounds checking.
+    /// Fetches a read-only reference to the data at `row`. This method does not do any bounds checking.
     ///
     /// # Safety
     /// - `row` must be within the range `[0, self.len())`.
@@ -393,8 +391,7 @@ impl Column {
         self.data.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "added" change detection tick for the value at `row`. This method does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -415,8 +412,7 @@ impl Column {
         self.changed_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
-    /// this function does not do any bounds checking.
+    /// Fetches the change detection ticks for the value at `row`. This method does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
