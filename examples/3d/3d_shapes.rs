@@ -42,12 +42,9 @@ fn setup(
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
+        meshes.add(Ramp::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
-        meshes.add(Prism {
-            apex_displacement: 4.0,
-            half_size: Vec3::ONE * 0.5,
-        }),
     ];
 
     let num_shapes = shapes.len();
