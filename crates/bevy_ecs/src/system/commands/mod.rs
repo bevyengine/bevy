@@ -933,6 +933,16 @@ impl EntityCommands<'_> {
         self.add(despawn);
     }
 
+    /// Enable this entity, removing the [`bevy_ecs::prelude::Disabled`] marker if it's present
+    pub fn enable(&mut self) {
+        self.add(enable);
+    }
+
+    /// Disable this entity, adding the [`bevy_ecs::prelude::Disabled`] marker to the entity
+    pub fn disable(&mut self) {
+        self.add(disable);
+    }
+
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// # Examples
@@ -1082,6 +1092,14 @@ where
 /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
 fn despawn(entity: Entity, world: &mut World) {
     world.despawn(entity);
+}
+
+fn enable(entity: Entity, world: &mut World) {
+    world.enable(entity);
+}
+
+fn disable(entity: Entity, world: &mut World) {
+    world.disable(entity);
 }
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.

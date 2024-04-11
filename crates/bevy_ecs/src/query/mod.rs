@@ -21,6 +21,12 @@ pub use par_iter::*;
 pub use state::*;
 pub use world_query::*;
 
+use crate as bevy_ecs;
+
+/// A marker component that excludes an entity from queries that don't specifically request them.
+#[derive(bevy_ecs_macros::Component)]
+pub struct Disabled;
+
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`

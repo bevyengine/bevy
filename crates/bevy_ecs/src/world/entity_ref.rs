@@ -4,7 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap},
+    query::{Access, DebugCheckedUnwrap, Disabled},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -1136,6 +1136,8 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+        let disabled_id = self.world.init_component::<Disabled>();
+
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -1148,7 +1150,7 @@ impl<'w> EntityWorldMut<'w> {
 
         let to_remove = &old_archetype
             .components()
-            .filter(|c| !retained_bundle_info.components().contains(c))
+            .filter(|c| !retained_bundle_info.components().contains(c) && *c != disabled_id)
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
@@ -1267,6 +1269,16 @@ impl<'w> EntityWorldMut<'w> {
     pub fn flush(self) -> Entity {
         self.world.flush_commands();
         self.entity
+    }
+
+    /// Enables the current entity, removing the [`Disabled`] marker.
+    pub fn enable(&mut self) {
+        self.remove::<Disabled>();
+    }
+
+    /// Disables the current entity, adding the [`Disabled`] marker.
+    pub fn disable(&mut self) {
+        self.insert(Disabled);
     }
 
     /// Gets read-only access to the world that the current entity belongs to.
@@ -2581,6 +2593,33 @@ mod tests {
 
         world.entity_mut(ent).retain::<()>();
         assert_eq!(world.entity(ent).archetype().components().next(), None);
+    }
+
+    // Test that calling retain retains [`Disabled`].
+    #[test]
+    fn retain_disabled() {
+        #[derive(Component)]
+        struct Marker<const N: usize>;
+
+        let mut world = World::new();
+        let ent = world
+            .spawn((Marker::<1>, Marker::<2>, Marker::<3>, Disabled))
+            .id();
+
+        let disabled_id = world.init_component::<Disabled>();
+        world.entity_mut(ent).retain::<Marker<1>>();
+        assert!(world
+            .entity(ent)
+            .archetype()
+            .components()
+            .any(|c| c == disabled_id));
+
+        world.entity_mut(ent).retain::<()>();
+        assert!(world
+            .entity(ent)
+            .archetype()
+            .components()
+            .any(|c| c == disabled_id))
     }
 
     // Test removing some components with `retain`, including components not on the entity.

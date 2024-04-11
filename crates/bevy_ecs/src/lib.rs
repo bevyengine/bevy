@@ -45,7 +45,9 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{
+            Added, AnyOf, Changed, Disabled, Has, Or, QueryBuilder, QueryState, With, Without,
+        },
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -69,7 +71,7 @@ mod tests {
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
+        query::{Added, Changed, Disabled, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityRef, Mut, World},
     };
@@ -1379,6 +1381,7 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        let disabled_id = world.init_component::<Disabled>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
@@ -1386,6 +1389,7 @@ mod tests {
         let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
         expected.add_write(a_id);
         expected.add_read(b_id);
+        expected.and_without(disabled_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"

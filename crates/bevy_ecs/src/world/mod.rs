@@ -939,6 +939,32 @@ impl World {
         }
     }
 
+    /// Enables the given `entity`, if it exists and was [`crate::prelude::Disabled`].
+    /// Returns `true` if the `entity` is now enabled and `false` if the `entity` does not exist.
+    #[inline]
+    pub fn enable(&mut self, entity: Entity) -> bool {
+        if let Some(mut entity) = self.get_entity_mut(entity) {
+            entity.enable();
+            true
+        } else {
+            warn!("error[B0003]: Could not enable entity {:?} because it doesn't exist in this World.", entity);
+            false
+        }
+    }
+
+    /// Disabled the given `entity`, if it exists and didn't have [`crate::prelude::Disabled`] yet.
+    /// Returns `true` if the `entity` is now disabled and `false` if the `entity` does not exist.
+    #[inline]
+    pub fn disable(&mut self, entity: Entity) -> bool {
+        if let Some(mut entity) = self.get_entity_mut(entity) {
+            entity.disable();
+            true
+        } else {
+            warn!("error[B0003]: Could not disable entity {:?} because it doesn't exist in this World.", entity);
+            false
+        }
+    }
+
     /// Clears the internal component tracker state.
     ///
     /// The world maintains some internal state about changed and removed components. This state

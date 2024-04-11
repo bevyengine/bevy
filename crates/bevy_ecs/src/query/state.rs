@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::FromWorld,
+    prelude::{Disabled, FromWorld},
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter,
@@ -146,6 +146,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 }
 
+fn contains_disabled(
+    component_access: &FilteredAccess<ComponentId>,
+    disabled_id: ComponentId,
+) -> bool {
+    component_access.access().has_read(disabled_id)
+        || component_access.filter_sets.iter().any(|f| {
+            f.with.contains(disabled_id.index()) || f.without.contains(disabled_id.index())
+        })
+}
+
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
@@ -190,6 +200,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
+        let disabled_id = world.init_component::<Disabled>();
+        let allow_disabled = contains_disabled(&component_access, disabled_id);
+        if !allow_disabled {
+            component_access.and_without(disabled_id);
+        }
+
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -214,13 +230,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
 
+        let mut component_access = builder.access().clone();
+        let disabled_id = builder.world_mut().init_component::<Disabled>();
+        let allow_disabled = contains_disabled(&component_access, disabled_id);
+        if !allow_disabled {
+            component_access.and_without(disabled_id);
+        }
+
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
             fetch_state,
             filter_state,
-            component_access: builder.access().clone(),
+            component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
@@ -1627,7 +1650,7 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 mod tests {
     use crate as bevy_ecs;
     use crate::world::FilteredEntityRef;
-    use crate::{component::Component, prelude::*, query::QueryEntityError};
+    use crate::{prelude::*, query::QueryEntityError};
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {
@@ -1998,5 +2021,48 @@ mod tests {
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+    }
+
+    #[test]
+    fn does_exclude_disabled() {
+        let mut world = World::new();
+        let entity_a = world.spawn(A(0)).id();
+        let _ = world.spawn((A(1), Disabled)).id();
+        let entity_c = world.spawn(A(1)).id();
+        world.disable(entity_c);
+
+        let mut query = QueryState::<Entity>::new(&mut world);
+        assert_eq!(entity_a, query.single(&world));
+
+        let mut query = QueryState::<Entity, Without<Disabled>>::new(&mut world);
+        assert_eq!(entity_a, query.single(&world));
+    }
+
+    #[test]
+    fn can_request_disabled() {
+        let mut world = World::new();
+        let _ = world.spawn(A(0)).id();
+        let _ = world.spawn((A(1), Disabled)).id();
+        let entity_c = world.spawn(A(1)).id();
+        world.disable(entity_c);
+
+        let mut query = QueryState::<Entity, With<Disabled>>::new(&mut world);
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = QueryState::<(Entity, &Disabled)>::new(&mut world);
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = QueryState::<(Entity, &mut Disabled)>::new(&mut world);
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = QueryState::<(Entity, Ref<Disabled>)>::new(&mut world);
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = QueryState::<(Entity, Option<&Disabled>)>::new(&mut world);
+        assert_eq!(3, query.iter(&world).count());
+
+        // TODO: This case is not handled correctly yet, since Has<T> does not register component access
+        // let mut query = QueryState::<(Entity, Has<Disabled>)>::new(&mut world);
+        // assert_eq!(3, query.iter(&world).count());
     }
 }
