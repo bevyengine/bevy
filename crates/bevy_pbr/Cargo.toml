@@ -15,7 +15,7 @@ pbr_transmission_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
-
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = [
   "dep:lz4_flex",
   "dep:serde",
@@ -23,7 +23,7 @@ meshlet = [
   "dep:thiserror",
   "dep:range-alloc",
 ]
-# Enables processing meshes into meshlet meshesmeshlet = ["dep:range-alloc", "dep:bincode"]
+# Enables processing meshes into meshlet meshes
 meshlet_processor = ["meshlet", "dep:meshopt", "dep:metis", "dep:itertools"]
 
 [dependencies]

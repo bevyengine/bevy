@@ -178,8 +178,8 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
     let mut meshlets = build_meshlets(indices, vertices, 64, 64, 0.0);
 
-    for i in 0..meshlets.len() {
-        let meshlet = meshlets.meshlets[i];
+    for meshlet in &mut meshlets.meshlets {
+        #[allow(unsafe_code)]
         #[allow(clippy::undocumented_unsafe_blocks)]
         unsafe {
             meshopt_optimizeMeshlet(
@@ -360,7 +360,7 @@ fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh attributes is not {{POSITION, NORMAL, UV_0, TANGENT}}")]
+    #[error("Mesh attributes are not {{POSITION, NORMAL, UV_0, TANGENT}}")]
     WrongMeshVertexAttributes,
     #[error("Mesh has no indices")]
     MeshMissingIndices,
