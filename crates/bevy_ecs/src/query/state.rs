@@ -875,6 +875,37 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// A Getter to get the query result for the given [`World`] and [`Entity`].
+    pub fn getter<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryEntityGetter<'w, 's, D::ReadOnly, F> {
+        self.update_archetypes(world);
+        let last_run = world.last_change_tick();
+        let this_run = world.read_change_tick();
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly().entity_getter_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// A Getter to get the query result for the given [`World`] and [`Entity`].
+    pub fn getter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryEntityGetter<'w, 's, D, F> {
+        self.update_archetypes(world);
+        let last_run = world.last_change_tick();
+        let this_run = world.read_change_tick();
+        // SAFETY: query has unique world access
+        unsafe {
+            self.entity_getter_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)
+        }
+    }
     /// An Getter used for getting the query result for the given [`World`] and [`Entity`], where the last change and
     /// the current change tick are given.
     ///

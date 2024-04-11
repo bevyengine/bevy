@@ -52,8 +52,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// This is always guaranteed to run in `O(1)` time.
-    #[inline]
-    fn get(&mut self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
+    pub fn get(&mut self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
         let location = self
             .entities
             .get(entity)
@@ -66,12 +65,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
             {
                 return Err(QueryEntityError::QueryDoesNotMatch(entity));
             }
+            self.last_archetype_id = location.archetype_id;
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
             // `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
             unsafe {
-                self.last_archetype_id = location.archetype_id;
                 let archetype = self
                     .archetypes
                     .get(location.archetype_id)
@@ -96,9 +95,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
     ///
     /// # Safety
     ///
-    /// `entity` must be valid and not a pending entity.
+    /// `entity` must be valid and not pending.
     /// `entity` must on the same `World` that the `Query` was generated.
-    /// `entity` must match the `Query` that generate `self` getter.
+    /// `entity` must match the `Query` that generate this getter.
     #[inline]
     pub unsafe fn get_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
         let location = self.entities.get_unchecked(entity);
