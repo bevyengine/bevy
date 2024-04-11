@@ -80,6 +80,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
                 F::set_archetype(&mut self.filter, &self.state.filter_state, archetype, table);
             }
         }
+        // SAFETY: `filter` and `fetch` have been configured correctly.
         unsafe {
             if F::filter_fetch(&mut self.filter, entity, location.table_row) {
                 Ok(D::fetch(&mut self.fetch, entity, location.table_row))

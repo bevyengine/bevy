@@ -938,11 +938,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #
     /// fn print_selected_character_name_system(
     ///        query: Query<&Character>,
-    ///        selection: Res<SelectedCharacter>
+    ///        selection: Res<SelectedCharacters>
     /// )
     /// {
     ///     let mut getter = query.entity_getter();
-    ///     for entity in selection.iter() {
+    ///     for &entity in selection.entity.iter() {
     ///        if let Ok(selected_character) = query.get(entity) {
     ///             println!("{}", selected_character.name);
     ///         }
@@ -984,7 +984,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
     ///     let mut getter = query.entity_getter_mut();
     ///     
-    ///     for entity in poisoned.iter() {
+    ///     for &entity in poisoned.character_ids.iter() {
     ///         if let Ok(mut health) = getter.get(entity) {
     ///             health.0 -=1;
     ///         }
