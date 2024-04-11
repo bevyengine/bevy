@@ -224,13 +224,13 @@ impl Table {
     /// entity was swapped in)
     ///
     /// # Safety
-    /// `row` must be in-bounds (`row` < `len`)
+    /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.len());
         let last_element_index = self.len() - 1;
         // SAFETY:
         // - `row` < `len`
-        // - `last_element_index` = `len`
+        // - `last_element_index` = `len` - 1
         // - the `len` is kept within `self.entities`, it will update accordingly.
         for col in self.columns.values_mut() {
             unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
