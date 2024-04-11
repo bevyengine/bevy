@@ -499,7 +499,7 @@ unsafe fn repeat_layout_unchecked(layout: &Layout, n: usize) -> (Layout, usize) 
     // > must not overflow (i.e., the rounded value must be less than
     // > `usize::MAX`)
     let padded_size = layout.size() + padding_needed_for(layout, layout.align());
-    // This may overlfow in release builds, that's why this function is unsafe.
+    // This may overflow in release builds, that's why this function is unsafe.
     let alloc_size = padded_size * n;
 
     // SAFETY: self.align is already known to be valid and alloc_size has been

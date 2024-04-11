@@ -63,7 +63,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// The caller must:
     /// - ensure that `row.as_usize()` < `len`
     /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiately initialize another element in the `last_element_index`
+    /// - either _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -83,7 +83,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// The caller must:
     /// - ensure that `row.as_usize()` < `len`
     /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiately initialize another element in the `last_element_index`
+    /// - either _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -401,8 +401,7 @@ impl Column {
         self.added_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "changed" change detection tick for the value at `row`. This method does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.

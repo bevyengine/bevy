@@ -214,7 +214,7 @@ impl Table {
         self.entities.capacity()
     }
 
-    /// Get the length of this table, this is equivelent to `self.entities.len()` or [`Self::entity_count`]
+    /// Get the length of this table, this is equivalent to `self.entities.len()` or [`Self::entity_count`]
     #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()

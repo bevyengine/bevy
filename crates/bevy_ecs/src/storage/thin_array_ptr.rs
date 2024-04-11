@@ -36,7 +36,7 @@ impl<T> ThinArrayPtr<T> {
     /// - Update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn alloc(&mut self, count: NonZeroUsize) {
         let new_layout =
-            Layout::array::<T>(count.get()).expect("layout should be valid (arithmatic overflow)");
+            Layout::array::<T>(count.get()).expect("layout should be valid (arithmetic overflow)");
         // SAFETY:
         // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
         self.data = NonNull::new(unsafe { alloc(new_layout) })
