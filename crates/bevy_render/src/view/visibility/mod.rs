@@ -419,8 +419,8 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 ///
 /// This system needs to be run for each type of renderable entity. If you add a
 /// new type of renderable entity, you'll need to add an instantiation of this
-/// system to the [`CheckVisibility`] set so that Bevy will detect visibility
-/// properly for those entities.
+/// system to the [`VisibilitySystems::CheckVisibility`] set so that Bevy will
+/// detect visibility properly for those entities.
 pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
