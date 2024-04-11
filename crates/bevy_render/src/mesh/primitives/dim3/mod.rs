@@ -2,7 +2,7 @@ mod capsule;
 mod cuboid;
 mod cylinder;
 mod plane;
-mod prism;
+mod ramp;
 mod sphere;
 mod torus;
 pub(crate) mod triangle3d;

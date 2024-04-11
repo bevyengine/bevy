@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Prism, Segment3d, Sphere, Torus,
+    Polyline3d, Primitive3d, Ramp, Segment3d, Sphere, Torus,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
@@ -942,14 +942,14 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
     }
 }
 
-// prism
+// ramp
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Prism> for Gizmos<'w, 's, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Ramp> for Gizmos<'w, 's, T> {
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
         &mut self,
-        primitive: Prism,
+        primitive: Ramp,
         position: Vec3,
         rotation: Quat,
         color: Color,
@@ -960,14 +960,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Prism> for Gizmos<'w, 's, T> 
 
         let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_size.to_array();
 
-        // transform the points from the reference unit cube-like prism to the actual prism coords
+        // transform the points from the reference unit cube-like ramp to the actual ramp coords
         let [a, b, c, d, e, f] = [
             [-1.0, -1.0, -1.0],
             [-1.0, -1.0, 1.0],
             [1.0, -1.0, -1.0],
             [1.0, -1.0, 1.0],
-            [1.0, 1.0, primitive.apex_displacement],
-            [-1.0, 1.0, primitive.apex_displacement],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
         ]
         .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
         .map(rotate_then_translate_3d(rotation, position));

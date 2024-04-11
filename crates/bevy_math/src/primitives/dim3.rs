@@ -632,23 +632,72 @@ impl Torus {
     }
 }
 
-/// A triangular prism primitive, often representing a ramp.
-#[derive(Copy, Clone, Debug, PartialEq)]
+/// A Ramp primitive.
+/// The ramp will slant down along the Y axis towards the negative-Z axis.
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Prism {
-    /// Half of the width, height and depth of the prism
+pub struct Ramp {
+    /// Half of the width, height and depth of the ramp
     pub half_size: Vec3,
-    /// Displacement of the apex edge along the Z-axis. -1.0 positions the apex straight above the bottom-front edge.
-    pub apex_displacement: f32,
 }
-impl Primitive3d for Prism {}
+impl Primitive3d for Ramp {}
 
-impl Default for Prism {
+impl Default for Ramp {
+    /// Returns the default [`Ramp`] with a width, height, and depth of `1.0`.
     fn default() -> Self {
         Self {
             half_size: Vec3::splat(0.5),
-            apex_displacement: 0.0,
         }
+    }
+}
+
+impl Ramp {
+    /// Create a new `Ramp` from a full x, y, and z length
+    #[inline(always)]
+    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
+        Self::from_size(Vec3::new(x_length, y_length, z_length))
+    }
+
+    /// Create a new `Ramp` from a given full size
+    #[inline(always)]
+    pub fn from_size(size: Vec3) -> Self {
+        Self {
+            half_size: size / 2.0,
+        }
+    }
+
+    /// Create a new `Ramp` from a given full base size and an `incline`.
+    /// The `incline` is the angle between the Z axis and the slanted face of the ramp.
+    /// The `incline` is in radians.
+    pub fn from_incline(x_length: f32, z_length: f32, incline: f32) -> Self {
+        let y_length = incline.tan() * z_length;
+        Self::from_size(Vec3::new(x_length, y_length, z_length))
+    }
+
+    /// Get the surface area of the ramp.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        (self.half_size.x
+            * (self.half_size.z
+                + self.half_size.y
+                + (self.half_size.z.powi(2) + self.half_size.y.powi(2)).sqrt())
+            + self.half_size.z * self.half_size.y)
+            * 4.
+    }
+
+    /// Get the volume of the ramp.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y * self.half_size.z
+    }
+
+    /// Get the incline of the ramp.
+    ///
+    /// The `incline` is the angle between the Z axis and the slanted face of the ramp.
+    /// The `incline` is in radians.
+    #[inline(always)]
+    pub fn incline(&self) -> f32 {
+        self.half_size.y.atan2(self.half_size.z)
     }
 }
 
@@ -1117,5 +1166,27 @@ mod tests {
             "incorrect signed volume"
         );
         assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
+    }
+
+    #[test]
+    fn ramp_math() {
+        let ramp = Ramp {
+            half_size: Vec3::new(1.9, 3.2, 7.45),
+        };
+
+        assert_eq!(ramp.area(), 237.922129, "incorrect area");
+        assert_eq!(ramp.volume(), 181.18399, "incorrect volume");
+        assert_eq!(ramp.incline(), 0.40570152, "incorrect incline");
+
+        assert_eq!(Ramp::default().area(), 4.4142136, "incorrect area");
+        assert_eq!(Ramp::default().volume(), 0.5, "incorrect volume");
+        assert_eq!(Ramp::default().incline(), 0.7853982, "incorrect incline");
+
+        let ramp = Ramp::from_incline(2.4, 3.8, 0.12);
+        assert_eq!(
+            ramp.half_size,
+            Vec3::new(1.2, 0.22910073, 1.9),
+            "incorrect from_incline"
+        )
     }
 }
