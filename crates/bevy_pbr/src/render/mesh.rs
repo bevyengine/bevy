@@ -1068,8 +1068,8 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
-        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_GAUSSIAN      = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_TEMPORAL      = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
         const VIEW_PROJECTION_RESERVED_BITS     = Self::VIEW_PROJECTION_MASK_BITS << Self::VIEW_PROJECTION_SHIFT_BITS;
         const VIEW_PROJECTION_NONSTANDARD       = 0 << Self::VIEW_PROJECTION_SHIFT_BITS;
         const VIEW_PROJECTION_PERSPECTIVE       = 1 << Self::VIEW_PROJECTION_SHIFT_BITS;
@@ -1397,10 +1397,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
         if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
             shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
-            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
-            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN {
+            shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
+            shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
 
         let blur_quality =

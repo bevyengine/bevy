@@ -80,6 +80,8 @@ impl Eq for MeshVertexBufferLayoutRef {}
 
 impl Hash for MeshVertexBufferLayoutRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (&*self.0 as *const MeshVertexBufferLayout as usize).hash(state);
+        // Hash the address of the underlying data, so two layouts that share the same
+        // `MeshVertexBufferLayout` will have the same hash.
+        (Arc::as_ptr(&self.0) as usize).hash(state);
     }
 }
