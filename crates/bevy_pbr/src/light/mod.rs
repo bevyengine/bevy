@@ -14,7 +14,10 @@ use bevy_render::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities, VisibleEntityRanges, WithMesh},
+    view::{
+        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
+        VisibleEntityRanges, WithMesh,
+    },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
