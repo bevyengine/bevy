@@ -17,8 +17,8 @@ use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QuerySingleError, ROQueryItem,
+    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryEntityGetter, QueryFilter,
+    QueryManyIter, QuerySingleError, ROQueryItem,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -875,6 +875,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// An Getter used for getting the query result for the given [`World`] and [`Entity`], where the last change and
+    /// the current change tick are given.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
+    #[inline]
+    pub(crate) unsafe fn entity_getter_unchecked_manual<'w, 's>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> QueryEntityGetter<'w, 's, D, F> {
+        QueryEntityGetter::new(world, self, last_run, this_run)
+    }
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///

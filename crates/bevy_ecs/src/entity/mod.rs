@@ -749,6 +749,19 @@ impl Entities {
         }
     }
 
+    /// Returns the location of an [`Entity`] with out any check.
+    /// For a safe alternative see [`get`]
+    ///
+    /// # Safety
+    ///
+    /// `index` must be a valid entity index.
+    /// `entity` must not be pending entity.
+    #[inline]
+    pub unsafe fn get_unchecked(&self, entity: Entity) -> EntityLocation {
+        let meta = self.meta.get_unchecked(entity.index() as usize);
+        meta.location
+    }
+
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
     /// the entity around in storage.
     ///
