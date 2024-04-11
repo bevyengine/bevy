@@ -16,6 +16,7 @@ mod aspect_ratio;
 pub mod bounding;
 mod common_traits;
 pub mod cubic_splines;
+pub mod curve;
 mod direction;
 mod float_ord;
 pub mod primitives;
