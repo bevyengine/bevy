@@ -41,8 +41,7 @@ semicolon_if_nothing_returned = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
-#TODO(rust 1.77): enable `ref_as_ptr`
-# ref_as_ptr = "warn"
+ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
@@ -1242,6 +1241,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_settings"
+path = "examples/asset/asset_settings.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_settings]
+name = "Asset Settings"
+description = "Demonstrates various methods of applying settings when loading an asset"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_decompression"
 path = "examples/asset/asset_decompression.rs"
 doc-scrape-examples = true
@@ -1781,6 +1791,17 @@ description = "A simple game menu"
 category = "Games"
 wasm = true
 
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -2122,6 +2143,17 @@ doc-scrape-examples = true
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
 description = "A compute shader that simulates Conway's Game of Life"
+category = "Shaders"
+wasm = false
+
+[[example]]
+name = "gpu_readback"
+path = "examples/shader/gpu_readback.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_readback]
+name = "GPU readback"
+description = "A very simple compute shader that writes to a buffer that is read by the cpu"
 category = "Shaders"
 wasm = false
 

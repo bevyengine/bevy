@@ -41,6 +41,7 @@ bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
   "serialize",
+  "wgpu-types",
 ] }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
@@ -82,11 +83,10 @@ serde = { version = "1", features = ["derive"] }
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-thread_local = "1.1"
 thiserror = "1.0"
 futures-lite = "2.0.1"
 hexasphere = "10.0"
-ddsfile = { version = "0.5.0", optional = true }
+ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
