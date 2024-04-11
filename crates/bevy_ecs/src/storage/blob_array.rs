@@ -1,6 +1,5 @@
-use crate::storage::blob_vec::array_layout_unchecked;
-
 use super::blob_vec::array_layout;
+use crate::storage::blob_vec::array_layout_unchecked;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use std::{
@@ -170,6 +169,11 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
         }
     }
 
+    /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
+    /// The owner of this [`BlobArray`] must call this method with the correct information.
+    ///
+    /// # Safety
+    /// `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.clear_elements(len);
         let layout = array_layout(&self.item_layout, cap).expect("array layout should be valid");

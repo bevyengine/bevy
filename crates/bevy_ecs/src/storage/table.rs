@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
-pub(crate) use column::*;
+pub use column::*;
 use std::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
 use std::{
     cell::UnsafeCell,
@@ -186,7 +186,7 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
-/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
@@ -200,7 +200,6 @@ pub struct Table {
     entities: Vec<Entity>,
 }
 
-// TODO: Check all methods and make sure documentation is up to date
 impl Table {
     /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
@@ -355,8 +354,11 @@ impl Table {
         }
     }
 
-    // TODO: Docs
+    /// Replace the component at the given `row` with the component at `comp_ptr`
     ///
+    /// # Safety
+    /// `row.as_usize()` < `self.len()`
+    /// `comp_ptr` holds the data of a component matching the `component_id`
     pub unsafe fn replace_component(
         &mut self,
         row: TableRow,
@@ -411,8 +413,8 @@ impl Table {
         }
     }
 
-    // TODO: Docs
     /// # Safety
+    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_data_slice<T>(
         &self,
@@ -425,36 +427,36 @@ impl Table {
             .map(|col| col.data.get_sub_slice(self.len()))
     }
 
-    // TODO: Docs
     /// # Safety
+    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_added_ticks(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.added_ticks.to_slice(self.len()));
+            return Some(col.added_ticks.as_slice(self.len()));
         }
         self.get_thin_zst_column(component_id)
-            .map(|col| col.added_ticks.to_slice(self.len()))
+            .map(|col| col.added_ticks.as_slice(self.len()))
     }
 
-    // TODO: Docs
     /// # Safety
+    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_changed_ticks(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.changed_ticks.to_slice(self.len()));
+            return Some(col.changed_ticks.as_slice(self.len()));
         }
         self.get_thin_zst_column(component_id)
-            .map(|col| col.changed_ticks.to_slice(self.len()))
+            .map(|col| col.changed_ticks.as_slice(self.len()))
     }
 
-    // TODO: Docs
     /// # Safety
+    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_changed_tick(
         &self,
@@ -470,8 +472,8 @@ impl Table {
             .get_unchecked(row.as_usize())
     }
 
-    // TODO: Docs
     /// # Safety
+    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_added_tick(
         &self,
@@ -487,8 +489,9 @@ impl Table {
             .get_unchecked(row.as_usize())
     }
 
-    // TODO: Docs
-    ///
+    /// # Safety
+    /// `row.as_usize()` < `self.len()`
+    /// - `T` must match the `component_id`
     pub unsafe fn get_ticks_unchecked(
         &self,
         component_id: ComponentId,
@@ -507,7 +510,7 @@ impl Table {
             })
     }
 
-    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the
+    /// Fetches a read-only reference to the non-ZST [`ThinColumn`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
@@ -518,7 +521,7 @@ impl Table {
         self.columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
@@ -532,7 +535,7 @@ impl Table {
         self.columns.get_mut(component_id)
     }
 
-    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the
+    /// Fetches a read-only reference to the ZST [`ThinColumn`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
@@ -543,7 +546,7 @@ impl Table {
         self.zst_columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the ZST [`ThinColumn`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
@@ -557,7 +560,7 @@ impl Table {
         self.zst_columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a [`Column`] for a given [`Component`].
+    /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     ///
@@ -629,21 +632,20 @@ impl Table {
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
         let len = self.len();
-        let cap = self.capacity();
         self.entities.push(entity);
         for col in self.columns.values_mut() {
             col.added_ticks
-                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
-                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
         }
         for zst_col in self.zst_columns.values_mut() {
             zst_col
                 .added_ticks
-                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             zst_col
                 .changed_ticks
-                .push(cap, len, UnsafeCell::new(Tick::new(0)));
+                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
         }
         TableRow::from_usize(len)
     }
@@ -731,8 +733,10 @@ impl Table {
         OwningPtr::new(NonNull::dangling())
     }
 
-    // TODO: Docs
+    /// Get the component at a given `row`, if the [`Table`] stores components with the given `component_id`
     ///
+    /// # Safety
+    /// `row.as_usize()` < `self.len()`
     pub unsafe fn get_component(
         &self,
         component_id: ComponentId,

@@ -96,14 +96,20 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
             .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
     }
 
-    // TODO: docs
+    /// Call [`alloc::alloc::realloc`] to expand / shrink the memory allocation for this [`ThinColumn`]
+    ///
+    /// # Safety
+    /// `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
         self.changed_ticks.realloc(current_capacity, new_capacity);
     }
 
-    // TODO: docs
+    /// Call [`alloc::alloc::alloc`] to allocate memory for this [`ThinColumn`]
+    ///
+    /// # Safety
+    /// This will overwrite any previous allocation, so the caller must ensure that no previous allocation has been made (capacity = 0)
     pub unsafe fn alloc(&mut self, new_capacity: NonZeroUsize) {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);
@@ -208,6 +214,13 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
         self.changed_ticks.clear_elements(len);
     }
 
+    /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
+    /// The owner of this [`ThinColumn`] must call this method with the correct information.
+    ///
+    /// # Safety
+    /// The caller must:
+    /// - ensure that `len` is indeed the length of the column
+    /// - ensure that `cap` is indeed the capacity of the column
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
@@ -217,9 +230,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     }
 }
 
-//
-//
-//
 //
 
 /// A type-erased contiguous container for data of a homogeneous type.
