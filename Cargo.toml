@@ -2871,6 +2871,16 @@ description = "Demonstrates FPS overlay"
 category = "Dev tools"
 wasm = true
 
+[[example]]
+name = "ssr"
+path = "examples/3d/ssr.rs"
+
+[package.metadata.example.ssr]
+name = "Screen Space Reflections"
+description = "Demonstrates screen space reflections"
+category = "3D Rendering"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

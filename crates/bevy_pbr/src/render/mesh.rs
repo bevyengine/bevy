@@ -33,8 +33,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use static_assertions::const_assert_eq;
@@ -212,7 +210,9 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app.init_resource::<MeshPipeline>();
+            render_app
+                .init_resource::<MeshPipelineViewLayouts>()
+                .init_resource::<MeshPipeline>();
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -799,9 +799,11 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -832,13 +834,13 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, view_layouts) =
+            system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-
-        let view_layouts =
-            generate_view_layouts(&render_device, clustered_forward_buffer_binding_type);
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -875,7 +877,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layouts,
+            view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -900,19 +902,6 @@ impl MeshPipeline {
                 &self.dummy_white_gpu_image.sampler,
             ))
         }
-    }
-
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self.view_layouts[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
-        }
-
-        &layout.bind_group_layout
     }
 }
 
@@ -1048,7 +1037,8 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
-        const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
+        const SSR                               = 1 << 15;
+        const LAST_FLAG                         = Self::SSR.bits();
 
         // Bitfields
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
@@ -1248,7 +1238,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
+        let mut bind_group_layout = vec![self.view_layouts.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
@@ -1356,7 +1346,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -1611,6 +1601,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -1618,7 +1609,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewQuery,
         >,
@@ -1634,6 +1625,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_lights.offset,
                 view_fog.offset,
                 **view_light_probes,
+                **view_ssr,
             ],
         );
 

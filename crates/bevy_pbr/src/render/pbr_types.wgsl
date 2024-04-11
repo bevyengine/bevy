@@ -87,7 +87,7 @@ struct PbrInput {
     material: StandardMaterial,
     // Note: this gets monochromized upon deferred PbrInput reconstruction.
     diffuse_occlusion: vec3<f32>,
-    // Note: this is 1.0 (entirely unoccluded) when SSAO is off.
+    // Note: this is 1.0 (entirely unoccluded) when SSAO and SSR are off.
     specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,

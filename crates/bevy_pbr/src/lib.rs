@@ -34,6 +34,7 @@ mod pbr_material;
 mod prepass;
 mod render;
 mod ssao;
+mod ssr;
 
 use bevy_color::{Color, LinearRgba};
 pub use bundle::*;
@@ -48,6 +49,7 @@ pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
+pub use ssr::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -81,6 +83,8 @@ pub mod graph {
         DeferredLightingPass,
         /// Label for the compute shader instance data building pass.
         GpuPreprocess,
+        /// Label for the screen space reflections pass.
+        ScreenSpaceReflections,
     }
 }
 
@@ -305,6 +309,7 @@ impl Plugin for PbrPlugin {
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
+                ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
                 PostUpdate,

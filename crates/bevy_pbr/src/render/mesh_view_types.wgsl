@@ -134,3 +134,12 @@ struct LightProbes {
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
 };
+
+// Settings for screen space reflections.
+struct ScreenSpaceReflections {
+    // Roughness values lower than this trigger SSR.
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    major_step_count: i32,
+    minor_step_count: i32,
+};

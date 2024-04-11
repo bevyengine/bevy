@@ -1,7 +1,7 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
-    ViewLightProbesUniformOffset,
+    ScreenSpaceReflections, ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -147,6 +147,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
+        &'static ViewScreenSpaceReflectionsUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
@@ -162,6 +163,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_lights_offset,
             view_fog_offset,
             view_light_probes_offset,
+            view_ssr_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
@@ -216,6 +218,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,
+                **view_ssr_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
@@ -260,7 +263,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -301,6 +304,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.contains(MeshPipelineKey::SSR) {
+            shader_defs.push("SSR".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -320,7 +327,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline.get_view_layout(key.into()).clone(),
+                self.mesh_pipeline
+                    .view_layouts
+                    .get_view_layout(key.into())
+                    .clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
@@ -406,7 +416,10 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
-            Has<ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<ScreenSpaceAmbientOcclusionSettings>,
+                Has<ScreenSpaceReflections>,
+            ),
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -424,7 +437,7 @@ pub fn prepare_deferred_lighting_pipelines(
         tonemapping,
         dither,
         shadow_filter_method,
-        ssao,
+        (ssao, ssr),
         (normal_prepass, depth_prepass, motion_vector_prepass),
         has_environment_maps,
         has_irradiance_volumes,
@@ -472,6 +485,9 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if ssr {
+            view_key |= MeshPipelineKey::SSR;
         }
 
         // We don't need to check to see whether the environment map is loaded
