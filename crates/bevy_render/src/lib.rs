@@ -233,6 +233,7 @@ pub struct RenderApp;
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(10313207077636615845);
 pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+const COLOR_CONVERSION_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4813266580120071473);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -352,6 +353,13 @@ impl Plugin for RenderPlugin {
 
     fn finish(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            COLOR_CONVERSION_SHADER_HANDLE,
+            "color_conversion.wgsl",
+            Shader::from_wgsl
+        );
+
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
