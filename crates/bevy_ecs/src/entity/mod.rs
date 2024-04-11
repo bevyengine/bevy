@@ -750,7 +750,7 @@ impl Entities {
     }
 
     /// Returns the location of an [`Entity`] with out any check.
-    /// For a safe alternative see [`get`]
+    /// For a safe alternative see [`Self::get`]
     ///
     /// # Safety
     ///
