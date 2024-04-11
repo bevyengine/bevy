@@ -28,7 +28,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
-use super::{check_visibility, VisibilitySystems};
+use super::{check_visibility, VisibilitySystems, WithMesh};
 
 /// We need at least 4 storage buffer bindings available to enable the
 /// visibility range buffer.
@@ -50,7 +50,7 @@ impl Plugin for VisibilityRangePlugin {
                 PostUpdate,
                 check_visibility_ranges
                     .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility),
+                    .before(check_visibility::<WithMesh>),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
