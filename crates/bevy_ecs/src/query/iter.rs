@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
     entity::{Entities, Entity},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
@@ -285,7 +285,6 @@ where
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
-    last_archetype_id: ArchetypeId,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QueryManyIter<'w, 's, D, F, I>
@@ -314,7 +313,6 @@ where
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
-            last_archetype_id: ArchetypeId::INVALID,
         }
     }
 
@@ -332,42 +330,39 @@ where
                 continue;
             };
 
-            if self.last_archetype_id != location.archetype_id {
-                if !self
-                    .query_state
-                    .matched_archetypes
-                    .contains(location.archetype_id.index())
-                {
-                    continue;
-                }
-                self.last_archetype_id = location.archetype_id;
+            if !self
+                .query_state
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
 
-                let archetype = self
-                    .archetypes
-                    .get(location.archetype_id)
-                    .debug_checked_unwrap();
-                let table = self.tables.get(location.table_id).debug_checked_unwrap();
+            let archetype = self
+                .archetypes
+                .get(location.archetype_id)
+                .debug_checked_unwrap();
+            let table = self.tables.get(location.table_id).debug_checked_unwrap();
 
-                // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
-                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                unsafe {
-                    D::set_archetype(
-                        &mut self.fetch,
-                        &self.query_state.fetch_state,
-                        archetype,
-                        table,
-                    );
-                }
-                // SAFETY: `table` is from the world that `fetch/filter` were created for,
-                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                unsafe {
-                    F::set_archetype(
-                        &mut self.filter,
-                        &self.query_state.filter_state,
-                        archetype,
-                        table,
-                    );
-                }
+            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
+                D::set_archetype(
+                    &mut self.fetch,
+                    &self.query_state.fetch_state,
+                    archetype,
+                    table,
+                );
+            }
+            // SAFETY: `table` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
+                F::set_archetype(
+                    &mut self.filter,
+                    &self.query_state.filter_state,
+                    archetype,
+                    table,
+                );
             }
 
             // SAFETY: set_archetype was called prior.

@@ -313,7 +313,7 @@ pub fn query_get(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for &e in &entities {
-                    let c = query.get(e).unwrap();
+                    let (c, _, _, _, _, _) = query.get(e).unwrap();
                     black_box(c);
                 }
             });
@@ -365,7 +365,7 @@ pub fn query_get(criterion: &mut Criterion) {
 
                 bencher.iter(|| {
                     for &e in &entities {
-                        let c = query.get(e).unwrap();
+                        let (c, _, _, _, _, _) = query.get(e).unwrap();
                         black_box(c);
                     }
                 });
@@ -463,7 +463,7 @@ pub fn getter(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 for &e in &entities {
-                    let c = getter.get(e).unwrap();
+                    let (c, _, _, _, _, _) = getter.get(e).unwrap();
                     black_box(c);
                 }
             });
@@ -514,7 +514,7 @@ pub fn getter(criterion: &mut Criterion) {
 
                 bencher.iter(|| {
                     for &e in &entities {
-                        let c = getter.get(e).unwrap();
+                        let (c, _, _, _, _, _) = getter.get(e).unwrap();
                         black_box(c);
                     }
                 });
@@ -529,25 +529,6 @@ pub fn getter(criterion: &mut Criterion) {
                     .collect();
                 entities.shuffle(&mut deterministic_rand());
                 let mut query = world.query::<&Table>();
-                let mut getter = query.getter(&mut world);
-
-                bencher.iter(|| {
-                    for &e in &entities {
-                        let c = unsafe { getter.get_unchecked(e) };
-                        black_box(c);
-                    }
-                });
-            },
-        );
-        group.bench_function(
-            format!("{}_entities_sparse_unchecked", entity_count),
-            |bencher| {
-                let mut world = World::new();
-                let mut entities: Vec<Entity> = world
-                    .spawn_batch((0..entity_count).map(|_| Sparse::default()))
-                    .collect();
-                entities.shuffle(&mut deterministic_rand());
-                let mut query = world.query::<&Sparse>();
                 let mut getter = query.getter(&mut world);
 
                 bencher.iter(|| {
@@ -587,6 +568,25 @@ pub fn getter(criterion: &mut Criterion) {
 
                 bencher.iter(|| {
                     for &e in &entities {
+                        let (c, _, _, _, _, _) = unsafe { getter.get_unchecked(e) };
+                        black_box(c);
+                    }
+                });
+            },
+        );
+        group.bench_function(
+            format!("{}_entities_sparse_unchecked", entity_count),
+            |bencher| {
+                let mut world = World::new();
+                let mut entities: Vec<Entity> = world
+                    .spawn_batch((0..entity_count).map(|_| Sparse::default()))
+                    .collect();
+                entities.shuffle(&mut deterministic_rand());
+                let mut query = world.query::<&Sparse>();
+                let mut getter = query.getter(&mut world);
+
+                bencher.iter(|| {
+                    for &e in &entities {
                         let c = unsafe { getter.get_unchecked(e) };
                         black_box(c);
                     }
@@ -622,7 +622,7 @@ pub fn getter(criterion: &mut Criterion) {
 
                 bencher.iter(|| {
                     for &e in &entities {
-                        let c = unsafe { getter.get_unchecked(e) };
+                        let (c, _, _, _, _, _) = unsafe { getter.get_unchecked(e) };
                         black_box(c);
                     }
                 });
