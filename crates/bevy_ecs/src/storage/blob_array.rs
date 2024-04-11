@@ -150,13 +150,13 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// The caller must ensure that:
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
-    pub unsafe fn clear_elements(&mut self, elemenets_to_clear: usize) {
+    pub unsafe fn clear_elements(&mut self, elements_to_clear: usize) {
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
             // accidentally drop elements twice in the event of a drop impl panicking.
             self.drop = None;
             let size = self.item_layout.size();
-            for i in 0..elemenets_to_clear {
+            for i in 0..elements_to_clear {
                 // SAFETY:
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
                 // * `size` is a multiple of the erased type's alignment,
@@ -183,7 +183,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
 }
 
 impl<const IS_ZST: bool> BlobArray<IS_ZST> {
-    /// Allocate a block of memory for the array. This should be used to initalize the array, do not use this
+    /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
         if !IS_ZST {
@@ -221,7 +221,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
             };
             // SAFETY:
             // - ptr was be allocated via this allocator
-            // - the layout used to previously allocate this array is equivelant to `array_layout(&self.item_layout, current_capacity.get())`
+            // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
             // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen

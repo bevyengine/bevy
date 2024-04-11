@@ -61,7 +61,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// The caller must:
     /// - ensure that `row.as_usize()` < `len`
     /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    /// - either _update the `len`_ to `len - 1`, or immidiately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -81,7 +81,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// The caller must:
     /// - ensure that `row.as_usize()` < `len`
     /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immidiatly initialize another element in the `last_element_index`
+    /// - either _update the `len`_ to `len - 1`, or immidiately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,

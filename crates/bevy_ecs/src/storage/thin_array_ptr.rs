@@ -57,7 +57,7 @@ impl<T> ThinArrayPtr<T> {
     /// - Update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         let new_layout = Layout::array::<T>(new_capacity.get())
-            .expect("layout should be valid (arithmatic overflow)");
+            .expect("layout should be valid (arithmetic overflow)");
         // SAFETY:
         // - ptr was be allocated via this allocator
         // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
@@ -96,7 +96,7 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked_raw(&mut self, index: usize) -> *mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory adress of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
         unsafe { self.data.as_ptr().add(index) }
     }
 
@@ -108,7 +108,7 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked(&self, index: usize) -> &'_ T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory adress of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
 
         // SAFETY:
@@ -131,7 +131,7 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &'_ mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory adress of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
 
         // SAFETY:
@@ -229,7 +229,7 @@ impl<T> ThinArrayPtr<T> {
         // SAFETY:
         // - the data is valid - allocated with the same allocater
         // - non-null and well-aligned
-        // - we have a shared refernce to self - the data will not be mutated during 'a
+        // - we have a shared reference to self - the data will not be mutated during 'a
         unsafe { std::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
     }
 }
