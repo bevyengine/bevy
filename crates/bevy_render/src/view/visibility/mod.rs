@@ -413,9 +413,14 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 
 /// System updating the visibility of entities each frame.
 ///
-/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
-/// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
-/// for that view.
+/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
+/// frame, it updates the [`ViewVisibility`] of all entities, and for each view
+/// also compute the [`VisibleEntities`] for that view.
+///
+/// This system needs to be run for each type of renderable entity. If you add a
+/// new type of renderable entity, you'll need to add an instantiation of this
+/// system to the [`CheckVisibility`] set so that Bevy will detect visibility
+/// properly for those entities.
 pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
