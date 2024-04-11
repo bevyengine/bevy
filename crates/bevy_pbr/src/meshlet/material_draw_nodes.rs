@@ -7,8 +7,8 @@ use super::{
     MeshletGpuScene,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, PreviousViewProjectionUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, PreviousViewUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
@@ -135,7 +135,7 @@ impl ViewNode for MeshletPrepassNode {
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
-        Option<&'static PreviousViewProjectionUniformOffset>,
+        Option<&'static PreviousViewUniformOffset>,
         &'static MeshletViewMaterialsPrepass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -149,7 +149,7 @@ impl ViewNode for MeshletPrepassNode {
             camera,
             view_prepass_textures,
             view_uniform_offset,
-            previous_view_projection_uniform_offset,
+            previous_view_uniform_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -209,15 +209,13 @@ impl ViewNode for MeshletPrepassNode {
             render_pass.set_camera_viewport(viewport);
         }
 
-        if let Some(previous_view_projection_uniform_offset) =
-            previous_view_projection_uniform_offset
-        {
+        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
             render_pass.set_bind_group(
                 0,
                 prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
                 &[
                     view_uniform_offset.offset,
-                    previous_view_projection_uniform_offset.offset,
+                    previous_view_uniform_offset.offset,
                 ],
             );
         } else {
@@ -258,7 +256,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static ExtractedCamera,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
-        Option<&'static PreviousViewProjectionUniformOffset>,
+        Option<&'static PreviousViewUniformOffset>,
         &'static MeshletViewMaterialsDeferredGBufferPrepass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -272,7 +270,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             camera,
             view_prepass_textures,
             view_uniform_offset,
-            previous_view_projection_uniform_offset,
+            previous_view_uniform_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -337,15 +335,13 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             render_pass.set_camera_viewport(viewport);
         }
 
-        if let Some(previous_view_projection_uniform_offset) =
-            previous_view_projection_uniform_offset
-        {
+        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
             render_pass.set_bind_group(
                 0,
                 prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
                 &[
                     view_uniform_offset.offset,
-                    previous_view_projection_uniform_offset.offset,
+                    previous_view_uniform_offset.offset,
                 ],
             );
         } else {

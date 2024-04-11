@@ -3,6 +3,7 @@
 use crate::Vec2;
 
 /// An `AspectRatio` is the ratio of width to height.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct AspectRatio(f32);
 
 impl AspectRatio {

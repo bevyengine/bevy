@@ -465,8 +465,6 @@ pub struct TransmittedShadowReceiver;
 ///
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
-///
-/// Currently does not affect point lights.
 #[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum ShadowFilteringMethod {
@@ -474,20 +472,29 @@ pub enum ShadowFilteringMethod {
     ///
     /// Fast but poor quality.
     Hardware2x2,
-    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
-    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    /// Approximates a fixed Gaussian blur, good when TAA isn't in use.
     ///
     /// Good quality, good performance.
+    ///
+    /// For directional and spot lights, this uses a [method by Ignacio Castaño
+    /// for *The Witness*] using 9 samples and smart filtering to achieve the same
+    /// as a regular 5x5 filter kernel.
+    ///
+    /// [method by Ignacio Castaño for *The Witness*]: https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1/
     #[default]
-    Castano13,
-    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
-    /// samples in spiral pattern, randomly-rotated by interleaved gradient
-    /// noise with spatial variation.
+    Gaussian,
+    /// A randomized filter that varies over time, good when TAA is in use.
     ///
     /// Good quality when used with
     /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
     /// and good performance.
-    Jimenez14,
+    ///
+    /// For directional and spot lights, this uses a [method by Jorge Jimenez for
+    /// *Call of Duty: Advanced Warfare*] using 8 samples in spiral pattern,
+    /// randomly-rotated by interleaved gradient noise with spatial variation.
+    ///
+    /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+    Temporal,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

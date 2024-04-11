@@ -18,10 +18,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
-    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
     /// the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
+    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
+    /// - `color` sets the color to draw the arc.
     ///
     /// # Example
     /// ```

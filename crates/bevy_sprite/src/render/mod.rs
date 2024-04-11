@@ -532,7 +532,7 @@ pub fn prepare_sprites(
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
     mut phases: Query<&mut SortedRenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
