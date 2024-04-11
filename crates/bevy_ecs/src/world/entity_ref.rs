@@ -2608,18 +2608,10 @@ mod tests {
 
         let disabled_id = world.init_component::<Disabled>();
         world.entity_mut(ent).retain::<Marker<1>>();
-        assert!(world
-            .entity(ent)
-            .archetype()
-            .components()
-            .any(|c| c == disabled_id));
+        assert!(world.entity(ent).contains_id(disabled_id));
 
         world.entity_mut(ent).retain::<()>();
-        assert!(world
-            .entity(ent)
-            .archetype()
-            .components()
-            .any(|c| c == disabled_id))
+        assert!(world.entity(ent).contains_id(disabled_id));
     }
 
     // Test removing some components with `retain`, including components not on the entity.
