@@ -207,7 +207,7 @@ impl Table {
         &self.entities
     }
 
-    /// Get the capacity of this table, this is equivelent to `self.entities.capacity()`
+    /// Get the capacity of this table, this is equivalent to `self.entities.capacity()`
     /// Note that if an allocation is in process, this might not match the actual capacity of the columns, but it should once the allocation ends.
     #[inline]
     pub fn capacity(&self) -> usize {
