@@ -48,6 +48,10 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
     }
 }
 
+/// A convenient alias for `With<Mesh2dHandle>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithMesh2d = With<Mesh2dHandle>;
+
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
