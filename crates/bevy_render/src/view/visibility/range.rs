@@ -220,7 +220,7 @@ impl Default for RenderVisibilityRanges {
 }
 
 impl RenderVisibilityRanges {
-    /// Clears out the [`RenderVisibilityRange`]s in preparation for a new
+    /// Clears out the [`RenderVisibilityRanges`] in preparation for a new
     /// frame.
     fn clear(&mut self) {
         self.entities.clear();
