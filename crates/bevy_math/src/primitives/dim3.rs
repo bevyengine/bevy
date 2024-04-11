@@ -648,6 +648,10 @@ impl Default for Prism {
         Self {
             half_size: Vec3::splat(0.5),
             apex_displacement: 0.0,
+        }
+    }
+}
+
 /// A 3D triangle primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

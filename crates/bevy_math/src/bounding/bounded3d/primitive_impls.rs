@@ -3,8 +3,8 @@
 use crate::{
     bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-        Plane3d, Polyline3d, Prism, Segment3d, Sphere, Torus, Triangle2d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Prism, Segment3d, Sphere, Torus, Triangle2d,
     },
     Dir3, Mat3, Quat, Vec2, Vec3,
 };
@@ -306,7 +306,7 @@ impl Bounded3d for Torus {
 impl Bounded3d for Prism {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let line = Segment3d {
-            direction: Direction3d::new_unchecked(Vec3::X),
+            direction: Dir3::new_unchecked(Vec3::X),
             half_length: self.half_size.x,
         };
         let apex_aabb = line.aabb_3d(
@@ -348,8 +348,8 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d, Plane3d,
-            Polyline3d, Prism, Segment3d, Sphere, Torus,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d, Prism,
+            Segment3d, Sphere, Torus,
         },
         Dir3,
     };

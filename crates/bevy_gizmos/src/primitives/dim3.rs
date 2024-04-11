@@ -5,8 +5,8 @@ use std::f32::consts::TAU;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Primitive3d, Prism, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+    Polyline3d, Primitive3d, Prism, Segment3d, Sphere, Torus,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
