@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{GpuBufferInfo, MeshVertexBufferLayoutRef},
+        mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -114,7 +114,7 @@ fn queue_custom(
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    meshes: Res<RenderAssets<Mesh>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut SortedRenderPhase<Transparent3d>)>,
@@ -127,7 +127,7 @@ fn queue_custom(
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
-            let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity) else {
                 continue;
             };
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
@@ -142,8 +142,7 @@ fn queue_custom(
                 entity,
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder
-                    .distance_translation(&mesh_instance.transforms.transform.translation),
+                distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
                 dynamic_offset: None,
             });
@@ -234,7 +233,7 @@ type DrawCustom = (
 struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
+    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMeshInstances>);
     type ViewQuery = ();
     type ItemQuery = Read<InstanceBuffer>;
 
@@ -246,7 +245,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(mesh_instance) = render_mesh_instances.get(&item.entity()) else {
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
+        else {
             return RenderCommandResult::Failure;
         };
         let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {

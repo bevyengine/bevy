@@ -51,6 +51,6 @@ impl Default for PointLight {
 }
 
 impl PointLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }

@@ -41,8 +41,7 @@ semicolon_if_nothing_returned = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
-#TODO(rust 1.77): enable `ref_as_ptr`
-# ref_as_ptr = "warn"
+ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
@@ -1789,6 +1788,17 @@ doc-scrape-examples = true
 [package.metadata.example.game_menu]
 name = "Game Menu"
 description = "A simple game menu"
+category = "Games"
+wasm = true
+
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
 category = "Games"
 wasm = true
 
