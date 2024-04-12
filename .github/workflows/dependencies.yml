@@ -1,4 +1,4 @@
-name: Dependencies
+name: Check Dependencies
 
 on:
   pull_request:
@@ -12,6 +12,7 @@ on:
     branches:
       - main
 
+# Cancel in-progress checks when a new commit is pushed to a PR.
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
@@ -21,6 +22,7 @@ env:
 
 jobs:
   check-advisories:
+    name: Check for advisories
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +33,7 @@ jobs:
         run: cargo deny check advisories
 
   check-bans:
+    name: Check for banned and duplicate dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +44,7 @@ jobs:
         run: cargo deny check bans
 
   check-licenses:
+    name: Check for unauthorized licenses
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +55,7 @@ jobs:
         run: cargo deny check licenses
 
   check-sources:
+    name: Check for unauthorized crate sources
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
