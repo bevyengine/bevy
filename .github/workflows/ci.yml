@@ -51,6 +51,7 @@ jobs:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   ci:
+    name: Run lints
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -74,6 +75,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
+    name: Test bevy_ecs with Miri
     runs-on: macos-14
     timeout-minutes: 60
     steps:
@@ -105,6 +107,7 @@ jobs:
           MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
 
   check-compiles:
+    name: Check that project compiles
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: ci
@@ -131,6 +134,7 @@ jobs:
         run: cargo run -p ci -- compile
 
   build-wasm:
+    name: Check on WASM
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: test
@@ -152,6 +156,7 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
+    name: Check on WASM with atomics
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: test
@@ -177,6 +182,7 @@ jobs:
           RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
   markdownlint:
+    name: Lint markdown
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-missing-features-in-docs
@@ -195,6 +201,7 @@ jobs:
           DEFAULT_BRANCH: main
 
   toml:
+    name: Lint TOML
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -215,6 +222,7 @@ jobs:
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
   typos:
+    name: Check for typos
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -232,6 +240,7 @@ jobs:
 
 
   run-examples-macos-metal:
+    name: Run examples on MacOS Metal
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -276,6 +285,7 @@ jobs:
           path: example-run/
 
   check-doc:
+    name: Check docs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -307,6 +317,7 @@ jobs:
       #   continue-on-error: true
 
   check-missing-examples-in-docs:
+    name: Check for missing examples in docs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -340,6 +351,7 @@ jobs:
           path: missing-examples/
 
   check-missing-features-in-docs:
+    name: Check for missing features in docs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-missing-examples-in-docs
@@ -374,6 +386,7 @@ jobs:
           path: missing-features/
 
   msrv:
+    name: Check with MSRV
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: test
@@ -412,6 +425,7 @@ jobs:
           path: msrv/
 
   check-bevy-internal-imports:
+    name: Check for bevy_internal imports
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -432,7 +446,9 @@ jobs:
               echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
               exit 1
           fi
+
   check-cfg:
+    name: Check for invalid cfg attributes
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
