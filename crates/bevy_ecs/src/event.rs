@@ -828,7 +828,7 @@ impl EventRegistry {
                 // SAFETY: The component was initialized with the type Events<T>.
                 unsafe { ptr.with_type::<Events<T>>() }
                     .bypass_change_detection()
-                    .update()
+                    .update();
             }
         }));
     }
