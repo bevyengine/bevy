@@ -11,6 +11,8 @@ env:
 
 jobs:
   build-for-iOS:
+    name: Build for iOS
+    # Only do this on the main Bevy repository, not forks.
     if: github.repository == 'bevyengine/bevy'
     runs-on: macos-latest
     timeout-minutes: 30
@@ -31,6 +33,7 @@ jobs:
           zip -r bevy_mobile_example.zip Payload
           mv bevy_mobile_example.zip bevy_mobile_example.ipa
 
+      # Browser Stack tests our code for us.
       - name: Upload to Browser Stack
         run: |
           curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
@@ -39,6 +42,7 @@ jobs:
             -F "custom_id=$GITHUB_RUN_ID"
 
   build-for-Android:
+    name: Build for Android
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -59,6 +63,7 @@ jobs:
           # This will reduce the APK size from 1GB to ~200MB
           CARGO_PROFILE_DEV_DEBUG: false
 
+      # Browser Stack tests our code for us.
       - name: Upload to Browser Stack
         run: |
           curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
