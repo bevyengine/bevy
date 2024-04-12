@@ -954,7 +954,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Ramp> for Gizmos<'w, 's, T> {
         primitive: Ramp,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -986,6 +986,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Ramp> for Gizmos<'w, 's, T> {
             (c, e),
         ];
 
+        let color = color.into();
         lines.into_iter().for_each(|(start, end)| {
             self.line(start, end, color);
         });
