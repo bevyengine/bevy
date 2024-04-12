@@ -1,7 +1,7 @@
 //! In this example a system sends a custom event with a 50/50 chance during any frame.
 //! If an event was send, it will be printed by the console in a receiving system.
 
-use bevy_ecs::{prelude::*, event::EventRegistry};
+use bevy_ecs::{event::EventRegistry, prelude::*};
 
 fn main() {
     // Create a new empty world and add the event as a resource
