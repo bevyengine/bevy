@@ -349,7 +349,7 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut extracted_assets = extracted_assets.extracted.drain(..);
 
     for (id, extracted_asset) in extracted_assets.by_ref() {
-        if let Some(size) = extracted_asset.byte_len() {
+        if let Some(size) = A::byte_len(&extracted_asset) {
             if bpf.write_bytes(size) == 0 {
                 prepare_next_frame.assets.push((id, extracted_asset));
                 render_assets.remove(id);

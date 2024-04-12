@@ -1430,15 +1430,15 @@ impl RenderAsset for Mesh {
         self.asset_usage
     }
 
-    fn byte_len(&self) -> Option<usize> {
+    fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
         let mut vertex_size = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in mesh.attributes.values() {
             let vertex_format = attribute_data.attribute.format;
             vertex_size += vertex_format.get_size() as usize;
         }
 
-        let vertex_count = self.count_vertices();
-        let index_bytes = self.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
+        let vertex_count = mesh.count_vertices();
+        let index_bytes = mesh.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
         Some(vertex_size * vertex_count + index_bytes)
     }
 

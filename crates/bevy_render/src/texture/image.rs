@@ -834,8 +834,8 @@ impl RenderAsset for Image {
         SRes<DefaultImageSampler>,
     );
 
-    fn byte_len(&self) -> Option<usize> {
-        Some(self.data.len())
+    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
+        Some(image.data.len())
     }
 
     fn asset_usage(&self) -> RenderAssetUsages {
