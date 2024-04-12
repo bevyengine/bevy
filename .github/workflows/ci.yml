@@ -1,22 +1,28 @@
 name: CI
 
 on:
+  # Run checks in merge queue.
   merge_group:
+  # Run checks for new PRs.
   pull_request:
+  # Run checks for new commits on the main branch.
   push:
-    branches:
-      - main
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
+  # In case of a nightly regression, we can configure this to a specific version.
+  # For now, we just use the latest nightly release.
   NIGHTLY_TOOLCHAIN: nightly
 
+# Cancel in-progress checks when a new commit is pushed to a PR.
 concurrency:
-  group: ${{github.workflow}}-${{github.ref}}
-  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
+    name: Run tests
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
