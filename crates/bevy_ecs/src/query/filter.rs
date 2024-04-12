@@ -644,9 +644,12 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = table
-            .get_column_added_ticks(component_id)
-            .map(|slice| slice.into());
+        fetch.table_ticks = Some(
+            table
+                .get_added_ticks_slice_for(component_id)
+                .debug_checked_unwrap()
+                .into(),
+        );
     }
 
     #[inline(always)]
@@ -852,9 +855,12 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = table
-            .get_column_changed_ticks(component_id)
-            .map(|slice| slice.into());
+        fetch.table_ticks = Some(
+            table
+                .get_changed_ticks_slice_for(component_id)
+                .debug_checked_unwrap()
+                .into(),
+        );
     }
 
     #[inline(always)]

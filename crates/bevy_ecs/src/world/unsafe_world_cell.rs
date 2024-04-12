@@ -10,6 +10,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
+    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::{Res, Resource},
@@ -891,9 +892,15 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the returned `Table` is only used in ways that would not conflict with any existing
     ///   borrows of world data.
     unsafe fn fetch_table(self, location: EntityLocation) -> &'w Table {
-        // SAFETY: caller ensures returned data is not misused and we have not created any borrows
-        // of component/resource data
-        &unsafe { self.storages() }.tables[location.table_id]
+        // SAFETY:
+        // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
+        // - `location` contains a valid `TableId`, so getting the table won't fail
+        unsafe {
+            self.storages()
+                .tables
+                .get(location.table_id)
+                .debug_checked_unwrap()
+        }
     }
 
     #[inline]

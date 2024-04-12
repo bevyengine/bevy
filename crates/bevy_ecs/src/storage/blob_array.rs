@@ -151,22 +151,24 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
     pub unsafe fn clear_elements(&mut self, elements_to_clear: usize) {
-        if let Some(drop) = self.drop {
-            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.drop = None;
-            let size = self.item_layout.size();
-            for i in 0..elements_to_clear {
-                // SAFETY:
-                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
-                // * `size` is a multiple of the erased type's alignment,
-                //   so adding a multiple of `size` will preserve alignment.
-                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
-                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
-                unsafe { drop(item) };
+        if !IS_ZST {
+            if let Some(drop) = self.drop {
+                // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+                // accidentally drop elements twice in the event of a drop impl panicking.
+                self.drop = None;
+                let size = self.item_layout.size();
+                for i in 0..elements_to_clear {
+                    // SAFETY:
+                    // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                    // * `size` is a multiple of the erased type's alignment,
+                    //   so adding a multiple of `size` will preserve alignment.
+                    // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                    let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                    // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
+                    unsafe { drop(item) };
+                }
+                self.drop = Some(drop);
             }
-            self.drop = Some(drop);
         }
     }
 
@@ -176,13 +178,14 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// # Safety
     /// `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
-        self.clear_elements(len);
-        let layout = array_layout(&self.item_layout, cap).expect("array layout should be valid");
-        std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+        if cap != 0 && !IS_ZST {
+            self.clear_elements(len);
+            let layout =
+                array_layout(&self.item_layout, cap).expect("array layout should be valid");
+            std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+        }
     }
-}
 
-impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {

@@ -284,6 +284,7 @@ impl Table {
                 zst_column.swap_remove_and_forget_unchecked(last_element_index, row);
             }
         }
+
         TableMoveResult {
             new_row,
             swapped_entity: if is_last {
@@ -323,6 +324,7 @@ impl Table {
                 zst_column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
+
         TableMoveResult {
             new_row,
             swapped_entity: if is_last {
@@ -338,7 +340,6 @@ impl Table {
     /// To overwrite an existing initialized value, use [`Self::replace_component`] instead.
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `row.as_usize()` < `len`
     /// - `comp_ptr` holds a component that matches the `component_id`
     pub unsafe fn initialize_component(
@@ -420,7 +421,7 @@ impl Table {
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
-    pub unsafe fn get_column_data_slice<T>(
+    pub unsafe fn get_data_slice_for<T>(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
@@ -434,7 +435,7 @@ impl Table {
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
-    pub unsafe fn get_column_added_ticks(
+    pub unsafe fn get_added_ticks_slice_for(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
@@ -448,7 +449,7 @@ impl Table {
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
-    pub unsafe fn get_column_changed_ticks(
+    pub unsafe fn get_changed_ticks_slice_for(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
@@ -884,11 +885,7 @@ impl Drop for Table {
     fn drop(&mut self) {
         let len = self.len();
         let cap = self.capacity();
-        // println!("{}", len);
-        // println!("{}", cap);
         self.entities.clear();
-        // println!("{}", self.len());
-        // println!("{}", self.capacity());
         for col in self.columns.values_mut() {
             // SAFETY: `cap` and `len` are correct
             unsafe {

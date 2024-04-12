@@ -60,10 +60,9 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `row.as_usize()` < `len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// - `row.as_usize()` < `len`
+    /// - `last_element_index` = `len - 1`
+    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -80,10 +79,9 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// Swap-remove and forget the removed element (caller's responsibility to drop)
     ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `row.as_usize()` < `len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - either _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// - `row.as_usize()` < `len`
+    /// - `last_element_index` = `len - 1`
+    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -123,7 +121,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// To overwrite existing initialized value, use `replace` instead.
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `row.as_usize()` < `len`
     /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
@@ -138,7 +135,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
 
     /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
     ///
-    /// The caller must ensure that:
+    /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
@@ -175,17 +172,15 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
             .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
         self.data.initialize_unchecked(dst_row.as_usize(), src_val);
         // Init added_ticks
-        let added_tick_ptr = other
+        let added_tick = other
             .added_ticks
             .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
-        let added_tick = std::ptr::read(added_tick_ptr);
         self.added_ticks
             .initialize_unchecked(dst_row.as_usize(), added_tick);
         // Init changed_ticks
-        let changed_tick_ptr = other
+        let changed_tick = other
             .changed_ticks
             .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
-        let changed_tick = std::ptr::read(changed_tick_ptr);
         self.changed_ticks
             .initialize_unchecked(dst_row.as_usize(), changed_tick);
     }
@@ -211,18 +206,20 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     }
 
     pub(crate) unsafe fn clear(&mut self, len: usize) {
-        self.data.clear_elements(len);
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
+        if !IS_ZST {
+            self.data.clear_elements(len);
+        }
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
     /// The owner of this [`ThinColumn`] must call this method with the correct information.
     ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `len` is indeed the length of the column
-    /// - ensure that `cap` is indeed the capacity of the column
+    /// - `len` is indeed the length of the column
+    /// - `cap` is indeed the capacity of the column
+    /// - the data stored in `self` will never be used again
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);

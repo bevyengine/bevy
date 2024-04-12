@@ -1,7 +1,8 @@
 use crate::query::DebugCheckedUnwrap;
 use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
+use std::mem::needs_drop;
 use std::num::NonZeroUsize;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
 ///
@@ -31,9 +32,8 @@ impl<T> ThinArrayPtr<T> {
     /// - Panics if the new capacity overflows `usize`
     ///
     /// # Safety
-    /// The caller must:
-    /// - Ensure that the current capacity is indeed 0
-    /// - Update their saved `capacity` value to reflect the fact that it was changed
+    /// - the current capacity is indeed 0
+    /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn alloc(&mut self, count: NonZeroUsize) {
         let new_layout =
             Layout::array::<T>(count.get()).expect("layout should be valid (arithmetic overflow)");
@@ -52,9 +52,8 @@ impl<T> ThinArrayPtr<T> {
     /// - Panics if the new capacity overflows `usize`
     ///
     /// # Safety
-    /// The caller must:
-    /// - Ensure that the current capacity is indeed greater than 0
-    /// - Update their saved `capacity` value to reflect the fact that it was changed
+    /// - the current capacity is indeed greater than 0
+    /// The caller should their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         let new_layout = Layout::array::<T>(new_capacity.get())
             .expect("layout should be valid (arithmetic overflow)");
@@ -146,72 +145,92 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    // TODO: Docs
+    /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and return the removed value.
+    /// This method does not check that `index` != `last_element_index`.
+    ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `index < len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - update their saved length value to reflect that the last element has been removed (decrement it)
+    /// - `index` != `last_element_index`
+    /// - `index < len`
+    /// - `last_element_index` = `len - 1`
+    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    pub unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
+        &mut self,
+        index: usize,
+        last_element_index: usize,
+    ) -> T {
+        let base_ptr = self.data.as_ptr();
+        let value = ptr::read(base_ptr.add(index));
+        ptr::copy_nonoverlapping(base_ptr.add(last_element_index), base_ptr.add(index), 1);
+        value
+    }
+
+    /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and return the removed value.
+    ///
+    /// # Safety
+    /// - `index < len`
+    /// - `last_element_index` = `len - 1`
+    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         index: usize,
         last_element_index: usize,
-    ) -> *mut T {
+    ) -> T {
         if index != last_element_index {
-            std::ptr::swap_nonoverlapping(
-                self.get_unchecked_raw(index),
-                self.get_unchecked_raw(last_element_index),
-                1,
-            );
+            return self.swap_remove_and_forget_unchecked_nonoverlapping(index, last_element_index);
         }
-        self.get_unchecked_raw(last_element_index)
+        ptr::read(self.data.as_ptr().add(index))
     }
 
-    // TODO: Docs
+    /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and drop the removed value.
+    ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `index < len`
-    /// - ensure that `last_element_index` = `len - 1`
-    /// - update their saved length value to reflect that the last element has been removed (decrement it)
+    /// - `index < len`
+    /// - `last_element_index` = `len - 1`
+    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         index: usize,
         last_element_index: usize,
     ) {
-        std::ptr::drop_in_place(self.swap_remove_and_forget_unchecked(index, last_element_index));
+        let ref mut val = self.swap_remove_and_forget_unchecked(index, last_element_index);
+        if needs_drop::<T>() {
+            std::ptr::drop_in_place(val as *mut T);
+        }
     }
 
-    /// Pop the last element of the array.
+    /// Get a raw pointer to the last element of the array, return `None` if the length is 0
     ///
     /// # Safety
     /// - ensure that `current_len` is indeed the len of the array
     /// - update their saved `len` (decrement it)
-    pub unsafe fn pop(&mut self, current_len: usize) -> Option<T> {
+    unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
         if current_len == 0 {
             None
         } else {
-            Some(std::ptr::read(self.data.as_ptr().add(current_len - 1)))
+            Some(self.data.as_ptr().add(current_len - 1))
         }
     }
 
     /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.
     ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `current_len` is indeed the length of the array
-    /// - update their saved length value
+    /// - `current_len` is indeed the length of the array
+    /// The caller should update their saved length value
     pub unsafe fn clear_elements(&mut self, mut current_len: usize) {
-        while self.pop(current_len).is_some() {
-            current_len -= 1;
+        if needs_drop::<T>() {
+            while let Some(to_drop) = self.last_element(current_len) {
+                ptr::drop_in_place(to_drop);
+                current_len -= 1;
+            }
         }
     }
 
     /// Drop the entire array and all its elements.
     ///
     /// # Safety
-    /// The caller must:
-    /// - ensure that `current_len` is indeed the length of the array
-    /// - ensure that `current_capacity` is indeed the capacity of the array
+    /// - `current_len` is indeed the length of the array
+    /// - `current_capacity` is indeed the capacity of the array
+    /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
     pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
         if current_capacity != 0 {
             self.clear_elements(current_len);
@@ -236,9 +255,7 @@ impl<T> ThinArrayPtr<T> {
 
 impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
     fn from(value: Box<[T]>) -> Self {
-        if Layout::new::<T>().size() == 0 {
-            panic!("Can't use ThinArrayPtr for ZSTs");
-        }
+        T::assert_zero_size();
         let slice_ptr = Box::<[T]>::into_raw(value);
         // SAFETY: We just got the pointer from a reference
         let first_element_ptr = unsafe { (*slice_ptr).as_mut_ptr() };
@@ -248,3 +265,19 @@ impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
         }
     }
 }
+
+const fn check_non_zero_sized<T>() {
+    if std::mem::size_of::<T>() == 0 {
+        panic!("type is zero-sized");
+    }
+}
+
+trait PanicWhenZeroSized: Sized {
+    const _CHECK: () = check_non_zero_sized::<Self>();
+    #[allow(path_statements, clippy::no_effect)]
+    fn assert_zero_size() {
+        <Self as PanicWhenZeroSized>::_CHECK;
+    }
+}
+
+impl<T> PanicWhenZeroSized for T {}

@@ -948,7 +948,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) {
         fetch.table_components = Some(
             table
-                .get_column_data_slice(component_id)
+                .get_data_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
         );
@@ -1107,15 +1107,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) {
         fetch.table_data = Some((
             table
-                .get_column_data_slice(component_id)
+                .get_data_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
             table
-                .get_column_added_ticks(component_id)
+                .get_added_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
             table
-                .get_column_changed_ticks(component_id)
+                .get_changed_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
         ));
@@ -1298,15 +1298,15 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         fetch.table_data = Some((
             table
-                .get_column_data_slice(component_id)
+                .get_data_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
             table
-                .get_column_added_ticks(component_id)
+                .get_added_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
             table
-                .get_column_changed_ticks(component_id)
+                .get_changed_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
         ));
