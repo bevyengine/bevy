@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryEntityGetter, QueryFilter,
+    NopWorldQuery, PointQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter,
     QueryManyIter, QuerySingleError, ROQueryItem,
 };
 
@@ -875,11 +875,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// A Getter to get the query result for the given [`World`] and [`Entity`].
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     pub fn getter<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryEntityGetter<'w, 's, D::ReadOnly, F> {
+    ) -> PointQuery<'w, 's, D::ReadOnly, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
         let this_run = world.read_change_tick();
@@ -893,11 +893,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// A Getter to get the query result for the given [`World`] and [`Entity`].
-    pub fn getter_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> QueryEntityGetter<'w, 's, D, F> {
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    pub fn getter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> PointQuery<'w, 's, D, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
         let this_run = world.read_change_tick();
@@ -906,8 +903,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             self.entity_getter_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)
         }
     }
-    /// An Getter used for getting the query result for the given [`World`] and [`Entity`], where the last change and
-    /// the current change tick are given.
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
     ///
     /// This is always guaranteed to run in `O(1)` time.
     ///
@@ -924,9 +923,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryEntityGetter<'w, 's, D, F> {
-        QueryEntityGetter::new(world, self, last_run, this_run)
+    ) -> PointQuery<'w, 's, D, F> {
+        PointQuery::new(world, self, last_run, this_run)
     }
+
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///

@@ -2,7 +2,7 @@ use crate::{
     component::Tick,
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryEntityGetter,
+        BatchingStrategy, PointQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
         ROQueryItem, ReadOnlyQueryData,
     },
@@ -923,8 +923,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Return a [`QueryEntityGetter`] to get the query item for the [`Entity`].
-    /// this could be more efficient than [`Query::get`].
+    /// Return a [`PointQuery`] to get the query item for the [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
     ///
     /// # Example
     ///
@@ -955,7 +956,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`entity_getter_mut`](Self::entity_getter_mut) is used for mutable query.
     #[inline]
-    pub fn entity_getter(&self) -> QueryEntityGetter<'w, 's, D::ReadOnly, F> {
+    pub fn entity_getter(&self) -> PointQuery<'w, 's, D::ReadOnly, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -967,10 +968,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Return a [`QueryEntityGetter`] to get the query item for the given [`Entity`].
-    /// This may be more efficient than [`Query::get_mut`].
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     ///
-    /// Note
+    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    ///
     /// # Example
     ///
     /// ```
@@ -997,7 +998,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`entity_getter`](Self::entity_getter) is used for read-only query.
     #[inline]
-    pub fn entity_getter_mut(&mut self) -> QueryEntityGetter<'w, 's, D, F> {
+    pub fn entity_getter_mut(&mut self) -> PointQuery<'w, 's, D, F> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.

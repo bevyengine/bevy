@@ -8,9 +8,11 @@ use crate::{
 
 use super::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState};
 
-/// A getter used for fast fetch its Component with Specific [`Entity`]
+/// Used for quickly fetching query item from a specific [`Entity`].
+/// It caches the last fetch which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+///
 /// This struct is created by the [`Query::getter`](crate::system::Query::entity_getter) and [`Query::entity_getter_mut`](crate::system::Query::entity_getter_mut) methods.
-pub struct QueryEntityGetter<'w, 's, D: QueryData, F: QueryFilter = ()> {
+pub struct PointQuery<'w, 's, D: QueryData, F: QueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     entities: &'w Entities,
     tables: &'w Tables,
@@ -21,7 +23,7 @@ pub struct QueryEntityGetter<'w, 's, D: QueryData, F: QueryFilter = ()> {
     last_archetype_id: ArchetypeId,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> PointQuery<'w, 's, D, F> {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -31,10 +33,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryEntityGetter<'w, 's, D, F> {
         query_state: &'s QueryState<D, F>,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryEntityGetter<'w, 's, D, F> {
+    ) -> PointQuery<'w, 's, D, F> {
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
-        QueryEntityGetter {
+        PointQuery {
             state: query_state,
             entities: world.entities(),
             archetypes: world.archetypes(),
