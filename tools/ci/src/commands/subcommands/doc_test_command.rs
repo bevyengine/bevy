@@ -9,13 +9,13 @@ pub(crate) struct DocTestCommand {}
 
 impl Prepare for DocTestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let mut args = vec!["--workspace", "--doc"];
-        if flags.contains(Flag::KEEP_GOING) {
-            args.push("--no-fail-fast");
-        }
+        let no_fail_fast = flags
+            .contains(Flag::KEEP_GOING)
+            .then_some("--no-fail-fast")
+            .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo test {args...}"),
+            cmd!(sh, "cargo test --workspace --doc {no_fail_fast}"),
             "Please fix failing doc tests in output above.",
         )]
     }

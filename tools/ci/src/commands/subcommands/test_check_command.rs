@@ -8,14 +8,9 @@ use xshell::cmd;
 pub(crate) struct TestCheckCommand {}
 
 impl Prepare for TestCheckCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let mut args = vec!["--workspace", "--tests"];
-        if flags.contains(Flag::KEEP_GOING) {
-            args.push("--no-fail-fast");
-        }
-
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check {args...}"),
+            cmd!(sh, "cargo check --workspace --tests"),
             "Please fix compiler examples for tests in output above.",
         )]
     }

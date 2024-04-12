@@ -8,19 +8,12 @@ use xshell::cmd;
 pub(crate) struct DocCheckCommand {}
 
 impl Prepare for DocCheckCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let mut args = vec![
-            "--workspace",
-            "--all-features",
-            "--no-deps",
-            "--document-private-items",
-        ];
-        if flags.contains(Flag::KEEP_GOING) {
-            args.push("--no-fail-fast");
-        }
-
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo doc {args...}"),
+            cmd!(
+                sh,
+                "cargo doc --workspace --all-features --no-deps --document-private-items"
+            ),
             "Please fix doc warnings in output above.",
         )]
     }
