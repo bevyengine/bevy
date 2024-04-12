@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    name: Build and deploy docs
     runs-on: ubuntu-latest
     environment:
       name: github-pages
