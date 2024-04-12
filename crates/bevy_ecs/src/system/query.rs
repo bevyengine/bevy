@@ -925,7 +925,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the [`Entity`].
     ///
-    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
     ///
     /// # Example
     ///
@@ -970,7 +970,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     ///
-    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
     ///
     /// # Example
     ///
@@ -1010,7 +1010,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     ///
-    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
     ///
     /// # Safety
     ///
