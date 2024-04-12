@@ -6,8 +6,9 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetSources, AssetWriter, AssetWriterError, MissingAssetSourceError,
+        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
+        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
+        MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -17,9 +18,9 @@ use crate::{
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
-use bevy_log::{debug, error, trace, warn};
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{BoxedFuture, HashMap, HashSet};
+use bevy_utils::tracing::{debug, error, trace, warn};
+use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
@@ -29,6 +30,10 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
+
+// Needed for doc strings
+#[allow(unused_imports)]
+use crate::io::{AssetReader, AssetWriter};
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`] / [`AssetWriter`] pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -56,7 +61,7 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
-    default_processors: RwLock<HashMap<String, &'static str>>,
+    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
     initialized_sender: async_broadcast::Sender<()>,
@@ -430,27 +435,25 @@ impl AssetProcessor {
 
     #[allow(unused)]
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    fn process_assets_internal<'scope>(
+    async fn process_assets_internal<'scope>(
         &'scope self,
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
-    ) -> BoxedFuture<'scope, Result<(), AssetReaderError>> {
-        Box::pin(async move {
-            if source.reader().is_directory(&path).await? {
-                let mut path_stream = source.reader().read_directory(&path).await?;
-                while let Some(path) = path_stream.next().await {
-                    self.process_assets_internal(scope, source, path).await?;
-                }
-            } else {
-                // Files without extensions are skipped
-                let processor = self.clone();
-                scope.spawn(async move {
-                    processor.process_asset(source, path).await;
-                });
+    ) -> Result<(), AssetReaderError> {
+        if source.reader().is_directory(&path).await? {
+            let mut path_stream = source.reader().read_directory(&path).await?;
+            while let Some(path) = path_stream.next().await {
+                Box::pin(self.process_assets_internal(scope, source, path)).await?;
             }
-            Ok(())
-        })
+        } else {
+            // Files without extensions are skipped
+            let processor = self.clone();
+            scope.spawn(async move {
+                processor.process_asset(source, path).await;
+            });
+        }
+        Ok(())
     }
 
     async fn try_reprocessing_queued(&self) {
@@ -482,7 +485,7 @@ impl AssetProcessor {
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.to_string(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), std::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -509,34 +512,36 @@ impl AssetProcessor {
 
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
         /// folders when they are discovered.
-        fn get_asset_paths<'a>(
-            reader: &'a dyn AssetReader,
-            clean_empty_folders_writer: Option<&'a dyn AssetWriter>,
+        async fn get_asset_paths<'a>(
+            reader: &'a dyn ErasedAssetReader,
+            clean_empty_folders_writer: Option<&'a dyn ErasedAssetWriter>,
             path: PathBuf,
             paths: &'a mut Vec<PathBuf>,
-        ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-            Box::pin(async move {
-                if reader.is_directory(&path).await? {
-                    let mut path_stream = reader.read_directory(&path).await?;
-                    let mut contains_files = false;
-                    while let Some(child_path) = path_stream.next().await {
-                        contains_files =
-                            get_asset_paths(reader, clean_empty_folders_writer, child_path, paths)
-                                .await?
-                                && contains_files;
-                    }
-                    if !contains_files && path.parent().is_some() {
-                        if let Some(writer) = clean_empty_folders_writer {
-                            // it is ok for this to fail as it is just a cleanup job.
-                            let _ = writer.remove_empty_directory(&path).await;
-                        }
-                    }
-                    Ok(contains_files)
-                } else {
-                    paths.push(path);
-                    Ok(true)
+        ) -> Result<bool, AssetReaderError> {
+            if reader.is_directory(&path).await? {
+                let mut path_stream = reader.read_directory(&path).await?;
+                let mut contains_files = false;
+
+                while let Some(child_path) = path_stream.next().await {
+                    contains_files |= Box::pin(get_asset_paths(
+                        reader,
+                        clean_empty_folders_writer,
+                        child_path,
+                        paths,
+                    ))
+                    .await?;
                 }
-            })
+                if !contains_files && path.parent().is_some() {
+                    if let Some(writer) = clean_empty_folders_writer {
+                        // it is ok for this to fail as it is just a cleanup job.
+                        let _ = writer.remove_empty_directory(&path).await;
+                    }
+                }
+                Ok(contains_files)
+            } else {
+                paths.push(path);
+                Ok(true)
+            }
         }
 
         for source in self.sources().iter_processed() {
@@ -717,9 +722,7 @@ impl AssetProcessor {
                         (meta, Some(processor))
                     }
                     AssetActionMinimal::Ignore => {
-                        let meta: Box<dyn AssetMetaDyn> =
-                            Box::new(AssetMeta::<(), ()>::deserialize(&meta_bytes)?);
-                        (meta, None)
+                        return Ok(ProcessResult::Ignored);
                     }
                 };
                 (meta, meta_bytes, processor)
@@ -1033,6 +1036,7 @@ impl AssetProcessorData {
 pub enum ProcessResult {
     Processed(ProcessedInfo),
     SkippedNotChanged,
+    Ignored,
 }
 
 /// The final status of processing an asset
@@ -1180,6 +1184,9 @@ impl ProcessorAssetInfos {
                 // "block until first pass finished" mode
                 info.update_status(ProcessStatus::Processed).await;
             }
+            Ok(ProcessResult::Ignored) => {
+                debug!("Skipping processing (ignored) \"{:?}\"", asset_path);
+            }
             Err(ProcessError::ExtensionRequired) => {
                 // Skip assets without extensions
             }
@@ -1196,10 +1203,8 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {asset_path}: {err}");
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    path: dependency,
-                    ..
-                }) = err
+                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError(dependency)) =
+                    err
                 {
                     let info = self.get_mut(&asset_path).expect("info should exist");
                     info.processed_info = Some(ProcessedInfo {
@@ -1207,7 +1212,7 @@ impl ProcessorAssetInfos {
                         full_hash: AssetHash::default(),
                         process_dependencies: vec![],
                     });
-                    self.add_dependant(&dependency, asset_path.to_owned());
+                    self.add_dependant(dependency.path(), asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");

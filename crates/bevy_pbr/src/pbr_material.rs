@@ -1,10 +1,11 @@
-use bevy_asset::{Asset, Handle};
-use bevy_math::{Affine2, Vec2, Vec4};
+use bevy_asset::Asset;
+use bevy_color::Alpha;
+use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    color::LegacyColor, mesh::MeshVertexBufferLayout, render_asset::RenderAssets,
-    render_resource::*, texture::Image,
+    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
+use bitflags::bitflags;
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;
@@ -13,7 +14,7 @@ use crate::*;
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
-/// May be created directly from a [`LegacyColor`] or an [`Image`].
+/// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
@@ -25,15 +26,15 @@ pub struct StandardMaterial {
     /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     ///
-    /// Defaults to [`LegacyColor::WHITE`].
-    pub base_color: LegacyColor,
+    /// Defaults to [`Color::WHITE`].
+    pub base_color: Color,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
     ///
     /// See [`base_color`] for details.
     ///
-    /// You should set `base_color` to [`LegacyColor::WHITE`] (the default)
+    /// You should set `base_color` to [`Color::WHITE`] (the default)
     /// if you want the texture to show as-is.
     ///
     /// Setting `base_color` to something else than white will tint
@@ -57,17 +58,26 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is black, which doesn't add anything to the material color.
+    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
     ///
-    /// Note that **an emissive material won't light up surrounding areas like a light source**,
+    /// To increase emissive strength, channel values for `emissive`
+    /// colors can exceed `1.0`. For instance, a `base_color` of
+    /// `Color::linear_rgb(1.0, 0.0, 0.0)` represents the brightest
+    /// red for objects that reflect light, but an emissive color
+    /// like `Color::linear_rgb(1000.0, 0.0, 0.0)` can be used to create
+    /// intensely bright red emissive effects.
+    ///
+    /// Increasing the emissive strength of the color will impact visual effects
+    /// like bloom, but it's important to note that **an emissive material won't
+    /// light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
-    pub emissive: LegacyColor,
+    pub emissive: Color,
 
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
-    /// Meaning that you should set [`emissive`] to [`LegacyColor::WHITE`]
+    /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
     /// if you want to use the full range of color of the emissive texture.
     ///
     /// [`emissive`]: StandardMaterial::emissive
@@ -274,7 +284,7 @@ pub struct StandardMaterial {
 
     /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
     ///
-    /// Defaults to [`LegacyColor::WHITE`], i.e. no change.
+    /// Defaults to [`Color::WHITE`], i.e. no change.
     ///
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_distance`];
@@ -282,7 +292,7 @@ pub struct StandardMaterial {
     /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_color")]
     #[doc(alias = "extinction_color")]
-    pub attenuation_color: LegacyColor,
+    pub attenuation_color: Color,
 
     /// Used to fake the lighting of bumps and dents on a material.
     ///
@@ -477,14 +487,74 @@ pub struct StandardMaterial {
     pub uv_transform: Affine2,
 }
 
+impl StandardMaterial {
+    /// Horizontal flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with horizontally flipped texture coords
+    pub const FLIP_HORIZONTAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::new(-1.0, 0.0), Vec2::Y),
+        translation: Vec2::X,
+    };
+
+    /// Vertical flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with vertically flipped texture coords
+    pub const FLIP_VERTICAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::X, Vec2::new(0.0, -1.0)),
+        translation: Vec2::Y,
+    };
+
+    /// Flipping X 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped X coords
+    pub const FLIP_X: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::new(-1.0, 0.0, 0.0), Vec3::Y, Vec3::Z),
+        translation: Vec3::X,
+    };
+
+    /// Flipping Y 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Y coords
+    pub const FLIP_Y: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::new(0.0, -1.0, 0.0), Vec3::Z),
+        translation: Vec3::Y,
+    };
+
+    /// Flipping Z 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Z coords
+    pub const FLIP_Z: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::Y, Vec3::new(0.0, 0.0, -1.0)),
+        translation: Vec3::Z,
+    };
+
+    /// Flip the texture coordinates of the material.
+    pub fn flip(&mut self, horizontal: bool, vertical: bool) {
+        if horizontal {
+            // Multiplication of `Affine2` is order dependent, which is why
+            // we do not use the `*=` operator.
+            self.uv_transform = Self::FLIP_HORIZONTAL * self.uv_transform;
+        }
+        if vertical {
+            self.uv_transform = Self::FLIP_VERTICAL * self.uv_transform;
+        }
+    }
+
+    /// Consumes the material and returns a material with flipped texture coordinates
+    pub fn flipped(mut self, horizontal: bool, vertical: bool) -> Self {
+        self.flip(horizontal, vertical);
+        self
+    }
+}
+
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
-            base_color: LegacyColor::rgb(1.0, 1.0, 1.0),
+            base_color: Color::WHITE,
             base_color_texture: None,
-            emissive: LegacyColor::BLACK,
+            emissive: Color::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
@@ -505,7 +575,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
-            attenuation_color: LegacyColor::WHITE,
+            attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
@@ -528,11 +598,11 @@ impl Default for StandardMaterial {
     }
 }
 
-impl From<LegacyColor> for StandardMaterial {
-    fn from(color: LegacyColor) -> Self {
+impl From<Color> for StandardMaterial {
+    fn from(color: Color) -> Self {
         StandardMaterial {
             base_color: color,
-            alpha_mode: if color.a() < 1.0 {
+            alpha_mode: if color.alpha() < 1.0 {
                 AlphaMode::Blend
             } else {
                 AlphaMode::Opaque
@@ -599,12 +669,8 @@ pub struct StandardMaterialUniform {
     pub emissive: Vec4,
     /// Color white light takes after travelling through the attenuation distance underneath the material surface
     pub attenuation_color: Vec4,
-    /// The x-axis of the mat2 of the transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is [1, 0].
-    pub uv_transform_x_axis: Vec2,
-    /// The y-axis of the mat2 of the transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is [0, 1].
-    pub uv_transform_y_axis: Vec2,
-    /// The translation of the transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is [0, 0].
-    pub uv_transform_translation: Vec2,
+    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
+    pub uv_transform: Mat3,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
     pub roughness: f32,
@@ -645,7 +711,10 @@ pub struct StandardMaterialUniform {
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
+    fn as_bind_group_shader_type(
+        &self,
+        images: &RenderAssets<GpuImage>,
+    ) -> StandardMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -721,8 +790,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
 
         StandardMaterialUniform {
-            base_color: self.base_color.as_linear_rgba_f32().into(),
-            emissive: self.emissive.as_linear_rgba_f32().into(),
+            base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
+            emissive: LinearRgba::from(self.emissive).to_f32_array().into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
@@ -731,7 +800,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
-            attenuation_color: self.attenuation_color.as_linear_rgba_f32().into(),
+            attenuation_color: LinearRgba::from(self.attenuation_color)
+                .to_f32_array()
+                .into(),
             flags: flags.bits(),
             alpha_cutoff,
             parallax_depth_scale: self.parallax_depth_scale,
@@ -739,37 +810,61 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             lightmap_exposure: self.lightmap_exposure,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
-            uv_transform_x_axis: self.uv_transform.matrix2.x_axis,
-            uv_transform_y_axis: self.uv_transform.matrix2.y_axis,
-            uv_transform_translation: self.uv_transform.translation,
+            uv_transform: self.uv_transform.into(),
         }
     }
 }
 
-/// The pipeline key for [`StandardMaterial`].
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct StandardMaterialKey {
-    normal_map: bool,
-    cull_mode: Option<Face>,
-    depth_bias: i32,
-    relief_mapping: bool,
-    diffuse_transmission: bool,
-    specular_transmission: bool,
+bitflags! {
+    /// The pipeline key for `StandardMaterial`, packed into 64 bits.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct StandardMaterialKey: u64 {
+        const CULL_FRONT            = 0x01;
+        const CULL_BACK             = 0x02;
+        const NORMAL_MAP            = 0x04;
+        const RELIEF_MAPPING        = 0x08;
+        const DIFFUSE_TRANSMISSION  = 0x10;
+        const SPECULAR_TRANSMISSION = 0x20;
+        const DEPTH_BIAS            = 0xffffffff_00000000;
+    }
 }
+
+const STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT: u64 = 32;
 
 impl From<&StandardMaterial> for StandardMaterialKey {
     fn from(material: &StandardMaterial) -> Self {
-        StandardMaterialKey {
-            normal_map: material.normal_map_texture.is_some(),
-            cull_mode: material.cull_mode,
-            depth_bias: material.depth_bias as i32,
-            relief_mapping: matches!(
+        let mut key = StandardMaterialKey::empty();
+        key.set(
+            StandardMaterialKey::CULL_FRONT,
+            material.cull_mode == Some(Face::Front),
+        );
+        key.set(
+            StandardMaterialKey::CULL_BACK,
+            material.cull_mode == Some(Face::Back),
+        );
+        key.set(
+            StandardMaterialKey::NORMAL_MAP,
+            material.normal_map_texture.is_some(),
+        );
+        key.set(
+            StandardMaterialKey::RELIEF_MAPPING,
+            matches!(
                 material.parallax_mapping_method,
                 ParallaxMappingMethod::Relief { .. }
             ),
-            diffuse_transmission: material.diffuse_transmission > 0.0,
-            specular_transmission: material.specular_transmission > 0.0,
-        }
+        );
+        key.set(
+            StandardMaterialKey::DIFFUSE_TRANSMISSION,
+            material.diffuse_transmission > 0.0,
+        );
+        key.set(
+            StandardMaterialKey::SPECULAR_TRANSMISSION,
+            material.specular_transmission > 0.0,
+        );
+        key.insert(StandardMaterialKey::from_bits_retain(
+            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+        ));
+        key
     }
 }
 
@@ -818,41 +913,82 @@ impl Material for StandardMaterial {
         PBR_SHADER_HANDLE.into()
     }
 
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        Self::fragment_shader()
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        Self::prepass_fragment_shader()
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        Self::deferred_fragment_shader()
+    }
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(fragment) = descriptor.fragment.as_mut() {
             let shader_defs = &mut fragment.shader_defs;
 
-            if key.bind_group_data.normal_map {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::NORMAL_MAP)
+            {
                 shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
             }
-            if key.bind_group_data.relief_mapping {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::RELIEF_MAPPING)
+            {
                 shader_defs.push("RELIEF_MAPPING".into());
             }
 
-            if key.bind_group_data.diffuse_transmission {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::DIFFUSE_TRANSMISSION)
+            {
                 shader_defs.push("STANDARD_MATERIAL_DIFFUSE_TRANSMISSION".into());
             }
 
-            if key.bind_group_data.specular_transmission {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::SPECULAR_TRANSMISSION)
+            {
                 shader_defs.push("STANDARD_MATERIAL_SPECULAR_TRANSMISSION".into());
             }
 
-            if key.bind_group_data.diffuse_transmission || key.bind_group_data.specular_transmission
-            {
+            if key.bind_group_data.intersects(
+                StandardMaterialKey::DIFFUSE_TRANSMISSION
+                    | StandardMaterialKey::SPECULAR_TRANSMISSION,
+            ) {
                 shader_defs.push("STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION".into());
             }
         }
-        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
+
+        descriptor.primitive.cull_mode = if key
+            .bind_group_data
+            .contains(StandardMaterialKey::CULL_FRONT)
+        {
+            Some(Face::Front)
+        } else if key.bind_group_data.contains(StandardMaterialKey::CULL_BACK) {
+            Some(Face::Back)
+        } else {
+            None
+        };
+
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
-            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
+            depth_stencil.bias.constant =
+                (key.bind_group_data.bits() >> STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT) as i32;
         }
         Ok(())
     }

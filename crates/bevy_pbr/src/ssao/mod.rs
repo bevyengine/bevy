@@ -72,12 +72,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         if !render_app
-            .world
+            .world()
             .resource::<RenderAdapter>()
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
@@ -88,7 +88,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         if render_app
-            .world
+            .world()
             .resource::<RenderDevice>()
             .limits()
             .max_storage_textures_per_shader_stage

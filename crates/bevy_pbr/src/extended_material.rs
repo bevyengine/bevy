@@ -1,14 +1,14 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    mesh::MeshVertexBufferLayout,
+    mesh::MeshVertexBufferLayoutRef,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -67,15 +67,39 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh prepass fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh deferred fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     /// Specialization for the base material is applied before this function is called.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -115,7 +139,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
@@ -211,10 +235,34 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_prepass_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_prepass_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_deferred_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_deferred_fragment_shader(),
+            specified => specified,
+        }
+    }
+
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function

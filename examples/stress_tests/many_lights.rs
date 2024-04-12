@@ -4,12 +4,13 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
@@ -54,14 +55,14 @@ fn setup(
 
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(LegacyColor::WHITE),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: LegacyColor::PINK,
+        base_color: DEEP_PINK.into(),
         ..default()
     });
 
@@ -69,21 +70,25 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-    let mut rng = thread_rng();
-    for i in 0..N_LIGHTS {
+
+    // Spawn N_LIGHTS many lights
+    commands.spawn_batch((0..N_LIGHTS).map(move |i| {
+        let mut rng = thread_rng();
+
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn(PointLightBundle {
+
+        PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: LegacyColor::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
             ..default()
-        });
-    }
+        }
+    }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
@@ -152,7 +157,7 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

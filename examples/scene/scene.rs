@@ -114,6 +114,7 @@ fn save_scene_system(world: &mut World) {
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
+        Name::new("joe"),
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
@@ -124,7 +125,8 @@ fn save_scene_system(world: &mut World) {
 
     // Scenes can be serialized like this:
     let type_registry = world.resource::<AppTypeRegistry>();
-    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
+    let type_registry = type_registry.read();
+    let serialized_scene = scene.serialize(&type_registry).unwrap();
 
     // Showing the scene in the console
     info!("{}", serialized_scene);

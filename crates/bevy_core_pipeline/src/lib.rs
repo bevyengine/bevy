@@ -1,5 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 pub mod blit;
 pub mod bloom;
@@ -20,6 +26,8 @@ pub mod upscaling;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
+///
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
         pub use crate::taa::{

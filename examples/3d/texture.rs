@@ -36,7 +36,7 @@ fn setup(
 
     // this material modulates the texture to make it red (and slightly transparent)
     let red_material_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::rgba(1.0, 0.0, 0.0, 0.5),
+        base_color: Color::srgba(1.0, 0.0, 0.0, 0.5),
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
@@ -45,7 +45,7 @@ fn setup(
 
     // and lets make this one blue! (and also slightly transparent)
     let blue_material_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::rgba(0.0, 0.0, 1.0, 0.5),
+        base_color: Color::srgba(0.0, 0.0, 1.0, 0.5),
         base_color_texture: Some(texture_handle),
         alpha_mode: AlphaMode::Blend,
         unlit: true,

@@ -7,10 +7,10 @@ use crate::{
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
-    thiserror::Error,
     tracing::{error, info, warn},
     TypeIdMap,
 };
+use thiserror::Error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;
@@ -828,7 +828,7 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::prelude::*;
-    use crate::{schedule::ScheduleLabel, world::World};
+    use crate::schedule::ScheduleLabel;
 
     pub use crate as bevy_ecs;
 

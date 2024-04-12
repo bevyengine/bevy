@@ -28,7 +28,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::rgb(0.2, 0.2, 0.2),
+            base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
             ..default()
         }),
@@ -51,7 +51,7 @@ fn setup(
             .spawn(PbrBundle {
                 mesh: mesh.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: LegacyColor::rgb(0.5, 0.5, 1.0),
+                    base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
                     ..default()
                 }),
@@ -63,7 +63,7 @@ fn setup(
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
                         radius,
-                        color: LegacyColor::rgb(0.2, 0.2, 1.0),
+                        color: Color::srgb(0.2, 0.2, 1.0),
                         ..default()
                     },
                     ..default()
