@@ -833,6 +833,8 @@ impl<'w> MutUntyped<'w> {
         }
     }
 
+    /// Returns `true` if this value was changed or mutably dereferenced
+    /// either since a specific change tick.
     pub fn has_changed_since(&self, tick: Tick) -> bool {
         self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
     }

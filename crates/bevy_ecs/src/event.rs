@@ -814,7 +814,9 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
-    event_updates: Vec<(ComponentId, fn(MutUntyped))>,
+    // SAFETY: The ID and the function must be used in conjunction, or improper type casts
+    // occur.
+    event_updates: Vec<(ComponentId, unsafe fn(MutUntyped))>,
 }
 
 impl EventRegistry {
@@ -825,7 +827,7 @@ impl EventRegistry {
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
         registry.event_updates.push((component_id, |ptr| {
-            // SAFETY: The component was initialized with the type Events<T>.
+            // SAFETY: The resource was initialized with the type Events<T>.
             unsafe { ptr.with_type::<Events<T>>() }
                 .bypass_change_detection()
                 .update();
@@ -838,7 +840,9 @@ impl EventRegistry {
             // Bypass the type ID -> Component ID lookup with the cached component ID.
             if let Some(events) = world.get_resource_mut_by_id(*component_id) {
                 if events.has_changed_since(last_change_tick) {
-                    update(events);
+                    // SAFETY: The update function pointer is called with the resource
+                    // fetched from the same component ID.
+                    unsafe { update(events) };
                 }
             }
         }
