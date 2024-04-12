@@ -1,6 +1,6 @@
 name: Post-release version bump
 
-# how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+# How to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 on:
   workflow_dispatch:
 
@@ -9,6 +9,7 @@ env:
 
 jobs:
   ci:
+    name: Create post-release PR
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     steps:

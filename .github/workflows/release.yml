@@ -9,6 +9,7 @@ env:
 
 jobs:
   ci:
+    name: Create release PR
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     steps:
