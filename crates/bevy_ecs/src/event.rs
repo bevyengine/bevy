@@ -1,7 +1,11 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, Resource, SystemParam};
+use crate::{
+    change_detection::Mut,
+    system::{Local, Res, ResMut, Resource, SystemParam},
+    world::World,
+};
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
 use bevy_utils::detailed_trace;
@@ -253,7 +257,8 @@ impl<E: Event> Events<E> {
     ///
     /// If you need access to the events that were removed, consider using [`Events::update_drain`].
     pub fn update(&mut self) {
-        let _ = self.update_drain();
+        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        self.events_b.clear();
     }
 
     /// Swaps the event buffers and drains the oldest event buffer, returning an iterator
@@ -798,6 +803,40 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
+/// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
+/// to update all of the events.
+#[derive(Resource, Default)]
+pub struct EventRegistry {
+    event_updates: Vec<fn(&mut World)>,
+}
+
+impl EventRegistry {
+    /// Registers an event type to be updated.
+    pub fn register_event<T: Event>(world: &mut World) {
+        world.init_resource::<Events<T>>();
+        let mut registry = world.get_resource_or_insert_with(|| Self::default());
+        registry.event_updates.push(|world| {
+            if let Some(mut events) = world.get_resource_mut::<Events<T>>() {
+                events.update();
+            }
+        });
+    }
+
+    /// Updates all of the registered events in the World.
+    pub fn run_updates(&mut self, world: &mut World) {
+        if let Some(signal) = world.get_resource::<EventUpdateSignal>() {
+            // If we haven't got a signal to update the events, but we *could* get such a signal
+            // return early and update the events later.
+            if !signal.0 {
+                return;
+            }
+        }
+        for update in &mut self.event_updates {
+            update(world)
+        }
+    }
+}
+
 #[doc(hidden)]
 #[derive(Resource, Default)]
 pub struct EventUpdateSignal(bool);
@@ -821,25 +860,12 @@ pub fn reset_event_update_signal_system(signal: Option<ResMut<EventUpdateSignal>
 }
 
 /// A system that calls [`Events::update`].
-pub fn event_update_system<T: Event>(
-    update_signal: Option<Res<EventUpdateSignal>>,
-    mut events: ResMut<Events<T>>,
-) {
-    if let Some(signal) = update_signal {
-        // If we haven't got a signal to update the events, but we *could* get such a signal
-        // return early and update the events later.
-        if !signal.0 {
-            return;
-        }
+pub fn event_update_system(world: &mut World) {
+    if world.contains_resource::<EventRegistry>() {
+        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
+            registry.run_updates(world);
+        });
     }
-
-    events.update();
-}
-
-/// A run condition that checks if the event's [`event_update_system`]
-/// needs to run or not.
-pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
-    !events.events_a.is_empty() || !events.events_b.is_empty()
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.

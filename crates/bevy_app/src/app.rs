@@ -1,8 +1,10 @@
 use crate::{
-    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::event_update_system,
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -89,7 +91,10 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
         app.add_plugins(MainSchedulePlugin);
-
+        app.add_systems(
+            First,
+            event_update_system.in_set(bevy_ecs::event::EventUpdates),
+        );
         app.add_event::<AppExit>();
 
         app
