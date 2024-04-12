@@ -259,6 +259,11 @@ impl<E: Event> Events<E> {
     pub fn update(&mut self) {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
+        self.events_b.start_event_count = self.event_count;
+        debug_assert_eq!(
+            self.events_a.start_event_count + self.events_a.len(),
+            self.events_b.start_event_count
+        );
     }
 
     /// Swaps the event buffers and drains the oldest event buffer, returning an iterator
