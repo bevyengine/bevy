@@ -1,27 +1,24 @@
-name: CI - PR Comments
+name: Comment on CI failures
 
- # This workflow has write permissions on the repo
- # It must not checkout a PR and run untrusted code
-
-# Also requesting write permissions on PR to be able to comment
+# This workflow can modify pull requests.
+# It must not checkout a PR and run untrusted code.
 permissions:
   pull-requests: 'write'
 
 on:
   workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+    workflows: [CI]
+    types: [completed]
 
 jobs:
-
   missing-examples:
+    name: Comment on invalid examples
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: Download artifact
         id: find-artifact
         uses: actions/github-script@v7
         with:
@@ -74,12 +71,13 @@ jobs:
             }
 
   missing-features:
+    name: Comment on invalid features
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: Download artifact
         id: find-artifact
         uses: actions/github-script@v7
         with:
@@ -132,12 +130,13 @@ jobs:
             }
 
   msrv:
+    name: Comment on incorrect MSRV
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: Download artifact
         id: find-artifact
         uses: actions/github-script@v7
         with:
