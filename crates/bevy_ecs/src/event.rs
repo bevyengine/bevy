@@ -2,7 +2,9 @@
 
 use crate as bevy_ecs;
 use crate::{
+    change_detection::DetectChangesMut,
     change_detection::Mut,
+    component::ComponentId,
     system::{Local, Res, ResMut, Resource, SystemParam},
     world::World,
 };
@@ -812,25 +814,29 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
-    event_updates: Vec<fn(&mut World)>,
+    event_updates: Vec<(ComponentId, fn(ComponentId, &mut World))>,
 }
 
 impl EventRegistry {
     /// Registers an event type to be updated.
     pub fn register_event<T: Event>(world: &mut World) {
-        world.init_resource::<Events<T>>();
+        let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
-        registry.event_updates.push(|world| {
-            if let Some(mut events) = world.get_resource_mut::<Events<T>>() {
-                events.update();
+        registry.event_updates.push((component_id, |id, world| {
+            // Bypass the type ID -> Component ID lookup with the cached component ID.
+            if let Some(ptr) = world.get_resource_mut_by_id(id) {
+                // SAFETY: The component was initialized with the type Events<T>.
+                unsafe { ptr.with_type::<Events<T>>() }
+                    .bypass_change_detection()
+                    .update()
             }
-        });
+        }));
     }
 
     /// Updates all of the registered events in the World.
     pub fn run_updates(&mut self, world: &mut World) {
-        for update in &mut self.event_updates {
-            update(world);
+        for (component_id, update) in &mut self.event_updates {
+            update(*component_id, world);
         }
     }
 }
