@@ -814,7 +814,7 @@ impl EventRegistry {
     /// Registers an event type to be updated.
     pub fn register_event<T: Event>(world: &mut World) {
         world.init_resource::<Events<T>>();
-        let mut registry = world.get_resource_or_insert_with(|| Self::default());
+        let mut registry = world.get_resource_or_insert_with(Self::default);
         registry.event_updates.push(|world| {
             if let Some(mut events) = world.get_resource_mut::<Events<T>>() {
                 events.update();
@@ -825,7 +825,7 @@ impl EventRegistry {
     /// Updates all of the registered events in the World.
     pub fn run_updates(&mut self, world: &mut World) {
         for update in &mut self.event_updates {
-            update(world)
+            update(world);
         }
     }
 }
@@ -845,7 +845,7 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
     }
 }
 
-/// A system that calls [`Events::update`].
+/// A system that calls [`Events::update`] on all registered [`Events`] in the world.
 pub fn event_update_system(world: &mut World) {
     if world.contains_resource::<EventRegistry>() {
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
@@ -857,6 +857,7 @@ pub fn event_update_system(world: &mut World) {
     }
 }
 
+/// A run condition for [`event_update_system`].
 pub fn event_update_condition(signal: Option<Res<EventUpdateSignal>>) -> bool {
     // If we haven't got a signal to update the events, but we *could* get such a signal
     // return early and update the events later.
