@@ -1,10 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
+use crate::change_detection::MutUntyped;
 use crate::{
-    change_detection::DetectChangesMut,
-    change_detection::Mut,
-    component::ComponentId,
+    change_detection::{DetectChangesMut, Mut},
+    component::{ComponentId, Tick},
     system::{Local, Res, ResMut, Resource, SystemParam},
     world::World,
 };
@@ -814,7 +814,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
-    event_updates: Vec<(ComponentId, fn(ComponentId, &mut World))>,
+    event_updates: Vec<(ComponentId, fn(MutUntyped))>,
 }
 
 impl EventRegistry {
@@ -822,21 +822,23 @@ impl EventRegistry {
     pub fn register_event<T: Event>(world: &mut World) {
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
-        registry.event_updates.push((component_id, |id, world| {
-            // Bypass the type ID -> Component ID lookup with the cached component ID.
-            if let Some(ptr) = world.get_resource_mut_by_id(id) {
-                // SAFETY: The component was initialized with the type Events<T>.
-                unsafe { ptr.with_type::<Events<T>>() }
-                    .bypass_change_detection()
-                    .update();
-            }
+        registry.event_updates.push((component_id, |ptr| {
+            // SAFETY: The component was initialized with the type Events<T>.
+            unsafe { ptr.with_type::<Events<T>>() }
+                .bypass_change_detection()
+                .update();
         }));
     }
 
     /// Updates all of the registered events in the World.
-    pub fn run_updates(&mut self, world: &mut World) {
-        for (component_id, update) in &mut self.event_updates {
-            update(*component_id, world);
+    pub fn run_updates(&self, world: &mut World, last_change_tick: Tick) {
+        for (component_id, update) in &self.event_updates {
+            // Bypass the type ID -> Component ID lookup with the cached component ID.
+            if let Some(events) = world.get_resource_mut_by_id(*component_id) {
+                if events.has_changed_since(last_change_tick) {
+                    update(events);
+                }
+            }
         }
     }
 }
@@ -857,15 +859,18 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
 }
 
 /// A system that calls [`Events::update`] on all registered [`Events`] in the world.
-pub fn event_update_system(world: &mut World) {
+pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Option<Tick>>) {
     if world.contains_resource::<EventRegistry>() {
-        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
-            registry.run_updates(world);
+        let change_tick = *last_change_tick;
+        let change_tick = change_tick.unwrap_or(Tick::new(0));
+        world.resource_scope(|world, registry: Mut<EventRegistry>| {
+            registry.run_updates(world, change_tick);
         });
     }
     if let Some(mut s) = world.get_resource_mut::<EventUpdateSignal>() {
         s.0 = false;
     }
+    *last_change_tick = Some(world.change_tick());
 }
 
 /// A run condition for [`event_update_system`].
