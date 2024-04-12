@@ -1012,33 +1012,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
     ///
-    /// # Example
+    /// # Safety
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct PoisonedCharacter { character_ids: Vec<Entity> }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
-    ///     let mut getter = query.entity_getter_mut();
-    ///     
-    ///     for &entity in poisoned.character_ids.iter() {
-    ///         if let Ok(mut health) = getter.get(entity) {
-    ///             health.0 -=1;
-    ///         }
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(poison_system);
-    /// ```
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
     ///
     /// # See also
     ///
     /// - [`entity_getter`](Self::entity_getter) is used for read-only query.
     #[inline]
-    pub fn entity_getter_unchecked(&self) -> PointQuery<'w, 's, D, F> {
+    pub unsafe fn entity_getter_unchecked(&self) -> PointQuery<'w, 's, D, F> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.
