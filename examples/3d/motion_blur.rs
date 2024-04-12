@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
-        .add_systems(Update, (update_settings, move_cars, move_camera).chain())
+        .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
         .run();
 }
 
@@ -20,16 +20,22 @@ fn setup_camera(mut commands: Commands) {
         // Add the MotionBlurBundle to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
-        MotionBlurBundle::default(),
+        MotionBlurBundle {
+            motion_blur: MotionBlur {
+                shutter_angle: 1.0,
+                samples: 2,
+            },
+            ..default()
+        },
     ));
 }
 
-// Everything past this point is used to build the example, but is not required for usage.
+// Everything past this point is used to build the example, but isn't required to use motion blur.
 
 #[derive(Resource)]
 enum CameraMode {
     Track,
-    Follow,
+    Chase,
 }
 
 #[derive(Component)]
@@ -43,15 +49,19 @@ struct Rotates;
 
 fn setup_scene(
     asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(CameraMode::Track);
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 300.0,
+    });
+    commands.insert_resource(CameraMode::Chase);
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 2_000.0,
+            illuminance: 3_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -63,63 +73,69 @@ fn setup_scene(
         mesh: meshes.add(Sphere::default()),
         material: materials.add(StandardMaterial {
             unlit: true,
-            base_color: LegacyColor::rgb(0.3, 0.8, 1.0),
+            base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
         }),
         transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
         ..default()
     });
     // Ground
+    let mut plane: Mesh = Plane3d::default().into();
+    let uv_size = 4000.0;
+    let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
+    plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default()),
+        mesh: meshes.add(plane),
         material: materials.add(StandardMaterial {
-            base_color: LegacyColor::rgb(0.3, 0.5, 0.25),
+            base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            base_color_texture: Some(images.add(ground_texture())),
-
+            base_color_texture: Some(images.add(uv_debug_texture())),
             ..default()
         }),
-        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.0)),
-        ..default()
-    });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/terrain/Mountains.gltf#Scene0"),
-        transform: Transform::from_scale(Vec3::new(4000.0, 800.0, 4000.0))
-            .with_translation(Vec3::new(0.0, -2.0, 0.0)),
+        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
         ..default()
     });
 
-    spawn_cars(&mut meshes, &asset_server, &mut materials, &mut commands);
+    spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
     spawn_trees(&mut meshes, &mut materials, &mut commands);
+    spawn_barriers(&mut meshes, &mut materials, &mut commands);
 }
 
 fn spawn_cars(
-    meshes: &mut Assets<Mesh>,
     asset_server: &AssetServer,
+    meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
 ) {
+    const N_CARS: usize = 20;
     let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
     let cylinder = meshes.add(Cylinder::default());
     let logo = asset_server.load("branding/icon.png");
     let wheel_matl = materials.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),
         ..default()
     });
 
+    let mut matl = |color| {
+        materials.add(StandardMaterial {
+            base_color: color,
+            ..default()
+        })
+    };
+
     let colors = [
-        materials.add(LegacyColor::RED),
-        materials.add(LegacyColor::YELLOW),
-        materials.add(LegacyColor::BLACK),
-        materials.add(LegacyColor::BLUE),
-        materials.add(LegacyColor::GREEN),
-        materials.add(LegacyColor::PURPLE),
-        materials.add(LegacyColor::BEIGE),
-        materials.add(LegacyColor::ORANGE),
+        matl(Color::linear_rgb(1.0, 0.0, 0.0)),
+        matl(Color::linear_rgb(1.0, 1.0, 0.0)),
+        matl(Color::BLACK),
+        matl(Color::linear_rgb(0.0, 0.0, 1.0)),
+        matl(Color::linear_rgb(0.0, 1.0, 0.0)),
+        matl(Color::linear_rgb(1.0, 0.0, 1.0)),
+        matl(Color::linear_rgb(0.5, 0.5, 0.0)),
+        matl(Color::linear_rgb(1.0, 0.5, 0.0)),
     ];
 
-    for i in 0..40 {
+    for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
         let mut entity = commands.spawn((
             PbrBundle {
@@ -162,35 +178,70 @@ fn spawn_cars(
     }
 }
 
+fn spawn_barriers(
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+) {
+    const N_CONES: usize = 100;
+    let capsule = meshes.add(Capsule3d::default());
+    let matl = materials.add(StandardMaterial {
+        base_color: Color::srgb_u8(255, 87, 51),
+        reflectance: 1.0,
+        ..default()
+    });
+    let mut spawn_with_offset = |offset: f32| {
+        for i in 0..N_CONES {
+            let pos = race_track_shape(
+                offset,
+                (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
+            );
+            commands.spawn(PbrBundle {
+                mesh: capsule.clone(),
+                material: matl.clone(),
+                transform: Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
+                ..default()
+            });
+        }
+    };
+    spawn_with_offset(0.04);
+    spawn_with_offset(-0.04);
+}
+
 fn spawn_trees(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
 ) {
+    const N_TREES: usize = 30;
     let capsule = meshes.add(Capsule3d::default());
     let sphere = meshes.add(Sphere::default());
-    let leaves = materials.add(LegacyColor::GREEN);
-    let trunk = materials.add(LegacyColor::rgb(0.4, 0.2, 0.2));
-    let n_trees = 50;
-    for theta in 0..n_trees * 4 {
-        let theta = theta as f32 * 1.3;
-        let dist = 40.0 + theta * 0.3;
-        let x = (theta / n_trees as f32 * 2.0 * std::f32::consts::PI).sin() * dist;
-        let z = (theta / n_trees as f32 * 2.0 * std::f32::consts::PI).cos() * dist;
-        commands.spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: leaves.clone(),
-            transform: Transform::from_xyz(x + 3.0, 0.8, z + 3.0).with_scale(Vec3::splat(1.6)),
-            ..default()
-        });
-        commands.spawn(PbrBundle {
-            mesh: capsule.clone(),
-            material: trunk.clone(),
-            transform: Transform::from_xyz(x + 3.0, -0.4, z + 3.0)
-                .with_scale(Vec3::new(0.3, 2.0, 0.3)),
-            ..default()
-        });
-    }
+    let leaves = materials.add(Color::linear_rgb(0.0, 1.0, 0.0));
+    let trunk = materials.add(Color::linear_rgb(0.4, 0.2, 0.2));
+
+    let mut spawn_with_offset = |offset: f32| {
+        for i in 0..N_TREES {
+            let pos = race_track_shape(
+                offset,
+                (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
+            );
+            let [x, z] = pos.into();
+            commands.spawn(PbrBundle {
+                mesh: sphere.clone(),
+                material: leaves.clone(),
+                transform: Transform::from_xyz(x, 0.0, z).with_scale(Vec3::splat(0.4)),
+                ..default()
+            });
+            commands.spawn(PbrBundle {
+                mesh: capsule.clone(),
+                material: trunk.clone(),
+                transform: Transform::from_xyz(x, -0.4, z).with_scale(Vec3::new(0.05, 0.5, 0.05)),
+                ..default()
+            });
+        }
+    };
+    spawn_with_offset(0.07);
+    spawn_with_offset(-0.07);
 }
 
 fn setup_ui(mut commands: Commands) {
@@ -215,7 +266,7 @@ fn setup_ui(mut commands: Commands) {
     );
 }
 
-fn update_settings(
+fn keyboard_inputs(
     mut settings: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
@@ -223,24 +274,38 @@ fn update_settings(
 ) {
     let mut settings = settings.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.5;
+        settings.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.5;
+        settings.shutter_angle += 0.25;
     } else if presses.just_pressed(KeyCode::Digit3) {
         settings.samples = settings.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
         settings.samples += 1;
     } else if presses.just_pressed(KeyCode::Space) {
         *camera = match *camera {
-            CameraMode::Track => CameraMode::Follow,
-            CameraMode::Follow => CameraMode::Track,
+            CameraMode::Track => CameraMode::Chase,
+            CameraMode::Chase => CameraMode::Track,
         };
     }
     settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
     settings.samples = settings.samples.clamp(0, 64);
     let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.1}\n", settings.shutter_angle);
+    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
     text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+}
+
+// Parametric function for a looping race track. `offset` will return the point offset normal to the center of the race course.
+fn race_track_shape(offset: f32, t: f32) -> Vec2 {
+    let x_tweak = 2.0;
+    let y_tweak = 3.0;
+    let scale = 8.0;
+    let x0 = (x_tweak * t).sin();
+    let y0 = (y_tweak * t).cos();
+    let dx = x_tweak * (x_tweak * t).cos();
+    let dy = y_tweak * -(y_tweak * t).sin();
+    let x = x0 + offset * dy / (dx.powi(2) + dy.powi(2)).sqrt();
+    let y = y0 - offset * dx / (dx.powi(2) + dy.powi(2)).sqrt();
+    Vec2::new(x, y) * scale
 }
 
 fn move_cars(
@@ -249,14 +314,15 @@ fn move_cars(
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
-        let time = time.elapsed_seconds() * 0.3;
+        let time = time.elapsed_seconds() * 0.25;
         let t = time + 0.5 * moves.0;
         let dx = t.cos();
         let dz = -(3.0 * t).sin();
-        let t = t + (dx * dx + dz * dz).sqrt() * 0.1;
+        let speed_variation = (dx * dx + dz * dz).sqrt() * 0.15;
+        let t = t + speed_variation;
         let prev = transform.translation;
-        transform.translation.x = (1.0 * t).sin() * 10.0;
-        transform.translation.z = (3.0 * t).cos() * 10.0;
+        transform.translation.x = race_track_shape(0.0, t).x;
+        transform.translation.z = race_track_shape(0.0, t).y;
         transform.translation.y = -0.59;
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
@@ -282,44 +348,42 @@ fn move_camera(
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);
-            transform.translation = Vec3::new(0.0, -0.3, 0.0);
+            transform.translation = Vec3::new(15.0, 1.0, 0.0);
             if let Projection::Perspective(perspective) = &mut *projection {
-                perspective.fov = 0.15;
+                perspective.fov = 0.05;
             }
         }
-        CameraMode::Follow => {
+        CameraMode::Chase => {
             transform.translation =
                 tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
             transform.look_to(*tracked.forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
-                perspective.fov = 1.2;
+                perspective.fov = 1.0;
             }
         }
     }
 }
 
-/// Creates a colorful test pattern
-fn ground_texture() -> Image {
-    use bevy_internal::render::texture::{ImageSampler, ImageSamplerDescriptor};
+fn uv_debug_texture() -> Image {
+    use bevy::render::texture::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+    const TEXTURE_SIZE: usize = 7;
 
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        0, 180, 0, 255, 0, 255, 30, 255, 0, 255, 60, 255, 0, 255, 90, 255, 0, 180, 120, 255, 0,
-        255, 150, 255, 0, 255, 180, 255, 0, 255, 210, 255,
+    let mut palette = [
+        164, 164, 164, 255, 168, 168, 168, 255, 153, 153, 153, 255, 139, 139, 139, 255, 153, 153,
+        153, 255, 177, 177, 177, 255, 159, 159, 159, 255,
     ];
 
     let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
     for y in 0..TEXTURE_SIZE {
         let offset = TEXTURE_SIZE * y * 4;
         texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
+        palette.rotate_right(12);
     }
 
     let mut img = Image::new_fill(
         bevy::render::render_resource::Extent3d {
-            width: TEXTURE_SIZE as u32 * 10,
-            height: TEXTURE_SIZE as u32 * 10,
+            width: TEXTURE_SIZE as u32,
+            height: TEXTURE_SIZE as u32,
             depth_or_array_layers: 1,
         },
         bevy::render::render_resource::TextureDimension::D2,
@@ -328,9 +392,10 @@ fn ground_texture() -> Image {
         bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-        address_mode_u: bevy::render::texture::ImageAddressMode::Repeat,
-        address_mode_v: bevy::render::texture::ImageAddressMode::Repeat,
-        ..ImageSamplerDescriptor::nearest()
+        address_mode_u: ImageAddressMode::Repeat,
+        address_mode_v: ImageAddressMode::MirrorRepeat,
+        mag_filter: bevy::render::texture::ImageFilterMode::Nearest,
+        ..ImageSamplerDescriptor::linear()
     });
     img
 }
