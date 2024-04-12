@@ -906,7 +906,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     ///
-    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    /// It caches the last fetch, which could potentially be more efficient when dealing with many entities of the same archetype.
     ///
     /// This is always guaranteed to run in `O(1)` time.
     ///

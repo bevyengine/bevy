@@ -9,7 +9,7 @@ use crate::{
 use super::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState};
 
 /// Used for quickly fetching query item from a specific [`Entity`].
-/// It caches the last fetch which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+/// It caches the last fetch which could potentially be more efficient when dealing with many entities of the same archetype.
 ///
 /// This struct is created by the [`Query::getter`](crate::system::Query::entity_getter) and [`Query::entity_getter_mut`](crate::system::Query::entity_getter_mut) methods.
 pub struct PointQuery<'w, 's, D: QueryData, F: QueryFilter = ()> {
