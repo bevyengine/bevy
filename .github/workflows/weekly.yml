@@ -13,6 +13,7 @@ env:
 
 jobs:
   test:
+    name: Tests
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
@@ -32,6 +33,7 @@ jobs:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -46,6 +48,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   check-compiles:
+    name: Check project compiles
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: test
@@ -59,6 +62,7 @@ jobs:
         run: cargo run -p ci -- compile
 
   check-doc:
+    name: Check documentation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
