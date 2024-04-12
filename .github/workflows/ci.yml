@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  test:
     name: Run tests
     strategy:
       matrix:
@@ -38,7 +38,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-test-stable-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
@@ -133,7 +133,7 @@ jobs:
   build-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -154,7 +154,7 @@ jobs:
   build-wasm-atomics:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -376,7 +376,7 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
