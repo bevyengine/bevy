@@ -67,6 +67,12 @@ fn should_cull_instance(instance_id: u32) -> bool {
     let packed_visibility = meshlet_view_instance_visibility[instance_id / 32u];
     return bool(extractBits(packed_visibility, bit_offset, 1u));
 }
+
+fn get_meshlet_occlusion(cluster_id: u32) -> u32 {
+    let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
+    let bit_offset = (cluster_id % 16u) * 2u;
+    return extractBits(packed_occlusion, bit_offset, 2u);
+}
 #endif
 
 #ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
@@ -76,10 +82,10 @@ fn should_cull_instance(instance_id: u32) -> bool {
 @group(0) @binding(3) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
-fn get_meshlet_occlusion(cluster_id: u32) -> u32 {
+fn get_meshlet_occlusion(cluster_id: u32) -> bool {
     let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
-    let bit_offset = (cluster_id % 16u) * 2u;
-    return extractBits(packed_occlusion, bit_offset, 2u);
+    let bit_offset = (cluster_id % 16u) * 2u + 1u;
+    return bool(extractBits(packed_occlusion, bit_offset, 1u));
 }
 #endif
 

@@ -8,7 +8,7 @@
     view,
     previous_view,
     should_cull_instance,
-    depth_pyramid,
+    get_meshlet_occlusion,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -23,7 +23,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-//   odo: reurn if no 2
+    if get_meshlet_occlusion(cluster_id.x) != 2u { return; }
 #endif
 
     // Check for instance culling
@@ -89,7 +89,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
     let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
-    let meshlet_visible;
+    var meshlet_visible: bool;
     if view.projection[3][3] == 1.0 {
         // Orthographic
         let sphere_depth = view.projection[3][2] + (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius) * view.projection[2][2];
@@ -105,10 +105,8 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 #else
     var occlusion_bits = u32(meshlet_visible);
 #endif
-
-    // Write the bitmask of whether or not the cluster was culled
-    // let occlusion_bit = u32(meshlet_visible) << (cluster_id.x % 32u);
-    // atomicOr(&meshlet_occlusion[cluster_id.x / 32u], occlusion_bit);
+    occlusion_bits <<= 30u - (2u * (cluster_id.x % 16u));
+    atomicOr(&meshlet_occlusion[cluster_id.x / 16u], occlusion_bits);
 }
 
 // https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403

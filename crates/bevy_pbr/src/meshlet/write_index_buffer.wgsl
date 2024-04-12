@@ -4,7 +4,6 @@
     draw_indirect_args,
     draw_index_buffer,
     get_meshlet_occlusion,
-    get_meshlet_previous_occlusion,
 }
 
 var<workgroup> draw_index_buffer_start_workgroup: u32;
@@ -20,11 +19,6 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
 
     // If the meshlet was culled, then we don't need to draw it
     if !get_meshlet_occlusion(cluster_id) { return; }
-
-    // If the meshlet was drawn in the first pass, and this is the second pass, then we don't need to draw it
-#ifdef MESHLET_SECOND_WRITE_INDEX_BUFFER_PASS
-    if get_meshlet_previous_occlusion(cluster_id) { return; }
-#endif
 
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
