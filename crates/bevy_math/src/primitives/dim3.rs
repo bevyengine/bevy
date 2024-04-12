@@ -1170,23 +1170,24 @@ mod tests {
 
     #[test]
     fn ramp_math() {
+        use std::f32::consts::FRAC_PI_4;
         let ramp = Ramp {
             half_size: Vec3::new(1.9, 3.2, 7.45),
         };
 
-        assert_eq!(ramp.area(), 237.922129, "incorrect area");
+        assert_eq!(ramp.area(), 237.92213, "incorrect area");
         assert_eq!(ramp.volume(), 181.18399, "incorrect volume");
         assert_eq!(ramp.incline(), 0.40570152, "incorrect incline");
 
         assert_eq!(Ramp::default().area(), 4.4142136, "incorrect area");
         assert_eq!(Ramp::default().volume(), 0.5, "incorrect volume");
-        assert_eq!(Ramp::default().incline(), 0.7853982, "incorrect incline");
+        assert_eq!(Ramp::default().incline(), FRAC_PI_4, "incorrect incline");
 
         let ramp = Ramp::from_incline(2.4, 3.8, 0.12);
         assert_eq!(
             ramp.half_size,
             Vec3::new(1.2, 0.22910073, 1.9),
             "incorrect from_incline"
-        )
+        );
     }
 }
