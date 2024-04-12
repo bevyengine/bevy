@@ -1,6 +1,7 @@
 mod conversions;
 pub mod skinning;
 use bevy_transform::components::Transform;
+use bitflags::bitflags;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -9,6 +10,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
+    texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_derive::EnumVariantMeta;
@@ -91,7 +93,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access modify a Mesh's attributes after creating it.
 ///
@@ -369,6 +371,14 @@ impl Mesh {
         self
     }
 
+    /// Returns the size of a vertex in bytes.
+    pub fn get_vertex_size(&self) -> u64 {
+        self.attributes
+            .values()
+            .map(|data| data.attribute.format.get_size())
+            .sum()
+    }
+
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
@@ -536,12 +546,13 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
-    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Consider calling [`Mesh::duplicate_vertices`] or export your mesh with normal attributes.
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    ///
+    /// FIXME: The should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
     pub fn compute_flat_normals(&mut self) {
-        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling `Mesh::duplicate_vertices`.");
-
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_flat_normals` can only work on `TriangleList`s"
@@ -553,18 +564,56 @@ impl Mesh {
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-        let normals: Vec<_> = positions
-            .chunks_exact(3)
-            .map(|p| face_normal(p[0], p[1], p[2]))
-            .flat_map(|normal| [normal; 3])
-            .collect();
+        match self.indices() {
+            Some(indices) => {
+                let mut count: usize = 0;
+                let mut corners = [0_usize; 3];
+                let mut normals = vec![[0.0f32; 3]; positions.len()];
+                let mut adjacency_counts = vec![0_usize; positions.len()];
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                for i in indices.iter() {
+                    corners[count % 3] = i;
+                    count += 1;
+                    if count % 3 == 0 {
+                        let normal = face_normal(
+                            positions[corners[0]],
+                            positions[corners[1]],
+                            positions[corners[2]],
+                        );
+                        for corner in corners {
+                            normals[corner] =
+                                (Vec3::from(normal) + Vec3::from(normals[corner])).into();
+                            adjacency_counts[corner] += 1;
+                        }
+                    }
+                }
+
+                // average (smooth) normals for shared vertices...
+                // TODO: support different methods of weighting the average
+                for i in 0..normals.len() {
+                    let count = adjacency_counts[i];
+                    if count > 0 {
+                        normals[i] = (Vec3::from(normals[i]) / (count as f32)).normalize().into();
+                    }
+                }
+
+                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            }
+            None => {
+                let normals: Vec<_> = positions
+                    .chunks_exact(3)
+                    .map(|p| face_normal(p[0], p[1], p[2]))
+                    .flat_map(|normal| [normal; 3])
+                    .collect();
+
+                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            }
+        }
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::with_computed_flat_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
     /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
@@ -1346,6 +1395,43 @@ impl From<&Indices> for IndexFormat {
     }
 }
 
+bitflags! {
+    /// Our base mesh pipeline key bits start from the highest bit and go
+    /// downward. The PBR mesh pipeline key bits start from the lowest bit and
+    /// go upward. This allows the PBR bits in the downstream crate `bevy_pbr`
+    /// to coexist in the same field without any shifts.
+    #[derive(Clone, Debug)]
+    pub struct BaseMeshPipelineKey: u32 {
+        const MORPH_TARGETS = 1 << 31;
+    }
+}
+
+impl BaseMeshPipelineKey {
+    pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
+    pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
+        31 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
+    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+        let primitive_topology_bits = ((primitive_topology as u32)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
+            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        Self::from_bits_retain(primitive_topology_bits)
+    }
+
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
+        match primitive_topology_bits {
+            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            _ => PrimitiveTopology::default(),
+        }
+    }
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
@@ -1355,8 +1441,15 @@ pub struct GpuMesh {
     pub vertex_count: u32,
     pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
-    pub primitive_topology: PrimitiveTopology,
+    pub key_bits: BaseMeshPipelineKey,
     pub layout: MeshVertexBufferLayoutRef,
+}
+
+impl GpuMesh {
+    #[inline]
+    pub fn primitive_topology(&self) -> PrimitiveTopology {
+        self.key_bits.primitive_topology()
+    }
 }
 
 /// The index/vertex buffer info of a [`GpuMesh`].
@@ -1371,58 +1464,73 @@ pub enum GpuBufferInfo {
     NonIndexed,
 }
 
-impl RenderAsset for Mesh {
-    type PreparedAsset = GpuMesh;
+impl RenderAsset for GpuMesh {
+    type SourceAsset = Mesh;
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<Image>>,
+        SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
+    #[inline]
+    fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
+        mesh.asset_usage
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
-        self,
+        mesh: Self::SourceAsset,
         (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
             Self::Param,
         >,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
-        let vertex_buffer_data = self.get_vertex_buffer_data();
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let morph_targets = match mesh.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
+        let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = if let Some(data) = self.get_index_buffer_bytes() {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
-                count: self.indices().unwrap().len() as u32,
-                index_format: self.indices().unwrap().into(),
+                count: mesh.indices().unwrap().len() as u32,
+                index_format: mesh.indices().unwrap().into(),
             }
         } else {
             GpuBufferInfo::NonIndexed
         };
 
         let mesh_vertex_buffer_layout =
-            self.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
+            mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
+
+        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        key_bits.set(
+            BaseMeshPipelineKey::MORPH_TARGETS,
+            mesh.morph_targets.is_some(),
+        );
 
         Ok(GpuMesh {
             vertex_buffer,
-            vertex_count: self.count_vertices() as u32,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
-            primitive_topology: self.primitive_topology(),
+            key_bits,
             layout: mesh_vertex_buffer_layout,
-            morph_targets: self
-                .morph_targets
-                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }

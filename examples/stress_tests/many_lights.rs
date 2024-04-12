@@ -4,13 +4,13 @@
 use std::f64::consts::PI;
 
 use bevy::{
-    color::palettes::css::PINK,
+    color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
@@ -62,7 +62,7 @@ fn setup(
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: PINK.into(),
+        base_color: DEEP_PINK.into(),
         ..default()
     });
 
@@ -157,7 +157,7 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

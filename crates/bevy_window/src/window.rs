@@ -227,7 +227,7 @@ pub struct Window {
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
     /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
-    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
     ///
@@ -259,6 +259,17 @@ pub struct Window {
     ///
     /// - **Android / Wayland / Web:** Unsupported.
     pub visible: bool,
+    /// Sets whether the window should be shown in the taskbar.
+    ///
+    /// If `true`, the window will not appear in the taskbar.
+    /// If `false`, the window will appear in the taskbar.
+    ///
+    /// Note that this will only take effect on window creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub skip_taskbar: bool,
 }
 
 impl Default for Window {
@@ -287,6 +298,7 @@ impl Default for Window {
             canvas: None,
             window_theme: None,
             visible: true,
+            skip_taskbar: false,
         }
     }
 }

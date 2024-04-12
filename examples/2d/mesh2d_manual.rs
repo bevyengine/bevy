@@ -8,16 +8,18 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::Transparent2d,
+    math::FloatOrd,
     prelude::*,
     render::{
-        mesh::{Indices, MeshVertexAttribute},
+        mesh::{GpuMesh, Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            PushConstantRange, RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline,
+            SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
@@ -26,9 +28,8 @@ use bevy::{
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
-        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
     },
-    utils::FloatOrd,
 };
 use std::f32::consts::PI;
 
@@ -157,6 +158,18 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(
+            feature = "webgl2",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
@@ -184,7 +197,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ],
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -272,9 +285,9 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
-        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
+        let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
         shaders.insert(
-            COLORED_MESH2D_SHADER_HANDLE,
+            &COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
 
@@ -343,11 +356,11 @@ pub fn queue_colored_mesh2d(
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {
@@ -362,7 +375,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh2d>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
@@ -370,7 +383,7 @@ pub fn queue_colored_mesh2d(
                 let mut mesh2d_key = mesh_key;
                 if let Some(mesh) = render_meshes.get(mesh2d_handle) {
                     mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
                 }
 
                 let pipeline_id =

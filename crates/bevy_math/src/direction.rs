@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Vec2, Vec3, Vec3A,
+    Quat, Rotation2d, Vec2, Vec3, Vec3A,
 };
 
 /// An error indicating that a direction is invalid.
@@ -136,6 +136,11 @@ impl Dir2 {
     pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec2::new(x, y))
     }
+
+    /// Returns the inner [`Vec2`]
+    pub const fn as_vec2(&self) -> Vec2 {
+        self.0
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -143,6 +148,12 @@ impl TryFrom<Vec2> for Dir2 {
 
     fn try_from(value: Vec2) -> Result<Self, Self::Error> {
         Self::new(value)
+    }
+}
+
+impl From<Dir2> for Vec2 {
+    fn from(value: Dir2) -> Self {
+        value.as_vec2()
     }
 }
 
@@ -171,6 +182,23 @@ impl std::ops::Mul<Dir2> for f32 {
     type Output = Vec2;
     fn mul(self, rhs: Dir2) -> Self::Output {
         self * rhs.0
+    }
+}
+
+impl std::ops::Mul<Dir2> for Rotation2d {
+    type Output = Dir2;
+
+    /// Rotates the [`Dir2`] using a [`Rotation2d`].
+    fn mul(self, direction: Dir2) -> Self::Output {
+        let rotated = self * *direction;
+
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "`Dir2` is denormalized after rotation.",
+            rotated.length_squared(),
+        );
+
+        Dir2(rotated)
     }
 }
 
@@ -269,6 +297,11 @@ impl Dir3 {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Returns the inner [`Vec3`]
+    pub const fn as_vec3(&self) -> Vec3 {
+        self.0
     }
 }
 
@@ -430,6 +463,11 @@ impl Dir3A {
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3A::new(x, y, z))
     }
+
+    /// Returns the inner [`Vec3A`]
+    pub const fn as_vec3a(&self) -> Vec3A {
+        self.0
+    }
 }
 
 impl TryFrom<Vec3A> for Dir3A {
@@ -526,7 +564,6 @@ impl approx::UlpsEq for Dir3A {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::InvalidDirectionError;
 
     #[test]
     fn dir2_creation() {

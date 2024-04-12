@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.76.0"
+rust-version = "1.77.0"
 
 [workspace]
 exclude = [
@@ -41,12 +41,12 @@ semicolon_if_nothing_returned = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
-#TODO(rust 1.77): enable `ref_as_ptr`
-# ref_as_ptr = "warn"
+ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
+unsafe_code = "deny"
 
 [lints]
 workspace = true
@@ -78,7 +78,6 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
-  "bevy_debug_stepping",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -321,6 +320,12 @@ embedded_watcher = ["bevy_internal/embedded_watcher"]
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["bevy_internal/meshlet"]
+
+# Enables processing meshes into meshlet meshes for bevy_pbr
+meshlet_processor = ["bevy_internal/meshlet_processor"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
 
@@ -330,6 +335,7 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default
 
 [dev-dependencies]
 rand = "0.8.0"
+rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -554,6 +560,17 @@ description = "Showcases bounding volumes and intersection tests"
 category = "2D Rendering"
 wasm = true
 
+[[example]]
+name = "wireframe_2d"
+path = "examples/2d/wireframe_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.wireframe_2d]
+name = "2D Wireframe"
+description = "Showcases wireframes for 2d meshes"
+category = "2D Rendering"
+wasm = false
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -651,17 +668,6 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "deterministic"
-path = "examples/3d/deterministic.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.deterministic]
-name = "Deterministic rendering"
-description = "Stop flickering from z-fighting at a performance cost"
 category = "3D Rendering"
 wasm = true
 
@@ -950,6 +956,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "meshlet"
+path = "examples/3d/meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet"]
+
+[package.metadata.example.meshlet]
+name = "Meshlet"
+description = "Meshlet rendering for dense high-poly scenes (experimental)"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "lightmaps"
 path = "examples/3d/lightmaps.rs"
 doc-scrape-examples = true
@@ -1010,6 +1028,17 @@ doc-scrape-examples = true
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "color_animation"
+path = "examples/animation/color_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_animation]
+name = "Color animation"
+description = "Demonstrates how to animate colors using mixing and splines in different color spaces"
 category = "Animation"
 wasm = true
 
@@ -1212,6 +1241,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_settings"
+path = "examples/asset/asset_settings.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_settings]
+name = "Asset Settings"
+description = "Demonstrates various methods of applying settings when loading an asset"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_decompression"
 path = "examples/asset/asset_decompression.rs"
 doc-scrape-examples = true
@@ -1344,6 +1384,17 @@ doc-scrape-examples = true
 [package.metadata.example.decodable]
 name = "Decodable"
 description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "soundtrack"
+path = "examples/audio/soundtrack.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.soundtrack]
+name = "Soundtrack"
+description = "Shows how to play different soundtracks based on game state"
 category = "Audio"
 wasm = true
 
@@ -1643,10 +1694,11 @@ wasm = false
 name = "system_stepping"
 path = "examples/ecs/system_stepping.rs"
 doc-scrape-examples = true
+required-features = ["bevy_debug_stepping"]
 
 [package.metadata.example.system_stepping]
 name = "System Stepping"
-description = "Demonstrate stepping through systems in order of execution"
+description = "Demonstrate stepping through systems in order of execution."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1702,7 +1754,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.breakout]
 name = "Breakout"
-description = "An implementation of the classic game \"Breakout\""
+description = "An implementation of the classic game \"Breakout\"."
 category = "Games"
 wasm = true
 
@@ -1736,6 +1788,17 @@ doc-scrape-examples = true
 [package.metadata.example.game_menu]
 name = "Game Menu"
 description = "A simple game menu"
+category = "Games"
+wasm = true
+
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
 category = "Games"
 wasm = true
 
@@ -2084,6 +2147,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "gpu_readback"
+path = "examples/shader/gpu_readback.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_readback]
+name = "GPU readback"
+description = "A very simple compute shader that writes to a buffer that is read by the cpu"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
@@ -2285,6 +2359,17 @@ category = "Transforms"
 wasm = true
 
 [[example]]
+name = "align"
+path = "examples/transforms/align.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.align]
+name = "Alignment"
+description = "A demonstration of Transform's axis-alignment feature"
+category = "Transforms"
+wasm = true
+
+[[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
 doc-scrape-examples = true
@@ -2326,6 +2411,17 @@ doc-scrape-examples = true
 [package.metadata.example.borders]
 name = "Borders"
 description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "rounded_borders"
+path = "examples/ui/rounded_borders.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.rounded_borders]
+name = "Rounded Borders"
+description = "Demonstrates how to create a node with a rounded border"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2763,6 +2859,18 @@ description = "A scene showcasing light gizmos"
 category = "Gizmos"
 wasm = true
 
+[[example]]
+name = "fps_overlay"
+path = "examples/dev_tools/fps_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -2775,5 +2883,6 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

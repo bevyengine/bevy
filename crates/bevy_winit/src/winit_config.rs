@@ -2,7 +2,7 @@ use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Clone)]
 pub struct WinitSettings {
     /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
@@ -58,6 +58,8 @@ impl Default for WinitSettings {
     }
 }
 
+// Rustdoc mistakenly believes `App` is already in scope.
+#[allow(rustdoc::redundant_explicit_links)]
 /// Determines how frequently an [`App`](bevy_app::App) should update.
 ///
 /// **Note:** This setting is independent of VSync. VSync is controlled by a window's

@@ -1,8 +1,7 @@
 use crate::{
     Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_reflect::prelude::*;
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
@@ -12,8 +11,13 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Color {
     /// A color in the sRGB color space with alpha.
     Srgba(Srgba),
@@ -266,14 +270,19 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color.
-    pub const fn oklaba(l: f32, a: f32, b: f32, alpha: f32) -> Self {
-        Self::Oklaba(Oklaba { l, a, b, alpha })
+    pub const fn oklaba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self::Oklaba(Oklaba {
+            lightness,
+            a,
+            b,
+            alpha,
+        })
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color with an alpha of 1.0.
-    pub const fn oklab(l: f32, a: f32, b: f32) -> Self {
+    pub const fn oklab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Oklaba(Oklaba {
-            l,
+            lightness,
             a,
             b,
             alpha: 1.0,

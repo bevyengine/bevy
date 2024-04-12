@@ -193,7 +193,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new(world);
+        let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<D>(),
@@ -205,17 +205,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta
             .component_access_set
             .add(state.component_access.clone());
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
         state
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        state.new_archetype(archetype);
-        system_meta
-            .archetype_component_access
-            .extend(&state.archetype_component_access);
+        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
     #[inline]
@@ -1537,9 +1531,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::{assert_is_system, Query},
+        system::assert_is_system,
     };
-    use std::{cell::RefCell, marker::PhantomData};
+    use std::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -1584,6 +1578,7 @@ mod tests {
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[test]
     fn system_param_const_generics() {
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
@@ -1641,6 +1636,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct UnitParam;
 
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
             Res<'w, R>,
@@ -1657,6 +1653,7 @@ mod tests {
         #[derive(Resource)]
         struct PrivateResource;
 
+        #[allow(dead_code)]
         #[derive(SystemParam)]
         pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 

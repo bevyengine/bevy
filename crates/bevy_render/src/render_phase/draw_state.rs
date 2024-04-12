@@ -1,5 +1,6 @@
 use crate::{
     camera::Viewport,
+    diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
@@ -9,7 +10,7 @@ use crate::{
 use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
+use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -179,7 +180,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Assign a vertex buffer to a slot.
     ///
     /// Subsequent calls to [`draw`] and [`draw_indexed`] on this
-    /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
+    /// [`TrackedRenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
@@ -602,4 +603,24 @@ impl<'a> TrackedRenderPass<'a> {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }
+}
+
+impl WriteTimestamp for TrackedRenderPass<'_> {
+    fn write_timestamp(&mut self, query_set: &wgpu::QuerySet, index: u32) {
+        self.pass.write_timestamp(query_set, index);
+    }
+}
+
+impl WritePipelineStatistics for TrackedRenderPass<'_> {
+    fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.pass.begin_pipeline_statistics_query(query_set, index);
+    }
+
+    fn end_pipeline_statistics_query(&mut self) {
+        self.pass.end_pipeline_statistics_query();
+    }
+}
+
+impl Pass for TrackedRenderPass<'_> {
+    const KIND: PassKind = PassKind::Render;
 }

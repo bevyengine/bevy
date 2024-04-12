@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Dir3, Mat2, Quat, Vec2, Vec3};
+use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 
 use crate::{
@@ -18,13 +18,11 @@ use crate::{
     prelude::GizmoConfig,
 };
 
-type PositionItem = [f32; 3];
-
 #[derive(Resource, Default)]
 pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
-    pub(crate) list_positions: Vec<PositionItem>,
+    pub(crate) list_positions: Vec<Vec3>,
     pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<PositionItem>,
+    pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
@@ -51,6 +49,8 @@ type GizmosState<T> = (
 pub struct GizmosFetchState<T: GizmoConfigGroup> {
     state: <GizmosState<T> as SystemParam>::State,
 }
+
+#[allow(unsafe_code)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
 unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
     type State = GizmosFetchState<T>;
@@ -92,6 +92,8 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
         }
     }
 }
+
+#[allow(unsafe_code)]
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
 unsafe impl<'w, 's, T: GizmoConfigGroup> ReadOnlySystemParam for Gizmos<'w, 's, T>
 where
@@ -102,9 +104,9 @@ where
 
 #[derive(Default)]
 struct GizmoBuffer<T: GizmoConfigGroup> {
-    list_positions: Vec<PositionItem>,
+    list_positions: Vec<Vec3>,
     list_colors: Vec<LinearRgba>,
-    strip_positions: Vec<PositionItem>,
+    strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
     marker: PhantomData<T>,
 }
@@ -297,11 +299,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         strip_colors.reserve(min);
 
         for (position, color) in points {
-            strip_positions.push(position.to_array());
+            strip_positions.push(position);
             strip_colors.push(LinearRgba::from(color.into()));
         }
 
-        strip_positions.push([f32::NAN; 3]);
+        strip_positions.push(Vec3::NAN);
         strip_colors.push(LinearRgba::NAN);
     }
 
@@ -590,20 +592,24 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: impl Into<Color>) {
+    pub fn rect_2d(
+        &mut self,
+        position: Vec2,
+        rotation: impl Into<Rotation2d>,
+        size: Vec2,
+        color: impl Into<Color>,
+    ) {
         if !self.enabled {
             return;
         }
-        let rotation = Mat2::from_angle(rotation);
+        let rotation: Rotation2d = rotation.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer
-            .list_positions
-            .extend(positions.into_iter().map(|vec3| vec3.to_array()));
+        self.buffer.list_positions.extend(positions);
     }
 
     #[inline]
@@ -627,12 +633,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(
-            positions
-                .into_iter()
-                .map(|vec3| vec3.to_array())
-                .chain(iter::once([f32::NAN; 3])),
-        );
+        self.buffer.strip_positions.extend(positions);
+        self.buffer.strip_positions.push(Vec3::NAN);
     }
 }
 

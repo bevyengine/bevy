@@ -3,7 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
@@ -41,10 +42,7 @@ fn main() {
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
-            (
-                gameover_keyboard.run_if(in_state(GameState::GameOver)),
-                bevy::window::close_on_esc,
-            ),
+            gameover_keyboard.run_if(in_state(GameState::GameOver)),
         )
         .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
@@ -81,6 +79,9 @@ struct Game {
     camera_is_focus: Vec3,
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct Random(ChaCha8Rng);
+
 const BOARD_SIZE_I: usize = 14;
 const BOARD_SIZE_J: usize = 21;
 
@@ -105,6 +106,14 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+    let mut rng = if std::env::var("GITHUB_ACTIONS") == Ok("true".to_string()) {
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        ChaCha8Rng::seed_from_u64(19878367467713)
+    } else {
+        ChaCha8Rng::from_entropy()
+    };
+
     // reset the game state
     game.cake_eaten = 0;
     game.score = 0;
@@ -129,7 +138,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rand::thread_rng().gen_range(-0.1..0.1);
+                    let height = rng.gen_range(-0.1..0.1);
                     commands.spawn(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
@@ -180,6 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             ..default()
         }),
     );
+
+    commands.insert_resource(Random(rng));
 }
 
 // remove all entities that are not a camera or window
@@ -305,6 +316,7 @@ fn spawn_bonus(
     mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
+    mut rng: ResMut<Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
     if !timer.0.tick(time.delta()).finished() {
@@ -323,8 +335,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rand::thread_rng().gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rand::thread_rng().gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }
