@@ -35,6 +35,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     // Fetch other meshlet data
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
+    // TODO: use previous model for occlusion cull in first pass
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
