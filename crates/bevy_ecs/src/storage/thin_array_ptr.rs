@@ -5,17 +5,40 @@ use std::num::NonZeroUsize;
 use std::ptr::{self, NonNull};
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
-///
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
+    #[cfg(debug_assertions)]
+    capacity: usize,
 }
 
 impl<T> ThinArrayPtr<T> {
+    #[cfg(debug_assertions)]
+    fn empty() -> Self {
+        Self {
+            data: NonNull::dangling(),
+            capacity: 0,
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn empty() -> Self {
+        Self {
+            data: NonNull::dangling(),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn set_capacity(&mut self, capacity: usize) {
+        self.capacity = capacity;
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn set_capacity(&mut self, _capacity: usize) {}
+
     // TODO: Docs
     pub fn with_capacity(capacity: usize) -> Self {
-        let mut arr = ThinArrayPtr {
-            data: NonNull::dangling(),
-        };
+        let mut arr = Self::empty();
+        arr.set_capacity(capacity);
         if capacity > 0 {
             // SAFETY:
             // - The `current_capacity` is 0 because it was just created
@@ -24,8 +47,6 @@ impl<T> ThinArrayPtr<T> {
         arr
     }
 
-    // TODO: Is this actually needed? I think it can save a lot of branching because using `grow_exact` will check if the capacity is 0 every time.
-    // But if the caller has the capacity saved, and they are sure the capacity is 0, they can use `alloc` and save a branch.
     /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
     ///
     /// # Panics
@@ -34,9 +55,10 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - the current capacity is indeed 0
     /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
-    pub unsafe fn alloc(&mut self, count: NonZeroUsize) {
-        let new_layout =
-            Layout::array::<T>(count.get()).expect("layout should be valid (arithmetic overflow)");
+    pub unsafe fn alloc(&mut self, capacity: NonZeroUsize) {
+        self.set_capacity(capacity.get());
+        let new_layout = Layout::array::<T>(capacity.get())
+            .expect("layout should be valid (arithmetic overflow)");
         // SAFETY:
         // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
         self.data = NonNull::new(unsafe { alloc(new_layout) })
@@ -44,8 +66,6 @@ impl<T> ThinArrayPtr<T> {
             .cast();
     }
 
-    // TODO: Is this actually needed? I think it can save a lot of branching because using `grow_exact` will check if the capacity is 0 every time.
-    // But if the caller has the capacity saved, and they are sure that capacity > 0, they can use `realloc` and save a branch.
     /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
     ///
     /// # Panics
@@ -53,10 +73,11 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - the current capacity is indeed greater than 0
-    /// The caller should their saved `capacity` value to reflect the fact that it was changed
+    /// The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
-        let new_layout = Layout::array::<T>(new_capacity.get())
-            .expect("layout should be valid (arithmetic overflow)");
+        debug_assert_eq!(current_capacity.get(), self.capacity);
+        self.set_capacity(new_capacity.get());
+        let new_layout = Layout::array::<T>(new_capacity.get()).debug_checked_unwrap();
         // SAFETY:
         // - ptr was be allocated via this allocator
         // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
@@ -79,7 +100,8 @@ impl<T> ThinArrayPtr<T> {
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety
-    /// index must be in bounds (`index` < `len`)
+    /// index must be in bounds (`index` <= `len`)
+    /// if `index` = `len` the caller should update their saved `len` value to reflect the fact that it was changed
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: T) {
         // SAFETY: `index` is in bounds
@@ -103,13 +125,12 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
-    /// - The element at index `index` must be safe to read
+    /// - The element at index `index` must be safe to read (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
     pub unsafe fn get_unchecked(&self, index: usize) -> &'_ T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
         // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
-
         // SAFETY:
         // - The pointer is properly aligned
         // - It is derefrancable (all in the same allocation)
@@ -126,13 +147,12 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
-    /// - The element at index `index` must be safe to write to
+    /// - The element at index `index` must be safe to write to (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &'_ mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
         // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
-
         // SAFETY:
         // - The pointer is properly aligned
         // - It is derefrancable (all in the same allocation)
@@ -158,6 +178,7 @@ impl<T> ThinArrayPtr<T> {
         index: usize,
         last_element_index: usize,
     ) -> T {
+        debug_assert!(index < last_element_index);
         let base_ptr = self.data.as_ptr();
         let value = ptr::read(base_ptr.add(index));
         ptr::copy_nonoverlapping(base_ptr.add(last_element_index), base_ptr.add(index), 1);
@@ -202,7 +223,6 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - ensure that `current_len` is indeed the len of the array
-    /// - update their saved `len` (decrement it)
     unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
         if current_len == 0 {
             None
@@ -232,18 +252,19 @@ impl<T> ThinArrayPtr<T> {
     /// - `current_capacity` is indeed the capacity of the array
     /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
     pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
+        debug_assert_eq!(current_capacity, self.capacity);
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
             std::alloc::dealloc(self.data.as_ptr().cast(), layout);
         }
+        self.set_capacity(0);
     }
 
     /// Get the [`ThinArrayPtr`] as a slice with a given length.
     ///
     /// # Safety
     /// - `slice_len` must match the actual length of the array
-    /// but if `slice_len` will be smaller, the slice will just be smaller than need be - no UB
     pub unsafe fn as_slice(&self, slice_len: usize) -> &[T] {
         // SAFETY:
         // - the data is valid - allocated with the same allocater
@@ -255,6 +276,7 @@ impl<T> ThinArrayPtr<T> {
 
 impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
     fn from(value: Box<[T]>) -> Self {
+        let len = value.len();
         T::assert_zero_size();
         let slice_ptr = Box::<[T]>::into_raw(value);
         // SAFETY: We just got the pointer from a reference
@@ -262,6 +284,8 @@ impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
         Self {
             // SAFETY: The pointer can't be null, it came from a reference
             data: unsafe { NonNull::new_unchecked(first_element_ptr) },
+            #[cfg(debug_assertions)]
+            capacity: len,
         }
     }
 }
