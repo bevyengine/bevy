@@ -5,16 +5,12 @@ use xshell::cmd;
 /// Checks that the project compiles using the nightly compiler with cfg checks enabled.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "cfg-check")]
-pub(crate) struct CfgCheckCommand {
-    /// runs the check with the `--no-fail-fast` flag
-    #[argh(switch, hidden_help)]
-    keep_going: bool,
-}
+pub(crate) struct CfgCheckCommand {}
 
 impl Prepare for CfgCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let mut args = vec!["-Zcheck-cfg", "--workspace"];
-        if flags.contains(Flag::KEEP_GOING) || self.keep_going {
+        if flags.contains(Flag::KEEP_GOING) {
             args.push("--no-fail-fast");
         }
 

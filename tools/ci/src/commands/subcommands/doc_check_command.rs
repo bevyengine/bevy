@@ -5,11 +5,7 @@ use xshell::cmd;
 /// Checks that all docs compile.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "doc-check")]
-pub(crate) struct DocCheckCommand {
-    /// runs the check with the `--no-fail-fast` flag
-    #[argh(switch, hidden_help)]
-    keep_going: bool,
-}
+pub(crate) struct DocCheckCommand {}
 
 impl Prepare for DocCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
@@ -19,7 +15,7 @@ impl Prepare for DocCheckCommand {
             "--no-deps",
             "--document-private-items",
         ];
-        if flags.contains(Flag::KEEP_GOING) || self.keep_going {
+        if flags.contains(Flag::KEEP_GOING) {
             args.push("--no-fail-fast");
         }
 

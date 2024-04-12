@@ -5,16 +5,12 @@ use xshell::cmd;
 /// Runs all tests (except for doc tests).
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "test")]
-pub(crate) struct TestCommand {
-    /// runs the check with the `--no-fail-fast` flag
-    #[argh(switch, hidden_help)]
-    keep_going: bool,
-}
+pub(crate) struct TestCommand {}
 
 impl Prepare for TestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let mut args = vec!["--workspace", "--lib", "--bins", "--tests", "--benches"];
-        if flags.contains(Flag::KEEP_GOING) || self.keep_going {
+        if flags.contains(Flag::KEEP_GOING) {
             args.push("--no-fail-fast");
         }
 

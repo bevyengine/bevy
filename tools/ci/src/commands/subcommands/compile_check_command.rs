@@ -5,16 +5,12 @@ use xshell::cmd;
 /// Checks that the project compiles.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "compile-check")]
-pub(crate) struct CompileCheckCommand {
-    /// runs the check with the `--no-fail-fast` flag
-    #[argh(switch, hidden_help)]
-    keep_going: bool,
-}
+pub(crate) struct CompileCheckCommand {}
 
 impl Prepare for CompileCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let mut args = vec!["--workspace"];
-        if flags.contains(Flag::KEEP_GOING) || self.keep_going {
+        if flags.contains(Flag::KEEP_GOING) {
             args.push("--no-fail-fast");
         }
 

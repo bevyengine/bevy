@@ -5,16 +5,12 @@ use xshell::cmd;
 /// Checks that all tests compile.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "test-check")]
-pub(crate) struct TestCheckCommand {
-    /// runs the check with the `--no-fail-fast` flag
-    #[argh(switch, hidden_help)]
-    keep_going: bool,
-}
+pub(crate) struct TestCheckCommand {}
 
 impl Prepare for TestCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let mut args = vec!["--workspace", "--tests"];
-        if flags.contains(Flag::KEEP_GOING) || self.keep_going {
+        if flags.contains(Flag::KEEP_GOING) {
             args.push("--no-fail-fast");
         }
 
