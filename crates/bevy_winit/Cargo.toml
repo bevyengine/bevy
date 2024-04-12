@@ -43,7 +43,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.30", default-features = false, features = [
-  "android-native-activity",
+  "android-game-activity",
   "rwh_06",
 ] }
 

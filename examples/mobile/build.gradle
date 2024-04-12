@@ -1,0 +1,25 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+	id 'com.android.application' version '8.0.0' apply false
+	id 'com.android.library' version '8.0.0' apply false
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+// Make sure we have our required assets available for packaging
+task copyAssets {
+    doFirst {
+        copy {
+            from layout.projectDirectory.dir("../../assets")
+            include "sounds/Windless Slopes.ogg"
+            into layout.projectDirectory.dir("app/src/main/assets")
+        }
+    }
+}
+
+task ndkBuild(type: Exec) {
+    workingDir layout.projectDirectory
+    commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-t', 'armeabi-v7a', '-o', 'app/src/main/jniLibs/', 'build'
+}
