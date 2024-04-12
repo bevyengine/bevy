@@ -812,6 +812,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 
 /// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
 /// to update all of the events.
+#[doc(hidden)]
 #[derive(Resource, Default)]
 pub struct EventRegistry {
     needs_update: bool,
