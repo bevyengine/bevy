@@ -192,7 +192,7 @@ impl<T> ThinArrayPtr<T> {
         index: usize,
         last_element_index: usize,
     ) {
-        let ref mut val = self.swap_remove_and_forget_unchecked(index, last_element_index);
+        let val = &mut self.swap_remove_and_forget_unchecked(index, last_element_index);
         if needs_drop::<T>() {
             std::ptr::drop_in_place(val as *mut T);
         }
