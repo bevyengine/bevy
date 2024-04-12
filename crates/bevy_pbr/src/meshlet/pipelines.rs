@@ -48,7 +48,10 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
-                shader_defs: vec!["MESHLET_CULLING_PASS".into()],
+                shader_defs: vec![
+                    "MESHLET_CULLING_PASS".into(),
+                    "MESHLET_FIRST_CULLING_PASS".into(),
+                ],
                 entry_point: "cull_meshlets".into(),
             }),
 
