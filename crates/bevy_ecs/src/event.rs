@@ -866,7 +866,7 @@ pub fn event_update_system(world: &mut World) {
 pub fn event_update_condition(signal: Option<Res<EventUpdateSignal>>) -> bool {
     // If we haven't got a signal to update the events, but we *could* get such a signal
     // return early and update the events later.
-    signal.map(|signal| signal.0).unwrap_or(false)
+    signal.map_or(false, |signal| signal.0)
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
