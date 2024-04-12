@@ -1,9 +1,6 @@
 use bevy_asset::prelude::*;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_math::{
-    cubic_splines::{CubicCurve, CubicSegment},
-    Vec2,
-};
+use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
@@ -13,6 +10,9 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
+use thiserror::Error;
+
+const LUT_SIZE: usize = 256;
 
 /// An auto exposure compensation curve.
 /// This curve is used to map the average log luminance of a scene to an
@@ -24,7 +24,18 @@ pub struct AutoExposureCompensationCurve {
     max_log_lum: f32,
     min_compensation: f32,
     max_compensation: f32,
-    data: [u8; 256],
+    lut: [u8; LUT_SIZE],
+}
+
+/// Various errors that can occur when constructing an [`AutoExposureCompensationCurve`].
+#[derive(Error, Debug)]
+pub enum AutoExposureCompensationCurveError {
+    /// A discontinuity was found in the curve.
+    #[error("discontinuity found between curve segments")]
+    DiscontinuityFound,
+    /// The curve is not monotonically increasing on the x-axis.
+    #[error("curve is not monotonically increasing on the x-axis")]
+    NotMonotonic,
 }
 
 impl Default for AutoExposureCompensationCurve {
@@ -34,15 +45,25 @@ impl Default for AutoExposureCompensationCurve {
             max_log_lum: 0.0,
             min_compensation: 0.0,
             max_compensation: 0.0,
-            data: [0; 256],
+            lut: [0; LUT_SIZE],
         }
     }
 }
 
-impl From<CubicCurve<Vec2>> for AutoExposureCompensationCurve {
-    /// Constructs a new [`AutoExposureCompensationCurve`] from a [`CubicCurve<Vec2>`], where:
+impl AutoExposureCompensationCurve {
+    const SAMPLES_PER_SEGMENT: usize = 64;
+
+    /// Build an [`AutoExposureCompensationCurve`] from a [`CubicGenerator<Vec2>`], where:
     /// - x represents the average log luminance of the scene in EV-100;
     /// - y represents the exposure compensation value in F-stops.
+    ///
+    /// # Errors
+    ///
+    /// If the curve is not monotonically increasing on the x-axis,
+    /// returns [`AutoExposureCompensationCurveError::NotMonotonic`].
+    ///
+    /// If a discontinuity is found between curve segments,
+    /// returns [`AutoExposureCompensationCurveError::DiscontinuityFound`].
     ///
     /// # Example
     ///
@@ -53,88 +74,78 @@ impl From<CubicCurve<Vec2>> for AutoExposureCompensationCurve {
     /// # use bevy_core_pipeline::auto_exposure::AutoExposureCompensationCurve;
     /// # let mut compensation_curves = Assets::<AutoExposureCompensationCurve>::default();
     /// let curve: Handle<AutoExposureCompensationCurve> = compensation_curves.add(
-    ///    LinearSpline::new([
-    ///        vec2(-4.0, -2.0),
-    ///        vec2(0.0, 0.0),
-    ///        vec2(2.0, 0.0),
-    ///        vec2(4.0, 2.0),
-    ///    ])
-    ///    .to_curve()
+    ///     AutoExposureCompensationCurve::from_curve(LinearSpline::new([
+    ///         vec2(-4.0, -2.0),
+    ///         vec2(0.0, 0.0),
+    ///         vec2(2.0, 0.0),
+    ///         vec2(4.0, 2.0),
+    ///     ]))
+    ///     .unwrap()
     /// );
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if the end of a segment is not equal to the beginning of the next segment,
-    /// or if the curve is not monotonically increasing on the x-axis.
-    fn from(curve: CubicCurve<Vec2>) -> Self {
+    pub fn from_curve<T>(curve: T) -> Result<Self, AutoExposureCompensationCurveError>
+    where
+        T: CubicGenerator<Vec2>,
+    {
+        let curve = curve.to_curve();
+
         let min_log_lum = curve.position(0.0).x;
         let max_log_lum = curve.position(curve.segments().len() as f32).x;
-        let domain = max_log_lum - min_log_lum;
-        let step = domain / 255.0;
-        assert!(min_log_lum < max_log_lum);
+        let log_lum_range = max_log_lum - min_log_lum;
 
-        let mut data = [0.0; 256];
-        let mut min_compensation = std::f32::MAX;
-        let mut max_compensation = std::f32::MIN;
-        let mut previous_end = min_log_lum;
+        let mut lut = [0.0; LUT_SIZE];
+
+        let mut previous = curve.position(0.0);
+        let mut min_compensation = previous.y;
+        let mut max_compensation = previous.y;
 
         for segment in curve {
-            let begin = segment.position(0.0).x;
-            let end = segment.position(1.0).x;
-            assert!(begin < end);
-            assert!(begin == previous_end);
-            previous_end = end;
+            if segment.position(0.0) != previous {
+                return Err(AutoExposureCompensationCurveError::DiscontinuityFound);
+            }
 
-            let i = (((begin - min_log_lum) / domain) * 255.0).ceil() as usize;
-            let j = (((end - min_log_lum) / domain) * 255.0).floor() as usize;
+            for i in 1..Self::SAMPLES_PER_SEGMENT {
+                let current = segment.position(i as f32 / (Self::SAMPLES_PER_SEGMENT - 1) as f32);
 
-            for (k, v) in data[i..=j].iter_mut().enumerate() {
-                *v = find_y_given_x(&segment, min_log_lum + (i + k) as f32 * step);
-                min_compensation = v.min(min_compensation);
-                max_compensation = v.max(max_compensation);
+                if current.x < previous.x {
+                    return Err(AutoExposureCompensationCurveError::NotMonotonic);
+                }
+
+                // Find the range of LUT entries that this line segment covers.
+                let (lut_begin, lut_end) = (
+                    ((previous.x - min_log_lum) / log_lum_range) * (LUT_SIZE - 1) as f32,
+                    ((current.x - min_log_lum) / log_lum_range) * (LUT_SIZE - 1) as f32,
+                );
+                let lut_inv_range = 1.0 / (lut_end - lut_begin);
+
+                // Iterate over all LUT entries whose pixel centers fall within the current segment.
+                #[allow(clippy::needless_range_loop)]
+                for i in lut_begin.ceil() as usize..=lut_end.floor() as usize {
+                    let t = (i as f32 - lut_begin) * lut_inv_range;
+                    lut[i] = previous.y.lerp(current.y, t);
+                    min_compensation = min_compensation.min(lut[i]);
+                    max_compensation = max_compensation.max(lut[i]);
+                }
+
+                previous = current;
             }
         }
 
         let compensation_range = max_compensation - min_compensation;
 
-        Self {
+        Ok(Self {
             min_log_lum,
             max_log_lum,
             min_compensation,
             max_compensation,
-            data: if compensation_range > 0.0 {
-                data.map(|f: f32| {
-                    (((f - min_compensation) / compensation_range) * 255.0).clamp(0.0, 255.0) as u8
-                })
+            lut: if compensation_range > 0.0 {
+                let scale = 255.0 / compensation_range;
+                lut.map(|f: f32| ((f - min_compensation) * scale) as u8)
             } else {
-                [0; 256]
+                [0; LUT_SIZE]
             },
-        }
+        })
     }
-}
-
-/// Maximum allowable error for iterative Bezier solve
-const MAX_ERROR: f32 = 1e-5;
-
-/// Maximum number of iterations during Bezier solve
-const MAX_ITERS: u8 = 8;
-
-/// Find the `y` value of the curve at the given `x` value using the Newton-Raphson method.
-fn find_y_given_x(segment: &CubicSegment<Vec2>, x: f32) -> f32 {
-    let mut t_guess = x;
-    let mut pos_guess = Vec2::ZERO;
-    for _ in 0..MAX_ITERS {
-        pos_guess = segment.position(t_guess);
-        let error = pos_guess.x - x;
-        if error.abs() <= MAX_ERROR {
-            break;
-        }
-        // Using Newton's method, use the tangent line to estimate a better guess value.
-        let slope = segment.velocity(t_guess).x; // dx/dt
-        t_guess -= error / slope;
-    }
-    pos_guess.y
 }
 
 /// The GPU-representation of an [`AutoExposureCompensationCurve`].
@@ -170,7 +181,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
             &TextureDescriptor {
                 label: None,
                 size: Extent3d {
-                    width: 256,
+                    width: LUT_SIZE as u32,
                     height: 1,
                     depth_or_array_layers: 1,
                 },
@@ -182,7 +193,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
                 view_formats: &[TextureFormat::R8Unorm],
             },
             Default::default(),
-            &source.data,
+            &source.lut,
         );
 
         let texture_view = texture.create_view(&Default::default());

@@ -21,7 +21,7 @@ mod pipeline;
 mod settings;
 
 use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
-pub use compensation_curve::AutoExposureCompensationCurve;
+pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use node::AutoExposureNode;
 use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SHADER_HANDLE};
 pub use settings::AutoExposureSettings;

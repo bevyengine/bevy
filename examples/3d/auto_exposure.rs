@@ -58,13 +58,13 @@ fn setup(
 
     commands.insert_resource(ExampleResources {
         basic_compensation_curve: compensation_curves.add(
-            LinearSpline::new([
+            AutoExposureCompensationCurve::from_curve(LinearSpline::new([
                 vec2(-4.0, -2.0),
                 vec2(0.0, 0.0),
                 vec2(2.0, 0.0),
                 vec2(4.0, 2.0),
-            ])
-            .to_curve(),
+            ]))
+            .unwrap(),
         ),
         basic_metering_mask: metering_mask.clone(),
     });
