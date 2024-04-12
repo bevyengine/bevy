@@ -814,6 +814,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
+    needs_update: bool,
     // SAFETY: The ID and the function must be used in conjunction, or improper type casts
     // occur.
     event_updates: Vec<(ComponentId, unsafe fn(MutUntyped))>,
@@ -850,17 +851,13 @@ impl EventRegistry {
 }
 
 #[doc(hidden)]
-#[derive(Resource, Default)]
-pub struct EventUpdateSignal(bool);
-
-#[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EventUpdates;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
-pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
-    if let Some(mut s) = signal {
-        s.0 = true;
+pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
+    if let Some(mut registry) = signal {
+        registry.needs_update = true;
     }
 }
 
@@ -869,21 +866,20 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Option
     if world.contains_resource::<EventRegistry>() {
         let change_tick = *last_change_tick;
         let change_tick = change_tick.unwrap_or(Tick::new(0));
-        world.resource_scope(|world, registry: Mut<EventRegistry>| {
+        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
             registry.run_updates(world, change_tick);
+            // Disable the system until signal_event_update_system runs again.
+            registry.needs_update = false;
         });
-    }
-    if let Some(mut s) = world.get_resource_mut::<EventUpdateSignal>() {
-        s.0 = false;
     }
     *last_change_tick = Some(world.change_tick());
 }
 
 /// A run condition for [`event_update_system`].
-pub fn event_update_condition(signal: Option<Res<EventUpdateSignal>>) -> bool {
+pub fn event_update_condition(signal: Option<Res<EventRegistry>>) -> bool {
     // If we haven't got a signal to update the events, but we *could* get such a signal
     // return early and update the events later.
-    signal.map_or(false, |signal| signal.0)
+    signal.map_or(false, |signal| signal.needs_update)
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
