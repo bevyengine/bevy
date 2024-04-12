@@ -35,7 +35,7 @@ impl<T> ThinArrayPtr<T> {
     #[cfg(not(debug_assertions))]
     fn set_capacity(&mut self, _capacity: usize) {}
 
-    // TODO: Docs
+    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will not allocate any memeory.
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
         arr.set_capacity(capacity);
