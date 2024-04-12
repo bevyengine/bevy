@@ -93,7 +93,9 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
-            event_update_system.in_set(bevy_ecs::event::EventUpdates),
+            event_update_system
+                .in_set(bevy_ecs::event::EventUpdates)
+                .run_if(bevy_ecs::event::event_update_condition),
         );
         app.add_event::<AppExit>();
 
@@ -374,8 +376,6 @@ impl App {
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
-    ///
-    /// [`event_update_system`]: bevy_ecs::event::event_update_system
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Event,

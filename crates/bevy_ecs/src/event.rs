@@ -824,13 +824,6 @@ impl EventRegistry {
 
     /// Updates all of the registered events in the World.
     pub fn run_updates(&mut self, world: &mut World) {
-        if let Some(signal) = world.get_resource::<EventUpdateSignal>() {
-            // If we haven't got a signal to update the events, but we *could* get such a signal
-            // return early and update the events later.
-            if !signal.0 {
-                return;
-            }
-        }
         for update in &mut self.event_updates {
             update(world)
         }
@@ -852,13 +845,6 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
     }
 }
 
-/// Resets the `EventUpdateSignal`
-pub fn reset_event_update_signal_system(signal: Option<ResMut<EventUpdateSignal>>) {
-    if let Some(mut s) = signal {
-        s.0 = false;
-    }
-}
-
 /// A system that calls [`Events::update`].
 pub fn event_update_system(world: &mut World) {
     if world.contains_resource::<EventRegistry>() {
@@ -866,6 +852,15 @@ pub fn event_update_system(world: &mut World) {
             registry.run_updates(world);
         });
     }
+    if let Some(mut s) = world.get_resource_mut::<EventUpdateSignal>() {
+        s.0 = false;
+    }
+}
+
+pub fn event_update_condition(signal: Option<Res<EventUpdateSignal>>) -> bool {
+    // If we haven't got a signal to update the events, but we *could* get such a signal
+    // return early and update the events later.
+    signal.map(|signal| signal.0).unwrap_or(false)
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
