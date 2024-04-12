@@ -1008,6 +1008,45 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [Query::get] when dealing with many entities of the same archetype.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PoisonedCharacter { character_ids: Vec<Entity> }
+    /// # #[derive(Component)]
+    /// # struct Health(u32);
+    /// #
+    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    ///     let mut getter = query.entity_getter_mut();
+    ///     
+    ///     for &entity in poisoned.character_ids.iter() {
+    ///         if let Ok(mut health) = getter.get(entity) {
+    ///             health.0 -=1;
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(poison_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`entity_getter`](Self::entity_getter) is used for read-only query.
+    #[inline]
+    pub fn entity_getter_unchecked(&self) -> PointQuery<'w, 's, D, F> {
+        // SAFETY:
+        // - `&self` ensures there is no mutable access to any components accessible to this query.
+        // - `self.world` matches `self.state`.
+        unsafe {
+            self.state
+                .entity_getter_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
+    }
     /// Returns the read-only query items for the given array of [`Entity`].
     ///
     /// The returned query items are in the same order as the input.
