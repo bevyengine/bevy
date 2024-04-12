@@ -820,6 +820,8 @@ pub struct EventRegistry {
 impl EventRegistry {
     /// Registers an event type to be updated.
     pub fn register_event<T: Event>(world: &mut World) {
+        // By initializing the resource here, we can be sure that it is present,
+        // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
         registry.event_updates.push((component_id, |ptr| {
