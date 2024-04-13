@@ -815,7 +815,7 @@ struct RegisteredEvent {
     // Required to flush the secondary buffer and drop events even if left unchanged.
     previously_updated: bool,
     // SAFETY: The component ID and the function must be used to fetch the Events<T> resource 
-    // of the same type initalized in `register_event`, or improper type casts will occur.
+    // of the same type initialized in `register_event`, or improper type casts will occur.
     update: unsafe fn(MutUntyped),
 }
 
