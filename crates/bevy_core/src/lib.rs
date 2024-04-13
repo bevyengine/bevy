@@ -37,7 +37,7 @@ pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Name>();
+        app.register_type::<Name>().register_type::<Disabled>();
     }
 }
 

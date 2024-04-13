@@ -933,12 +933,12 @@ impl EntityCommands<'_> {
         self.add(despawn);
     }
 
-    /// Enable this entity, removing the [`bevy_ecs::prelude::Disabled`] marker if it's present
+    /// Enable this entity, see [`Disabled`](crate::prelude::Disabled) for more information.
     pub fn enable(&mut self) {
         self.add(enable);
     }
 
-    /// Disable this entity, adding the [`bevy_ecs::prelude::Disabled`] marker to the entity
+    /// Disable this entity, see [`Disabled`](crate::prelude::Disabled) for more information.
     pub fn disable(&mut self) {
         self.add(disable);
     }
@@ -1001,6 +1001,10 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
+    ///
+    /// # Disabled
+    ///
+    /// Calling retain does not remove the [`Disabled`](crate::prelude::Disabled) marker even if it is present.
     pub fn retain<T>(&mut self) -> &mut Self
     where
         T: Bundle,

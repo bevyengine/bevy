@@ -939,7 +939,7 @@ impl World {
         }
     }
 
-    /// Enables the given `entity`, if it exists and was [`crate::prelude::Disabled`].
+    /// Enables the given `entity`, if it exists and was [`Disabled`](crate::prelude::Disabled).
     /// Returns `true` if the `entity` is now enabled and `false` if the `entity` does not exist.
     #[inline]
     pub fn enable(&mut self, entity: Entity) -> bool {
@@ -952,7 +952,7 @@ impl World {
         }
     }
 
-    /// Disabled the given `entity`, if it exists and didn't have [`crate::prelude::Disabled`] yet.
+    /// Disables the given `entity`, if it exists and didn't have [`Disabled`](crate::prelude::Disabled) yet.
     /// Returns `true` if the `entity` is now disabled and `false` if the `entity` does not exist.
     #[inline]
     pub fn disable(&mut self, entity: Entity) -> bool {

@@ -1271,12 +1271,12 @@ impl<'w> EntityWorldMut<'w> {
         self.entity
     }
 
-    /// Enables the current entity, removing the [`Disabled`] marker.
+    /// Enables the current entity, see [`Disabled`] for more information.
     pub fn enable(&mut self) {
         self.remove::<Disabled>();
     }
 
-    /// Disables the current entity, adding the [`Disabled`] marker.
+    /// Disables the current entity, see [`Disabled`] for more information.
     pub fn disable(&mut self) {
         self.insert(Disabled);
     }
@@ -2595,7 +2595,7 @@ mod tests {
         assert_eq!(world.entity(ent).archetype().components().next(), None);
     }
 
-    // Test that calling retain retains [`Disabled`].
+    // Test that calling retain retains `Disabled`.
     #[test]
     fn retain_disabled() {
         #[derive(Component)]

@@ -23,8 +23,48 @@ pub use world_query::*;
 
 use crate as bevy_ecs;
 
-/// A marker component that excludes an entity from queries that don't specifically request them.
-#[derive(bevy_ecs_macros::Component)]
+/// A special marker component to disable an entity.
+///
+/// Disabled entities do not show up in most queries, unless the query mentions Disabled.
+///
+/// ## Example
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::new();
+/// #
+/// // This entity is enabled, since all entities are enabled by default
+/// let entity_a = world.spawn_empty().id();
+///
+/// // We disable this entity using a helper method
+/// let entity_b = world.spawn_empty().id();
+/// world.disable(entity_b);
+///
+/// // It can also be inserted like other component
+/// let entity_c = world.spawn(Disabled).id();
+///
+/// // This query does not mention Disabled, so disabled entities are hidden
+/// let mut query = world.query::<Entity>();
+/// assert_eq!(1, query.iter(&world).count());
+/// assert_eq!(Ok(entity_a), query.get_single(&world));
+///
+/// // If our query mentions Disabled, we can find disabled entities like normal
+/// // Here we query for only the disabled entities
+/// let mut query = world.query_filtered::<(), With<Disabled>>();
+/// assert!(query.get(&world, entity_a).is_err());
+/// assert!(query.get_many(&world, [entity_b, entity_c]).is_ok());
+///
+/// // It also works as part of the query data
+/// let mut query = world.query::<Has<Disabled>>();
+/// assert_eq!(Ok([false, true, true]), query.get_many(&world, [entity_a, entity_b, entity_c]));
+///
+/// // If we exclude Disabled, it functions the same as the default behavior
+/// let mut query = world.query_filtered::<Entity, Without<Disabled>>();
+/// assert_eq!(1, query.iter(&world).count());
+/// assert_eq!(Ok(entity_a), query.get_single(&world));
+/// ```
+#[derive(bevy_ecs_macros::Component, Clone, Copy)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct Disabled;
 
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
