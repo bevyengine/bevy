@@ -1,11 +1,11 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    texture::GpuImage,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
@@ -581,7 +581,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
@@ -601,7 +601,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
@@ -752,6 +752,20 @@ pub fn camera_system<T: CameraProjection + Component>(
                             viewport.physical_position = resize(viewport.physical_position);
                             viewport.physical_size = resize(viewport.physical_size);
                             viewport_size = Some(viewport.physical_size);
+                        }
+                    }
+                }
+                // This check is needed because when changing WindowMode to SizedFullscreen, the viewport may have invalid
+                // arguments due to a sudden change on the window size to a lower value.
+                // If the size of the window is lower, the viewport will match that lower value.
+                if let Some(viewport) = &mut camera.viewport {
+                    let target_info = &new_computed_target_info;
+                    if let Some(target) = target_info {
+                        if viewport.physical_size.x > target.physical_size.x {
+                            viewport.physical_size.x = target.physical_size.x;
+                        }
+                        if viewport.physical_size.y > target.physical_size.y {
+                            viewport.physical_size.y = target.physical_size.y;
                         }
                     }
                 }
