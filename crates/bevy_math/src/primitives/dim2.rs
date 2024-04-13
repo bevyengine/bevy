@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use super::{Primitive2d, WindingOrder};
-use crate::{Direction2d, Vec2};
+use crate::{Dir2, Vec2};
 
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -125,22 +125,106 @@ impl Ellipse {
     }
 }
 
+/// A primitive shape formed by the region between two circles, also known as a ring.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Ring")]
+pub struct Annulus {
+    /// The inner circle of the annulus
+    pub inner_circle: Circle,
+    /// The outer circle of the annulus
+    pub outer_circle: Circle,
+}
+impl Primitive2d for Annulus {}
+
+impl Default for Annulus {
+    /// Returns the default [`Annulus`] with radii of `0.5` and `1.0`.
+    fn default() -> Self {
+        Self {
+            inner_circle: Circle::new(0.5),
+            outer_circle: Circle::new(1.0),
+        }
+    }
+}
+
+impl Annulus {
+    /// Create a new [`Annulus`] from the radii of the inner and outer circle
+    #[inline(always)]
+    pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        Self {
+            inner_circle: Circle::new(inner_radius),
+            outer_circle: Circle::new(outer_radius),
+        }
+    }
+
+    /// Get the diameter of the annulus
+    #[inline(always)]
+    pub fn diameter(&self) -> f32 {
+        self.outer_circle.diameter()
+    }
+
+    /// Get the thickness of the annulus
+    #[inline(always)]
+    pub fn thickness(&self) -> f32 {
+        self.outer_circle.radius - self.inner_circle.radius
+    }
+
+    /// Get the area of the annulus
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    pub fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
+    }
+
+    /// Finds the point on the annulus that is closest to the given `point`:
+    ///
+    /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
+    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
+    /// - Otherwise, the returned point is overlapping the annulus and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if self.inner_circle.radius.powi(2) <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.powi(2) {
+                // The point is inside the annulus.
+                point
+            } else {
+                // The point is outside the annulus and closer to the outer perimeter.
+                // Find the closest point on the perimeter of the annulus.
+                let dir_to_point = point / distance_squared.sqrt();
+                self.outer_circle.radius * dir_to_point
+            }
+        } else {
+            // The point is outside the annulus and closer to the inner perimeter.
+            // Find the closest point on the perimeter of the annulus.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.inner_circle.radius * dir_to_point
+        }
+    }
+}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Direction2d,
+    pub normal: Dir2,
 }
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
     /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self {
-            normal: Direction2d::Y,
-        }
+        Self { normal: Dir2::Y }
     }
 }
 
@@ -153,7 +237,7 @@ impl Plane2d {
     #[inline(always)]
     pub fn new(normal: Vec2) -> Self {
         Self {
-            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 }
@@ -166,7 +250,7 @@ impl Plane2d {
 pub struct Line2d {
     /// The direction of the line. The line extends infinitely in both the given direction
     /// and its opposite direction
-    pub direction: Direction2d,
+    pub direction: Dir2,
 }
 impl Primitive2d for Line2d {}
 
@@ -176,7 +260,7 @@ impl Primitive2d for Line2d {}
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
     /// The direction of the line segment
-    pub direction: Direction2d,
+    pub direction: Dir2,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -186,7 +270,7 @@ impl Primitive2d for Segment2d {}
 impl Segment2d {
     /// Create a new `Segment2d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Direction2d, length: f32) -> Self {
+    pub fn new(direction: Dir2, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -205,7 +289,7 @@ impl Segment2d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Direction2d::new_unchecked(diff / length), length),
+            Self::new(Dir2::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -378,10 +462,10 @@ impl Triangle2d {
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
-    /// by swapping the second and third vertices
+    /// by swapping the first and last vertices
     #[inline(always)]
     pub fn reverse(&mut self) {
-        self.vertices.swap(1, 2);
+        self.vertices.swap(0, 2);
     }
 }
 
@@ -721,11 +805,34 @@ mod tests {
     }
 
     #[test]
+    fn annulus_closest_point() {
+        let annulus = Annulus::new(1.5, 2.0);
+        assert_eq!(annulus.closest_point(Vec2::X * 10.0), Vec2::X * 2.0);
+        assert_eq!(
+            annulus.closest_point(Vec2::NEG_ONE),
+            Vec2::NEG_ONE.normalize() * 1.5
+        );
+        assert_eq!(
+            annulus.closest_point(Vec2::new(1.55, 0.85)),
+            Vec2::new(1.55, 0.85)
+        );
+    }
+
+    #[test]
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
         assert_eq!(circle.area(), 28.274334, "incorrect area");
         assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn annulus_math() {
+        let annulus = Annulus::new(2.5, 3.5);
+        assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
+        assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
+        assert_eq!(annulus.area(), 18.849556, "incorrect area");
+        assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
     }
 
     #[test]
@@ -755,9 +862,9 @@ mod tests {
         assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
 
         let ccw_triangle = Triangle2d::new(
-            Vec2::new(0.0, 2.0),
             Vec2::new(-1.0, -1.0),
             Vec2::new(-0.5, -1.2),
+            Vec2::new(0.0, 2.0),
         );
         assert_eq!(ccw_triangle.winding_order(), WindingOrder::CounterClockwise);
 

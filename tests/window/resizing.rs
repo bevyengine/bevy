@@ -36,14 +36,7 @@ fn main() {
         })
         .insert_resource(ContractingY)
         .add_systems(Startup, (setup_3d, setup_2d))
-        .add_systems(
-            Update,
-            (
-                change_window_size,
-                sync_dimensions,
-                bevy::window::close_on_esc,
-            ),
-        )
+        .add_systems(Update, (change_window_size, sync_dimensions))
         .run();
 }
 
@@ -119,13 +112,13 @@ fn setup_3d(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(LegacyColor::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
-        material: materials.add(LegacyColor::rgb(0.8, 0.7, 0.6)),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -159,7 +152,7 @@ fn setup_2d(mut commands: Commands) {
     });
     commands.spawn(SpriteBundle {
         sprite: Sprite {
-            color: LegacyColor::rgb(0.25, 0.25, 0.75),
+            color: Color::srgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 50.0)),
             ..default()
         },

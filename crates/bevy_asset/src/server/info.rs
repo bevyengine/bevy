@@ -5,7 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::warn;
+use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
@@ -205,15 +205,14 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(entry) => {
+            Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self.infos.get_mut(&id).unwrap();
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && (info.load_state == LoadState::NotLoaded
-                            || info.load_state == LoadState::Failed))
+                        && matches!(info.load_state, LoadState::NotLoaded | LoadState::Failed(_)))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -246,7 +245,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
@@ -412,7 +411,7 @@ impl AssetInfos {
                         // If dependency is loaded, reduce our count by one
                         false
                     }
-                    LoadState::Failed => {
+                    LoadState::Failed(_) => {
                         failed_deps.insert(*dep_id);
                         false
                     }
@@ -582,12 +581,12 @@ impl AssetInfos {
         }
     }
 
-    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId) {
+    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId, error: AssetLoadError) {
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
             let info = self
                 .get_mut(failed_id)
                 .expect("Asset info should always exist at this point");
-            info.load_state = LoadState::Failed;
+            info.load_state = LoadState::Failed(Box::new(error));
             info.dep_load_state = DependencyLoadState::Failed;
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
             (

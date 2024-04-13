@@ -7,9 +7,7 @@ use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -84,12 +82,8 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
-                SpriteSheetBundle {
+                SpriteBundle {
                     texture: texture_handle.clone(),
-                    atlas: TextureAtlas {
-                        layout: texture_atlas_handle.clone(),
-                        ..Default::default()
-                    },
                     transform: Transform {
                         translation,
                         rotation,
@@ -101,6 +95,7 @@ fn setup(
                     },
                     ..default()
                 },
+                TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),
             ));
         }

@@ -6,10 +6,11 @@
 //! To recompute all text each frame run
 //! `cargo run --example many_glyphs --release recompute-text`
 use bevy::{
+    color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 
@@ -77,7 +78,7 @@ fn setup(mut commands: Commands) {
             });
         });
 
-    text.sections[0].style.color = LegacyColor::RED;
+    text.sections[0].style.color = RED.into();
 
     commands.spawn(Text2dBundle {
         text,

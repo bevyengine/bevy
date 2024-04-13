@@ -5,8 +5,8 @@
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
+use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
-use bevy_render::color::LegacyColor;
 use std::f32::consts::TAU;
 
 // === 2D ===
@@ -18,10 +18,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
-    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
     /// the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
+    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
+    /// - `color` sets the color to draw the arc.
     ///
     /// # Example
     /// ```
@@ -29,13 +30,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
+    /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., LegacyColor::GREEN);
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., LegacyColor::RED)
+    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -47,7 +49,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         direction_angle: f32,
         arc_angle: f32,
         radius: f32,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, T> {
         Arc2dBuilder {
             gizmos: self,
@@ -55,7 +57,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             direction_angle,
             arc_angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }
@@ -68,7 +70,7 @@ pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    color: LegacyColor,
+    color: Color,
     segments: Option<usize>,
 }
 
@@ -142,6 +144,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
     ///     let rotation = Quat::from_rotation_arc(Vec3::Y, Vec3::NEG_ONE.normalize());
@@ -152,7 +155,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///          0.25,
     ///          Vec3::ONE,
     ///          rotation,
-    ///          LegacyColor::ORANGE
+    ///          ORANGE
     ///          )
     ///          .segments(100);
     /// }
@@ -165,7 +168,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         radius: f32,
         position: Vec3,
         rotation: Quat,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         Arc3dBuilder {
             gizmos: self,
@@ -174,7 +177,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }
@@ -197,12 +200,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.short_arc_3d_between(
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        LegacyColor::ORANGE
+    ///        ORANGE
     ///        )
     ///        .segments(100);
     /// }
@@ -221,7 +225,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
@@ -243,12 +247,13 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.long_arc_3d_between(
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        LegacyColor::ORANGE
+    ///        ORANGE
     ///        )
     ///        .segments(100);
     /// }
@@ -267,7 +272,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: LegacyColor,
+        color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
@@ -286,7 +291,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: LegacyColor,
+        color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
     ) -> Arc3dBuilder<'_, 'w, 's, T> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
@@ -308,7 +313,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             rotation,
             angle,
             radius,
-            color,
+            color: color.into(),
             segments: None,
         }
     }
@@ -331,7 +336,7 @@ pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     rotation: Quat,
     angle: f32,
     radius: f32,
-    color: LegacyColor,
+    color: Color,
     segments: Option<usize>,
 }
 

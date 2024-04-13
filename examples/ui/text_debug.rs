@@ -1,9 +1,10 @@
 //! Shows various text layout options.
 
 use bevy::{
+    color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::PresentMode,
 };
 
 fn main() {
@@ -67,7 +68,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: LegacyColor::YELLOW,
+                    color: YELLOW.into(),
                 },
             )
             .with_text_justify(JustifyText::Right)
@@ -82,7 +83,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: LegacyColor::WHITE,
+                    color: WHITE.into(),
                 },
             )
             .with_style(Style {
@@ -109,7 +110,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 40.0,
-                    color: LegacyColor::rgb(0.8, 0.2, 0.7),
+                    color: Color::srgb(0.8, 0.2, 0.7),
                 },
             )
             .with_text_justify(JustifyText::Center)
@@ -125,7 +126,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 35.0,
-                    color: LegacyColor::YELLOW,
+                    color: YELLOW.into(),
                 },
             )
             .with_text_justify(JustifyText::Left)
@@ -142,7 +143,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: LegacyColor::WHITE,
+                        color: Color::WHITE,
                     },
                 ),
                 TextSection::new(
@@ -150,33 +151,33 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: LegacyColor::RED,
+                        color: RED.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    color: LegacyColor::ORANGE_RED,
+                    color: ORANGE_RED.into(),
                 }),
                 TextSection::new(
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: LegacyColor::YELLOW,
+                        color: YELLOW.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    color: LegacyColor::GREEN,
+                    color: LIME.into(),
                 }),
                 TextSection::new(
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: LegacyColor::BLUE,
+                        color: BLUE.into(),
                     },
                 ),
             ]),

@@ -1,10 +1,18 @@
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Lcha {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
@@ -52,11 +60,6 @@ impl Lcha {
         }
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the chroma channel set to the given value.
     pub const fn with_chroma(self, chroma: f32) -> Self {
         Self { chroma, ..self }
@@ -67,15 +70,34 @@ impl Lcha {
         Self { lightness, ..self }
     }
 
-    /// CIE Epsilon Constant
+    /// Generate a deterministic but [quasi-randomly distributed](https://en.wikipedia.org/wiki/Low-discrepancy_sequence)
+    /// color from a provided `index`.
     ///
-    /// See [Continuity (16) (17)](http://brucelindbloom.com/index.html?LContinuity.html)
-    pub const CIE_EPSILON: f32 = 216.0 / 24389.0;
+    /// This can be helpful for generating debug colors.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_color::Lcha;
+    /// // Unique color for an entity
+    /// # let entity_index = 123;
+    /// // let entity_index = entity.index();
+    /// let color = Lcha::sequential_dispersed(entity_index);
+    ///
+    /// // Palette with 5 distinct hues
+    /// let palette = (0..5).map(Lcha::sequential_dispersed).collect::<Vec<_>>();
+    /// ```
+    pub fn sequential_dispersed(index: u32) -> Self {
+        const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+        const RATIO_360: f32 = 360.0 / u32::MAX as f32;
 
-    /// CIE Kappa Constant
-    ///
-    /// See [Continuity (16) (17)](http://brucelindbloom.com/index.html?LContinuity.html)
-    pub const CIE_KAPPA: f32 = 24389.0 / 27.0;
+        // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+        //
+        // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+        // so that the closer the numbers are, the larger the difference of their image.
+        let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
+        Self::lch(0.75, 0.35, hue)
+    }
 }
 
 impl Default for Lcha {
@@ -106,6 +128,28 @@ impl Alpha for Lcha {
     #[inline]
     fn alpha(&self) -> f32 {
         self.alpha
+    }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
+}
+
+impl Hue for Lcha {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
@@ -138,7 +182,25 @@ impl Luminance for Lcha {
     }
 }
 
-impl From<Lcha> for Xyza {
+impl ClampColor for Lcha {
+    fn clamped(&self) -> Self {
+        Self {
+            lightness: self.lightness.clamp(0., 1.5),
+            chroma: self.chroma.clamp(0., 1.5),
+            hue: self.hue.rem_euclid(360.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.5).contains(&self.lightness)
+            && (0. ..=1.5).contains(&self.chroma)
+            && (0. ..=360.).contains(&self.hue)
+            && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl From<Lcha> for Laba {
     fn from(
         Lcha {
             lightness,
@@ -147,79 +209,25 @@ impl From<Lcha> for Xyza {
             alpha,
         }: Lcha,
     ) -> Self {
-        let lightness = lightness * 100.0;
-        let chroma = chroma * 100.0;
-
-        // convert LCH to Lab
-        // http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
+        // Based on http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
         let l = lightness;
         let a = chroma * hue.to_radians().cos();
         let b = chroma * hue.to_radians().sin();
 
-        // convert Lab to XYZ
-        // http://www.brucelindbloom.com/index.html?Eqn_Lab_to_XYZ.html
-        let fy = (l + 16.0) / 116.0;
-        let fx = a / 500.0 + fy;
-        let fz = fy - b / 200.0;
-        let xr = {
-            let fx3 = fx.powf(3.0);
-
-            if fx3 > Lcha::CIE_EPSILON {
-                fx3
-            } else {
-                (116.0 * fx - 16.0) / Lcha::CIE_KAPPA
-            }
-        };
-        let yr = if l > Lcha::CIE_EPSILON * Lcha::CIE_KAPPA {
-            ((l + 16.0) / 116.0).powf(3.0)
-        } else {
-            l / Lcha::CIE_KAPPA
-        };
-        let zr = {
-            let fz3 = fz.powf(3.0);
-
-            if fz3 > Lcha::CIE_EPSILON {
-                fz3
-            } else {
-                (116.0 * fz - 16.0) / Lcha::CIE_KAPPA
-            }
-        };
-        let x = xr * Xyza::D65_WHITE.x;
-        let y = yr * Xyza::D65_WHITE.y;
-        let z = zr * Xyza::D65_WHITE.z;
-
-        Xyza::new(x, y, z, alpha)
+        Laba::new(l, a, b, alpha)
     }
 }
 
-impl From<Xyza> for Lcha {
-    fn from(Xyza { x, y, z, alpha }: Xyza) -> Self {
-        // XYZ to Lab
-        // http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_Lab.html
-        let xr = x / Xyza::D65_WHITE.x;
-        let yr = y / Xyza::D65_WHITE.y;
-        let zr = z / Xyza::D65_WHITE.z;
-        let fx = if xr > Lcha::CIE_EPSILON {
-            xr.cbrt()
-        } else {
-            (Lcha::CIE_KAPPA * xr + 16.0) / 116.0
-        };
-        let fy = if yr > Lcha::CIE_EPSILON {
-            yr.cbrt()
-        } else {
-            (Lcha::CIE_KAPPA * yr + 16.0) / 116.0
-        };
-        let fz = if yr > Lcha::CIE_EPSILON {
-            zr.cbrt()
-        } else {
-            (Lcha::CIE_KAPPA * zr + 16.0) / 116.0
-        };
-        let l = 116.0 * fy - 16.0;
-        let a = 500.0 * (fx - fy);
-        let b = 200.0 * (fy - fz);
-
-        // Lab to LCH
-        // http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
+impl From<Laba> for Lcha {
+    fn from(
+        Laba {
+            lightness,
+            a,
+            b,
+            alpha,
+        }: Laba,
+    ) -> Self {
+        // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
         let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
         let h = {
             let h = b.to_radians().atan2(a.to_radians()).to_degrees();
@@ -231,47 +239,48 @@ impl From<Xyza> for Lcha {
             }
         };
 
-        let lightness = (l / 100.0).clamp(0.0, 1.5);
-        let chroma = (c / 100.0).clamp(0.0, 1.5);
+        let chroma = c.clamp(0.0, 1.5);
         let hue = h;
 
         Lcha::new(lightness, chroma, hue, alpha)
     }
 }
 
+// Derived Conversions
+
 impl From<Srgba> for Lcha {
     fn from(value: Srgba) -> Self {
-        Xyza::from(value).into()
+        Laba::from(value).into()
     }
 }
 
 impl From<Lcha> for Srgba {
     fn from(value: Lcha) -> Self {
-        Xyza::from(value).into()
+        Laba::from(value).into()
     }
 }
 
 impl From<LinearRgba> for Lcha {
     fn from(value: LinearRgba) -> Self {
-        Srgba::from(value).into()
+        Laba::from(value).into()
     }
 }
 
 impl From<Lcha> for LinearRgba {
     fn from(value: Lcha) -> Self {
-        LinearRgba::from(Srgba::from(value))
+        Laba::from(value).into()
     }
 }
 
-impl From<Oklaba> for Lcha {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(value).into()
+impl From<Xyza> for Lcha {
+    fn from(value: Xyza) -> Self {
+        Laba::from(value).into()
     }
 }
 
-impl From<Hsla> for Lcha {
-    fn from(value: Hsla) -> Self {
-        Srgba::from(value).into()
+impl From<Lcha> for Xyza {
+    fn from(value: Lcha) -> Self {
+        Laba::from(value).into()
     }
 }
 
@@ -280,7 +289,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]
@@ -337,5 +345,22 @@ mod tests {
             }
             assert_approx_eq!(color.lch.alpha, lcha.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Lcha::lch(-1., 2., 400.);
+        let color_2 = Lcha::lch(1., 1.5, 249.54);
+        let mut color_3 = Lcha::lch(-0.4, 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Lcha::lch(0., 1.5, 40.));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Lcha::lch(0., 1., 1.));
     }
 }

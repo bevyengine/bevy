@@ -1,10 +1,20 @@
-use crate::{Alpha, Hsla, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{
+    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+};
+use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Xyza {
     /// The x-axis. [0.0, 1.0]
     pub x: f32,
@@ -17,6 +27,8 @@ pub struct Xyza {
 }
 
 impl StandardColor for Xyza {}
+
+impl_componentwise_vector_space!(Xyza, [x, y, z, alpha]);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.
@@ -82,6 +94,11 @@ impl Alpha for Xyza {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl Luminance for Xyza {
@@ -125,6 +142,24 @@ impl Mix for Xyza {
     }
 }
 
+impl ClampColor for Xyza {
+    fn clamped(&self) -> Self {
+        Self {
+            x: self.x.clamp(0., 1.),
+            y: self.y.clamp(0., 1.),
+            z: self.z.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.x)
+            && (0. ..=1.).contains(&self.y)
+            && (0. ..=1.).contains(&self.z)
+            && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
 impl From<LinearRgba> for Xyza {
     fn from(
         LinearRgba {
@@ -159,42 +194,6 @@ impl From<Xyza> for LinearRgba {
         let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
 
         LinearRgba::new(r, g, b, alpha)
-    }
-}
-
-impl From<Srgba> for Xyza {
-    fn from(value: Srgba) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Srgba {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Hsla> for Xyza {
-    fn from(value: Hsla) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Hsla {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Oklaba> for Xyza {
-    fn from(value: Oklaba) -> Self {
-        LinearRgba::from(value).into()
-    }
-}
-
-impl From<Xyza> for Oklaba {
-    fn from(value: Xyza) -> Self {
-        LinearRgba::from(value).into()
     }
 }
 
@@ -234,5 +233,22 @@ mod tests {
             assert_approx_eq!(color.xyz.z, xyz2.z, 0.001);
             assert_approx_eq!(color.xyz.alpha, xyz2.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Xyza::xyz(2., -1., 0.4);
+        let color_2 = Xyza::xyz(0.031, 0.749, 1.);
+        let mut color_3 = Xyza::xyz(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Xyza::xyz(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Xyza::xyz(0., 1., 1.));
     }
 }

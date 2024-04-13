@@ -1,6 +1,6 @@
 use crate::entity::Entity;
-use crate::system::{BoxedSystem, Command, IntoSystem};
-use crate::world::World;
+use crate::system::{BoxedSystem, IntoSystem};
+use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
 use thiserror::Error;
@@ -38,8 +38,12 @@ impl<I, O> RemovedSystem<I, O> {
 ///
 /// These are opaque identifiers, keyed to a specific [`World`],
 /// and are created via [`World::register_system`].
-#[derive(Eq)]
-pub struct SystemId<I = (), O = ()>(Entity, std::marker::PhantomData<fn(I) -> O>);
+pub struct SystemId<I = (), O = ()> {
+    pub(crate) entity: Entity,
+    pub(crate) marker: std::marker::PhantomData<fn(I) -> O>,
+}
+
+impl<I, O> Eq for SystemId<I, O> {}
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I, O> Copy for SystemId<I, O> {}
@@ -54,22 +58,22 @@ impl<I, O> Clone for SystemId<I, O> {
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I, O> PartialEq for SystemId<I, O> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
+        self.entity == other.entity && self.marker == other.marker
     }
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
 impl<I, O> std::hash::Hash for SystemId<I, O> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+        self.entity.hash(state);
     }
 }
 
 impl<I, O> std::fmt::Debug for SystemId<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemId")
-            .field(&self.0)
-            .field(&self.1)
+            .field(&self.entity)
+            .field(&self.entity)
             .finish()
     }
 }
@@ -81,7 +85,7 @@ impl<I, O> From<SystemId<I, O>> for Entity {
     /// is really an entity with associated handler function.
     ///
     /// For example, this is useful if you want to assign a name label to a system.
-    fn from(SystemId(entity, _): SystemId<I, O>) -> Self {
+    fn from(SystemId { entity, .. }: SystemId<I, O>) -> Self {
         entity
     }
 }
@@ -111,14 +115,15 @@ impl World {
         &mut self,
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
-        SystemId(
-            self.spawn(RegisteredSystem {
-                initialized: false,
-                system,
-            })
-            .id(),
-            std::marker::PhantomData,
-        )
+        SystemId {
+            entity: self
+                .spawn(RegisteredSystem {
+                    initialized: false,
+                    system,
+                })
+                .id(),
+            marker: std::marker::PhantomData,
+        }
     }
 
     /// Removes a registered system and returns the system, if it exists.
@@ -131,7 +136,7 @@ impl World {
         &mut self,
         id: SystemId<I, O>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
-        match self.get_entity_mut(id.0) {
+        match self.get_entity_mut(id.entity) {
             Some(mut entity) => {
                 let registered_system = entity
                     .take::<RegisteredSystem<I, O>>()
@@ -164,12 +169,9 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Resource, Default)]
-    /// struct Counter(u8);
-    ///
-    /// fn increment(mut counter: Local<Counter>) {
-    ///    counter.0 += 1;
-    ///    println!("{}", counter.0);
+    /// fn increment(mut counter: Local<u8>) {
+    ///    *counter += 1;
+    ///    println!("{}", *counter);
     /// }
     ///
     /// let mut world = World::default();
@@ -255,20 +257,17 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #[derive(Resource, Default)]
-    /// struct Counter(u8);
-    ///
-    /// fn increment(In(increment_by): In<u8>, mut counter: Local<Counter>) {
-    ///    counter.0 += increment_by;
-    ///    println!("{}", counter.0);
+    /// fn increment(In(increment_by): In<u8>, mut counter: Local<u8>) -> u8 {
+    ///   *counter += increment_by;
+    ///   *counter
     /// }
     ///
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// world.run_system_with_input(counter_one, 1); // -> 1
-    /// world.run_system_with_input(counter_one, 20); // -> 21
-    /// world.run_system_with_input(counter_two, 30); // -> 51
+    /// assert_eq!(world.run_system_with_input(counter_one, 1).unwrap(), 1);
+    /// assert_eq!(world.run_system_with_input(counter_one, 20).unwrap(), 21);
+    /// assert_eq!(world.run_system_with_input(counter_two, 30).unwrap(), 30);
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
@@ -279,7 +278,7 @@ impl World {
     ) -> Result<O, RegisteredSystemError<I, O>> {
         // lookup
         let mut entity = self
-            .get_entity_mut(id.0)
+            .get_entity_mut(id.entity)
             .ok_or(RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // take ownership of system trait object
@@ -298,7 +297,7 @@ impl World {
         let result = system.run(input, self);
 
         // return ownership of system trait object (if entity still exists)
-        if let Some(mut entity) = self.get_entity_mut(id.0) {
+        if let Some(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
@@ -357,6 +356,35 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     #[inline]
     fn apply(self, world: &mut World) {
         let _ = world.run_system_with_input(self.system_id, self.input);
+    }
+}
+
+/// The [`Command`] type for registering one shot systems from [Commands](crate::system::Commands).
+///
+/// This command needs an already boxed system to register, and an already spawned entity
+pub struct RegisterSystem<I: 'static, O: 'static> {
+    system: BoxedSystem<I, O>,
+    entity: Entity,
+}
+
+impl<I: 'static, O: 'static> RegisterSystem<I, O> {
+    /// Creates a new [Command] struct, which can be added to [Commands](crate::system::Commands)
+    pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
+        Self {
+            system: Box::new(IntoSystem::into_system(system)),
+            entity,
+        }
+    }
+}
+
+impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
+    fn apply(self, world: &mut World) {
+        let _ = world.get_entity_mut(self.entity).map(|mut entity| {
+            entity.insert(RegisteredSystem {
+                initialized: false,
+                system: self.system,
+            });
+        });
     }
 }
 

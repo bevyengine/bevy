@@ -7,10 +7,10 @@ use crate::{
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
-    thiserror::Error,
     tracing::{error, info, warn},
     TypeIdMap,
 };
+use thiserror::Error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;
@@ -696,7 +696,7 @@ impl ScheduleState {
         // if our NodeId list hasn't been populated, copy it over from the
         // schedule
         if self.node_ids.len() != schedule.systems_len() {
-            self.node_ids = schedule.executable().system_ids.clone();
+            self.node_ids.clone_from(&schedule.executable().system_ids);
         }
 
         // Now that we have the schedule, apply any pending system behavior
@@ -828,7 +828,7 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::prelude::*;
-    use crate::{schedule::ScheduleLabel, world::World};
+    use crate::schedule::ScheduleLabel;
 
     pub use crate as bevy_ecs;
 

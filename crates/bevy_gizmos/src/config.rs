@@ -13,6 +13,34 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// An enum configuring how line joints will be drawn.
+#[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+pub enum GizmoLineJoint {
+    /// Does not draw any line joints.
+    #[default]
+    None,
+    /// Extends both lines at the joining point until they meet in a sharp point.
+    Miter,
+    /// Draws a round corner with the specified resolution between the two lines.
+    ///
+    /// The resolution determines the amount of triangles drawn per joint,
+    /// e.g. `GizmoLineJoint::Round(4)` will draw 4 triangles at each line joint.
+    Round(u32),
+    /// Draws a bevel, a straight line in this case, to connect the ends of both lines.
+    Bevel,
+}
+
+/// An enum used to configure the style of gizmo lines, similar to CSS line-style
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+#[non_exhaustive]
+pub enum GizmoLineStyle {
+    /// A solid line without any decorators
+    #[default]
+    Solid,
+    /// A dotted line
+    Dotted,
+}
+
 /// A trait used to create gizmo configs groups.
 ///
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
@@ -118,6 +146,8 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,
+    /// Determine the style of gizmo lines.
+    pub line_style: GizmoLineStyle,
     /// How closer to the camera than real geometry the line should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
@@ -135,6 +165,9 @@ pub struct GizmoConfig {
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
     pub render_layers: RenderLayers,
+
+    /// Describe how lines should join
+    pub line_joints: GizmoLineJoint,
 }
 
 impl Default for GizmoConfig {
@@ -143,8 +176,11 @@ impl Default for GizmoConfig {
             enabled: true,
             line_width: 2.,
             line_perspective: false,
+            line_style: GizmoLineStyle::Solid,
             depth_bias: 0.,
             render_layers: Default::default(),
+
+            line_joints: GizmoLineJoint::None,
         }
     }
 }
@@ -152,6 +188,7 @@ impl Default for GizmoConfig {
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
+    pub line_style: GizmoLineStyle,
     pub render_layers: RenderLayers,
 }
 
@@ -159,6 +196,7 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {
             line_perspective: item.line_perspective,
+            line_style: item.line_style,
             render_layers: item.render_layers,
         }
     }

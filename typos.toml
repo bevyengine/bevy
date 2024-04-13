@@ -8,11 +8,12 @@ extend-exclude = [
 # and the value is the correct word. If the key and value are the same, the
 # word is treated as always correct. If the value is an empty string, the word
 # is treated as always incorrect.
-# the toi of the mountain
 
 # Match Whole Word - Case Sensitive
 [default.extend-identifiers]
+iy = "iy"   # Variable name used in bevy_gizmos. Probably stands for "y-axis index", as it's being used in loops.
 ser = "ser" # ron::ser - Serializer
+SME = "SME" # Subject Matter Expert
 Sur = "Sur" # macOS Big Sur - South
 
 # Match Inside a Word - Case Insensitive
@@ -24,6 +25,7 @@ TOI = "TOI" # Time of impact
 extend-ignore-identifiers-re = [
   "NDK",        # NDK - Native  Development Kit
   "inventario", # Inventory in Portuguese
+  "PNG",        # PNG - Portable Network Graphics file format
   # Used in bevy_mikktspace
   "iFO",
   "vOt",

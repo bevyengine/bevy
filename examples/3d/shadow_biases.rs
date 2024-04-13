@@ -38,7 +38,7 @@ fn setup(
     let sphere_radius = 0.25;
 
     let white_handle = materials.add(StandardMaterial {
-        base_color: LegacyColor::WHITE,
+        base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
@@ -58,7 +58,7 @@ fn setup(
                 point_light: PointLight {
                     intensity: 0.0,
                     range: spawn_plane_depth,
-                    color: LegacyColor::WHITE,
+                    color: Color::WHITE,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
@@ -125,7 +125,7 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: LegacyColor::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {
@@ -252,14 +252,14 @@ fn cycle_filter_methods(
             let filter_method_string;
             *filter_method = match *filter_method {
                 ShadowFilteringMethod::Hardware2x2 => {
-                    filter_method_string = "Castano13".to_string();
-                    ShadowFilteringMethod::Castano13
+                    filter_method_string = "Gaussian".to_string();
+                    ShadowFilteringMethod::Gaussian
                 }
-                ShadowFilteringMethod::Castano13 => {
-                    filter_method_string = "Jimenez14".to_string();
-                    ShadowFilteringMethod::Jimenez14
+                ShadowFilteringMethod::Gaussian => {
+                    filter_method_string = "Temporal".to_string();
+                    ShadowFilteringMethod::Temporal
                 }
-                ShadowFilteringMethod::Jimenez14 => {
+                ShadowFilteringMethod::Temporal => {
                     filter_method_string = "Hardware2x2".to_string();
                     ShadowFilteringMethod::Hardware2x2
                 }

@@ -4,12 +4,9 @@
 //! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.transparent)
 //! for more details.
 
+use bevy::prelude::*;
 #[cfg(target_os = "macos")]
 use bevy::window::CompositeAlphaMode;
-use bevy::{
-    prelude::*,
-    window::{Window, WindowPlugin},
-};
 
 fn main() {
     App::new()
@@ -26,7 +23,7 @@ fn main() {
             ..default()
         }))
         // ClearColor must have 0 alpha, otherwise some color will bleed through
-        .insert_resource(ClearColor(LegacyColor::NONE))
+        .insert_resource(ClearColor(Color::NONE))
         .add_systems(Startup, setup)
         .run();
 }

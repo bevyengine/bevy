@@ -2,8 +2,13 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::NotShadowCaster, prelude::*};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use bevy::{
+    color::palettes::basic::{MAROON, RED},
+    pbr::NotShadowCaster,
+    prelude::*,
+};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const INSTRUCTIONS: &str = "\
 Controls
@@ -37,16 +42,19 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-            material: materials.add(LegacyColor::WHITE),
+            material: materials.add(Color::WHITE),
             ..default()
         },
         Movable,
     ));
 
     // cubes
-    let mut rng = StdRng::seed_from_u64(19878367467713);
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
-    let blue = materials.add(LegacyColor::rgb_u8(124, 144, 255));
+    let blue = materials.add(Color::srgb_u8(124, 144, 255));
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {
@@ -70,13 +78,13 @@ fn setup(
     let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
     let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
-        base_color: LegacyColor::RED,
-        emissive: LegacyColor::rgba_linear(100.0, 0.0, 0.0, 0.0),
+        base_color: RED.into(),
+        emissive: Color::linear_rgba(100.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
-        base_color: LegacyColor::MAROON,
-        emissive: LegacyColor::rgba_linear(50.0, 0.0, 0.0, 0.0),
+        base_color: MAROON.into(),
+        emissive: Color::linear_rgba(50.0, 0.0, 0.0, 0.0),
         ..default()
     });
 
@@ -91,7 +99,7 @@ fn setup(
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
                         intensity: 40_000.0, // lumens
-                        color: LegacyColor::WHITE,
+                        color: Color::WHITE,
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,

@@ -1,14 +1,24 @@
 use crate::color_difference::EuclideanDistance;
-use crate::oklaba::Oklaba;
-use crate::{Alpha, LinearRgba, Luminance, Mix, StandardColor};
+use crate::{
+    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+    Xyza,
+};
 use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_reflect::prelude::*;
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[doc = include_str!("../docs/conversion.md")]
+/// <div>
+#[doc = include_str!("../docs/diagrams/model_graph.svg")]
+/// </div>
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Srgba {
     /// The red channel. [0.0, 1.0]
     pub red: f32,
@@ -22,6 +32,8 @@ pub struct Srgba {
 
 impl StandardColor for Srgba {}
 
+impl_componentwise_vector_space!(Srgba, [red, green, blue, alpha]);
+
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
@@ -33,6 +45,30 @@ impl Srgba {
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+
+    /// A fully red color with full alpha.
+    pub const RED: Self = Self {
+        red: 1.0,
+        green: 0.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully green color with full alpha.
+    pub const GREEN: Self = Self {
+        red: 0.0,
+        green: 1.0,
+        blue: 0.0,
+        alpha: 1.0,
+    };
+
+    /// A fully blue color with full alpha.
+    pub const BLUE: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 1.0,
+        alpha: 1.0,
+    };
 
     /// Construct a new [`Srgba`] color from components.
     ///
@@ -261,6 +297,11 @@ impl Alpha for Srgba {
     fn alpha(&self) -> f32 {
         self.alpha
     }
+
+    #[inline]
+    fn set_alpha(&mut self, alpha: f32) {
+        self.alpha = alpha;
+    }
 }
 
 impl EuclideanDistance for Srgba {
@@ -270,6 +311,24 @@ impl EuclideanDistance for Srgba {
         let dg = self.green - other.green;
         let db = self.blue - other.blue;
         dr * dr + dg * dg + db * db
+    }
+}
+
+impl ClampColor for Srgba {
+    fn clamped(&self) -> Self {
+        Self {
+            red: self.red.clamp(0., 1.),
+            green: self.green.clamp(0., 1.),
+            blue: self.blue.clamp(0., 1.),
+            alpha: self.alpha.clamp(0., 1.),
+        }
+    }
+
+    fn is_within_bounds(&self) -> bool {
+        (0. ..=1.).contains(&self.red)
+            && (0. ..=1.).contains(&self.green)
+            && (0. ..=1.).contains(&self.blue)
+            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -297,12 +356,6 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
-impl From<Oklaba> for Srgba {
-    fn from(value: Oklaba) -> Self {
-        Srgba::from(LinearRgba::from(value))
-    }
-}
-
 impl From<Srgba> for [f32; 4] {
     fn from(color: Srgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
@@ -312,6 +365,20 @@ impl From<Srgba> for [f32; 4] {
 impl From<Srgba> for Vec4 {
     fn from(color: Srgba) -> Self {
         Vec4::new(color.red, color.green, color.blue, color.alpha)
+    }
+}
+
+// Derived Conversions
+
+impl From<Xyza> for Srgba {
+    fn from(value: Xyza) -> Self {
+        LinearRgba::from(value).into()
+    }
+}
+
+impl From<Srgba> for Xyza {
+    fn from(value: Srgba) -> Self {
+        LinearRgba::from(value).into()
     }
 }
 
@@ -405,5 +472,22 @@ mod tests {
 
         assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
         assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
+    }
+
+    #[test]
+    fn test_clamp() {
+        let color_1 = Srgba::rgb(2., -1., 0.4);
+        let color_2 = Srgba::rgb(0.031, 0.749, 1.);
+        let mut color_3 = Srgba::rgb(-1., 1., 1.);
+
+        assert!(!color_1.is_within_bounds());
+        assert_eq!(color_1.clamped(), Srgba::rgb(1., 0., 0.4));
+
+        assert!(color_2.is_within_bounds());
+        assert_eq!(color_2, color_2.clamped());
+
+        color_3.clamp();
+        assert!(color_3.is_within_bounds());
+        assert_eq!(color_3, Srgba::rgb(0., 1., 1.));
     }
 }

@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path, sync::PoisonError};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
+use bevy_utils::tracing::{error, info, info_span};
 use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
@@ -137,38 +137,10 @@ impl Plugin for ScreenshotPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
-
-        #[cfg(feature = "bevy_ci_testing")]
-        if app
-            .world
-            .contains_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
-        }
     }
-}
-
-#[cfg(feature = "bevy_ci_testing")]
-fn ci_testing_screenshot_at(
-    mut current_frame: Local<u32>,
-    ci_testing_config: Res<bevy_app::ci_testing::CiTestingConfig>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
-    main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-) {
-    if ci_testing_config
-        .screenshot_frames
-        .contains(&*current_frame)
-    {
-        info!("Taking a screenshot at frame {}.", *current_frame);
-        let path = format!("./screenshot-{}.png", *current_frame);
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
-    }
-    *current_frame += 1;
 }
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {
