@@ -810,15 +810,22 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
+struct RegisteredEvent {
+    component_id: ComponentId,
+    // Required to flush the secondary buffer and drop events even if left unchanged.
+    previously_updated: bool,
+    // SAFETY: The ID and the function must be used in conjunction, or improper type casts
+    // occur.
+    update: unsafe fn(MutUntyped),
+}
+
 /// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
 /// to update all of the events.
 #[doc(hidden)]
 #[derive(Resource, Default)]
 pub struct EventRegistry {
     needs_update: bool,
-    // SAFETY: The ID and the function must be used in conjunction, or improper type casts
-    // occur.
-    event_updates: Vec<(ComponentId, unsafe fn(MutUntyped))>,
+    event_updates: Vec<RegisteredEvent>,
 }
 
 impl EventRegistry {
@@ -828,23 +835,35 @@ impl EventRegistry {
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
-        registry.event_updates.push((component_id, |ptr| {
-            // SAFETY: The resource was initialized with the type Events<T>.
-            unsafe { ptr.with_type::<Events<T>>() }
-                .bypass_change_detection()
-                .update();
-        }));
+        registry.event_updates.push(RegisteredEvent {
+            component_id,
+            previously_updated: false,
+            update: |ptr| {
+                // SAFETY: The resource was initialized with the type Events<T>.
+                unsafe { ptr.with_type::<Events<T>>() }
+                    .bypass_change_detection()
+                    .update();
+            },
+        });
     }
 
     /// Updates all of the registered events in the World.
-    pub fn run_updates(&self, world: &mut World, last_change_tick: Tick) {
-        for (component_id, update) in &self.event_updates {
+    pub fn run_updates(&mut self, world: &mut World, last_change_tick: Tick) {
+        for registered_event in &mut self.event_updates {
             // Bypass the type ID -> Component ID lookup with the cached component ID.
-            if let Some(events) = world.get_resource_mut_by_id(*component_id) {
+            if let Some(events) = world.get_resource_mut_by_id(registered_event.component_id) {
                 if events.has_changed_since(last_change_tick) {
                     // SAFETY: The update function pointer is called with the resource
                     // fetched from the same component ID.
-                    unsafe { update(events) };
+                    unsafe { (registered_event.update)(events) };
+                    registered_event.previously_updated = true;
+                    continue;
+                }
+                if registered_event.previously_updated {
+                    // SAFETY: The update function pointer is called with the resource
+                    // fetched from the same component ID.
+                    unsafe { (registered_event.update)(events) };
+                    registered_event.previously_updated = false;
                 }
             }
         }
