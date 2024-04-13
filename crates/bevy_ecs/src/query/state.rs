@@ -151,6 +151,7 @@ fn contains_disabled(
     disabled_id: ComponentId,
 ) -> bool {
     component_access.access().has_read(disabled_id)
+        || component_access.access().has_archetypal(disabled_id)
         || component_access.filter_sets.iter().any(|f| {
             f.with.contains(disabled_id.index()) || f.without.contains(disabled_id.index())
         })
@@ -2061,8 +2062,7 @@ mod tests {
         let mut query = QueryState::<(Entity, Option<&Disabled>)>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
-        // TODO: This case is not handled correctly yet, since Has<T> does not register component access
-        // let mut query = QueryState::<(Entity, Has<Disabled>)>::new(&mut world);
-        // assert_eq!(3, query.iter(&world).count());
+        let mut query = QueryState::<(Entity, Has<Disabled>)>::new(&mut world);
+        assert_eq!(3, query.iter(&world).count());
     }
 }
