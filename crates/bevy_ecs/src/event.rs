@@ -814,7 +814,7 @@ struct RegisteredEvent {
     component_id: ComponentId,
     // Required to flush the secondary buffer and drop events even if left unchanged.
     previously_updated: bool,
-    // SAFETY: The component ID and the function must be used to fetch the Events<T> resource 
+    // SAFETY: The component ID and the function must be used to fetch the Events<T> resource
     // of the same type initialized in `register_event`, or improper type casts will occur.
     update: unsafe fn(MutUntyped),
 }
@@ -858,7 +858,8 @@ impl EventRegistry {
                     unsafe { (registered_event.update)(events) };
                     // Always set to true if the events have changed, otherwise disable running on the second invocation
                     // to wait for more changes.
-                    registered_event.previously_updated = has_changed || !registered_event.previously_updated;
+                    registered_event.previously_updated =
+                        has_changed || !registered_event.previously_updated;
                 }
             }
         }
