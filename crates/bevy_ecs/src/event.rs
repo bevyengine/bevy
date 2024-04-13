@@ -814,14 +814,13 @@ struct RegisteredEvent {
     component_id: ComponentId,
     // Required to flush the secondary buffer and drop events even if left unchanged.
     previously_updated: bool,
-    // SAFETY: The ID and the function must be used in conjunction, or improper type casts
-    // occur.
+    // SAFETY: The component ID and the function must be used to fetch the Events<T> resource 
+    // of the same type initalized in `register_event`, or improper type casts will occur.
     update: unsafe fn(MutUntyped),
 }
 
 /// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
 /// to update all of the events.
-#[doc(hidden)]
 #[derive(Resource, Default)]
 pub struct EventRegistry {
     needs_update: bool,
@@ -882,17 +881,15 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
 }
 
 /// A system that calls [`Events::update`] on all registered [`Events`] in the world.
-pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Option<Tick>>) {
+pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
     if world.contains_resource::<EventRegistry>() {
-        let change_tick = *last_change_tick;
-        let change_tick = change_tick.unwrap_or(Tick::new(0));
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
-            registry.run_updates(world, change_tick);
+            registry.run_updates(world, *last_change_tick);
             // Disable the system until signal_event_update_system runs again.
             registry.needs_update = false;
         });
     }
-    *last_change_tick = Some(world.change_tick());
+    *last_change_tick = world.change_tick();
 }
 
 /// A run condition for [`event_update_system`].
