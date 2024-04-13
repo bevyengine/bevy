@@ -74,6 +74,7 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
             .field("writes", &FormattedBitSet::<T>::new(&self.writes))
             .field("reads_all", &self.reads_all)
             .field("writes_all", &self.writes_all)
+            .field("archetypal", &FormattedBitSet::<T>::new(&self.archetypal))
             .finish()
     }
 }
