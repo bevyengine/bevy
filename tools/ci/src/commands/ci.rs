@@ -36,6 +36,7 @@ impl CI {
                     failures.push(format!("- {name}: {message}"));
                 } else {
                     failures.push(format!("{name}: {message}"));
+                    break;
                 }
             }
         }
