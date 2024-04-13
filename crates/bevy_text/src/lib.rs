@@ -38,9 +38,7 @@ use bevy_asset::AssetApp;
 use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem,
-    view::{check_visibility, VisibilitySystems},
-    ExtractSchedule, RenderApp,
+    camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
@@ -107,13 +105,6 @@ impl Plugin for TextPlugin {
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),
                     remove_dropped_font_atlas_sets,
-                    check_visibility::<WithText>
-                        .in_set(VisibilitySystems::CheckVisibility)
-                        .after(VisibilitySystems::CalculateBounds)
-                        .after(VisibilitySystems::UpdateOrthographicFrusta)
-                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                        .after(VisibilitySystems::UpdateProjectionFrusta)
-                        .after(VisibilitySystems::VisibilityPropagate),
                 ),
             );
 
