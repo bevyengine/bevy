@@ -1,40 +1,105 @@
-# Add the contents of this file to `config.toml` to enable "fast build" configuration. Please read the notes below.
-
-# NOTE: For maximum performance, build using a nightly compiler
-# If you are using rust stable, remove the "-Zshare-generics=y" below.
+# Copy this file to `config.toml` to speed up your builds.
+#
+# This configuration enables the following:
+#
+# - Faster linker (stable)
+#   - LLD is a faster drop-in replacement for the default linker, part of the LLVM project.
+#     It requires installation, please see the relevant section of this config for your platform.
+#   - Mold / Sold is a linker faster than even LLD, but with limited platform support.
+#     It requires installation, please see the relevant section of this config for your platform.
+#     Mold is precompiled for Linux, but must be manually built on MacOS and is unavailable for Windows.
+#   - Please note that LLD and Mold are incompatible with one another. Pick one and comment out the other!
+# - Nightly (unstable) features
+#   - `share-generics` prevents duplicating monomorphized generic code across crates.
+#   - `threads` makes use of the parallel frontend to increase compiler performance.
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = [
-  "-Clink-arg=-fuse-ld=lld", # Use LLD Linker
-  "-Zshare-generics=y",      # (Nightly) Make the current crate share its generic instantiations
-  "-Zthreads=0",             # (Nightly) Use improved multithreading with the recommended amount of threads.
+  # LLD linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install lld clang`
+  # - Fedora: `sudo dnf install lld clang`
+  # - Arch: `sudo pacman -S lld clang`
+  "-Clink-arg=-fuse-ld=lld",
+
+  # Mold linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install mold clang`
+  # - Fedora: `sudo dnf install mold clang`
+  # - Arch: `sudo pacman -S mold clang`
+  # "-Clink-arg=-fuse-ld=/usr/bin/mold",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
 ]
 
-# NOTE: you must install [Mach-O LLD Port](https://lld.llvm.org/MachO/index.html) on mac. you can easily do this by installing llvm which includes lld with the "brew" package manager:
-# `brew install llvm`
 [target.x86_64-apple-darwin]
 rustflags = [
-  "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld", # Use LLD Linker
-  "-Zshare-generics=y",                                   # (Nightly) Make the current crate share its generic instantiations
-  "-Zthreads=0",                                          # (Nightly) Use improved multithreading with the recommended amount of threads.
+  # LLD linker
+  #
+  # You may need to install it:
+  #
+  # Brew: `brew install llvm`
+  # Manually: <https://lld.llvm.org/MachO/index.html>
+  "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
+
+  # Sold linker
+  #
+  # You may need to install it:
+  #
+  # Manually: <https://github.com/bluewhalesystems/sold>
+  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
 ]
 
 [target.aarch64-apple-darwin]
 rustflags = [
-  "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld", # Use LLD Linker
-  "-Zshare-generics=y",                                      # (Nightly) Make the current crate share its generic instantiations
-  "-Zthreads=0",                                             # (Nightly) Use improved multithreading with the recommended amount of threads.
+  # LLD linker
+  #
+  # You may need to install it:
+  #
+  # Brew: `brew install llvm`
+  # Manually: <https://lld.llvm.org/MachO/index.html>
+  "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
+
+  # Sold linker
+  #
+  # You may need to install it:
+  #
+  # Manually: <https://github.com/bluewhalesystems/sold>
+  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
 ]
 
 [target.x86_64-pc-windows-msvc]
-linker = "rust-lld.exe" # Use LLD Linker
+# LLD linker
+#
+# You may need to install it:
+#
+# ```
+# cargo install -f cargo-binutils
+# rustup component add llvm-tools
+# ```
+linker = "rust-lld.exe"
 rustflags = [
-  "-Zshare-generics=n", # (Nightly)
-  "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
 ]
 
 # Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
 # In most cases the gains are negligible, but if you are on macos and have slow compile times you should see significant gains.
-#[profile.dev]
-#debug = 1
+# [profile.dev]
+# debug = 1
