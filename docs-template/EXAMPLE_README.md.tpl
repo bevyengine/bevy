@@ -99,12 +99,21 @@ The Android `NDK (Side by side)` must also be installed, and the environment var
 
 ### Build & Run
 
-To run on a device setup for Android development, in examples/mobile run:
+To run on a device setup for Android development, run:
 
 ```sh
+cd examples/mobile
 ./gradlew build
 ./gradlew installDebug
 adb shell am start -n org.bevyengine.example/.MainActivity
+```
+
+To build an Android App Bundle (aab), run:
+
+```sh
+cd examples/mobile
+./gradlew build
+./gradlew bundle
 ```
 
 ### Debugging
