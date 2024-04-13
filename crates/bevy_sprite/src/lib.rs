@@ -214,7 +214,7 @@ pub fn calculate_bounds_2d(
 impl ExtractComponent for SpriteSource {
     type QueryData = ();
 
-    type QueryFilter = ();
+    type QueryFilter = With<SpriteSource>;
 
     type Out = SpriteSource;
 
