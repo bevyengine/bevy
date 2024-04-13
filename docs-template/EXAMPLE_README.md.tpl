@@ -90,32 +90,22 @@ Example | Description
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
-When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
+The Android `NDK (Side by side)` must also be installed, and the environment variable `ANDROID_NDK_ROOT` must be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To run on a device setup for Android development, in examples/mobile run:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+./gradlew build
+./gradlew installDebug
+adb shell am start -n org.bevyengine.example/.MainActivity
 ```
-
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
-
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-```
-
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
 ### Debugging
 
@@ -135,7 +125,7 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
+Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
 
