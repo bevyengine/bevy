@@ -10,11 +10,10 @@
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderSet::Queue`](crate::RenderSet::Queue).
-//! After that the render phase sorts them in the
-//! [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort).
-//! Finally the items are rendered using a single [`TrackedRenderPass`], during the
-//! [`RenderSet::Render`](crate::RenderSet::Render).
+//! This must be done in the [`RenderSet::Queue`].
+//! After that the render phase sorts them in the [`RenderSet::PhaseSort`].
+//! Finally the items are rendered using a single [`TrackedRenderPass`], during
+//! the [`RenderSet::Render`].
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -29,6 +28,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
+use bevy_app::{App, Plugin};
 use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
@@ -36,13 +36,22 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
-use crate::render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache};
+use crate::{
+    batching::{
+        self,
+        gpu_preprocessing::{self, BatchedInstanceBuffers},
+        no_gpu_preprocessing::{self, BatchedInstanceBuffer},
+        GetFullBatchData,
+    },
+    render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    Render, RenderApp, RenderSet,
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use smallvec::SmallVec;
-use std::{hash::Hash, ops::Range, slice::SliceIndex};
+use std::{hash::Hash, marker::PhantomData, ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -291,6 +300,101 @@ where
     }
 }
 
+/// A convenient abstraction for adding all the systems necessary for a binned
+/// render phase to the render app.
+///
+/// This is the version used when the pipeline supports GPU preprocessing: e.g.
+/// 3D PBR meshes.
+pub struct BinnedRenderPhasePlugin<BPI, GFBD>(PhantomData<(BPI, GFBD)>)
+where
+    BPI: BinnedPhaseItem,
+    GFBD: GetFullBatchData;
+
+impl<BPI, GFBD> Default for BinnedRenderPhasePlugin<BPI, GFBD>
+where
+    BPI: BinnedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<BPI, GFBD> Plugin for BinnedRenderPhasePlugin<BPI, GFBD>
+where
+    BPI: BinnedPhaseItem,
+    GFBD: GetFullBatchData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
+            (
+                batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                (
+                    no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                        .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                    gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>.run_if(
+                        resource_exists::<
+                            BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                        >,
+                    ),
+                )
+                    .in_set(RenderSet::PrepareResources),
+            ),
+        );
+    }
+}
+
+/// A convenient abstraction for adding all the systems necessary for a sorted
+/// render phase to the render app.
+///
+/// This is the version used when the pipeline supports GPU preprocessing: e.g.
+/// 3D PBR meshes.
+pub struct SortedRenderPhasePlugin<SPI, GFBD>(PhantomData<(SPI, GFBD)>)
+where
+    SPI: SortedPhaseItem,
+    GFBD: GetFullBatchData;
+
+impl<SPI, GFBD> Default for SortedRenderPhasePlugin<SPI, GFBD>
+where
+    SPI: SortedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<SPI, GFBD> Plugin for SortedRenderPhasePlugin<SPI, GFBD>
+where
+    SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
+    GFBD: GetFullBatchData + Sync + Send + 'static,
+{
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            Render,
+            (
+                no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                    .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>.run_if(
+                    resource_exists::<
+                        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                    >,
+                ),
+            )
+                .in_set(RenderSet::PrepareResources),
+        );
+    }
+}
+
 impl UnbatchableBinnedEntityBufferIndex {
     /// Adds a new entity to the list of unbatchable binned entities.
     pub fn add<T>(&mut self, gpu_array_buffer_index: GpuArrayBufferIndex<T>)
@@ -463,12 +567,10 @@ where
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).
-/// Then it has to be queued up for rendering during the
-/// [`RenderSet::Queue`](crate::RenderSet::Queue), by adding a corresponding phase item to
-/// a render phase.
+/// Then it has to be queued up for rendering during the [`RenderSet::Queue`],
+/// by adding a corresponding phase item to a render phase.
 /// Afterwards it will be possibly sorted and rendered automatically in the
-/// [`RenderSet::PhaseSort`](crate::RenderSet::PhaseSort) and
-/// [`RenderSet::Render`](crate::RenderSet::Render), respectively.
+/// [`RenderSet::PhaseSort`] and [`RenderSet::Render`], respectively.
 ///
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.

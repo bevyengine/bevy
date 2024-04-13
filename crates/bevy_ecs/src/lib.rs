@@ -18,6 +18,8 @@ pub mod component;
 pub mod entity;
 pub mod event;
 pub mod identifier;
+pub mod intern;
+pub mod label;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;

@@ -37,7 +37,9 @@
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serde"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use map_entities::*;
 
 mod hash;
@@ -55,6 +57,7 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
 
@@ -141,9 +144,10 @@ type IdCursor = isize;
 /// [SemVer]: https://semver.org/
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 #[cfg_attr(
-    feature = "bevy_reflect",
-    reflect_value(Hash, PartialEq, Serialize, Deserialize)
+    all(feature = "bevy_reflect", feature = "serde"),
+    reflect_value(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
@@ -364,6 +368,7 @@ impl From<Entity> for Identifier {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for Entity {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -373,6 +378,7 @@ impl Serialize for Entity {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Entity {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
