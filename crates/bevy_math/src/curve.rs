@@ -1,10 +1,100 @@
-//! Houses the [`Curve`] trait together with the [`Interpolable`] trait that it depends on.
+//! Houses the [`Curve`] trait together with the [`Interpolable`] trait and the [`Interval`]
+//! struct that it depends on.
 
-use std::{cmp::max, marker::PhantomData};
-use crate::Quat;
-// use serde::{de::DeserializeOwned, Serialize};
+use crate::{Quat, VectorSpace};
+use std::{
+    cmp::{max, max_by, min_by},
+    marker::PhantomData,
+    ops::RangeInclusive,
+};
 
-use crate::VectorSpace;
+/// A nonempty closed interval, possibly infinite in either direction.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Interval {
+    start: f32,
+    end: f32,
+}
+
+/// An error that indicates that an operation would have returned an invalid [`Interval`].
+#[derive(Debug)]
+pub struct InvalidIntervalError;
+
+/// An error indicating that an infinite interval was used where it was inappropriate.
+#[derive(Debug)]
+pub struct InfiniteIntervalError;
+
+impl Interval {
+    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
+    /// but cannot be empty; invalid parameters will result in an error.
+    pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
+        if start >= end || start.is_nan() || end.is_nan() {
+            Err(InvalidIntervalError)
+        } else {
+            Ok(Self { start, end })
+        }
+    }
+
+    /// Get the start of this interval.
+    #[inline]
+    pub fn start(self) -> f32 {
+        self.start
+    }
+
+    /// Get the end of this interval.
+    #[inline]
+    pub fn end(self) -> f32 {
+        self.end
+    }
+
+    /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
+    /// intersection would be empty (hence an invalid interval).
+    pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
+        let lower = max_by(self.start, other.start, |x, y| x.partial_cmp(y).unwrap());
+        let upper = min_by(self.end, other.end, |x, y| x.partial_cmp(y).unwrap());
+        Self::new(lower, upper)
+    }
+
+    /// Get the length of this interval. Note that the result may be infinite (`f32::INFINITY`).
+    #[inline]
+    pub fn length(self) -> f32 {
+        self.end - self.start
+    }
+
+    /// Returns `true` if this interval is finite.
+    #[inline]
+    pub fn is_finite(self) -> bool {
+        self.length().is_finite()
+    }
+
+    /// Returns `true` if `item` is contained in this interval.
+    #[inline]
+    pub fn contains(self, item: f32) -> bool {
+        (self.start..=self.end).contains(&item)
+    }
+
+    /// Clamp the given `value` to lie within this interval.
+    #[inline]
+    pub fn clamp(self, value: f32) -> f32 {
+        value.clamp(self.start, self.end)
+    }
+
+    /// Get the linear map which maps this curve onto the `other` one. Returns an error if either
+    /// interval is infinite.
+    pub fn linear_map_to(self, other: Self) -> Result<impl Fn(f32) -> f32, InfiniteIntervalError> {
+        if !self.is_finite() || !other.is_finite() {
+            return Err(InfiniteIntervalError);
+        }
+        let scale = other.length() / self.length();
+        Ok(move |x| (x - self.start) * scale + other.start)
+    }
+}
+
+impl TryFrom<RangeInclusive<f32>> for Interval {
+    type Error = InvalidIntervalError;
+    fn try_from(range: RangeInclusive<f32>) -> Result<Self, Self::Error> {
+        Interval::new(*range.start(), *range.end())
+    }
+}
 
 /// A trait for types whose values can be intermediately interpolated between two given values
 /// with an auxiliary parameter.
@@ -42,6 +132,14 @@ impl Interpolable for Quat {
     }
 }
 
+/// An error indicating that a resampling operation could not be performed because of
+/// malformed inputs.
+pub enum ResamplingError {
+    /// This resampling operation was not provided with enough samples to have well-formed output.
+    NotEnoughSamples(usize),
+    /// This resampling operation failed because of an unbounded interval.
+    InfiniteInterval(InfiniteIntervalError),
+}
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
@@ -50,43 +148,75 @@ pub trait Curve<T>
 where
     T: Interpolable,
 {
-    /// The point at which parameter values of this curve end. That is, this curve is parametrized
-    /// on the interval `[0, self.duration()]`.
-    fn duration(&self) -> f32;
+    /// The interval over which this curve is parametrized.
+    fn domain(&self) -> Interval;
 
     /// Sample a point on this curve at the parameter value `t`, extracting the associated value.
     fn sample(&self, t: f32) -> T;
 
-    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced values. A total of `samples` samples are used.
-    ///
-    /// Panics if `samples == 0`.
-    fn resample(&self, samples: usize) -> SampleCurve<T> {
-        assert!(samples != 0);
-
-        // When `samples` is 1, we just record the starting point, and `step` doesn't matter.
-        let subdivisions = max(1, samples - 1);
-        let step = self.duration() / subdivisions as f32;
-        let samples: Vec<T> = (0..samples).map(|s| self.sample(s as f32 * step)).collect();
-        SampleCurve {
-            duration: self.duration(),
-            samples,
+    /// Sample a point on this curve at the parameter value `t`, returning `None` if the point is
+    /// outside of the curve's domain.
+    fn sample_checked(&self, t: f32) -> Option<T> {
+        match self.domain().contains(t) {
+            true => Some(self.sample(t)),
+            false => None,
         }
     }
 
+    /// Sample a point on this curve at the parameter value `t`, clamping `t` to lie inside the
+    /// domain of the curve.
+    fn sample_clamped(&self, t: f32) -> T {
+        let t = self.domain().clamp(t);
+        self.sample(t)
+    }
+
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
+    /// spaced values. A total of `samples` samples are used, although at least two samples are
+    /// required in order to produce well-formed output. If fewer than two samples are provided,
+    /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
+    fn resample(&self, samples: usize) -> Result<SampleCurve<T>, ResamplingError> {
+        if samples < 2 {
+            return Err(ResamplingError::NotEnoughSamples(samples));
+        }
+        if !self.domain().is_finite() {
+            return Err(ResamplingError::InfiniteInterval(InfiniteIntervalError));
+        }
+
+        // When `samples` is 1, we just record the starting point, and `step` doesn't matter.
+        let subdivisions = max(1, samples - 1);
+        let step = self.domain().length() / subdivisions as f32;
+        let samples: Vec<T> = (0..samples).map(|s| self.sample(s as f32 * step)).collect();
+        Ok(SampleCurve {
+            domain: self.domain(),
+            samples,
+        })
+    }
+
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
-    /// taken at the given set of times. The given `sample_times` are expected to be strictly
-    /// increasing and nonempty.
-    fn resample_uneven(&self, sample_times: impl IntoIterator<Item = f32>) -> UnevenSampleCurve<T> {
-        let mut iter = sample_times.into_iter();
-        let Some(first) = iter.next() else {
-            panic!("Empty iterator supplied")
-        };
-        // Offset by the first element so that we get a curve starting at zero.
-        let first_sample = self.sample(first);
-        let mut timed_samples = vec![(0.0, first_sample)];
-        timed_samples.extend(iter.map(|t| (t - first, self.sample(t))));
-        UnevenSampleCurve { timed_samples }
+    /// taken at the given set of times. The given `sample_times` are expected to contain at least
+    /// two valid times within the curve's domain range.
+    ///
+    /// Irredundant sample times, non-finite sample times, and sample times outside of the domain
+    /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
+    /// returned.
+    ///
+    /// The domain of the produced [`UnevenSampleCurve`] stretches between the first and last
+    /// sample times of the iterator.
+    fn resample_uneven(
+        &self,
+        sample_times: impl IntoIterator<Item = f32>,
+    ) -> Result<UnevenSampleCurve<T>, ResamplingError> {
+        let mut times: Vec<f32> = sample_times
+            .into_iter()
+            .filter(|t| t.is_finite() && self.domain().contains(*t))
+            .collect();
+        times.dedup_by(|t1, t2| (*t1).eq(t2));
+        if times.len() < 2 {
+            return Err(ResamplingError::NotEnoughSamples(times.len()));
+        }
+        times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
+        let timed_samples = times.into_iter().map(|t| (t, self.sample(t))).collect();
+        Ok(UnevenSampleCurve { timed_samples })
     }
 
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
@@ -106,8 +236,8 @@ where
 
     /// Create a new [`Curve`] whose parameter space is related to the parameter space of this curve
     /// by `f`. For each time `t`, the sample from the new curve at time `t` is the sample from
-    /// this curve at time `f(t)`. The given `duration` will be the duration of the new curve. The
-    /// function `f` is expected to take `[0, duration]` into `[0, self.duration]`.
+    /// this curve at time `f(t)`. The given `domain` will be the domain of the new curve. The
+    /// function `f` is expected to take `domain` into `self.domain()`.
     ///
     /// Note that this is the opposite of what one might expect intuitively; for example, if this
     /// curve has a parameter interval of `[0, 1]`, then linearly mapping the parameter domain to
@@ -115,57 +245,54 @@ where
     /// factor rather than multiplying:
     /// ```
     /// # use bevy_math::curve::*;
-    /// # let my_curve = constant_curve(1.0, 1.0);
-    /// let dur = my_curve.duration();
-    /// let scaled_curve = my_curve.reparametrize(dur * 2.0, |t| t / 2.0);
+    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let domain = my_curve.domain();
+    /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
-    /// [`Curve::reparametrize_linear`], which requires only the desired duration for the new curve.
+    /// [`Curve::reparametrize_linear`], which requires only the desired domain for the new curve.
     ///
     /// # Examples
     /// ```
     /// // Reverse a curve:
     /// # use bevy_math::curve::*;
     /// # use bevy_math::vec2;
-    /// # let my_curve = constant_curve(1.0, 1.0);
-    /// let dur = my_curve.duration();
-    /// let reversed_curve = my_curve.reparametrize(dur, |t| dur - t);
+    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let domain = my_curve.domain();
+    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - t);
     ///
     /// // Take a segment of a curve:
-    /// # let my_curve = constant_curve(1.0, 1.0);
-    /// let curve_segment = my_curve.reparametrize(0.5, |t| 0.5 + t);
+    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
     ///
     /// // Reparametrize by an easing curve:
-    /// # let my_curve = constant_curve(1.0, 1.0);
-    /// # let easing_curve = constant_curve(1.0, vec2(1.0, 1.0));
-    /// let dur = my_curve.duration();
-    /// let eased_curve = my_curve.reparametrize(dur, |t| easing_curve.sample(t).y);
+    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// # let easing_curve = constant_curve(interval(0.0, 1.0).unwrap(), vec2(1.0, 1.0));
+    /// let domain = my_curve.domain();
+    /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample(t).y);
     /// ```
-    ///
-    /// # Panics
-    /// Panics if `duration` is not greater than `0.0`.
-    fn reparametrize(self, duration: f32, f: impl Fn(f32) -> f32) -> impl Curve<T>
+    fn reparametrize(self, domain: Interval, f: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
     {
-        assert!(duration > 0.0);
         ReparamCurve {
-            duration,
+            domain,
             base: self,
             f,
             _phantom: PhantomData,
         }
     }
 
-    /// Linearly reparametrize this [`Curve`], producing a new curve whose duration is the given
-    /// `duration` instead of the current one.
-    fn reparametrize_linear(self, duration: f32) -> impl Curve<T>
+    /// Linearly reparametrize this [`Curve`], producing a new curve whose domain is the given
+    /// `domain` instead of the current one. This operation is only valid for curves with finite
+    /// domains; if either this curve's domain or the given `domain` is infinite, an
+    /// [`InfiniteIntervalError`] is returned.
+    fn reparametrize_linear(self, domain: Interval) -> Result<impl Curve<T>, InfiniteIntervalError>
     where
         Self: Sized,
     {
-        assert!(duration > 0.0);
-        let old_duration = self.duration();
-        Curve::reparametrize(self, duration, move |t| t * (old_duration / duration))
+        let f = domain.linear_map_to(self.domain())?;
+        Ok(self.reparametrize(domain, f))
     }
 
     /// Reparametrize this [`Curve`] by sampling from another curve.
@@ -173,7 +300,7 @@ where
     where
         Self: Sized,
     {
-        self.reparametrize(other.duration(), |t| other.sample(t))
+        self.reparametrize(other.domain(), |t| other.sample(t))
     }
 
     /// Create a new [`Curve`] which is the graph of this one; that is, its output includes the
@@ -191,28 +318,31 @@ where
 
     /// Create a new [`Curve`] by joining this curve together with another. The sample at time `t`
     /// in the new curve is `(x, y)`, where `x` is the sample of `self` at time `t` and `y` is the
-    /// sample of `other` at time `t`. The duration of the new curve is the smaller of the two
-    /// between `self` and `other`.
-    fn and<S, C>(self, other: C) -> impl Curve<(T, S)>
+    /// sample of `other` at time `t`. The domain of the new curve is the intersection of the
+    /// domains of its constituents. If the domain intersection would be empty, an
+    /// [`InvalidIntervalError`] is returned.
+    fn zip<S, C>(self, other: C) -> Result<impl Curve<(T, S)>, InvalidIntervalError>
     where
         Self: Sized,
         S: Interpolable,
         C: Curve<S> + Sized,
     {
-        ProductCurve {
+        let domain = self.domain().intersect(other.domain())?;
+        Ok(ProductCurve {
+            domain,
             first: self,
             second: other,
             _phantom: PhantomData,
-        }
+        })
     }
 }
 
-/// A [`Curve`] which takes a constant value over its duration.
+/// A [`Curve`] which takes a constant value over its domain.
 pub struct ConstantCurve<T>
 where
     T: Interpolable,
 {
-    duration: f32,
+    domain: Interval,
     value: T,
 }
 
@@ -221,8 +351,8 @@ where
     T: Interpolable,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.duration
+    fn domain(&self) -> Interval {
+        self.domain
     }
 
     #[inline]
@@ -232,23 +362,23 @@ where
 }
 
 /// A [`Curve`] defined by a function.
-pub struct FunctionCurve<T, F> 
+pub struct FunctionCurve<T, F>
 where
     T: Interpolable,
     F: Fn(f32) -> T,
 {
-    duration: f32,
+    domain: Interval,
     f: F,
 }
 
-impl<T, F> Curve<T> for FunctionCurve<T, F> 
+impl<T, F> Curve<T> for FunctionCurve<T, F>
 where
     T: Interpolable,
     F: Fn(f32) -> T,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.duration
+    fn domain(&self) -> Interval {
+        self.domain
     }
 
     #[inline]
@@ -262,10 +392,11 @@ pub struct SampleCurve<T>
 where
     T: Interpolable,
 {
-    duration: f32,
-
-    /// The list of samples that define this curve by interpolation.
-    pub samples: Vec<T>,
+    domain: Interval,
+    /// The samples that make up this [`SampleCurve`] by interpolation.
+    ///
+    /// Invariant: this must always have a length of at least 2.
+    samples: Vec<T>,
 }
 
 impl<T> SampleCurve<T>
@@ -279,19 +410,21 @@ where
     {
         let new_samples: Vec<S> = self.samples.into_iter().map(f).collect();
         SampleCurve {
-            duration: self.duration,
+            domain: self.domain,
             samples: new_samples,
         }
     }
 
     /// Like [`Curve::graph`], but with a concrete return type.
     pub fn graph_concrete(self) -> SampleCurve<(f32, T)> {
-        let subdivisions = max(1, self.samples.len() - 1);
-        let step = self.duration() / subdivisions as f32;
-        let times: Vec<f32> = (0..self.samples.len()).map(|s| s as f32 * step).collect();
+        let subdivisions = self.samples.len() - 1;
+        let step = self.domain.length() / subdivisions as f32;
+        let times: Vec<f32> = (0..self.samples.len())
+            .map(|s| self.domain.start() + (s as f32 * step))
+            .collect();
         let new_samples: Vec<(f32, T)> = times.into_iter().zip(self.samples).collect();
         SampleCurve {
-            duration: self.duration,
+            domain: self.domain,
             samples: new_samples,
         }
     }
@@ -302,28 +435,22 @@ where
     T: Interpolable,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.duration
+    fn domain(&self) -> Interval {
+        self.domain
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        let num_samples = self.samples.len();
-        // If there is only one sample, then we return the single sample point. We also clamp `t`
-        // to `[0, self.duration]` here.
-        if num_samples == 1 || t <= 0.0 {
-            return self.samples[0].clone();
-        }
-        if t >= self.duration {
-            return self.samples[self.samples.len() - 1].clone();
-        }
+        // We clamp `t` to the domain.
+        let t = self.domain.clamp(t);
 
         // Inside the curve itself, interpolate between the two nearest sample values.
-        let subdivs = num_samples - 1;
-        let step = self.duration / subdivs as f32;
-        let lower_index = (t / step).floor() as usize;
-        let upper_index = (t / step).ceil() as usize;
-        let f = (t / step).fract();
+        let subdivs = self.samples.len() - 1;
+        let step = self.domain.length() / subdivs as f32;
+        let t_shifted = t - self.domain.start();
+        let lower_index = (t_shifted / step).floor() as usize;
+        let upper_index = (t_shifted / step).ceil() as usize;
+        let f = (t_shifted / step).fract();
         self.samples[lower_index].interpolate(&self.samples[upper_index], f)
     }
 
@@ -348,6 +475,10 @@ pub struct UnevenSampleCurve<T>
 where
     T: Interpolable,
 {
+    /// The timed that make up this [`UnevenSampleCurve`] by interpolation.
+    ///
+    /// Invariants: this must always have a length of at least 2, be sorted by time, and have no
+    /// duplicated or non-finite times.
     timed_samples: Vec<(f32, T)>,
 }
 
@@ -381,6 +512,20 @@ where
             timed_samples: new_samples,
         }
     }
+
+    /// This [`UnevenSampleCurve`], but with the sample times moved by the map `f`.
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// but the function inputs to each are inverses of one another.
+    ///
+    /// The samples are resorted by time after mapping and deduplicated by output time, so
+    /// the function `f` should generally be injective over the sample times of the curve.
+    pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T> {
+        self.timed_samples.iter_mut().for_each(|(t, _)| *t = f(*t));
+        self.timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
+        self.timed_samples
+            .sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        self
+    }
 }
 
 impl<T> Curve<T> for UnevenSampleCurve<T>
@@ -388,8 +533,10 @@ where
     T: Interpolable,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.timed_samples.last().unwrap().0
+    fn domain(&self) -> Interval {
+        let start = self.timed_samples.first().unwrap().0;
+        let end = self.timed_samples.last().unwrap().0;
+        Interval::new(start, end).unwrap()
     }
 
     #[inline]
@@ -452,13 +599,40 @@ where
     F: Fn(S) -> T,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.preimage.duration()
+    fn domain(&self) -> Interval {
+        self.preimage.domain()
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
         (self.f)(self.preimage.sample(t))
+    }
+
+    // Specialized implementation of [`Curve::map`] that reuses data.
+    fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
+    where
+        Self: Sized,
+        R: Interpolable,
+    {
+        let gf = move |x| g((self.f)(x));
+        MapCurve {
+            preimage: self.preimage,
+            f: gf,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
+    where
+        Self: Sized,
+    {
+        MapReparamCurve {
+            reparam_domain: domain,
+            base: self.preimage,
+            forward_map: self.f,
+            reparam_map: g,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -469,7 +643,7 @@ where
     C: Curve<T>,
     F: Fn(f32) -> f32,
 {
-    duration: f32,
+    domain: Interval,
     base: C,
     f: F,
     _phantom: PhantomData<T>,
@@ -482,13 +656,109 @@ where
     F: Fn(f32) -> f32,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.duration
+    fn domain(&self) -> Interval {
+        self.domain
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
         self.base.sample((self.f)(t))
+    }
+
+    // Specialized implementation of [`Curve::reparametrize`] that reuses data.
+    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
+    where
+        Self: Sized,
+    {
+        let fg = move |t| (self.f)(g(t));
+        ReparamCurve {
+            domain,
+            base: self.base,
+            f: fg,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn map<S>(self, g: impl Fn(T) -> S) -> impl Curve<S>
+    where
+        Self: Sized,
+        S: Interpolable,
+    {
+        MapReparamCurve {
+            reparam_domain: self.domain,
+            base: self.base,
+            forward_map: g,
+            reparam_map: self.f,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+/// A [`Curve`] structure that holds both forward and backward remapping information
+/// in order to optimize repeated calls of [`Curve::map`] and [`Curve::reparametrize`].
+///
+/// Briefly, the point is that the curve just absorbs new functions instead of rebasing
+/// itself inside new structs.
+pub struct MapReparamCurve<S, T, C, F, G>
+where
+    S: Interpolable,
+    T: Interpolable,
+    C: Curve<S>,
+    F: Fn(S) -> T,
+    G: Fn(f32) -> f32,
+{
+    reparam_domain: Interval,
+    base: C,
+    forward_map: F,
+    reparam_map: G,
+    _phantom: PhantomData<(S, T)>,
+}
+
+impl<S, T, C, F, G> Curve<T> for MapReparamCurve<S, T, C, F, G>
+where
+    S: Interpolable,
+    T: Interpolable,
+    C: Curve<S>,
+    F: Fn(S) -> T,
+    G: Fn(f32) -> f32,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.reparam_domain
+    }
+
+    #[inline]
+    fn sample(&self, t: f32) -> T {
+        (self.forward_map)(self.base.sample((self.reparam_map)(t)))
+    }
+
+    fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
+    where
+        Self: Sized,
+        R: Interpolable,
+    {
+        let gf = move |x| g((self.forward_map)(x));
+        MapReparamCurve {
+            reparam_domain: self.reparam_domain,
+            base: self.base,
+            forward_map: gf,
+            reparam_map: self.reparam_map,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
+    where
+        Self: Sized,
+    {
+        let fg = move |t| (self.reparam_map)(g(t));
+        MapReparamCurve {
+            reparam_domain: domain,
+            base: self.base,
+            forward_map: self.forward_map,
+            reparam_map: fg,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -508,8 +778,8 @@ where
     C: Curve<T>,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        self.base.duration()
+    fn domain(&self) -> Interval {
+        self.base.domain()
     }
 
     #[inline]
@@ -526,6 +796,7 @@ where
     C: Curve<S>,
     D: Curve<T>,
 {
+    domain: Interval,
     first: C,
     second: D,
     _phantom: PhantomData<(S, T)>,
@@ -539,8 +810,8 @@ where
     D: Curve<T>,
 {
     #[inline]
-    fn duration(&self) -> f32 {
-        f32::min(self.first.duration(), self.second.duration())
+    fn domain(&self) -> Interval {
+        self.domain
     }
 
     #[inline]
@@ -549,34 +820,31 @@ where
     }
 }
 
-// Experimental stuff:
-
-// TODO: See how much this needs to be extended / whether it's actually useful.
-// The actual point here is to give access to additional trait constraints that are
-// satisfied by the output, but not guaranteed depending on the actual data
-// that underpins the invoking implementation.
-
-// pub trait MapConcreteCurve<T>: Curve<T> + Serialize + DeserializeOwned
-// where T: Interpolable {
-//     fn map_concrete<S>(self, f: impl Fn(T) -> S) -> impl MapConcreteCurve<S>
-//     where S: Interpolable;
-// }
-
 // Library functions:
 
-/// Create a [`Curve`] that constantly takes the given `value` over the given `duration`.
-pub fn constant_curve<T: Interpolable>(duration: f32, value: T) -> impl Curve<T> {
-    ConstantCurve { duration, value }
+/// Create an [`Interval`] with a given `start` and `end`. Alias of [`Interval::new`].
+pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> {
+    Interval::new(start, end)
 }
 
-/// Convert the given function `f` into a [`Curve`] with the given `duration`, sampled by
+/// The [`Interval`] from negative infinity to infinity.
+pub fn everywhere() -> Interval {
+    Interval::new(f32::NEG_INFINITY, f32::INFINITY).unwrap()
+}
+
+/// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
+pub fn constant_curve<T: Interpolable>(domain: Interval, value: T) -> impl Curve<T> {
+    ConstantCurve { domain, value }
+}
+
+/// Convert the given function `f` into a [`Curve`] with the given `domain`, sampled by
 /// evaluating the function.
-pub fn function_curve<T, F>(duration: f32, f: F) -> impl Curve<T>
-where 
+pub fn function_curve<T, F>(domain: Interval, f: F) -> impl Curve<T>
+where
     T: Interpolable,
     F: Fn(f32) -> T,
 {
-    FunctionCurve { duration, f }
+    FunctionCurve { domain, f }
 }
 
 /// Flip a curve that outputs tuples so that the tuples are arranged the other way.
@@ -586,77 +854,4 @@ where
     T: Interpolable,
 {
     curve.map(|(s, t)| (t, s))
-}
-
-/// An error indicating that the implicit function theorem algorithm failed to apply because
-/// the input curve did not meet its criteria.
-pub struct IftError;
-
-/// Given a monotone `curve`, produces the curve that it is the graph of, up to reparametrization.
-/// This is an algorithmic manifestation of the implicit function theorem; it is a numerical
-/// procedure which is only performed to the specified resolutions.
-///
-/// The `search_resolution` dictates how many samples are taken of the input curve; linear
-/// interpolation is used between these samples to estimate the inverse image.
-///
-/// The `outgoing_resolution` dictates the number of samples that are used in the construction of
-/// the output itself.
-///
-/// The input curve must have its first x-value be `0` or an error will be returned. Furthermore,
-/// if the curve is non-monotone, the output of this function may be nonsensical even if an error
-/// does not occur.
-pub fn ift<T>(
-    curve: &impl Curve<(f32, T)>,
-    search_resolution: usize,
-    outgoing_resolution: usize,
-) -> Result<SampleCurve<T>, IftError>
-where
-    T: Interpolable,
-{
-    // The duration of the output curve is the maximum x-value of the input curve.
-    let (duration, _) = curve.sample(curve.duration());
-    let discrete_curve = curve.resample(search_resolution);
-
-    let subdivisions = max(1, outgoing_resolution - 1);
-    let step = duration / subdivisions as f32;
-    let times: Vec<f32> = (0..outgoing_resolution).map(|s| s as f32 * step).collect();
-
-    let mut values: Vec<T> = vec![];
-    for t in times {
-        // Find a value on the curve where the x-value is close to `t`.
-        match discrete_curve
-            .samples
-            .binary_search_by(|(x, _y)| x.partial_cmp(&t).unwrap())
-        {
-            // We found an exact match in our samples (pretty unlikely).
-            Ok(index) => {
-                let y = discrete_curve.samples[index].1.clone();
-                values.push(y);
-            }
-
-            // We did not find an exact match, so we must interpolate.
-            Err(index) => {
-                // The value should be between `index - 1` and `index`.
-                // If `index` is the sample length or 0, then something went wrong; `t` is outside
-                // of the range of the function projection.
-                if index == 0 || index == search_resolution {
-                    return Err(IftError);
-                } else {
-                    let (t_lower, y_lower) = discrete_curve.samples.get(index - 1).unwrap();
-                    let (t_upper, y_upper) = discrete_curve.samples.get(index).unwrap();
-                    if t_lower >= t_upper {
-                        return Err(IftError);
-                    }
-                    // Inverse lerp on projected values to interpolate the y-value.
-                    let s = (t - t_lower) / (t_upper - t_lower);
-                    let value = y_lower.interpolate(y_upper, s);
-                    values.push(value);
-                }
-            }
-        }
-    }
-    Ok(SampleCurve {
-        duration,
-        samples: values,
-    })
 }
