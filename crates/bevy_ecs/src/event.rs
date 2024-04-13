@@ -851,18 +851,14 @@ impl EventRegistry {
         for registered_event in &mut self.event_updates {
             // Bypass the type ID -> Component ID lookup with the cached component ID.
             if let Some(events) = world.get_resource_mut_by_id(registered_event.component_id) {
-                if events.has_changed_since(last_change_tick) {
+                let has_changed = events.has_changed_since(last_change_tick);
+                if registered_event.previously_updated || has_changed {
                     // SAFETY: The update function pointer is called with the resource
                     // fetched from the same component ID.
                     unsafe { (registered_event.update)(events) };
-                    registered_event.previously_updated = true;
-                    continue;
-                }
-                if registered_event.previously_updated {
-                    // SAFETY: The update function pointer is called with the resource
-                    // fetched from the same component ID.
-                    unsafe { (registered_event.update)(events) };
-                    registered_event.previously_updated = false;
+                    // Always set to true if the events have changed, otherwise disable running on the second invocation
+                    // to wait for more changes.
+                    registered_event.previously_updated = has_changed || !registered_event.previously_updated;
                 }
             }
         }
