@@ -265,7 +265,7 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
 }
 
 /// A convenient alias for `With<Handle<MeshletMesh>>`, for use with
-/// [`VisibleEntities`].
+/// [`bevy_render::view::VisibleEntities`].
 pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
 
 fn configure_meshlet_views(
