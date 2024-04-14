@@ -59,10 +59,5 @@ public class MainActivity extends GameActivity {
         //     IME_ACTION_NONE, IME_FLAG_NO_FULLSCREEN );
         super.onCreate(savedInstanceState);
     }
-
-    public boolean isGooglePlayGames() {
-        PackageManager pm = getPackageManager();
-        return pm.hasSystemFeature("com.google.android.play.feature.HPE_EXPERIENCE");
-    }
 }
 
