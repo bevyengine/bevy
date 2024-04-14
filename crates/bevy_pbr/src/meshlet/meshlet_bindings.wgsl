@@ -82,7 +82,7 @@ fn get_meshlet_occlusion(cluster_id: u32) -> u32 {
 @group(0) @binding(3) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 
-fn get_meshlet_occlusion(cluster_id: u32) -> bool {
+fn meshlet_visible(cluster_id: u32) -> bool {
     let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
     let bit_offset = (cluster_id % 16u) * 2u + 1u;
     return bool(extractBits(packed_occlusion, bit_offset, 1u));

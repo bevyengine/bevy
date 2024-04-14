@@ -32,17 +32,14 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if should_cull_instance(instance_id) { return; }
 #endif
 
-    // Fetch other meshlet data
+    // Calculate world-space culling bounding sphere for the cluster
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
-    // TODO: use previous model for occlusion cull in first pass
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
-
-    // Calculate world-space culling bounding sphere for the cluster
-    let culling_bounding_sphere_center = model * vec4(bounding_spheres.self_culling.center, 1.0);
-    let culling_bounding_sphere_radius = model_scale * bounding_spheres.self_culling.radius;
+    var culling_bounding_sphere_center = model * vec4(bounding_spheres.self_culling.center, 1.0);
+    var culling_bounding_sphere_radius = model_scale * bounding_spheres.self_culling.radius;
 
 #ifdef MESHLET_FIRST_CULLING_PASS
     // Frustum culling
@@ -70,13 +67,17 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 #endif
 
 #ifdef MESHLET_FIRST_CULLING_PASS
-    let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
-#else
     let culling_bounding_sphere_center_view_space = (previous_view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
+    let previous_model = affine3_to_square(instance_uniform.previous_model);
+    let previous_model_scale = max(length(previous_model[0]), max(length(previous_model[1]), length(previous_model[2])));
+    culling_bounding_sphere_center = previous_model * vec4(bounding_spheres.self_culling.center, 1.0);
+    culling_bounding_sphere_radius = previous_model_scale * bounding_spheres.self_culling.radius;
+#else
+    let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #endif
-    let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
 
     // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
+    let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
     let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
     let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
