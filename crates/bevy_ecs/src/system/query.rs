@@ -813,7 +813,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
-    /// This way is simple but somewhat less efficient, use [`entity_getter`](Self::entity_getter) could be more efficient.
+    /// This way is simple but somewhat less efficient, use [`as_point_query`](Self::as_point_query) could be more efficient if you're doing repeated fetches over a large set of entities.
     ///
     /// This is always guaranteed to run in `O(1)` time.
     ///
