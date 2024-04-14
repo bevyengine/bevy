@@ -23,8 +23,7 @@ pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
 pub struct MeshletPipelines {
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
-    write_index_buffer_first: CachedComputePipelineId,
-    write_index_buffer_second: CachedComputePipelineId,
+    write_index_buffer: CachedComputePipelineId,
     downsample_depth: CachedRenderPipelineId,
     visibility_buffer_raster: CachedRenderPipelineId,
     visibility_buffer_raster_depth_only: CachedRenderPipelineId,
@@ -67,30 +66,17 @@ impl FromWorld for MeshletPipelines {
                 entry_point: "cull_meshlets".into(),
             }),
 
-            write_index_buffer_first: pipeline_cache.queue_compute_pipeline(
-                ComputePipelineDescriptor {
-                    label: Some("meshlet_write_index_buffer_first_pipeline".into()),
-                    layout: vec![write_index_buffer_layout.clone()],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_WRITE_INDEX_BUFFER_PASS".into()],
-                    entry_point: "write_index_buffer".into(),
-                },
-            ),
-
-            write_index_buffer_second: pipeline_cache.queue_compute_pipeline(
-                ComputePipelineDescriptor {
-                    label: Some("meshlet_write_index_buffer_second_pipeline".into()),
-                    layout: vec![write_index_buffer_layout],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-                    shader_defs: vec![
-                        "MESHLET_WRITE_INDEX_BUFFER_PASS".into(),
-                        "MESHLET_SECOND_WRITE_INDEX_BUFFER_PASS".into(),
-                    ],
-                    entry_point: "write_index_buffer".into(),
-                },
-            ),
+            write_index_buffer: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("write_index_buffer_pipeline".into()),
+                layout: vec![write_index_buffer_layout.clone()],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                }],
+                shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
+                shader_defs: vec!["MESHLET_WRITE_INDEX_BUFFER_PASS".into()],
+                entry_point: "write_index_buffer".into(),
+            }),
 
             downsample_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_downsample_depth".into()),
@@ -273,7 +259,6 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
-        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -285,8 +270,7 @@ impl MeshletPipelines {
         Some((
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
-            pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer_first)?,
-            pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer_second)?,
+            pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer)?,
             pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_depth_only)?,

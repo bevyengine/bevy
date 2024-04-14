@@ -3,7 +3,7 @@
     meshlets,
     draw_indirect_args,
     draw_index_buffer,
-    meshlet_visible,
+    meshlet_should_draw,
 }
 
 var<workgroup> draw_index_buffer_start_workgroup: u32;
@@ -17,8 +17,8 @@ fn write_index_buffer(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(n
     let cluster_id = dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
     if cluster_id >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
-    // If the cluster was culled, then we don't need to draw it
-    if !meshlet_visible(cluster_id) { return; }
+    // If the cluster was culled or already drawn in the first pass, then we don't need to draw it
+    if !meshlet_should_draw(cluster_id) { return; }
 
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];

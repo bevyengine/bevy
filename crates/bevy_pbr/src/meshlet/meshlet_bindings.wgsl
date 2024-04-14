@@ -82,11 +82,12 @@ fn meshlet_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
 @group(0) @binding(3) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+var<push_constant> draw_mask: u32; // What state the cluster's occlusion_bits must be in to get drawn
 
-fn meshlet_visible(cluster_id: u32) -> bool {
+fn meshlet_should_draw(cluster_id: u32) -> bool {
     let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
-    let bit_offset = (cluster_id % 16u) * 2u + 1u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+    let bit_offset = (cluster_id % 16u) * 2u;
+    return extractBits(packed_occlusion, bit_offset, 1u) == draw_mask;
 }
 #endif
 

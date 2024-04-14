@@ -66,6 +66,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if !lod_is_ok || parent_lod_is_ok { return; }
 #endif
 
+    // Project the culling bounding sphere to view-space
 #ifdef MESHLET_FIRST_CULLING_PASS
     let culling_bounding_sphere_center_view_space = (previous_view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
     let previous_model = affine3_to_square(instance_uniform.previous_model);
@@ -91,6 +92,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
     let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
+    // Check whether or not the cluster would be occluded if drawn
     var meshlet_visible: bool;
     if view.projection[3][3] == 1.0 {
         // Orthographic
@@ -102,12 +104,13 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
         meshlet_visible = sphere_depth >= occluder_depth;
     }
 
+    // Write whether or not the cluster passed the occlusion culling test
 #ifdef MESHLET_FIRST_CULLING_PASS
     var occlusion_bits = 1u << (u32(!meshlet_visible));
 #else
     var occlusion_bits = u32(meshlet_visible);
 #endif
-    occlusion_bits <<= 30u - (2u * (cluster_id.x % 16u));
+    occlusion_bits <<= (cluster_id.x % 16u) * 2u;
     atomicOr(&meshlet_occlusion[cluster_id.x / 16u], occlusion_bits);
 }
 
