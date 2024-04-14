@@ -833,6 +833,12 @@ impl<'w> MutUntyped<'w> {
         }
     }
 
+    /// Returns `true` if this value was changed or mutably dereferenced
+    /// either since a specific change tick.
+    pub fn has_changed_since(&self, tick: Tick) -> bool {
+        self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
+    }
+
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
     ///
     /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
