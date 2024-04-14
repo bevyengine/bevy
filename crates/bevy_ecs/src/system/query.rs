@@ -983,7 +983,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(u32);
     /// #
     /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
-    ///     let mut getter = query.as_point_queryr_mut();
+    ///     let mut getter = query.as_point_query_mut();
     ///     
     ///     for &entity in poisoned.character_ids.iter() {
     ///         if let Ok(mut health) = getter.get(entity) {
