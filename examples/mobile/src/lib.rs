@@ -21,6 +21,10 @@ fn main() {
             ..default()
         }),
         ..default()
+    }).set(bevy::pbr::PbrPlugin {
+        use_gpu_instance_buffer_builder: false,  // Using the GPU to generate MeshUniforms crashes on Android
+                                                 // https://github.com/bevyengine/bevy/pull/12773
+        ..default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
