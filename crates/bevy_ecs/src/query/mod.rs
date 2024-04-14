@@ -5,9 +5,9 @@ mod builder;
 mod error;
 mod fetch;
 mod filter;
-mod point_query;
 mod iter;
 mod par_iter;
+mod point_query;
 mod state;
 mod world_query;
 
@@ -17,9 +17,9 @@ pub use builder::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
-pub use point_query::*;
 pub use iter::*;
 pub use par_iter::*;
+pub use point_query::*;
 pub use state::*;
 pub use world_query::*;
 

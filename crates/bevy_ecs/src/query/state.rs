@@ -896,7 +896,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     #[inline]
-    pub fn as_point_query_mut<'w, 's>(&'s mut self, world: &'w mut World) -> PointQuery<'w, 's, D, F> {
+    pub fn as_point_query_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> PointQuery<'w, 's, D, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
         let this_run = world.read_change_tick();
