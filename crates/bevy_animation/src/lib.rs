@@ -128,7 +128,7 @@ impl VariableCurve {
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
         // Subtract one for zero indexing!
-        let last_keyframe = self.keyframes.len() - 1;
+        let last_keyframe = self.keyframe_timestamps.len() - 1;
 
         // We want to find the index of the keyframe before the current time
         // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.

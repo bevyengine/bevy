@@ -10,7 +10,7 @@ use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
@@ -319,7 +319,7 @@ pub enum DebandDither {
 }
 
 pub fn get_lut_bindings<'a>(
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,

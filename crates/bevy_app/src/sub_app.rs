@@ -1,5 +1,6 @@
-use crate::{App, First, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, First, InternedAppLabel, Plugin, Plugins, PluginsState, StateTransition};
 use bevy_ecs::{
+    event::EventRegistry,
     prelude::*,
     schedule::{
         common_conditions::run_once as run_once_condition, run_enter_schedule,
@@ -397,12 +398,7 @@ impl SubApp {
         T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>().add_systems(
-                First,
-                bevy_ecs::event::event_update_system::<T>
-                    .in_set(bevy_ecs::event::EventUpdates)
-                    .run_if(bevy_ecs::event::event_update_condition::<T>),
-            );
+            EventRegistry::register_event::<T>(self.world_mut());
         }
 
         self

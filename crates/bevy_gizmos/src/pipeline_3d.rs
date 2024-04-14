@@ -1,8 +1,9 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
+    LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -51,7 +52,7 @@ impl Plugin for LineGizmo3dPlugin {
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
-                    .after(prepare_assets::<LineGizmo>),
+                    .after(prepare_assets::<GpuLineGizmo>),
             );
     }
 
@@ -278,7 +279,7 @@ fn queue_line_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,
@@ -361,7 +362,7 @@ fn queue_line_joint_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,

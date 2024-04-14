@@ -72,9 +72,6 @@ struct SystemTaskMetadata {
     is_send: bool,
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
-    /// Cached tracing span for system task
-    #[cfg(feature = "trace")]
-    system_task_span: Span,
 }
 
 /// The result of running a system that is sent across a channel.
@@ -177,11 +174,6 @@ impl SystemExecutor for MultiThreadedExecutor {
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
-                #[cfg(feature = "trace")]
-                system_task_span: info_span!(
-                    "system_task",
-                    name = &*schedule.systems[index].name()
-                ),
             });
         }
 
@@ -610,12 +602,8 @@ impl ExecutorState {
 
         let system_meta = &self.system_task_metadata[system_index];
 
-        #[cfg(feature = "trace")]
-        let system_span = system_meta.system_task_span.clone();
         let task = async move {
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                #[cfg(feature = "trace")]
-                let _span = system_span.enter();
                 // SAFETY:
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
@@ -651,21 +639,13 @@ impl ExecutorState {
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
         let context = *context;
-        #[cfg(feature = "trace")]
-        let system_span = self.system_task_metadata[system_index]
-            .system_task_span
-            .clone();
 
         if is_apply_deferred(system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
-                let res = {
-                    #[cfg(feature = "trace")]
-                    let _span = system_span.enter();
-                    apply_deferred(&unapplied_systems, context.environment.systems, world)
-                };
+                let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
                 context.system_completed(system_index, res, system);
             };
 
@@ -673,8 +653,6 @@ impl ExecutorState {
         } else {
             let task = async move {
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    #[cfg(feature = "trace")]
-                    let _span = system_span.enter();
                     __rust_begin_short_backtrace::run(&mut **system, world);
                 }));
                 context.system_completed(system_index, res, system);

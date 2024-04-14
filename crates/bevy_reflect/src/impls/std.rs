@@ -1059,7 +1059,7 @@ impl Reflect for Cow<'static, str> {
     fn apply(&mut self, value: &dyn Reflect) {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
+            self.clone_from(value);
         } else {
             panic!("Value is not a {}.", Self::type_path());
         }
@@ -1548,7 +1548,7 @@ impl Reflect for Cow<'static, Path> {
     fn apply(&mut self, value: &dyn Reflect) {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
+            self.clone_from(value);
         } else {
             panic!("Value is not a {}.", Self::type_path());
         }
