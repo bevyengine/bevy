@@ -259,7 +259,18 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
+        app.configure_sets(
+            PostUpdate,
+            (
+                CalculateBounds,
+                UpdateOrthographicFrusta,
+                UpdatePerspectiveFrusta,
+                UpdateProjectionFrusta,
+                VisibilityPropagate,
+            )
+                .before(CheckVisibility),
+        )
+        .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
@@ -287,11 +298,6 @@ impl Plugin for VisibilityPlugin {
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility::<WithMesh>
                     .in_set(CheckVisibility)
-                    .after(CalculateBounds)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
                     .after(TransformSystem::TransformPropagate),
             ),
         );
