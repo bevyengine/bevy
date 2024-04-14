@@ -136,7 +136,7 @@ struct LightProbes {
 };
 
 // Settings for screen space reflections.
-struct ScreenSpaceReflections {
+struct ScreenSpaceReflectionsSettings {
     // Roughness values lower than this trigger SSR.
     perceptual_roughness_threshold: f32,
     thickness: f32,

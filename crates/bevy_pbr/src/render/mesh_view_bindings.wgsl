@@ -34,7 +34,7 @@
 @group(0) @binding(9) var<uniform> globals: Globals;
 @group(0) @binding(10) var<uniform> fog: types::Fog;
 @group(0) @binding(11) var<uniform> light_probes: types::LightProbes;
-@group(0) @binding(12) var<uniform> ssr_settings: types::ScreenSpaceReflections;
+@group(0) @binding(12) var<uniform> ssr_settings: types::ScreenSpaceReflectionsSettings;
 
 @group(0) @binding(13) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 

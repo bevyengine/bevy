@@ -4,15 +4,12 @@ use std::ops::Range;
 
 use bevy::{
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass},
-        Skybox,
-    },
+    core_pipeline::{fxaa::Fxaa, Skybox},
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
+        ScreenSpaceReflectionsBundle, ScreenSpaceReflectionsSettings,
     },
     prelude::*,
     render::{
@@ -198,10 +195,11 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
         })
-        .insert(DepthPrepass)
-        .insert(DeferredPrepass)
-        .insert(Fxaa::default())
-        .insert(create_ssr());
+        .insert(ScreenSpaceReflectionsBundle {
+            settings: create_ssr_settings(),
+            ..default()
+        })
+        .insert(Fxaa::default());
 }
 
 // Spawns the help text.
@@ -220,9 +218,9 @@ fn spawn_text(commands: &mut Commands, asset_server: &AssetServer) {
     );
 }
 
-/// Creates or recreates the [`ScreenSpaceReflections`] component.
-fn create_ssr() -> ScreenSpaceReflections {
-    ScreenSpaceReflections {
+/// Creates or recreates the [`ScreenSpaceReflectionsSettings`] component.
+fn create_ssr_settings() -> ScreenSpaceReflectionsSettings {
+    ScreenSpaceReflectionsSettings {
         // The water's roughness is below this threshold, so SSR will affect it.
         perceptual_roughness_threshold: 0.1,
         // Approximate thickness of objects in the scene.
@@ -316,7 +314,7 @@ fn toggle_ssr(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut cameras: Query<(Entity, Has<ScreenSpaceReflections>), With<Camera>>,
+    mut cameras: Query<(Entity, Has<ScreenSpaceReflectionsSettings>), With<Camera>>,
     mut text: Query<&mut Text>,
 ) {
     if !keyboard_input.just_pressed(KeyCode::Space) {
@@ -325,9 +323,11 @@ fn toggle_ssr(
 
     for (camera, has_ssr) in cameras.iter_mut() {
         if has_ssr {
-            commands.entity(camera).remove::<ScreenSpaceReflections>();
+            commands
+                .entity(camera)
+                .remove::<ScreenSpaceReflectionsSettings>();
         } else {
-            commands.entity(camera).insert(create_ssr());
+            commands.entity(camera).insert(create_ssr_settings());
         }
 
         for mut text in text.iter_mut() {

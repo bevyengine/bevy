@@ -36,8 +36,8 @@ use crate::{
     },
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflections, ScreenSpaceReflectionsBuffer,
-    ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
+    ScreenSpaceReflectionsSettings, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES,
 };
 
@@ -264,7 +264,7 @@ fn layout_entries(
             // Light probes
             (11, uniform_buffer::<LightProbesUniform>(true)),
             // Screen space reflection settings
-            (12, uniform_buffer::<ScreenSpaceReflections>(true)),
+            (12, uniform_buffer::<ScreenSpaceReflectionsSettings>(true)),
             // Screen space ambient occlusion texture
             (
                 13,

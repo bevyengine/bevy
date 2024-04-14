@@ -1,7 +1,8 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
-    ScreenSpaceReflections, ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    ScreenSpaceReflectionsSettings, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -418,7 +419,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&ShadowFilteringMethod>,
             (
                 Has<ScreenSpaceAmbientOcclusionSettings>,
-                Has<ScreenSpaceReflections>,
+                Has<ScreenSpaceReflectionsSettings>,
             ),
             (
                 Has<NormalPrepass>,

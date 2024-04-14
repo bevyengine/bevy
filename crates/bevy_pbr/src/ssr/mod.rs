@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    bundle::Bundle,
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
@@ -17,7 +18,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -48,6 +49,18 @@ const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(104389252999179
 /// Screen-space reflections are currently only supported with deferred rendering.
 pub struct ScreenSpaceReflectionsPlugin;
 
+/// A convenient bundle to add screen space reflections to a camera, along with
+/// the depth and deferred prepasses required to enable them.
+#[derive(Bundle, Default)]
+pub struct ScreenSpaceReflectionsBundle {
+    /// The component that enables SSR.
+    pub settings: ScreenSpaceReflectionsSettings,
+    /// The depth prepass, needed for SSR.
+    pub depth_prepass: DepthPrepass,
+    /// The deferred prepass, needed for SSR.
+    pub deferred_prepass: DeferredPrepass,
+}
+
 /// Add this component to a camera to enable *screen-space reflections* (SSR).
 ///
 /// Screen-space reflections currently require deferred rendering in order to
@@ -68,8 +81,8 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
 #[derive(Clone, Copy, Component, Reflect, ShaderType)]
-#[reflect(Component)]
-pub struct ScreenSpaceReflections {
+#[reflect(Component, Default)]
+pub struct ScreenSpaceReflectionsSettings {
     /// The maximum PBR roughness level that will enable screen space
     /// reflections.
     pub perceptual_roughness_threshold: f32,
@@ -113,7 +126,7 @@ pub struct ScreenSpaceReflectionsPipeline {
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct ScreenSpaceReflectionsBuffer(pub DynamicUniformBuffer<ScreenSpaceReflections>);
+pub struct ScreenSpaceReflectionsBuffer(pub DynamicUniformBuffer<ScreenSpaceReflectionsSettings>);
 
 /// A component that stores the offset within the
 /// [`ScreenSpaceReflectionsBuffer`] for each view.
@@ -132,8 +145,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr.wgsl", Shader::from_wgsl);
 
-        app.register_type::<ScreenSpaceReflections>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
+        app.register_type::<ScreenSpaceReflectionsSettings>()
+            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflectionsSettings>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -171,7 +184,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     }
 }
 
-impl Default for ScreenSpaceReflections {
+impl Default for ScreenSpaceReflectionsSettings {
     // Reasonable default values.
     fn default() -> Self {
         Self {
@@ -297,7 +310,7 @@ pub fn prepare_ssr_pipelines(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
         ),
         (
-            With<ScreenSpaceReflections>,
+            With<ScreenSpaceReflectionsSettings>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
         ),
@@ -332,7 +345,7 @@ pub fn prepare_ssr_pipelines(
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflections>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&ScreenSpaceReflectionsSettings>), With<ExtractedView>>,
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -354,12 +367,12 @@ pub fn prepare_ssr_settings(
     }
 }
 
-impl ExtractComponent for ScreenSpaceReflections {
-    type QueryData = Read<ScreenSpaceReflections>;
+impl ExtractComponent for ScreenSpaceReflectionsSettings {
+    type QueryData = Read<ScreenSpaceReflectionsSettings>;
 
     type QueryFilter = ();
 
-    type Out = ScreenSpaceReflections;
+    type Out = ScreenSpaceReflectionsSettings;
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         Some(*settings)
