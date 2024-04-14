@@ -54,12 +54,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> PointQuery<'w, 's, D, F> {
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// This is always guaranteed to run in `O(1)` time.
+    #[inline]
     pub fn get(&mut self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
         let location = self
             .entities
             .get(entity)
             .ok_or(QueryEntityError::NoSuchEntity(entity))?;
-        if self.last_archetype_id != location.archetype_id {
+        if !D::IS_DENSE || self.last_archetype_id != location.archetype_id {
             if !self
                 .state
                 .matched_archetypes
@@ -104,7 +105,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> PointQuery<'w, 's, D, F> {
     #[inline]
     pub unsafe fn get_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
         let location = self.entities.get_unchecked(entity);
-        if self.last_archetype_id != location.archetype_id {
+        if !D::IS_DENSE || self.last_archetype_id != location.archetype_id {
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
             // `table` is from the world that `fetch/filter` were created for,

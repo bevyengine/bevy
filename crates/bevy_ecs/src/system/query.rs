@@ -942,7 +942,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///        selection: Res<SelectedCharacters>
     /// )
     /// {
-    ///     let mut getter = query.entity_getter();
+    ///     let mut getter = query.as_point_query();
     ///     for &entity in selection.entity.iter() {
     ///        if let Ok(selected_character) = query.get(entity) {
     ///             println!("{}", selected_character.name);
@@ -954,13 +954,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`entity_getter_mut`](Self::entity_getter_mut) is used for mutable query.
+    /// - [`as_point_queryr_mut`](Self::as_point_queryr_mut) is used for mutable query.
     #[inline]
-    pub fn entity_getter(&self) -> PointQuery<'w, 's, D::ReadOnly, F> {
+    pub fn as_point_query(&self) -> PointQuery<'w, 's, D::ReadOnly, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.as_readonly().entity_getter_unchecked_manual(
+            self.state.as_readonly().as_point_query_unchecked_manual(
                 self.world,
                 self.last_run,
                 self.this_run,
@@ -983,7 +983,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(u32);
     /// #
     /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
-    ///     let mut getter = query.entity_getter_mut();
+    ///     let mut getter = query.as_point_queryr_mut();
     ///     
     ///     for &entity in poisoned.character_ids.iter() {
     ///         if let Ok(mut health) = getter.get(entity) {
@@ -996,15 +996,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`entity_getter`](Self::entity_getter) is used for read-only query.
+    /// - [`as_point_query`](Self::as_point_query) is used for read-only query.
     #[inline]
-    pub fn entity_getter_mut(&mut self) -> PointQuery<'w, 's, D, F> {
+    pub fn as_point_query_mut(&mut self) -> PointQuery<'w, 's, D, F> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.
         unsafe {
             self.state
-                .entity_getter_unchecked_manual(self.world, self.last_run, self.this_run)
+                .as_point_query_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -1019,15 +1019,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`entity_getter`](Self::entity_getter) is used for read-only query.
+    /// - [`as_point_query`](Self::as_point_query) is used for read-only query.
     #[inline]
-    pub unsafe fn entity_getter_unchecked(&self) -> PointQuery<'w, 's, D, F> {
+    pub unsafe fn as_point_query_unchecked(&self) -> PointQuery<'w, 's, D, F> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.
         unsafe {
             self.state
-                .entity_getter_unchecked_manual(self.world, self.last_run, self.this_run)
+                .as_point_query_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
     /// Returns the read-only query items for the given array of [`Entity`].

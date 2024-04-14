@@ -3,7 +3,7 @@ mod render_layers;
 use std::any::TypeId;
 
 use bevy_derive::Deref;
-use bevy_ecs::query::QueryFilter;
+use bevy_ecs::query::{PointQuery, QueryFilter};
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
@@ -340,6 +340,8 @@ fn visibility_propagate_system(
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
+    let mut visibility_query = visibility_query.as_point_query_mut();
+    let mut children_query = children_query.as_point_query();
     for (entity, visibility, parent, children) in &changed {
         let is_visible = match visibility {
             Visibility::Visible => true,
@@ -350,7 +352,7 @@ fn visibility_propagate_system(
                 .map_or(true, |(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
-            .get_mut(entity)
+            .get(entity)
             .expect("With<InheritedVisibility> ensures this query will return a value");
 
         // Only update the visibility if it has changed.
@@ -361,8 +363,12 @@ fn visibility_propagate_system(
 
             // Recursively update the visibility of each child.
             for &child in children.into_iter().flatten() {
-                let _ =
-                    propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
+                let _ = propagate_recursive(
+                    is_visible,
+                    child,
+                    &mut visibility_query,
+                    &mut children_query,
+                );
             }
         }
     }
@@ -371,14 +377,14 @@ fn visibility_propagate_system(
 fn propagate_recursive(
     parent_is_visible: bool,
     entity: Entity,
-    visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: &Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    visibility_query: &mut PointQuery<(&Visibility, &mut InheritedVisibility)>,
+    children_query: &mut PointQuery<&Children, (With<Visibility>, With<InheritedVisibility>)>,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     // Get the visibility components for the current entity.
     // If the entity does not have the required components, just return early.
-    let (visibility, mut inherited_visibility) = visibility_query.get_mut(entity).map_err(drop)?;
+    let (visibility, mut inherited_visibility) = visibility_query.get(entity).map_err(drop)?;
 
     let is_visible = match visibility {
         Visibility::Visible => true,

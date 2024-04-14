@@ -876,7 +876,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
-    pub fn getter<'w, 's>(
+    #[inline]
+    pub fn as_point_query<'w, 's>(
         &'s mut self,
         world: &'w mut World,
     ) -> PointQuery<'w, 's, D::ReadOnly, F> {
@@ -885,7 +886,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let this_run = world.read_change_tick();
         // SAFETY: query is read only
         unsafe {
-            self.as_readonly().entity_getter_unchecked_manual(
+            self.as_readonly().as_point_query_unchecked_manual(
                 world.as_unsafe_world_cell_readonly(),
                 last_run,
                 this_run,
@@ -894,13 +895,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
-    pub fn getter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> PointQuery<'w, 's, D, F> {
+    #[inline]
+    pub fn as_point_query_mut<'w, 's>(&'s mut self, world: &'w mut World) -> PointQuery<'w, 's, D, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
         let this_run = world.read_change_tick();
         // SAFETY: query has unique world access
         unsafe {
-            self.entity_getter_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)
+            self.as_point_query_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)
         }
     }
 
@@ -918,7 +920,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
     #[inline]
-    pub(crate) unsafe fn entity_getter_unchecked_manual<'w, 's>(
+    pub(crate) unsafe fn as_point_query_unchecked_manual<'w, 's>(
         &'s self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
