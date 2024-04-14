@@ -1,24 +1,29 @@
 //mod build;
 //mod compute_pass;
 pub mod configurator;
-pub mod pipeline;
 pub mod resource;
-pub mod texture;
 
-use self::resource::{
-    AsRenderBindGroup, IntoRenderResource, IntoRenderResourceIds, RenderBindGroup, RenderHandle,
-    RenderResource, RenderResourceId,
-};
+use std::any::TypeId;
+
 use crate::{
-    render_resource::PipelineCache,
+    render_graph::InternedRenderLabel,
+    render_resource::{BindGroup, Buffer, PipelineCache, Texture},
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryData, QueryEntityError, QueryFilter, QueryState, ROQueryItem},
     system::{Res, ResMut, Resource},
     world::{EntityRef, Ref, World},
+};
+use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
+use resource::{
+    IntoRenderDependencies, IntoRenderResource, RenderDependencies, RenderHandle, RenderResource,
+};
+use wgpu::Label;
+
+use self::resource::{
+    pipeline::RenderGraphPipelines, LastFrameRenderResource, SimpleResourceStore,
 };
 
 // Roadmap:
@@ -35,30 +40,18 @@ use bevy_ecs::{
 pub struct RenderGraph {
     // TODO: maybe use a Vec for resource_descriptors, and replace next_id with resource_descriptors.len()
     next_id: u16, //resource_descriptors: HashMap<RenderGraphResourceId, TextureDescriptor<'static>>,
-                  // nodes: Vec<RenderGraphNode>,
-                  //
-                  // bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
-                  // resources: HashMap<RenderGraphResourceId, Texture>,
-                  // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
+    // nodes: Vec<RenderGraphNode>,
+    //
+    // bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
+    // resources: HashMap<RenderGraphResourceId, Texture>,
+    // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
+    bind_groups: (),
+    textures: SimpleResourceStore<Texture>,
+    buffers: SimpleResourceStore<Buffer>,
+    pipelines: RenderGraphPipelines,
 }
 
 impl RenderGraph {
-    // pub fn create_resource(
-    //     &mut self,
-    //     descriptor: TextureDescriptor<'static>,
-    // ) -> RenderGraphResource {
-    //     let id = self.next_id;
-    //     self.next_id += 1;
-    //
-    //     self.resource_descriptors.insert(id, descriptor);
-    //
-    //     RenderGraphResource { id, generation: 0 }
-    // }
-    //
-    // pub fn add_node(&mut self, node: impl Into<RenderGraphNode>) {
-    //     self.nodes.push(node.into());
-    // }
-
     pub(crate) fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
     }
@@ -90,24 +83,58 @@ pub struct RenderGraphBuilder<'a> {
 }
 
 impl<'a> RenderGraphBuilder<'a> {
-    pub fn new_resource<R: IntoRenderResource>(&mut self, desc: R) -> RenderHandle<R::Resource> {
+    pub fn new_resource<R: IntoRenderResource>(
+        &mut self,
+        resource: R,
+    ) -> RenderHandle<R::Resource> {
         todo!()
     }
 
-    pub fn new_bind_group<B: AsRenderBindGroup>(
+    pub fn get_descriptor_of<R: RenderResource>(
+        &self,
+        resource: RenderHandle<R>,
+    ) -> Option<&R::Descriptor> {
+        R::get_data(self.graph, self.world, resource.id).and_then(|meta| meta.descriptor.as_ref())
+    }
+
+    pub fn descriptor_of<R: RenderResource>(&self, resource: RenderHandle<R>) -> &R::Descriptor {
+        self.get_descriptor_of(resource)
+            .expect("No descriptor found for resource")
+    }
+
+    pub fn send_next_frame<R: LastFrameRenderResource>(
         &mut self,
-        label: Option<&'static str>,
-        desc: B,
-    ) -> RenderBindGroup {
+        label: InternedRenderLabel,
+        resource: RenderHandle<R>,
+    ) {
+        todo!()
+    }
+    pub fn get_last_frame<R: LastFrameRenderResource>(
+        &mut self,
+        label: InternedRenderLabel,
+    ) -> Option<RenderHandle<R>> {
+        todo!()
+    }
+
+    pub fn new_bind_group<B: AsRenderBindGroup>(&mut self, desc: B) -> RenderBindGroup {
         todo!()
     }
 
     pub fn add_node<F: FnOnce(NodeContext, &RenderDevice, &RenderQueue) + 'static>(
         &mut self,
-        dependencies: &[RenderResourceId],
+        dependencies: RenderDependencies,
         node: F,
     ) -> &mut Self {
+        todo!();
         self
+    }
+
+    pub fn features(&self) -> wgpu::Features {
+        todo!()
+    }
+
+    pub fn limits(&self) -> wgpu::Limits {
+        todo!()
     }
 }
 
@@ -149,12 +176,26 @@ pub struct NodeContext<'a> {
     graph: &'a RenderGraph,
     world: &'a World,
     view_entity: EntityRef<'a>,
-    resource_dependencies: (),
-    bind_group_dependencies: (),
+    dependencies: RenderDependencies,
 }
 
+const RESOURCE_DESCRIPTOR_MSG: &str = "Render resource did not have an associated descriptor. Note: resources created from closures do not remember their descriptors.";
+
 impl<'a> NodeContext<'a> {
-    pub fn get<R: RenderResource>(&self, handle: RenderHandle<R>) -> &'a R {
+    pub fn get<R: RenderResource>(&self, resource: RenderHandle<R>) -> &'a R {
+        if !self.dependencies.contains_resource(resource) {
+            panic!("Attempted to access a Render Resource of type {:?} not listed in the node's dependencies", TypeId::of::<R>())
+        }
+
+        R::get_data(self.graph, self.world, resource.id)
+            .and_then(|meta| R::from_data(&meta.resource, self.world))
+            .expect("Could not resolve render resource")
+    }
+
+    pub fn get_bind_group<R: RenderResource>(&self, bind_group: RenderBindGroup) -> &BindGroup {
+        if !self.dependencies.contains_bind_group(bind_group) {
+            panic!("Attempted to access a bind group not listed in the node's dependencies")
+        }
         todo!()
     }
 }

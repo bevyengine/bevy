@@ -54,8 +54,6 @@ type CachedPipelineId = usize;
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
-impl RenderResource for CachedRenderPipelineId {}
-
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
@@ -69,8 +67,6 @@ impl CachedRenderPipelineId {
 /// Index of a cached compute pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedComputePipelineId(CachedPipelineId);
-
-impl RenderResource for CachedComputePipelineId {}
 
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
