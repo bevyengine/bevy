@@ -414,8 +414,8 @@ pub fn query_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-pub fn getter(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("getter");
+pub fn point_query_get(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("point_query_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     for entity_count in RANGE {

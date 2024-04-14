@@ -29,7 +29,7 @@ criterion_group!(
     world_query_for_each,
     world_spawn,
     query_get,
-    getter,
+    point_query_get,
     query_get_many::<2>,
     query_get_many::<5>,
     query_get_many::<10>,
