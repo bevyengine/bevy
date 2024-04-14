@@ -902,7 +902,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> PointQuery<'w, 's, D, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
-        let this_run = world.read_change_tick();
+        let this_run = world.change_tick();
         // SAFETY: query has unique world access
         unsafe {
             self.as_point_query_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)

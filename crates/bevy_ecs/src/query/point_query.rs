@@ -55,7 +55,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> PointQuery<'w, 's, D, F> {
     ///
     /// This is always guaranteed to run in `O(1)` time.
     #[inline]
-    pub fn get(&mut self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
+    pub fn get(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
         let location = self
             .entities
             .get(entity)
@@ -103,7 +103,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> PointQuery<'w, 's, D, F> {
     /// `entity` must on the same `World` that the `Query` was generated.
     /// `entity` must match the `Query` that generate this getter.
     #[inline]
-    pub unsafe fn get_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
+    pub unsafe fn get_unchecked(&mut self, entity: Entity) -> D::Item<'_> {
         let location = self.entities.get_unchecked(entity);
         if !D::IS_DENSE || self.last_archetype_id != location.archetype_id {
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
