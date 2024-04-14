@@ -8,7 +8,7 @@
     view,
     previous_view,
     should_cull_instance,
-    get_meshlet_occlusion,
+    meshlet_is_second_pass_candidate,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -23,7 +23,7 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    if get_meshlet_occlusion(cluster_id.x) != 2u { return; }
+    if !meshlet_is_second_pass_candidate(cluster_id.x) { return; }
 #endif
 
     // Check for instance culling

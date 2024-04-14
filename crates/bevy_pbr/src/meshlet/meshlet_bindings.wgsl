@@ -68,10 +68,11 @@ fn should_cull_instance(instance_id: u32) -> bool {
     return bool(extractBits(packed_visibility, bit_offset, 1u));
 }
 
-fn get_meshlet_occlusion(cluster_id: u32) -> u32 {
+fn meshlet_is_second_pass_candidate(cluster_id: u32) -> bool {
+    // TODO: Does this read need to be an atomicLoad?
     let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
     let bit_offset = (cluster_id % 16u) * 2u;
-    return extractBits(packed_occlusion, bit_offset, 2u);
+    return extractBits(packed_occlusion, bit_offset, 2u) == 2u;
 }
 #endif
 
