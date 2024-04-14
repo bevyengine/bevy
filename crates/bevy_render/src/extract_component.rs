@@ -123,14 +123,14 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: ShaderType + WriteInto + Clone,
+    C: Component + ShaderType + WriteInto + Clone,
 {
     let components_iter = components.iter();
     let count = components_iter.len();

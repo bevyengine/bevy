@@ -24,7 +24,7 @@ struct GzAssetLoader;
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum GzAssetLoaderError {
+enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),

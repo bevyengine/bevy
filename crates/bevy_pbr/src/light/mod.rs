@@ -10,10 +10,11 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
+    mesh::Mesh,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
@@ -97,6 +98,10 @@ impl Default for PointLightShadowMap {
         Self { size: 1024 }
     }
 }
+
+/// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
+/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
@@ -432,11 +437,11 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
+/// Add this component to make a [`Mesh`] not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+/// Add this component to make a [`Mesh`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -444,7 +449,7 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -1859,7 +1864,11 @@ pub fn check_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
         ),
-        (Without<NotShadowCaster>, Without<DirectionalLight>),
+        (
+            Without<NotShadowCaster>,
+            Without<DirectionalLight>,
+            With<Handle<Mesh>>,
+        ),
     >,
 ) {
     fn shrink_entities(visible_entities: &mut VisibleEntities) {
@@ -1947,7 +1956,7 @@ pub fn check_light_mesh_visibility(
                         }
 
                         view_visibility.set();
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             } else {
@@ -1959,7 +1968,7 @@ pub fn check_light_mesh_visibility(
                         .expect("Per-view visible entities should have been inserted already");
 
                     for frustum_visible_entities in view_visible_entities {
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             }
@@ -2028,13 +2037,13 @@ pub fn check_light_mesh_visibility(
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                 view_visibility.set();
-                                visible_entities.entities.push(entity);
+                                visible_entities.push::<WithMesh>(entity);
                             }
                         }
                     } else {
                         view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     }
                 }
@@ -2089,11 +2098,11 @@ pub fn check_light_mesh_visibility(
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                             view_visibility.set();
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     } else {
                         view_visibility.set();
-                        visible_entities.entities.push(entity);
+                        visible_entities.push::<WithMesh>(entity);
                     }
                 }
 
