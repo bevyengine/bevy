@@ -203,7 +203,7 @@ pub struct PreviousViewData {
 #[cfg(not(feature = "meshlet"))]
 type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
 #[cfg(feature = "meshlet")]
-type PreviousViewFilter = With<Camera3d>;
+type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
 
 pub fn update_previous_view_data(
     mut commands: Commands,
