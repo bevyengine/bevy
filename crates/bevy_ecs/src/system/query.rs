@@ -858,71 +858,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Returns the query item for the given [`Entity`].
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    ///
-    /// This way is simple but somewhat less efficient, use [`entity_getter`](Self::entity_getter) could be more efficient.
-    ///
-    /// This is always guaranteed to run in `O(1)` time.
-    ///
-    /// # Example
-    ///
-    /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct PoisonedCharacter { character_id: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
-    ///     if let Ok(mut health) = query.get_mut(poisoned.character_id) {
-    ///         health.0 -= 1;
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(poison_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get`](Self::get) to get a read-only query item.
-    #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        unsafe {
-            self.state
-                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
-        }
-    }
-
-    /// Returns the query item for the given [`Entity`].
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    ///
-    /// This is always guaranteed to run in `O(1)` time.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_mut`](Self::get_mut) for the safe version.
-    #[inline]
-    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        unsafe {
-            self.state
-                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
-        }
-    }
-
     /// Return a [`PointQuery`] to get the query item for the [`Entity`].
     ///
     /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
@@ -970,7 +905,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
     ///
-    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get_mut`] when dealing with many entities of the same archetype.
     ///
     /// # Example
     ///
@@ -1030,6 +965,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .as_point_query_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
+
     /// Returns the read-only query items for the given array of [`Entity`].
     ///
     /// The returned query items are in the same order as the input.
@@ -1100,6 +1036,47 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         match self.get_many(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query results: {error}"),
+        }
+    }
+
+    /// Returns the query item for the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This way is simple but somewhat less efficient, use [`as_point_query_mut`](Self::as_point_query_mut) could be more efficient if you're doing repeated fetches over a large set of entities.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
+    /// # Example
+    ///
+    /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PoisonedCharacter { character_id: Entity }
+    /// # #[derive(Component)]
+    /// # struct Health(u32);
+    /// #
+    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    ///     if let Ok(mut health) = query.get_mut(poisoned.character_id) {
+    ///         health.0 -= 1;
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(poison_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`get`](Self::get) to get a read-only query item.
+    #[inline]
+    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
         }
     }
 
@@ -1177,6 +1154,30 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         match self.get_many_mut(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query result: {error}"),
+        }
+    }
+
+    /// Returns the query item for the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
+    /// # Safety
+    ///
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) for the safe version.
+    #[inline]
+    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+        // SEMI-SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
         }
     }
 

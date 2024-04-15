@@ -396,10 +396,13 @@ fn propagate_recursive(
     if inherited_visibility.get() != is_visible {
         inherited_visibility.0 = is_visible;
 
+        // SAFETY: only query for ReadonlyData,
+        // no mutable access to the same component
+        let items = unsafe { children_query.get_unsafe(entity).ok() };
         // Recursively update the visibility of each child.
-        for &child in children_query.get(entity).ok().into_iter().flatten() {
+        items.into_iter().flatten().for_each(|&child| {
             let _ = propagate_recursive(is_visible, child, visibility_query, children_query);
-        }
+        });
     }
 
     Ok(())
