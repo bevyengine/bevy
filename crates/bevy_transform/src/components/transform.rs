@@ -289,8 +289,8 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
+        self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
@@ -327,8 +327,8 @@ impl Transform {
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
     #[inline]
-    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate_local(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
+        self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
