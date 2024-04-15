@@ -549,8 +549,8 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// For example, `(MapState, EnemyState)` is valid, as is `(MapState, Option<EnemyState>)`
     type SourceStates: StateSet;
 
+    /// Computes the next value of [`State<Self>`].
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
-    /// The result is used to set the value of [`State<Self>`].
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world.
     fn compute(sources: Self::SourceStates) -> Option<Self>;
