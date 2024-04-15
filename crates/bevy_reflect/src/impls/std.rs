@@ -103,7 +103,6 @@ impl_reflect_value!(
 impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::bevy_utils::HashSet<T: Hash + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::EntityHashSet<T: Hash + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
@@ -1880,10 +1879,5 @@ mod tests {
         let expected = "Hello, World!";
         let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
         assert_eq!(expected, output);
-    }
-
-    #[test]
-    fn entity_hashset_impls_reflect() {
-        let _: &dyn Reflect = &bevy_utils::EntityHashSet::<()>::default();
     }
 }
