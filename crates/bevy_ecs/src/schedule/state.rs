@@ -247,7 +247,9 @@ pub struct StateTransitionEvent<S: States> {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
-/// Applies manual state transitions using [`NextState<S>`]
+/// Applies manual state transitions using [`NextState<S>`].
+///
+/// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 enum StateTransitionSteps {
     ManualTransitions,
