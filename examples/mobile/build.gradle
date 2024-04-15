@@ -6,6 +6,8 @@ plugins {
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+    delete layout.projectDirectory.dir("app/src/main/assets")
+    delete layout.projectDirectory.dir("app/src/main/jniLibs")
 }
 
 // Make sure we have our required assets available for packaging
