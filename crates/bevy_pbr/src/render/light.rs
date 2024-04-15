@@ -1690,7 +1690,8 @@ pub fn queue_shadows<M: Material>(
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => MeshPipelineKey::MAY_DISCARD,
+                    | AlphaMode::Add
+                    | AlphaMode::AlphaToCoverage => MeshPipelineKey::MAY_DISCARD,
                     _ => MeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
