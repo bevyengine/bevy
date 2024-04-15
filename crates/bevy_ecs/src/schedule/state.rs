@@ -483,7 +483,7 @@ fn run_transition<S: States>(
 
 /// Trait defining a state that is automatically derived from other [`States`].
 ///
-/// A Computed State is a state that is deterministically derived from a set of `SourceStates`.
+/// A **computed state** is a state that is deterministically derived from a set of `SourceStates`.
 /// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
 /// result becomes the state's value.
 ///
