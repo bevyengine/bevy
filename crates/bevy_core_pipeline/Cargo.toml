@@ -37,6 +37,7 @@ serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
+smallvec = "1"
 
 [lints]
 workspace = true

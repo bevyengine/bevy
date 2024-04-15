@@ -2884,6 +2884,17 @@ description = "Demonstrates FPS overlay"
 category = "Dev tools"
 wasm = true
 
+[[example]]
+name = "depth_of_field"
+path = "examples/3d/depth_of_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.depth_of_field]
+name = "Depth of field"
+description = "Demonstrates depth of field"
+category = "3D Rendering"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

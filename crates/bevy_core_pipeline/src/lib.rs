@@ -13,6 +13,7 @@ pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
+pub mod dof;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
@@ -51,6 +52,7 @@ use crate::{
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
+    dof::DepthOfFieldPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     msaa_writeback::MsaaWritebackPlugin,
@@ -89,6 +91,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                DepthOfFieldPlugin,
             ));
     }
 }
