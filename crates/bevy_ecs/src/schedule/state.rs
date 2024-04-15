@@ -59,10 +59,8 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
 ///
-/// This is in contrast with [`ComputedStates`], which do not allow modification - they are
-/// automatically derived.
-///
-/// It is implemented as part of the [`States`] derive, but can also be added manually.
+/// While ordinary states are freely mutable (and implement this trait as part of their derive macro),
+/// computed states are not: instead, they can *only* change when the states that drive them do.
 pub trait FreelyMutableState: States {
     /// This function registers all the necessary systems to apply state changes and run transition schedules
     fn register_state(schedule: &mut Schedule) {
@@ -247,7 +245,9 @@ pub struct StateTransitionEvent<S: States> {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
-/// Applies manual state transitions using [`NextState<S>`]
+/// Applies manual state transitions using [`NextState<S>`].
+///
+/// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 enum StateTransitionSteps {
     ManualTransitions,
@@ -370,7 +370,7 @@ pub fn setup_state_transitions_in_world(
 /// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
+/// - Derive any dependent states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
@@ -479,9 +479,9 @@ fn run_transition<S: States>(
     let _ = world.try_run_schedule(OnTransition { from, to });
 }
 
-/// Trait defining a state that is automatically derived from other [`States`].
+/// A state whose value is automatically computed based on the values of other [`States`].
 ///
-/// A Computed State is a state that is deterministically derived from a set of `SourceStates`.
+/// A **computed state** is a state that is deterministically derived from a set of `SourceStates`.
 /// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
 /// result becomes the state's value.
 ///
@@ -572,6 +572,8 @@ mod sealed {
     pub trait StateSetSealed {}
 }
 
+/// A [`States`] type or tuple of types which implement [`States`].
+///
 /// This trait is used allow implementors of [`States`], as well
 /// as tuples containing exclusively implementors of [`States`], to
 /// be used as [`ComputedStates::SourceStates`].
@@ -844,7 +846,7 @@ impl<S: InnerStateSet> StateSet for S {
 /// }
 /// ```
 ///
-/// However, you can also manually implement them. Note that you'll also need to manually implement the `States` & `FreelyMutableState` traits.
+/// However, you can also manually implement them. If you do so, you'll also need to manually implement the `States` & `FreelyMutableState` traits.
 /// Unlike the derive, this does not require an implementation of [`Default`], since you are providing the `exists` function
 /// directly.
 ///
