@@ -806,7 +806,7 @@ impl<S: InnerStateSet> StateSet for S {
 ///         .add_sub_state::<GamePhase>();
 /// ```
 ///
-/// In more complex situations, the recommendation is to use an intermediary compute state, like so:
+/// In more complex situations, the recommendation is to use an intermediary computed state, like so:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
