@@ -107,8 +107,9 @@ fn pbr_input_from_standard_material(
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
 #ifdef MESHLET_MESH_MATERIAL_PASS
         pbr_input.material.base_color *= textureSampleGrad(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, in.ddx_uv, in.ddy_uv);
-#else // MESHLET_MESH_MATERIAL_PASS
+#else
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+#endif
 
 #ifdef ALPHA_TO_COVERAGE
     // Sharpen alpha edges.
@@ -123,7 +124,6 @@ fn pbr_input_from_standard_material(
     }
 #endif // ALPHA_TO_COVERAGE
 
-#endif // MESHLET_MESH_MATERIAL_PASS
     }
 #endif // VERTEX_UVS
 
