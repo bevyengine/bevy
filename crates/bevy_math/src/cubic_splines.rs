@@ -1,8 +1,10 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::{fmt::Debug, iter::once};
+use std::{fmt::Debug, iter::once, marker::PhantomData};
 
 use crate::{Vec2, VectorSpace};
+
+use crate::curve::{interval, Curve, Interpolable, Interval};
 
 use thiserror::Error;
 
@@ -52,9 +54,9 @@ impl<P: VectorSpace> CubicBezier<P> {
         }
     }
 }
-impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
+impl<P: VectorSpace> CubicGenerator<NoGuarantees, P> for CubicBezier<P> {
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> CubicCurve<NoGuarantees, P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
         // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
         // See section 4.2 and equation 11.
@@ -71,7 +73,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
             .map(|p| CubicSegment::coefficients(*p, char_matrix))
             .collect();
 
-        CubicCurve { segments }
+        CubicCurve { segments, _phantom: PhantomData }
     }
 }
 
@@ -125,9 +127,9 @@ impl<P: VectorSpace> CubicHermite<P> {
         }
     }
 }
-impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace> CubicGenerator<C1, P> for CubicHermite<P> {
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> CubicCurve<C1, P> {
         let char_matrix = [
             [1., 0., 0., 0.],
             [0., 1., 0., 0.],
@@ -144,7 +146,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
             })
             .collect();
 
-        CubicCurve { segments }
+        CubicCurve { segments, _phantom: PhantomData }
     }
 }
 
@@ -199,9 +201,9 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
         }
     }
 }
-impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace> CubicGenerator<C1, P> for CubicCardinalSpline<P> {
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> CubicCurve<C1, P> {
         let s = self.tension;
         let char_matrix = [
             [0., 1., 0., 0.],
@@ -214,7 +216,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 
         // Early return to avoid accessing an invalid index
         if length < 2 {
-            return CubicCurve { segments: vec![] };
+            return CubicCurve { segments: vec![], _phantom: PhantomData };
         }
 
         // Extend the list of control points by mirroring the last second-to-last control points on each end;
@@ -234,7 +236,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
             .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
             .collect();
 
-        CubicCurve { segments }
+        CubicCurve { segments, _phantom: PhantomData }
     }
 }
 
@@ -275,9 +277,9 @@ impl<P: VectorSpace> CubicBSpline<P> {
         }
     }
 }
-impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace> CubicGenerator<C2, P> for CubicBSpline<P> {
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> CubicCurve<C2, P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
         // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
         // See section 4.1 and equations 7 and 8.
@@ -298,7 +300,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
             .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], char_matrix))
             .collect();
 
-        CubicCurve { segments }
+        CubicCurve { segments, _phantom: PhantomData }
     }
 }
 
@@ -596,9 +598,9 @@ impl<P: VectorSpace> LinearSpline<P> {
         }
     }
 }
-impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
+impl<P: VectorSpace> CubicGenerator<C2, P> for LinearSpline<P> {
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> CubicCurve<C2, P> {
         let segments = self
             .points
             .windows(2)
@@ -610,14 +612,14 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
                 }
             })
             .collect();
-        CubicCurve { segments }
+        CubicCurve { segments, _phantom: PhantomData }
     }
 }
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
-pub trait CubicGenerator<P: VectorSpace> {
+pub trait CubicGenerator<L: Smoothness, P: VectorSpace> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
-    fn to_curve(&self) -> CubicCurve<P>;
+    fn to_curve(&self) -> CubicCurve<L, P>;
 }
 
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
@@ -783,11 +785,12 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
-pub struct CubicCurve<P: VectorSpace> {
+pub struct CubicCurve<L: Smoothness, P: VectorSpace> {
     segments: Vec<CubicSegment<P>>,
+    _phantom: PhantomData<L>
 }
 
-impl<P: VectorSpace> CubicCurve<P> {
+impl<L: Smoothness, P: VectorSpace> CubicCurve<L, P> {
     /// Compute the position of a point on the cubic curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -888,13 +891,13 @@ impl<P: VectorSpace> CubicCurve<P> {
     }
 }
 
-impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<P> {
+impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<NoGuarantees, P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
-impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
+impl<L: Smoothness, P: VectorSpace> IntoIterator for CubicCurve<L, P> {
     type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = CubicSegment<P>;
@@ -1192,8 +1195,8 @@ impl<P: VectorSpace> From<CubicSegment<P>> for RationalSegment<P> {
     }
 }
 
-impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
-    fn from(value: CubicCurve<P>) -> Self {
+impl<L: Smoothness, P: VectorSpace> From<CubicCurve<L, P>> for RationalCurve<P> {
+    fn from(value: CubicCurve<L, P>) -> Self {
         Self {
             segments: value.segments.into_iter().map(Into::into).collect(),
         }
@@ -1382,6 +1385,269 @@ mod tests {
                 "Point {i} is not on the unit circle: {point:?} has length {}",
                 point.length()
             );
+        }
+    }
+}
+
+/// A trait for marker types which express the level of the curves they can provide.
+pub trait Smoothness {}
+
+#[derive(Clone, Copy)]
+pub struct NoGuarantees {}
+
+#[derive(Clone, Copy)]
+pub struct C0 {}
+
+#[derive(Clone, Copy)]
+pub struct C1 {}
+
+#[derive(Clone, Copy)]
+pub struct C2 {}
+
+impl Smoothness for NoGuarantees {}
+impl Smoothness for C0 {}
+impl Smoothness for C1 {}
+impl Smoothness for C2 {}
+
+#[derive(Clone, Copy)]
+pub struct C0Data<P: VectorSpace> {
+    position: P,
+}
+
+#[derive(Clone, Copy)]
+pub struct C1Data<P: VectorSpace> {
+    position: P,
+    velocity: P,
+}
+
+#[derive(Clone, Copy)]
+pub struct C2Data<P: VectorSpace> {
+    position: P,
+    velocity: P,
+    acceleration: P,
+}
+
+impl<P: VectorSpace> Interpolable for C0Data<P> {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Self {
+            position: self.position.interpolate(&other.position, t),
+        }
+    }
+}
+
+impl<P: VectorSpace> Interpolable for C1Data<P> {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Self {
+            position: self.position.interpolate(&other.position, t),
+            velocity: self.velocity.interpolate(&other.velocity, t),
+        }
+    }
+}
+
+impl<P: VectorSpace> Interpolable for C2Data<P> {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Self {
+            position: self.position.interpolate(&other.position, t),
+            velocity: self.velocity.interpolate(&other.velocity, t),
+            acceleration: self.acceleration.interpolate(&other.acceleration, t),
+        }
+    }
+}
+
+/// A trait for a type that can be turned into a continuous curve.
+pub trait ToC0Curve<P: VectorSpace> {
+    /// The type of the curve.
+    type CurveType: Curve<C0Data<P>>;
+
+    /// Yield a C0 curve.
+    fn to_curve_c0(&self) -> Self::CurveType;
+}
+
+/// A trait for a type that can be turned into a curve which is continuous and also has 
+/// continuous derivatives.
+pub trait ToC1Curve<P: VectorSpace> {
+    /// The type of the curve.
+    type CurveType: Curve<C1Data<P>>;
+
+    /// Yield a C1 curve.
+    fn to_curve_c1(&self) -> Self::CurveType;
+}
+
+/// A trait for a type that can be turned into a curve which has continuous derivatives up
+/// to the second order.
+pub trait ToC2Curve<P: VectorSpace> {
+    /// The type of the curve.
+    type CurveType: Curve<C2Data<P>>;
+
+    /// Yield a C2 curve.
+    fn to_curve_c2(&self) -> Self::CurveType;
+}
+
+/// A wrapper struct which actually implements the [`Curve`] trait associated to its level.
+pub struct CubicCurveWrapper<L, P>
+where
+    L: Smoothness,
+    P: VectorSpace,
+{
+    inner: CubicCurve<L, P>,
+}
+
+impl<L: Smoothness, P: VectorSpace> From<CubicCurve<L, P>> for CubicCurveWrapper<L, P> {
+    fn from(value: CubicCurve<L, P>) -> Self {
+        Self {
+            inner: value
+        }
+    }
+}
+
+impl<P: VectorSpace> Curve<C0Data<P>> for CubicCurveWrapper<C0, P> {
+    fn domain(&self) -> Interval {
+        let len = self.inner.segments.len() as f32;
+        interval(0.0, len).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C0Data<P> {
+        C0Data { position: self.inner.position(t) }
+    }
+}
+
+impl<P: VectorSpace> Curve<C1Data<P>> for CubicCurveWrapper<C1, P> {
+    fn domain(&self) -> Interval {
+        let len = self.inner.segments.len() as f32;
+        interval(0.0, len).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C1Data<P> {
+        C1Data { 
+            position: self.inner.position(t),
+            velocity: self.inner.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> Curve<C2Data<P>> for CubicCurveWrapper<C2, P> {
+    fn domain(&self) -> Interval {
+        let len = self.inner.segments.len() as f32;
+        interval(0.0, len).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C2Data<P> {
+        C2Data { 
+            position: self.inner.position(t),
+            velocity: self.inner.velocity(t),
+            acceleration: self.inner.acceleration(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> ToC0Curve<P> for CubicCurve<C0, P> {
+    type CurveType = CubicCurveWrapper<C0, P>;
+
+    fn to_curve_c0(&self) -> Self::CurveType {
+        self.clone().into()
+    }
+}
+
+impl<P: VectorSpace> ToC1Curve<P> for CubicCurve<C1, P> {
+    type CurveType = CubicCurveWrapper<C1, P>;
+
+    fn to_curve_c1(&self) -> Self::CurveType {
+        self.clone().into()
+    }
+}
+
+impl<P: VectorSpace> ToC2Curve<P> for CubicCurve<C2, P> {
+    type CurveType = CubicCurveWrapper<C2, P>;
+
+    fn to_curve_c2(&self) -> Self::CurveType {
+        self.clone().into()
+    }
+}
+
+impl<P: VectorSpace> CubicCurve<NoGuarantees, P> {
+    pub fn bless_c0(self) -> CubicCurve<C0, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+
+    pub fn bless_c1(self) -> CubicCurve<C1, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+
+    pub fn bless_c2(self) -> CubicCurve<C2, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+}
+
+impl<P: VectorSpace> CubicCurve<C0, P> {
+    pub fn downgrade(self) -> CubicCurve<NoGuarantees, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+
+    pub fn bless_c1(self) -> CubicCurve<C1, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+
+    pub fn bless_c2(self) -> CubicCurve<C2, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+}
+
+impl<P: VectorSpace> CubicCurve<C1, P> {
+    pub fn downgrade(self) -> CubicCurve<NoGuarantees, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+
+    pub fn bless_c2(self) -> CubicCurve<C2, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+}
+
+impl<P: VectorSpace> CubicCurve<C2, P> {
+    pub fn downgrade(self) -> CubicCurve<NoGuarantees, P> {
+        CubicCurve { segments: self.segments, _phantom: PhantomData }
+    }
+}
+
+
+// Cubic segment curve stuff
+pub struct CubicSegmentWrapper<L: Smoothness, P: VectorSpace> {
+    inner: CubicSegment<P>,
+    _phantom: PhantomData<L>,
+}
+
+impl<P: VectorSpace> Curve<C0Data<P>> for CubicSegmentWrapper<C0, P> {
+    fn domain(&self) -> Interval {
+        interval(0.0, 1.0).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C0Data<P> {
+        C0Data { position: self.inner.position(t) }
+    }
+}
+
+impl<P: VectorSpace> Curve<C1Data<P>> for CubicSegmentWrapper<C1, P> {
+    fn domain(&self) -> Interval {
+        interval(0.0, 1.0).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C1Data<P> {
+        C1Data {
+            position: self.inner.position(t),
+            velocity: self.inner.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> Curve<C2Data<P>> for CubicSegmentWrapper<C2, P> {
+    fn domain(&self) -> Interval {
+        interval(0.0, 1.0).unwrap()
+    }
+
+    fn sample(&self, t: f32) -> C2Data<P> {
+        C2Data {
+            position: self.inner.position(t),
+            velocity: self.inner.velocity(t),
+            acceleration: self.inner.acceleration(t),
         }
     }
 }
