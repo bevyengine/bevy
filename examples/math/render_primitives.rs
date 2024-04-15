@@ -376,7 +376,7 @@ fn update_text(
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter_mut().for_each(|mut header_text| {
         if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value = new_text.clone();
+            kind.value.clone_from(&new_text);
         };
     });
 }
