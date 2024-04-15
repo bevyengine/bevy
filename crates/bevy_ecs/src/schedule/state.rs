@@ -764,7 +764,7 @@ impl<S: InnerStateSet> StateSet for S {
 /// is not used to impact the state's value at all.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existence. Note that this approach requires implementing [`Default`] as well.
+/// and value to determine it's existence.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
