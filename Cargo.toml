@@ -2874,6 +2874,7 @@ wasm = true
 [[example]]
 name = "ssr"
 path = "examples/3d/ssr.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
