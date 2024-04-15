@@ -33,7 +33,7 @@ use super::{InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, Sche
 /// which can be run by triggering the [`StateTransition`] schedule.
 ///
 /// Types used as [`ComputedStates`] do not need to and should not derive [`States`].
-/// [`ComputedStates`] are not intended to be manually mutated, but this functionality is provided
+/// [`ComputedStates`] should not be manually mutated: functionality provided
 /// by the [`States`] derive and the associated [`FreelyMutableState`] trait.
 ///
 /// # Example
