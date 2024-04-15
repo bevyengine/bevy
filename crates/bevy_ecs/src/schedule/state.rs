@@ -372,7 +372,7 @@ pub fn setup_state_transitions_in_world(
 /// - Sends a relevant [`StateTransitionEvent`]
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any dependant states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
+/// - Derive any dependent states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
