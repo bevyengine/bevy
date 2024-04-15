@@ -17,10 +17,7 @@ use bevy_ecs::{
     world::{EntityRef, Ref, World},
 };
 use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
-use resource::{
-    IntoRenderDependencies, IntoRenderResource, RenderDependencies, RenderHandle, RenderResource,
-};
-use wgpu::Label;
+use resource::{IntoRenderResource, RenderDependencies, RenderHandle, RenderResource};
 
 use self::resource::{
     pipeline::RenderGraphPipelines, LastFrameRenderResource, SimpleResourceStore,
@@ -109,6 +106,7 @@ impl<'a> RenderGraphBuilder<'a> {
     ) {
         todo!()
     }
+
     pub fn get_last_frame<R: LastFrameRenderResource>(
         &mut self,
         label: InternedRenderLabel,
@@ -139,11 +137,11 @@ impl<'a> RenderGraphBuilder<'a> {
 }
 
 impl<'a> RenderGraphBuilder<'a> {
-    pub fn resource<R: Resource>(&'a self) -> &'a R {
+    pub fn world_resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }
 
-    pub fn get_resource<R: Resource>(&'a self) -> Option<&'a R> {
+    pub fn get_world_resource<R: Resource>(&'a self) -> Option<&'a R> {
         self.world.get_resource()
     }
 
@@ -179,12 +177,10 @@ pub struct NodeContext<'a> {
     dependencies: RenderDependencies,
 }
 
-const RESOURCE_DESCRIPTOR_MSG: &str = "Render resource did not have an associated descriptor. Note: resources created from closures do not remember their descriptors.";
-
 impl<'a> NodeContext<'a> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<R>) -> &'a R {
         if !self.dependencies.contains_resource(resource) {
-            panic!("Attempted to access a Render Resource of type {:?} not listed in the node's dependencies", TypeId::of::<R>())
+            panic!("Attempted to access a Render Resource of type {:?} not included in the node's dependencies", TypeId::of::<R>())
         }
 
         R::get_data(self.graph, self.world, resource.id)
@@ -194,18 +190,18 @@ impl<'a> NodeContext<'a> {
 
     pub fn get_bind_group<R: RenderResource>(&self, bind_group: RenderBindGroup) -> &BindGroup {
         if !self.dependencies.contains_bind_group(bind_group) {
-            panic!("Attempted to access a bind group not listed in the node's dependencies")
+            panic!("Attempted to access a bind group not included in the node's dependencies")
         }
         todo!()
     }
 }
 
 impl<'a> NodeContext<'a> {
-    pub fn resource<R: Resource>(&'a self) -> &'a R {
+    pub fn world_resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }
 
-    pub fn get_resource<R: Resource>(&'a self) -> Option<&'a R> {
+    pub fn get_world_resource<R: Resource>(&'a self) -> Option<&'a R> {
         self.world.get_resource()
     }
 

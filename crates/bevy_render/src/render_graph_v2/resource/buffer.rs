@@ -1,11 +1,7 @@
 use bevy_ecs::world::World;
-use wgpu::{util::BufferInitDescriptor, BufferDescriptor};
+use wgpu::BufferDescriptor;
 
-use crate::{
-    render_graph_v2::RenderGraph,
-    render_resource::Buffer,
-    renderer::{RenderDevice, RenderQueue},
-};
+use crate::{render_graph_v2::RenderGraph, render_resource::Buffer, renderer::RenderDevice};
 
 use super::{
     IntoRenderResource, LastFrameRenderResource, RenderResource, RenderResourceId,

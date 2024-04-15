@@ -1,16 +1,9 @@
-use std::{any::TypeId, hash::Hash, marker::PhantomData};
+use std::marker::PhantomData;
 
-use bevy_ecs::{
-    system::Resource,
-    world::{FromWorld, World},
-};
-use bevy_utils::{all_tuples, all_tuples_with_size, HashMap, HashSet};
-use wgpu::{BindGroupLayoutEntry, Label};
+use bevy_ecs::world::World;
+use bevy_utils::{all_tuples, HashMap, HashSet};
 
-use crate::{
-    render_graph::InternedRenderLabel,
-    renderer::{RenderDevice, RenderQueue},
-};
+use crate::{render_graph::InternedRenderLabel, renderer::RenderDevice};
 
 use bind_group::RenderBindGroup;
 

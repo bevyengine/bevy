@@ -13,7 +13,7 @@ use crate::{
         SpecializedComputePipeline, SpecializedComputePipelines, SpecializedMeshPipeline,
         SpecializedMeshPipelines, SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
 };
 
 use super::{

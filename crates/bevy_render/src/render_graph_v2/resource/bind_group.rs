@@ -1,3 +1,4 @@
+use bevy_utils::HashMap;
 use wgpu::BindGroupLayoutEntry;
 
 use crate::{
@@ -8,6 +9,12 @@ use crate::{
     renderer::RenderDevice,
     texture::FallbackImage,
 };
+
+pub struct RenderBindGroups {
+    layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
+    bind_groups: HashMap<RenderBindGroup, BindGroup>,
+    queued_bind_groups: HashMap<RenderBindGroup, ()>, //todo: bind group job type;
+}
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RenderBindGroup {
@@ -48,10 +55,10 @@ impl<B: AsBindGroup> AsRenderBindGroup for B {
         render_device: &RenderDevice,
     ) -> Result<BindGroup, AsBindGroupError> {
         let images = node_context
-            .get_resource::<RenderAssets<Image>>()
+            .get_world_resource::<RenderAssets<Image>>()
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
         let fallback_image = node_context
-            .get_resource::<FallbackImage>()
+            .get_world_resource::<FallbackImage>()
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
         Ok(
             <B as AsBindGroup>::as_bind_group(
