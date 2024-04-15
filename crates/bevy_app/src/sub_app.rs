@@ -1,11 +1,10 @@
-use crate::{App, First, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{
-        common_conditions::run_once as run_once_condition,
         setup_state_transitions_in_world, FreelyMutableState, InternedScheduleLabel,
-        StateTransitionSteps, ScheduleBuildSettings, ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel,
     },
     system::SystemId,
 };
@@ -327,7 +326,7 @@ impl SubApp {
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule)
+            S::register_state(schedule);
         }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
@@ -344,9 +343,9 @@ impl SubApp {
             self.insert_resource::<State<S>>(State::new(state))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            
+
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule)
+            S::register_state(schedule);
         }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized

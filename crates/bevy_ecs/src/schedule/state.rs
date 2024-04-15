@@ -1,13 +1,12 @@
-use std::any::TypeId;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::{default, mem};
+use std::mem;
 use std::ops::Deref;
-use std::{collections::BTreeMap, fmt::Debug};
 
 use crate as bevy_ecs;
-use crate::event::{Event, EventWriter, EventReader};
-use crate::prelude::{FromWorld, ResMut, Res, Local};
+use crate::event::{Event, EventReader, EventWriter};
+use crate::prelude::{FromWorld, Local, Res, ResMut};
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
@@ -16,11 +15,11 @@ use crate::world::World;
 
 use bevy_ecs_macros::SystemSet;
 pub use bevy_ecs_macros::{States, SubStates};
-use bevy_utils::{all_tuples, HashSet};
+use bevy_utils::all_tuples;
 
 use self::sealed::StateSetSealed;
 
-use super::{schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, Schedules};
+use super::{InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -65,13 +64,31 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 ///
 /// It is implemented as part of the [`States`] derive, but can also be added manually.
 pub trait FreelyMutableState: States {
+    /// This function registers all the necessary systems to apply state changes and run transition schedules
     fn register_state(schedule: &mut Schedule) {
         schedule
-            .add_systems(apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::apply()))
-            .add_systems(should_run_transition::<Self, OnEnter<Self>>.pipe(run_enter::<Self>).in_set(StateTransitionSteps::RunEntranceSchedules))
-            .add_systems(should_run_transition::<Self, OnExit<Self>>.pipe(run_exit::<Self>).in_set(StateTransitionSteps::RunExitSchedules))
-            .add_systems(should_run_transition::<Self, OnTransition<Self>>.pipe(run_transition::<Self>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
-            .configure_sets(ApplyStateTransition::<Self>::apply().in_set(StateTransitionSteps::RunManualTransitions));        
+            .add_systems(
+                apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::apply()),
+            )
+            .add_systems(
+                should_run_transition::<Self, OnEnter<Self>>
+                    .pipe(run_enter::<Self>)
+                    .in_set(StateTransitionSteps::EnterSchedules),
+            )
+            .add_systems(
+                should_run_transition::<Self, OnExit<Self>>
+                    .pipe(run_exit::<Self>)
+                    .in_set(StateTransitionSteps::ExitSchedules),
+            )
+            .add_systems(
+                should_run_transition::<Self, OnTransition<Self>>
+                    .pipe(run_transition::<Self>)
+                    .in_set(StateTransitionSteps::TransitionSchedules),
+            )
+            .configure_sets(
+                ApplyStateTransition::<Self>::apply()
+                    .in_set(StateTransitionSteps::ManualTransitions),
+            );
     }
 }
 
@@ -219,7 +236,7 @@ impl<S: FreelyMutableState> NextState<S> {
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
-pub struct StateTransitionEvent<S: States  > {
+pub struct StateTransitionEvent<S: States> {
     /// the state we were in before
     pub before: Option<S>,
     /// the state we're in now
@@ -232,13 +249,12 @@ pub struct StateTransition;
 
 /// Applies manual state transitions using [`NextState<S>`]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
-    SetupTransitionScheduleResource,
-    RunManualTransitions,
-    RunDependentTransitions,
-    RunExitSchedules,
-    RunOnTransitionSchedules,
-    RunEntranceSchedules
+enum StateTransitionSteps {
+    ManualTransitions,
+    DependentTransitions,
+    ExitSchedules,
+    TransitionSchedules,
+    EnterSchedules,
 }
 
 /// Defines a system set to aid with dependent state ordering
@@ -256,7 +272,12 @@ impl<S: States> ApplyStateTransition<S> {
 ///
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
-fn internal_apply_state_transition<S: States>(mut event: EventWriter<StateTransitionEvent<S>>, mut commands: Commands, mut current_state: Option<ResMut<State<S>>>, new_state: Option<S>) {
+fn internal_apply_state_transition<S: States>(
+    mut event: EventWriter<StateTransitionEvent<S>>,
+    mut commands: Commands,
+    current_state: Option<ResMut<State<S>>>,
+    new_state: Option<S>,
+) {
     match new_state {
         Some(entered) => {
             match current_state {
@@ -303,14 +324,25 @@ fn internal_apply_state_transition<S: States>(mut event: EventWriter<StateTransi
 ///
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
-pub fn setup_state_transitions_in_world(world: &mut World, startup_label: Option<InternedScheduleLabel>) {
+pub fn setup_state_transitions_in_world(
+    world: &mut World,
+    startup_label: Option<InternedScheduleLabel>,
+) {
     let mut schedules = world.get_resource_or_insert_with(Schedules::default);
     if schedules.contains(StateTransition) {
         return;
     }
     let mut schedule = Schedule::new(StateTransition);
-    schedule
-        .configure_sets((StateTransitionSteps::RunManualTransitions, StateTransitionSteps::RunDependentTransitions, StateTransitionSteps::RunExitSchedules, StateTransitionSteps::RunOnTransitionSchedules, StateTransitionSteps::RunExitSchedules).chain());
+    schedule.configure_sets(
+        (
+            StateTransitionSteps::ManualTransitions,
+            StateTransitionSteps::DependentTransitions,
+            StateTransitionSteps::ExitSchedules,
+            StateTransitionSteps::TransitionSchedules,
+            StateTransitionSteps::EnterSchedules,
+        )
+            .chain(),
+    );
     schedules.insert(schedule);
 
     if let Some(startup) = startup_label {
@@ -319,7 +351,7 @@ pub fn setup_state_transitions_in_world(world: &mut World, startup_label: Option
                 schedule.add_systems(|world: &mut World| {
                     let _ = world.try_run_schedule(StateTransition);
                 });
-            },
+            }
             None => {
                 let mut schedule = Schedule::new(startup);
 
@@ -343,7 +375,12 @@ pub fn setup_state_transitions_in_world(world: &mut World, startup_label: Option
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
 /// should be done at App creation or at your own risk.
-pub fn apply_state_transition<S: FreelyMutableState>(mut event: EventWriter<StateTransitionEvent<S>>, mut commands: Commands, current_state: Option<ResMut<State<S>>>, next_state: Option<ResMut<NextState<S>>>) {
+pub fn apply_state_transition<S: FreelyMutableState>(
+    event: EventWriter<StateTransitionEvent<S>>,
+    commands: Commands,
+    current_state: Option<ResMut<State<S>>>,
+    next_state: Option<ResMut<NextState<S>>>,
+) {
     // We want to check if the State and NextState resources exist
     let (Some(next_state_resource), Some(current_state)) = (next_state, current_state) else {
         return;
@@ -353,7 +390,12 @@ pub fn apply_state_transition<S: FreelyMutableState>(mut event: EventWriter<Stat
         NextState::Pending(new_state) => {
             if new_state != current_state.get() {
                 let new_state = new_state.clone();
-                internal_apply_state_transition(event, commands, Some(current_state), Some(new_state));
+                internal_apply_state_transition(
+                    event,
+                    commands,
+                    Some(current_state),
+                    Some(new_state),
+                );
             }
         }
         NextState::Unchanged => {
@@ -365,18 +407,32 @@ pub fn apply_state_transition<S: FreelyMutableState>(mut event: EventWriter<Stat
     *next_state_resource.value = NextState::<S>::Unchanged;
 }
 
-fn should_run_transition<S: States, T: ScheduleLabel>(mut first: Local<bool>, res: Option<Res<State<S>>>, mut event: EventReader<StateTransitionEvent<S>>) -> (Option<StateTransitionEvent<S>>, PhantomData<T>) {
+fn should_run_transition<S: States, T: ScheduleLabel>(
+    first: Local<bool>,
+    res: Option<Res<State<S>>>,
+    mut event: EventReader<StateTransitionEvent<S>>,
+) -> (Option<StateTransitionEvent<S>>, PhantomData<T>) {
     if !*first.0 {
         *first.0 = true;
         if let Some(res) = res {
             event.clear();
-            return (Some(StateTransitionEvent { before: None, after: Some(res.get().clone())}), PhantomData);
+
+            return (
+                Some(StateTransitionEvent {
+                    before: None,
+                    after: Some(res.get().clone()),
+                }),
+                PhantomData,
+            );
         }
     }
     (event.read().last().cloned(), PhantomData)
 }
 
-fn run_enter<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnEnter<S>>)>, mut world: &mut World) {
+fn run_enter<S: States>(
+    In((transition, _)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnEnter<S>>)>,
+    world: &mut World,
+) {
     let Some(transition) = transition else {
         return;
     };
@@ -384,11 +440,14 @@ fn run_enter<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>,
     let Some(after) = transition.after else {
         return;
     };
-    
+
     let _ = world.try_run_schedule(OnEnter(after));
 }
 
-fn run_exit<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnExit<S>>)>, mut world: &mut World) {
+fn run_exit<S: States>(
+    In((transition, _)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnExit<S>>)>,
+    world: &mut World,
+) {
     let Some(transition) = transition else {
         return;
     };
@@ -396,11 +455,17 @@ fn run_exit<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, 
     let Some(before) = transition.before else {
         return;
     };
-    
+
     let _ = world.try_run_schedule(OnExit(before));
 }
 
-fn run_transition<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnTransition<S>>)>, mut world: &mut World) {
+fn run_transition<S: States>(
+    In((transition, _)): In<(
+        Option<StateTransitionEvent<S>>,
+        PhantomData<OnTransition<S>>,
+    )>,
+    world: &mut World,
+) {
     let Some(transition) = transition else {
         return;
     };
@@ -410,8 +475,8 @@ fn run_transition<S: States>(In((transition,_)): In<(Option<StateTransitionEvent
     let Some(to) = transition.after else {
         return;
     };
-    
-    let _ = world.try_run_schedule(OnTransition {from, to});
+
+    let _ = world.try_run_schedule(OnTransition { from, to });
 }
 
 /// Trait defining a state that is automatically derived from other [`States`].
@@ -580,64 +645,112 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>, mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, state_set: Option<Res<State<S::RawState>>>| {
+        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+                      event: EventWriter<StateTransitionEvent<T>>,
+                      commands: Commands,
+                      current_state: Option<ResMut<State<T>>>,
+                      state_set: Option<Res<State<S::RawState>>>| {
             if parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
 
-            let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                T::compute(state_set)
-            } else {
-                None
-            };
+            let new_state =
+                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                    T::compute(state_set)
+                } else {
+                    None
+                };
 
             internal_apply_state_transition(event, commands, current_state, new_state);
         };
 
         schedule
             .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
-            .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
-            .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
-            .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
-            .configure_sets(ApplyStateTransition::<T>::apply().in_set(StateTransitionSteps::RunDependentTransitions).after(ApplyStateTransition::<S::RawState>::apply()));        
+            .add_systems(
+                should_run_transition::<T, OnEnter<T>>
+                    .pipe(run_enter::<T>)
+                    .in_set(StateTransitionSteps::EnterSchedules),
+            )
+            .add_systems(
+                should_run_transition::<T, OnExit<T>>
+                    .pipe(run_exit::<T>)
+                    .in_set(StateTransitionSteps::ExitSchedules),
+            )
+            .add_systems(
+                should_run_transition::<T, OnTransition<T>>
+                    .pipe(run_transition::<T>)
+                    .in_set(StateTransitionSteps::TransitionSchedules),
+            )
+            .configure_sets(
+                ApplyStateTransition::<T>::apply()
+                    .in_set(StateTransitionSteps::DependentTransitions)
+                    .after(ApplyStateTransition::<S::RawState>::apply()),
+            );
     }
 
     fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>, mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, state_set: Option<Res<State<S::RawState>>>| {
+        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+                      event: EventWriter<StateTransitionEvent<T>>,
+                      commands: Commands,
+                      current_state: Option<ResMut<State<T>>>,
+                      state_set: Option<Res<State<S::RawState>>>| {
             if parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
 
-            let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                T::exists(state_set)
-            } else {
-                None
-            };
+            let new_state =
+                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                    T::exists(state_set)
+                } else {
+                    None
+                };
 
             match new_state {
                 Some(value) => {
                     if current_state.is_none() {
-                        internal_apply_state_transition(event, commands, current_state, Some(value));
+                        internal_apply_state_transition(
+                            event,
+                            commands,
+                            current_state,
+                            Some(value),
+                        );
                     }
                 }
                 None => {
                     internal_apply_state_transition(event, commands, current_state, None);
-                },
+                }
             };
         };
 
-
         schedule
             .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
-            .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::RunManualTransitions))
-            .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
-            .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
-            .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
-            .configure_sets(ApplyStateTransition::<T>::apply().in_set(StateTransitionSteps::RunDependentTransitions).after(ApplyStateTransition::<S::RawState>::apply()));        
+            .add_systems(
+                apply_state_transition::<T>.in_set(StateTransitionSteps::ManualTransitions),
+            )
+            .add_systems(
+                should_run_transition::<T, OnEnter<T>>
+                    .pipe(run_enter::<T>)
+                    .in_set(StateTransitionSteps::EnterSchedules),
+            )
+            .add_systems(
+                should_run_transition::<T, OnExit<T>>
+                    .pipe(run_exit::<T>)
+                    .in_set(StateTransitionSteps::ExitSchedules),
+            )
+            .add_systems(
+                should_run_transition::<T, OnTransition<T>>
+                    .pipe(run_transition::<T>)
+                    .in_set(StateTransitionSteps::TransitionSchedules),
+            )
+            .configure_sets(
+                ApplyStateTransition::<T>::apply()
+                    .in_set(StateTransitionSteps::DependentTransitions)
+                    .after(ApplyStateTransition::<S::RawState>::apply()),
+            );
     }
 }
 /// Trait defining a state that is automatically derived from other [`States`].
@@ -814,11 +927,11 @@ macro_rules! impl_state_set_sealed_tuples {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
-            
+
             fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
                     if ($($evt.is_empty())&&*) {
                         return;
                     }
@@ -835,20 +948,20 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule
                     .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
-                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
-                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
-                        .in_set(StateTransitionSteps::RunDependentTransitions)
+                        .in_set(StateTransitionSteps::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
-                    );        
+                    );
             }
-            
+
             fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
                     if ($($evt.is_empty())&&*) {
                         return;
                     }
@@ -873,15 +986,15 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule
                     .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::RunManualTransitions))
-                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
-                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
-                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+                    .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::ManualTransitions))
+                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
-                        .in_set(StateTransitionSteps::RunDependentTransitions)
+                        .in_set(StateTransitionSteps::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
-                    );        
+                    );
             }
         }
     };
@@ -895,6 +1008,8 @@ mod tests {
 
     use super::*;
     use crate as bevy_ecs;
+
+    use crate::event::EventRegistry;
 
     use crate::prelude::ResMut;
 
@@ -925,11 +1040,13 @@ mod tests {
     #[test]
     fn computed_state_with_a_single_source_is_correctly_derived() {
         let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
         TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
-        apply_changes.add_systems(apply_state_transition::<SimpleState>);
+        SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
@@ -979,12 +1096,13 @@ mod tests {
     #[test]
     fn sub_state_exists_only_when_allowed_but_can_be_modified_freely() {
         let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
         SubState::register_state_exist_systems_in_schedules(&mut apply_changes);
-        apply_changes.add_systems(apply_state_transition::<SimpleState>);
-        apply_changes.add_systems(apply_state_transition::<SubState>);
+        SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
@@ -1036,13 +1154,15 @@ mod tests {
     #[test]
     fn substate_of_computed_states_works_appropriately() {
         let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubStateOfComputed>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
         TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
         SubStateOfComputed::register_state_exist_systems_in_schedules(&mut apply_changes);
-        apply_changes.add_systems(apply_state_transition::<SimpleState>);
-        apply_changes.add_systems(apply_state_transition::<SubStateOfComputed>);
+        SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
@@ -1125,6 +1245,9 @@ mod tests {
     #[test]
     fn complex_computed_state_gets_derived_correctly() {
         let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<OtherState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<ComplexComputedState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         world.init_resource::<State<OtherState>>();
 
@@ -1133,8 +1256,8 @@ mod tests {
 
         ComplexComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
 
-        apply_changes.add_systems(apply_state_transition::<SimpleState>);
-        apply_changes.add_systems(apply_state_transition::<OtherState>);
+        SimpleState::register_state(&mut apply_changes);
+        OtherState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
@@ -1218,20 +1341,32 @@ mod tests {
         }
     }
 
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    struct Startup;
+
     #[test]
     fn computed_state_transitions_are_produced_correctly() {
         let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState2>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestNewcomputedState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         world.init_resource::<State<SimpleState2>>();
+        world.init_resource::<Schedules>();
 
-        let mut schedules = Schedules::new();
-        let mut apply_changes = Schedule::new(StateTransition);
+        setup_state_transitions_in_world(&mut world, Some(Startup.intern()));
 
-        TestNewcomputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
+        let mut schedules = world
+            .get_resource_mut::<Schedules>()
+            .expect("Schedules don't exist in world");
+        let apply_changes = schedules
+            .get_mut(StateTransition)
+            .expect("State Transition Schedule Doesn't Exist");
 
-        apply_changes.add_systems(apply_state_transition::<SimpleState>);
-        apply_changes.add_systems(apply_state_transition::<SimpleState2>);
-        schedules.insert(apply_changes);
+        TestNewcomputedState::register_state_compute_systems_in_schedule(apply_changes);
+
+        SimpleState::register_state(apply_changes);
+        SimpleState2::register_state(apply_changes);
 
         schedules.insert({
             let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::A1));
@@ -1280,8 +1415,6 @@ mod tests {
             });
             schedule
         });
-
-        world.insert_resource(schedules);
 
         world.init_resource::<ComputedStateTransitionCounter>();
 
