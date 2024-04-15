@@ -896,7 +896,7 @@ impl<S: InnerStateSet> StateSet for S {
 ///     type SourceStates = Option<AppState>;
 ///
 ///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
-///     fn exists(sources: Option<AppState>) -> Option<Self> {
+///     fn should_exist(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, so we want a GamePhase state to exist, and the default is
 ///             /// GamePhase::Setup
