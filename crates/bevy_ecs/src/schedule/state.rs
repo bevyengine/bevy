@@ -8,7 +8,7 @@
 //! 
 //! - Standard [`States`] can only be changed by manually setting the [`NextState<S>`] resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
-//!   their own in many ways. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
+//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
 //!   for a simple use case.
 //! - [`SubStates`] are children of other states - they can be changed manually using [`NextState<S>`],
 //!   but are removed from the [`World`] if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
