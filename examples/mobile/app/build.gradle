@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
@@ -34,9 +35,8 @@ android {
         viewBinding true
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 
     sourceSets {
@@ -50,30 +50,12 @@ android {
 }
 
 dependencies {
-
-    implementation 'androidx.core:core:1.9.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
+    // Some of the libraries aren't the latest versions
+    implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'com.google.android.material:material:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
-    // To use the Android Frame Pacing library
-    //implementation "androidx.games:games-frame-pacing:1.9.1"
-
-    // To use the Android Performance Tuner
-    //implementation "androidx.games:games-performance-tuner:1.5.0"
-
-    // To use the Games Activity library
-    //implementation("androidx.games:games-activity:3.0.2")		// 3.0.2 results in an UnsatisfiedLinkError due to the change in onTouchEventNative method signature
-    implementation("androidx.games:games-activity:2.0.2")
-
-    // To use the Games Controller Library
-    //implementation "androidx.games:games-controller:1.1.0"
-
-    // To use the Games Text Input Library
-    //implementation "androidx.games:games-text-input:1.1.0"
+    implementation("androidx.games:games-activity:2.0.2") // 3.0.2 results in an UnsatisfiedLinkError due to the change in onTouchEventNative method signature
 }
 
 assemble.dependsOn ":ndkBuild"
