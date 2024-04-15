@@ -1,9 +1,5 @@
 //! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //! 
-//! Most of the utilities around state involve running systems during transitions between states, or
-//! determining whether to run certain systems, though they can be used more directly as well. This
-//! makes it easier to transition between menus, add loading screens, pause games, and the more.
-//! 
 //! This module provides 3 distinct types of state, all of which implement the [`States`] trait:
 //! 
 //! - Standard [`States`] can only be changed by manually setting the [`NextState<S>`] resource.
@@ -18,6 +14,18 @@
 //!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state derived
 //!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)
 //!   to see a sampling of uses for these states.
+//! 
+//! Most of the utilities around state involve running systems during transitions between states, or
+//! determining whether to run certain systems, though they can be used more directly as well. This
+//! makes it easier to transition between menus, add loading screens, pause games, and the more.
+//! 
+//! Specificaly, Bevy provides the following utilities:
+//! 
+//! - 3 Transition Schedules - [`OnEnter<S>`], [`OnExit<S>`] and [`OnTransition<S>`] - which are used
+//!   to trigger systems specifically during matching transitions.
+//! - A [`StateTransitionEvent<S>`] that gets fired when a given state changes.
+//! - The [`in_state<S>`](crate::schedule::condition::in_state) and [`state_changed<S>`](crate::schedule::condition:state_changed) run conditions - which are used
+//!   to determine whether a system should run based on the current state.
 
 use std::fmt::Debug;
 use std::hash::Hash;
