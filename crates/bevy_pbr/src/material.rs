@@ -470,6 +470,7 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
         AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
+        AlphaMode::AlphaToCoverage => MeshPipelineKey::BLEND_A2C,
         _ => MeshPipelineKey::NONE,
     }
 }
@@ -694,7 +695,7 @@ pub fn queue_material_meshes<M: Material>(
                 .set(material.get_bind_group_id());
 
             match material.properties.alpha_mode {
-                AlphaMode::Opaque => {
+                AlphaMode::Opaque | AlphaMode::AlphaToCoverage => {
                     if material.properties.reads_view_transmission_texture {
                         let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;

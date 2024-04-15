@@ -794,7 +794,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
-                AlphaMode::Opaque => {}
+                AlphaMode::Opaque | AlphaMode::AlphaToCoverage => {}
                 AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
@@ -850,7 +850,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
 
             match alpha_mode {
-                AlphaMode::Opaque => {
+                AlphaMode::Opaque | AlphaMode::AlphaToCoverage => {
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBinKey {

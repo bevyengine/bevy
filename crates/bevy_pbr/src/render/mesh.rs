@@ -1056,6 +1056,7 @@ bitflags::bitflags! {
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
         const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                   // ← We still have room for one more value without adding more bits
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;
+        const BLEND_A2C                         = 4 << Self::BLEND_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -1094,7 +1095,7 @@ impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = Self::LAST_FLAG.bits().trailing_zeros() + 1;
 
-    const BLEND_MASK_BITS: u32 = 0b11;
+    const BLEND_MASK_BITS: u32 = 0b111;
     const BLEND_SHIFT_BITS: u32 = Self::MSAA_MASK_BITS.count_ones() + Self::MSAA_SHIFT_BITS;
 
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
@@ -1271,7 +1272,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let mut is_opaque = false;
+        let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -1301,6 +1302,17 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_A2C {
+            label = "a2c_mesh_pipeline".into();
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+            blend = None;
+            // For the opaque and alpha mask passes, fragments that are closer will replace
+            // the current fragment value in the output and the depth is written to the
+            // depth buffer
+            depth_write_enabled = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+            alpha_to_coverage_enabled = true;
+            shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
             label = "opaque_mesh_pipeline".into();
             // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
@@ -1500,7 +1512,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
-                alpha_to_coverage_enabled: false,
+                alpha_to_coverage_enabled,
             },
             label: Some(label),
         })

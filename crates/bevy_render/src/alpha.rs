@@ -32,6 +32,18 @@ pub enum AlphaMode {
     /// Can be used to avoid “border” or “outline” artifacts that can occur
     /// when using plain alpha-blended textures.
     Premultiplied,
+    /// Spreads the fragment out over a hardware-dependent number of sample
+    /// locations proportional to the alpha value. This requires multisample
+    /// antialiasing; if MSAA isn't on, this is identical to
+    /// [`AlphaMode::Opaque`].
+    ///
+    /// Alpha to coverage provides improved performance and better visual
+    /// fidelity over [`AlphaMode::Blend`], as Bevy doesn't have to sort objects
+    /// when it's in use. It's especially useful for complex transparent objects
+    /// like foliage.
+    ///
+    /// [alpha to coverage]: https://en.wikipedia.org/wiki/Alpha_to_coverage
+    AlphaToCoverage,
     /// Combines the color of the fragments with the colors behind them in an
     /// additive process, (i.e. like light) producing lighter results.
     ///

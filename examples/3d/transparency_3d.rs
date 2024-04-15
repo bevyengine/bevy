@@ -67,6 +67,18 @@ fn setup(
         ..default()
     });
 
+    // Transparent cube, uses `alpha_mode: BlendAlphaToCoverage`
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgba(0.5, 1.0, 0.5, 0.0),
+            alpha_mode: AlphaMode::AlphaToCoverage,
+            ..default()
+        }),
+        transform: Transform::from_xyz(-1.5, 0.5, 0.0),
+        ..default()
+    });
+
     // Opaque sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
