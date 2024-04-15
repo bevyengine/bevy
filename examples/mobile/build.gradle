@@ -4,14 +4,14 @@ plugins {
 	id 'com.android.library' version '8.0.0' apply false
 }
 
-task clean(type: Delete) {
+tasks.register('clean', Delete) {
     delete rootProject.buildDir
     delete layout.projectDirectory.dir("app/src/main/assets")
     delete layout.projectDirectory.dir("app/src/main/jniLibs")
 }
 
 // Make sure we have our required assets available for packaging
-task copyAssets {
+tasks.register('copyAssets') {
     doFirst {
         copy {
             from layout.projectDirectory.dir("../../assets")
@@ -21,7 +21,8 @@ task copyAssets {
     }
 }
 
-task ndkBuild(type: Exec) {
+// Build our Rust application as an Android native library
+tasks.register('ndkBuild', Exec) {
     workingDir layout.projectDirectory
     commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-t', 'armeabi-v7a', '-o', 'app/src/main/jniLibs/', 'build'
 }
