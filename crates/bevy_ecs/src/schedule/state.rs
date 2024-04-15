@@ -599,7 +599,7 @@ pub trait StateSet: sealed::StateSetSealed {
     );
 }
 
-/// The `InnnerStateSet` trait is used to isolate [`ComputedStates`] & [`SubStates`] from
+/// The `InnerStateSet` trait is used to isolate [`ComputedStates`] & [`SubStates`] from
 /// needing to wrap all state dependencies in an [`Option<S>`].
 ///
 /// Some [`ComputedStates`]'s might need to exist in different states based on the existence
