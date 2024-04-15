@@ -364,7 +364,7 @@ impl SubApp {
             setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state_compute_systems_in_schedule(schedule);
+            S::register_computed_state_systems(schedule);
         }
 
         self
@@ -380,7 +380,7 @@ impl SubApp {
             self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state_exist_systems_in_schedules(schedule);
+            S::register_sub_state_systems(schedule);
         }
 
         self

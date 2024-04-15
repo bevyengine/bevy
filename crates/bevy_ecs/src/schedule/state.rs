@@ -558,8 +558,8 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
-    fn register_state_compute_systems_in_schedule(schedule: &mut Schedule) {
-        Self::SourceStates::register_compute_systems_for_dependent_state::<Self>(schedule);
+    fn register_computed_state_systems(schedule: &mut Schedule) {
+        Self::SourceStates::register_computed_state_systems_in_schedule::<Self>(schedule);
     }
 }
 
@@ -588,13 +588,13 @@ pub trait StateSet: sealed::StateSetSealed {
 
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
-    fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
+    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     );
 
     /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
     /// `StateSet` is changed.
-    fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+    fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     );
 }
@@ -642,7 +642,7 @@ impl<S: InnerStateSet> StateSetSealed for S {}
 impl<S: InnerStateSet> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
-    fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
+    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
         let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
@@ -689,7 +689,7 @@ impl<S: InnerStateSet> StateSet for S {
             );
     }
 
-    fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+    fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
         let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
@@ -704,7 +704,7 @@ impl<S: InnerStateSet> StateSet for S {
 
             let new_state =
                 if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                    T::exists(state_set)
+                    T::should_exist(state_set)
                 } else {
                     None
                 };
@@ -904,13 +904,13 @@ pub trait SubStates: States + FreelyMutableState {
     ///
     /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world, otherwise
     /// if the [`State<Self>`] resource doesn't exist - it will be created with the [`Some`] value.
-    fn exists(sources: Self::SourceStates) -> Option<Self>;
+    fn should_exist(sources: Self::SourceStates) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
-    fn register_state_exist_systems_in_schedules(schedule: &mut Schedule) {
-        Self::SourceStates::register_state_exist_systems_in_schedule::<Self>(schedule);
+    fn register_sub_state_systems(schedule: &mut Schedule) {
+        Self::SourceStates::register_sub_state_systems_in_schedule::<Self>(schedule);
     }
 }
 
@@ -923,7 +923,7 @@ macro_rules! impl_state_set_sealed_tuples {
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
 
-            fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
+            fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
                 let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
@@ -953,7 +953,7 @@ macro_rules! impl_state_set_sealed_tuples {
                     );
             }
 
-            fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+            fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
                 let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
@@ -963,7 +963,7 @@ macro_rules! impl_state_set_sealed_tuples {
                     $($evt.clear();)*
 
                     let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
-                        T::exists(($($val),*, ))
+                        T::should_exist(($($val),*, ))
                     } else {
                         None
                     };
@@ -1040,7 +1040,7 @@ mod tests {
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
+        TestComputedState::register_computed_state_systems(&mut apply_changes);
         SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
@@ -1096,7 +1096,7 @@ mod tests {
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        SubState::register_state_exist_systems_in_schedules(&mut apply_changes);
+        SubState::register_sub_state_systems(&mut apply_changes);
         SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
@@ -1155,8 +1155,8 @@ mod tests {
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
-        SubStateOfComputed::register_state_exist_systems_in_schedules(&mut apply_changes);
+        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        SubStateOfComputed::register_sub_state_systems(&mut apply_changes);
         SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
@@ -1249,7 +1249,7 @@ mod tests {
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
 
-        ComplexComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
+        ComplexComputedState::register_computed_state_systems(&mut apply_changes);
 
         SimpleState::register_state(&mut apply_changes);
         OtherState::register_state(&mut apply_changes);
@@ -1358,7 +1358,7 @@ mod tests {
             .get_mut(StateTransition)
             .expect("State Transition Schedule Doesn't Exist");
 
-        TestNewcomputedState::register_state_compute_systems_in_schedule(apply_changes);
+        TestNewcomputedState::register_computed_state_systems(apply_changes);
 
         SimpleState::register_state(apply_changes);
         SimpleState2::register_state(apply_changes);
