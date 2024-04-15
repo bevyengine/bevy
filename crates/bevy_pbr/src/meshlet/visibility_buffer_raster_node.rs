@@ -93,13 +93,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster_pass");
-        if meshlet_view_resources.occlusion_buffer_needs_clearing {
-            render_context.command_encoder().clear_buffer(
-                &meshlet_view_resources.occlusion_buffer,
-                0,
-                None,
-            );
-        }
+        render_context.command_encoder().clear_buffer(
+            &meshlet_view_resources.occlusion_buffer,
+            0,
+            None,
+        );
         cull_pass(
             "meshlet_culling_first_pass",
             render_context,
@@ -199,13 +197,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster_pass: {}",
                 shadow_view.pass_name
             ));
-            if meshlet_view_resources.occlusion_buffer_needs_clearing {
-                render_context.command_encoder().clear_buffer(
-                    &meshlet_view_resources.occlusion_buffer,
-                    0,
-                    None,
-                );
-            }
+            render_context.command_encoder().clear_buffer(
+                &meshlet_view_resources.occlusion_buffer,
+                0,
+                None,
+            );
             cull_pass(
                 "meshlet_culling_first_pass",
                 render_context,

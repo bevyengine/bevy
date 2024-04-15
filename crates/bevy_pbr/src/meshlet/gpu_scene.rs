@@ -244,7 +244,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 let buffer = render_device.create_buffer(&BufferDescriptor {
                     label: Some("meshlet_visibility_buffer_draw_index_buffer"),
                     size: needed_buffer_size,
-                    usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+                    usage: BufferUsages::STORAGE,
                     mapped_at_creation: false,
                 });
                 *slot = Some(buffer.clone());
@@ -286,22 +286,19 @@ pub fn prepare_meshlet_per_frame_resources(
         // Early submission for GPU data uploads to start while the render graph records commands
         render_queue.submit([]);
 
-        let (occlusion_buffer, occlusion_buffer_needs_clearing) =
-            match gpu_scene.previous_occlusion_buffers.get(&view_entity) {
-                Some(buffer) if buffer.size() >= needed_buffer_size => (buffer.clone(), true),
-                _ => (
-                    render_device.create_buffer(&BufferDescriptor {
-                        label: Some("meshlet_occlusion_buffer"),
-                        size: needed_buffer_size,
-                        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    }),
-                    false,
-                ),
-            };
-        gpu_scene
-            .previous_occlusion_buffers
-            .insert(view_entity, occlusion_buffer.clone());
+        let occlusion_buffer = match &mut gpu_scene.occlusion_buffer {
+            Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
+            slot => {
+                let buffer = render_device.create_buffer(&BufferDescriptor {
+                    label: Some("meshlet_occlusion_buffer"),
+                    size: needed_buffer_size,
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                *slot = Some(buffer.clone());
+                buffer
+            }
+        };
 
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
@@ -420,7 +417,6 @@ pub fn prepare_meshlet_per_frame_resources(
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             occlusion_buffer,
-            occlusion_buffer_needs_clearing,
             instance_visibility,
             visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
@@ -647,8 +643,7 @@ pub struct MeshletGpuScene {
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
     thread_meshlet_ids: StorageBuffer<Vec<u32>>,
-    // TODO: Use one occlusion buffer for all views
-    previous_occlusion_buffers: EntityHashMap<Buffer>,
+    occlusion_buffer: Option<Buffer>,
     previous_depth_pyramids: EntityHashMap<TextureView>,
     visibility_buffer_draw_index_buffer: Option<Buffer>,
 
@@ -703,7 +698,7 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_thread_meshlet_ids"));
                 buffer
             },
-            previous_occlusion_buffers: EntityHashMap::default(),
+            occlusion_buffer: None,
             previous_depth_pyramids: EntityHashMap::default(),
             visibility_buffer_draw_index_buffer: None,
 
@@ -930,7 +925,6 @@ impl MeshletGpuScene {
 pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
     pub occlusion_buffer: Buffer,
-    pub occlusion_buffer_needs_clearing: bool,
     pub instance_visibility: Buffer,
     pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_indirect_args_first: Buffer,
