@@ -132,9 +132,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// changes, instead of every time it is mutably accessed.
     ///
     /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
-    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to prevent the
-    /// need for unnecessary copying and cloning. See the docs of
-    /// [`map_unchanged`](Mut::map_unchanged) for an example
+    /// then consider applying a `map_unchanged` beforehand to allow changing only the relevant
+    /// field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
     ///
     /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
@@ -187,9 +188,10 @@ pub trait DetectChangesMut: DetectChanges {
     /// changes, instead of every time it is mutably accessed.
     ///
     /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
-    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to prevent the
-    /// need for unnecessary copying and cloning. See the docs of
-    /// [`map_unchanged`](Mut::map_unchanged) for an example
+    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to allow
+    /// changing only the relevant field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
     ///
     /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
