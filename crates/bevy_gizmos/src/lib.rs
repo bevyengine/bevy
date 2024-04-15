@@ -38,8 +38,10 @@ pub mod circles;
 pub mod config;
 pub mod gizmos;
 pub mod grid;
-pub mod light;
 pub mod primitives;
+
+#[cfg(feature = "bevy_pbr")]
+pub mod light;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -56,10 +58,12 @@ pub mod prelude {
             GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
-        light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
+
+    #[cfg(feature = "bevy_pbr")]
+    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use aabb::AabbGizmoPlugin;
@@ -96,6 +100,7 @@ use config::{
     GizmoMeshConfig,
 };
 use gizmos::GizmoStorage;
+#[cfg(feature = "bevy_pbr")]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
@@ -131,8 +136,10 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin)
-            .add_plugins(LightGizmoPlugin);
+            .add_plugins(AabbGizmoPlugin);
+
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugins(LightGizmoPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

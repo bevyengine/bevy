@@ -78,6 +78,12 @@ impl BatchingStrategy {
     }
 }
 
+impl Default for BatchingStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
