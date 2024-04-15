@@ -115,7 +115,7 @@ fn pbr_input_from_standard_material(
     //
     // https://bgolus.medium.com/anti-aliased-alpha-test-the-esoteric-alpha-to-coverage-8b177335ae4f
     let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_A2C {
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
         pbr_input.material.base_color.a = (pbr_input.material.base_color.a -
                 pbr_bindings::material.alpha_cutoff) /
                 max(fwidth(pbr_input.material.base_color.a), 0.0001) + 0.5;

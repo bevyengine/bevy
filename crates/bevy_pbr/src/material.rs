@@ -470,7 +470,7 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
         AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
-        AlphaMode::AlphaToCoverage => MeshPipelineKey::BLEND_A2C,
+        AlphaMode::AlphaToCoverage => MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE,
         _ => MeshPipelineKey::NONE,
     }
 }
