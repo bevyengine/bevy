@@ -758,11 +758,6 @@ impl<S: InnerStateSet> StateSet for S {
 /// A sub-state is a state that exists only when the source state meet certain conditions,
 /// but unlike [`ComputedStates`] - while they exist they can be manually modified.
 ///
-/// The [`StateSet`] is passed into the `exist` method whenever one of them changes, and the
-/// result is used to handle it's existence. If the result is `Some(Self)`, and the state doesn't exist,
-/// the state is set to the provided value. If it is `None`, the state is removed. Otherwise - the computation
-/// is not used to impact the state's value at all.
-///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
 /// and value to determine it's existence.
 ///
