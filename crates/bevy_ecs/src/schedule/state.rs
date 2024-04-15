@@ -1,3 +1,24 @@
+//! The `state` module provides the ability to use world-wide, interdependent, finite state machines.
+//! 
+//! Most of the utilities around state involve running systems during transitions between states, or
+//! determining whether to run certain systems, though they can be used more directly as well. This
+//! makes it easier to transition between menues, add loading screens, pause games, and the more.
+//! 
+//! This module provides 3 distinct types of state, all of which implement the [`States`] trait:
+//! 
+//! - Standard [`States`] can only be changed by manually setting the [`NextState<S>`] resource.
+//!   These states are the baseline on which the other state types are built, and can be used on
+//!   their own in many ways. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
+//!   for a simple use case.
+//! - [`SubStates`] are children of other states - they can be changed manually using [`NextState<S>`],
+//!   but are removed from the [`World`] if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
+//!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
+//! - [`ComputedStates`] are fully derived from other states - they provide a [`compute`](ComputedStates::compute) method
+//!   that takes in the source states and returns their derived value. They are particularly useful for situations
+//!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state derived
+//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)
+//!   to see a sampling of uses for these states.
+
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
