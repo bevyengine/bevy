@@ -1,7 +1,9 @@
 name: Comment on CI failures
 
-# This workflow can modify pull requests.
-# It must not checkout a PR and run untrusted code.
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
+
+# Give workflow the ability to comment on PRs.
 permissions:
   pull-requests: 'write'
 
