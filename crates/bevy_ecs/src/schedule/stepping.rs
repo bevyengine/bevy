@@ -58,7 +58,7 @@ enum SystemBehavior {
 // schedule_order index, and schedule start point
 #[derive(Debug, Default, Clone, Copy)]
 struct Cursor {
-    /// index within Stepping.schedule_order
+    /// index within `Stepping::schedule_order`
     pub schedule: usize,
     /// index within the schedule's system list
     pub system: usize,
@@ -606,11 +606,11 @@ struct ScheduleState {
     /// per-system [`SystemBehavior`]
     behaviors: HashMap<NodeId, SystemBehavior>,
 
-    /// order of NodeIds in the schedule
+    /// order of [`NodeId`]s in the schedule
     ///
-    /// This is a cached copy of SystemExecutable.system_ids. We need it
-    /// available here to be accessed by Stepping::cursor() so we can return
-    /// NodeIds to the caller.
+    /// This is a cached copy of `SystemExecutable::system_ids`. We need it
+    /// available here to be accessed by [`Stepping::cursor()`] so we can return
+    /// [`NodeId`]s to the caller.
     node_ids: Vec<NodeId>,
 
     /// changes to system behavior that should be applied the next time
