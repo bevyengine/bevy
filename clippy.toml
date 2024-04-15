@@ -3,6 +3,7 @@ doc-valid-idents = [
     "glTF",
     "MacOS",
     "NVidia",
+    "OpenXR",
     "sRGB",
     "VSync",
     "WebGL2",
