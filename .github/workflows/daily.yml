@@ -33,7 +33,6 @@ jobs:
           zip -r bevy_mobile_example.zip Payload
           mv bevy_mobile_example.zip bevy_mobile_example.ipa
 
-      # Browser Stack tests our code for us.
       - name: Upload to Browser Stack
         run: |
           curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
@@ -63,7 +62,6 @@ jobs:
           # This will reduce the APK size from 1GB to ~200MB
           CARGO_PROFILE_DEV_DEBUG: false
 
-      # Browser Stack tests our code for us.
       - name: Upload to Browser Stack
         run: |
           curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
@@ -81,6 +79,7 @@ jobs:
     - id: nonce
       run: echo "result=${{ github.run_id }}-$(date +%s)" >> $GITHUB_OUTPUT
 
+  # Test bevy_mobile_example on Android and iOS using Browserstack.
   run:
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
