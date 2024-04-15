@@ -922,6 +922,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
+    #[track_caller]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
         match self.get_many(entities) {
             Ok(items) => items,
@@ -1038,6 +1039,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
+    #[track_caller]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
@@ -1351,6 +1353,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///  
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
+    #[track_caller]
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
@@ -1361,6 +1364,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
     /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
     /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    #[track_caller]
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
