@@ -15,8 +15,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        clear_batched_instance_buffers, gpu_preprocessing, no_gpu_preprocessing, GetBatchData,
-        GetFullBatchData, NoAutomaticBatching,
+        gpu_preprocessing, no_gpu_preprocessing, GetBatchData, GetFullBatchData,
+        NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -139,10 +139,14 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
-                .add_systems(ExtractSchedule, (extract_skins, extract_morphs))
                 .add_systems(
                     ExtractSchedule,
-                    clear_batched_instance_buffers::<MeshPipeline>.before(ExtractMeshesSet),
+                    (
+                        extract_skins,
+                        extract_morphs,
+                        gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
+                            .before(ExtractMeshesSet),
+                    ),
                 )
                 .add_systems(
                     Render,
@@ -151,6 +155,9 @@ impl Plugin for MeshRenderPlugin {
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }
