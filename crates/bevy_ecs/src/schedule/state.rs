@@ -59,10 +59,8 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`] resource.
 ///
-/// This is in contrast with [`ComputedStates`], which do not allow modification - they are
-/// automatically derived.
-///
-/// It is implemented as part of the [`States`] derive, but can also be added manually.
+/// While ordinary states are freely mutable (and implement this trait as part of their derive macro),
+/// computed states are not: instead, they can *only* change when the states that drive them do.
 pub trait FreelyMutableState: States {
     /// This function registers all the necessary systems to apply state changes and run transition schedules
     fn register_state(schedule: &mut Schedule) {
