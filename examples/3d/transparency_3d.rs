@@ -67,7 +67,7 @@ fn setup(
         ..default()
     });
 
-    // Transparent cube, uses `alpha_mode: BlendAlphaToCoverage`
+    // Transparent cube, uses `alpha_mode: AlphaToCoverage`
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(StandardMaterial {
