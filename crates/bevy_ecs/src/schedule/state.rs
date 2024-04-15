@@ -849,7 +849,7 @@ impl<S: InnerStateSet> StateSet for S {
 /// }
 /// ```
 ///
-/// However, you can also manually implement them. Note that you'll also need to manually implement the `States` & `FreelyMutableState` traits.
+/// However, you can also manually implement them. If you do so, you'll also need to manually implement the `States` & `FreelyMutableState` traits.
 /// Unlike the derive, this does not require an implementation of [`Default`], since you are providing the `exists` function
 /// directly.
 ///
