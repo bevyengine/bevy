@@ -1303,7 +1303,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
         } else if pass == MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE {
-            label = "a2c_mesh_pipeline".into();
+            label = "alpha_to_coverage_mesh_pipeline".into();
             // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
             blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace

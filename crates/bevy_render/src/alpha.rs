@@ -35,7 +35,7 @@ pub enum AlphaMode {
     /// Spreads the fragment out over a hardware-dependent number of sample
     /// locations proportional to the alpha value. This requires multisample
     /// antialiasing; if MSAA isn't on, this is identical to
-    /// [`AlphaMode::Opaque`].
+    /// [`AlphaMode::Mask`] with a value of 0.5.
     ///
     /// Alpha to coverage provides improved performance and better visual
     /// fidelity over [`AlphaMode::Blend`], as Bevy doesn't have to sort objects
