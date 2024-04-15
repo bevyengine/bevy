@@ -572,6 +572,8 @@ mod sealed {
     pub trait StateSetSealed {}
 }
 
+/// A [`States`] type or tuple of types which implement [`States`].
+///
 /// This trait is used allow implementors of [`States`], as well
 /// as tuples containing exclusively implementors of [`States`], to
 /// be used as [`ComputedStates::SourceStates`].
