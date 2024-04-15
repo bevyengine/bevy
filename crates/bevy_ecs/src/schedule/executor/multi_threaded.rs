@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
@@ -30,7 +30,7 @@ use super::__rust_begin_short_backtrace;
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
     systems: &'sys [SyncUnsafeCell<BoxedSystem>],
-    conditions: Mutex<Conditions<'sys>>,
+    conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
 
@@ -50,7 +50,7 @@ impl<'env, 'sys> Environment<'env, 'sys> {
         Environment {
             executor,
             systems: SyncUnsafeCell::from_mut(schedule.systems.as_mut_slice()).as_slice_of_cells(),
-            conditions: Mutex::new(Conditions {
+            conditions: SyncUnsafeCell::new(Conditions {
                 system_conditions: &mut schedule.system_conditions,
                 set_conditions: &mut schedule.set_conditions,
                 sets_with_conditions_of_systems: &schedule.sets_with_conditions_of_systems,
@@ -107,8 +107,6 @@ pub struct ExecutorState {
     exclusive_running: bool,
     /// The number of systems that are running.
     num_running_systems: usize,
-    /// The number of systems that have completed.
-    num_completed_systems: usize,
     /// The number of dependencies each system has that have not completed.
     num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
@@ -192,13 +190,10 @@ impl SystemExecutor for MultiThreadedExecutor {
             return;
         }
         state.num_running_systems = 0;
-        state.num_completed_systems = 0;
-        state.num_dependencies_remaining.clear();
         state
             .num_dependencies_remaining
-            .extend_from_slice(&schedule.system_dependencies);
-        debug_assert!(state.ready_systems.is_clear());
-        state.ready_systems.union_with(&self.starting_systems);
+            .clone_from(&schedule.system_dependencies);
+        state.ready_systems.clone_from(&self.starting_systems);
 
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -207,13 +202,12 @@ impl SystemExecutor for MultiThreadedExecutor {
             debug_assert_eq!(skipped_systems.len(), state.completed_systems.len());
             // mark skipped systems as completed
             state.completed_systems |= skipped_systems;
-            state.num_completed_systems = state.completed_systems.count_ones(..);
 
             // signal the dependencies for each of the skipped systems, as
             // though they had run
             for system_index in skipped_systems.ones() {
                 state.signal_dependents(system_index);
-                state.ready_systems.set(system_index, false);
+                state.ready_systems.remove(system_index);
             }
         }
 
@@ -245,15 +239,14 @@ impl SystemExecutor for MultiThreadedExecutor {
             // Commands should be applied while on the scope's thread, not the executor's thread
             let res = apply_deferred(&state.unapplied_systems, systems, world);
             if let Err(payload) = res {
-                let mut panic_payload = self.panic_payload.lock().unwrap();
+                let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
             }
             state.unapplied_systems.clear();
-            debug_assert!(state.unapplied_systems.is_clear());
         }
 
         // check to see if there was a panic
-        let mut payload = self.panic_payload.lock().unwrap();
+        let payload = self.panic_payload.get_mut().unwrap();
         if let Some(payload) = payload.take() {
             std::panic::resume_unwind(payload);
         }
@@ -282,9 +275,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.environment
             .executor
             .system_completion
-            .push(SystemResult {
-                system_index,
-            })
+            .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
             eprintln!("Encountered a panic in system `{}`!", &*system.name());
@@ -297,6 +288,14 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.tick_executor();
     }
 
+    fn try_lock<'a>(&'a self) -> Option<(&'a mut Conditions<'sys>, MutexGuard<'a, ExecutorState>)> {
+        let guard = self.environment.executor.state.try_lock().ok()?;
+        // SAFETY: This is an exclusive access as no other location fetches conditions mutably, and
+        // is synchronized by the lock on the executor state.
+        let conditions = unsafe { &mut *self.environment.conditions.get() };
+        Some((conditions, guard))
+    }
+
     fn tick_executor(&self) {
         // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
         // If this thread acquires the lock, the exector runs after the push() and they are processed.
@@ -304,10 +303,10 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         // after the lock is released, which is after try_lock() failed, which is after the push()
         // on this thread, so the is_empty() check will see the new events and loop.
         loop {
-            let Ok(mut guard) = self.environment.executor.state.try_lock() else {
+            let Some((conditions, mut guard)) = self.try_lock() else {
                 return;
             };
-            guard.tick(self);
+            guard.tick(self, conditions);
             // Make sure we drop the guard before checking system_completion.is_empty(), or we could lose events.
             drop(guard);
             if self.environment.executor.system_completion.is_empty() {
@@ -339,7 +338,6 @@ impl ExecutorState {
         Self {
             system_task_metadata: Vec::new(),
             num_running_systems: 0,
-            num_completed_systems: 0,
             num_dependencies_remaining: Vec::new(),
             active_access: default(),
             local_thread_running: false,
@@ -354,7 +352,7 @@ impl ExecutorState {
         }
     }
 
-    fn tick(&mut self, context: &Context) {
+    fn tick(&mut self, context: &Context, conditions: &mut Conditions) {
         #[cfg(feature = "trace")]
         let _span = context.environment.executor.executor_span.enter();
 
@@ -368,7 +366,7 @@ impl ExecutorState {
         // - `finish_system_and_handle_dependents` has updated the currently running systems.
         // - `rebuild_active_access` locks access for all currently running systems.
         unsafe {
-            self.spawn_system_tasks(context);
+            self.spawn_system_tasks(context, conditions);
         }
     }
 
@@ -377,16 +375,10 @@ impl ExecutorState {
     ///   have been mutably borrowed (such as the systems currently running).
     /// - `world_cell` must have permission to access all world data (not counting
     ///   any world data that is claimed by systems currently running on this executor).
-    unsafe fn spawn_system_tasks(&mut self, context: &Context) {
+    unsafe fn spawn_system_tasks(&mut self, context: &Context, conditions: &mut Conditions) {
         if self.exclusive_running {
             return;
         }
-
-        let mut conditions = context
-            .environment
-            .conditions
-            .try_lock()
-            .expect("Conditions should only be locked while owning the executor state");
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
@@ -397,8 +389,7 @@ impl ExecutorState {
         while check_for_new_ready_systems {
             check_for_new_ready_systems = false;
 
-            ready_systems.clear();
-            ready_systems.union_with(&self.ready_systems);
+            ready_systems.clone_from(&self.ready_systems);
 
             for system_index in ready_systems.ones() {
                 debug_assert!(!self.running_systems.contains(system_index));
@@ -409,7 +400,7 @@ impl ExecutorState {
                 if !self.can_run(
                     system_index,
                     system,
-                    &mut conditions,
+                    conditions,
                     context.environment.world_cell,
                 ) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
@@ -419,7 +410,7 @@ impl ExecutorState {
                     continue;
                 }
 
-                self.ready_systems.set(system_index, false);
+                self.ready_systems.remove(system_index);
 
                 // SAFETY: `can_run` returned true, which means that:
                 // - It must have called `update_archetype_component_access` for each run condition.
@@ -428,7 +419,7 @@ impl ExecutorState {
                     !self.should_run(
                         system_index,
                         system,
-                        &mut conditions,
+                        conditions,
                         context.environment.world_cell,
                     )
                 } {
@@ -515,11 +506,9 @@ impl ExecutorState {
                 return false;
             }
 
-            // PERF: use an optimized clear() + extend() operation
-            let meta_access =
-                &mut self.system_task_metadata[system_index].archetype_component_access;
-            meta_access.clear();
-            meta_access.extend(system.archetype_component_access());
+            self.system_task_metadata[system_index]
+                .archetype_component_access
+                .clone_from(system.archetype_component_access());
         }
 
         true
@@ -658,10 +647,7 @@ impl ExecutorState {
     }
 
     fn finish_system_and_handle_dependents(&mut self, result: SystemResult) {
-        let SystemResult {
-            system_index,
-            ..
-        } = result;
+        let SystemResult { system_index, .. } = result;
 
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
@@ -673,8 +659,7 @@ impl ExecutorState {
 
         debug_assert!(self.num_running_systems >= 1);
         self.num_running_systems -= 1;
-        self.num_completed_systems += 1;
-        self.running_systems.set(system_index, false);
+        self.running_systems.remove(system_index);
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
 
@@ -682,7 +667,6 @@ impl ExecutorState {
     }
 
     fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
-        self.num_completed_systems += 1;
         self.completed_systems.insert(system_index);
         self.signal_dependents(system_index);
     }
