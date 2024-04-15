@@ -785,7 +785,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
             AlphaMode::AlphaToCoverage => {
-                flags |= StandardMaterialFlags::ALPHA_MODE_ALPHA_TO_COVERAGE
+                flags |= StandardMaterialFlags::ALPHA_MODE_ALPHA_TO_COVERAGE;
             }
         };
 
