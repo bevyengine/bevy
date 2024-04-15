@@ -19,7 +19,7 @@
 //! determining whether to run certain systems, though they can be used more directly as well. This
 //! makes it easier to transition between menus, add loading screens, pause games, and the more.
 //!
-//! Specificaly, Bevy provides the following utilities:
+//! Specifically, Bevy provides the following utilities:
 //!
 //! - 3 Transition Schedules - [`OnEnter<S>`], [`OnExit<S>`] and [`OnTransition<S>`] - which are used
 //!   to trigger systems specifically during matching transitions.
