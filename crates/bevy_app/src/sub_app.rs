@@ -1,11 +1,11 @@
-use crate::{App, First, InternedAppLabel, Plugin, Plugins, PluginsState, StateTransition};
+use crate::{App, First, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{
-        common_conditions::run_once as run_once_condition, run_enter_schedule,
+        common_conditions::run_once as run_once_condition,
         setup_state_transitions_in_world, FreelyMutableState, InternedScheduleLabel,
-        ManualStateTransitions, ScheduleBuildSettings, ScheduleLabel,
+        StateTransitionSteps, ScheduleBuildSettings, ScheduleLabel,
     },
     system::SystemId,
 };
@@ -322,18 +322,12 @@ impl SubApp {
     /// See [`App::init_state`].
     pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world);
+            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>()
-                .add_systems(
-                    ManualStateTransitions,
-                    (
-                        run_enter_schedule::<S>.run_if(run_once_condition()),
-                        apply_state_transition::<S>,
-                    )
-                        .chain(),
-                );
+                .add_event::<StateTransitionEvent<S>>();
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state(schedule)
         }
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
@@ -345,17 +339,19 @@ impl SubApp {
 
     /// See [`App::insert_state`].
     pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.insert_resource(State::new(state))
-            .init_resource::<NextState<S>>()
-            .add_event::<StateTransitionEvent<S>>()
-            .add_systems(
-                StateTransition,
-                (
-                    run_enter_schedule::<S>.run_if(run_once_condition()),
-                    apply_state_transition::<S>,
-                )
-                    .chain(),
-            );
+        if !self.world.contains_resource::<State<S>>() {
+            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
+            self.insert_resource::<State<S>>(State::new(state))
+                .init_resource::<NextState<S>>()
+                .add_event::<StateTransitionEvent<S>>();
+            
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state(schedule)
+        }
+
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
 
         self
     }
@@ -366,10 +362,10 @@ impl SubApp {
             .world
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(&mut self.world);
+            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
             self.add_event::<StateTransitionEvent<S>>();
-            let mut schedules = self.world.resource_mut::<Schedules>();
-            S::register_state_compute_systems_in_schedule(schedules.as_mut());
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state_compute_systems_in_schedule(schedule);
         }
 
         self
@@ -381,12 +377,11 @@ impl SubApp {
             .world
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(&mut self.world);
+            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
             self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
-            let mut schedules = self.world.resource_mut::<Schedules>();
-            S::register_state_exist_systems_in_schedules(schedules.as_mut());
-            self.add_systems(ManualStateTransitions, apply_state_transition::<S>);
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state_exist_systems_in_schedules(schedule);
         }
 
         self

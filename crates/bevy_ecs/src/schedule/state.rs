@@ -1,24 +1,26 @@
+use std::any::TypeId;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::mem;
+use std::{default, mem};
 use std::ops::Deref;
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate as bevy_ecs;
-use crate::event::Event;
-use crate::prelude::{FromWorld, ResMut};
+use crate::event::{Event, EventWriter, EventReader};
+use crate::prelude::{FromWorld, ResMut, Res, Local};
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
-use crate::system::Resource;
+use crate::system::{Commands, In, IntoSystem, Resource};
 use crate::world::World;
 
+use bevy_ecs_macros::SystemSet;
 pub use bevy_ecs_macros::{States, SubStates};
 use bevy_utils::{all_tuples, HashSet};
 
 use self::sealed::StateSetSealed;
 
-use super::{InternedScheduleLabel, Schedule, Schedules};
+use super::{schedule, InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, Schedules};
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -62,7 +64,16 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 /// automatically derived.
 ///
 /// It is implemented as part of the [`States`] derive, but can also be added manually.
-pub trait FreelyMutableState: States {}
+pub trait FreelyMutableState: States {
+    fn register_state(schedule: &mut Schedule) {
+        schedule
+            .add_systems(apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::apply()))
+            .add_systems(should_run_transition::<Self, OnEnter<Self>>.pipe(run_enter::<Self>).in_set(StateTransitionSteps::RunEntranceSchedules))
+            .add_systems(should_run_transition::<Self, OnExit<Self>>.pipe(run_exit::<Self>).in_set(StateTransitionSteps::RunExitSchedules))
+            .add_systems(should_run_transition::<Self, OnTransition<Self>>.pipe(run_transition::<Self>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+            .configure_sets(ApplyStateTransition::<Self>::apply().in_set(StateTransitionSteps::RunManualTransitions));        
+    }
+}
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -84,29 +95,6 @@ pub struct OnTransition<S: States> {
     pub from: S,
     /// The state being entered.
     pub to: S,
-}
-
-/// The label of a [`Schedule`] that runs systems
-/// to derive computed states from this one.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ComputeDependantStates<S: States>(PhantomData<S>);
-
-impl<S: States> Default for ComputeDependantStates<S> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// The label of a [`Schedule`] that runs the system
-/// deriving a given [`ComputedStates`] or the existence of
-/// a given [`SubStates`].
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ComputeComputedState<S: States>(PhantomData<S>);
-
-impl<S: States> Default for ComputeComputedState<S> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
 }
 
 /// A finite-state machine whose transitions have associated schedules
@@ -231,31 +219,11 @@ impl<S: FreelyMutableState> NextState<S> {
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
-pub struct StateTransitionEvent<S: States> {
+pub struct StateTransitionEvent<S: States  > {
     /// the state we were in before
     pub before: Option<S>,
     /// the state we're in now
     pub after: Option<S>,
-}
-
-/// Run the enter schedule (if it exists) for the current state.
-pub fn run_enter_schedule<S: States>(world: &mut World) {
-    let Some(state) = world.get_resource::<State<S>>() else {
-        return;
-    };
-    let state = state.0.clone();
-    world
-        .try_run_schedule(ComputeDependantStates::<S>::default())
-        .ok();
-    world.try_run_schedule(OnEnter(state)).ok();
-}
-
-#[derive(Resource, Default)]
-struct StateTransitionSchedules {
-    dependant_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
-    exit_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
-    transition_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
-    enter_schedules: BTreeMap<usize, HashSet<InternedScheduleLabel>>,
 }
 
 /// Runs [state transitions](States).
@@ -263,18 +231,35 @@ struct StateTransitionSchedules {
 pub struct StateTransition;
 
 /// Applies manual state transitions using [`NextState<S>`]
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ManualStateTransitions;
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum StateTransitionSteps {
+    SetupTransitionScheduleResource,
+    RunManualTransitions,
+    RunDependentTransitions,
+    RunExitSchedules,
+    RunOnTransitionSchedules,
+    RunEntranceSchedules
+}
+
+/// Defines a system set to aid with dependent state ordering
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ApplyStateTransition<S: States>(PhantomData<S>);
+
+impl<S: States> ApplyStateTransition<S> {
+    fn apply() -> Self {
+        Self(PhantomData)
+    }
+}
 
 /// This function actually applies a state change, and registers the required
 /// schedules for downstream computed states and transition schedules.
 ///
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
-fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Option<S>) {
+fn internal_apply_state_transition<S: States>(mut event: EventWriter<StateTransitionEvent<S>>, mut commands: Commands, mut current_state: Option<ResMut<State<S>>>, new_state: Option<S>) {
     match new_state {
         Some(entered) => {
-            match world.get_resource_mut::<State<S>>() {
+            match current_state {
                 // If the [`State<S>`] resource exists, and the state is not the one we are
                 // entering - we need to set the new value, compute dependant states, send transition events
                 // and register transition schedules.
@@ -282,125 +267,35 @@ fn internal_apply_state_transition<S: States>(world: &mut World, new_state: Opti
                     if *state_resource != entered {
                         let exited = mem::replace(&mut state_resource.0, entered.clone());
 
-                        world
-                            .try_run_schedule(ComputeDependantStates::<S>::default())
-                            .ok();
-
-                        world.send_event(StateTransitionEvent {
+                        event.send(StateTransitionEvent {
                             before: Some(exited.clone()),
                             after: Some(entered.clone()),
                         });
-
-                        let mut state_transition_schedules =
-                            world.get_resource_or_insert_with(StateTransitionSchedules::default);
-                        state_transition_schedules
-                            .exit_schedules
-                            .entry(S::DEPENDENCY_DEPTH)
-                            .or_default()
-                            .insert(OnExit(exited.clone()).intern());
-                        state_transition_schedules
-                            .transition_schedules
-                            .entry(S::DEPENDENCY_DEPTH)
-                            .or_default()
-                            .insert(
-                                OnTransition {
-                                    from: exited,
-                                    to: entered.clone(),
-                                }
-                                .intern(),
-                            );
-                        state_transition_schedules
-                            .enter_schedules
-                            .entry(S::DEPENDENCY_DEPTH)
-                            .or_default()
-                            .insert(OnEnter(entered.clone()).intern());
                     }
                 }
                 None => {
                     // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
-                    world.insert_resource(State(entered.clone()));
+                    commands.insert_resource(State(entered.clone()));
 
-                    world
-                        .try_run_schedule(ComputeDependantStates::<S>::default())
-                        .ok();
-
-                    world.send_event(StateTransitionEvent {
+                    event.send(StateTransitionEvent {
                         before: None,
                         after: Some(entered.clone()),
                     });
-
-                    let mut state_transition_schedules =
-                        world.get_resource_or_insert_with(StateTransitionSchedules::default);
-                    state_transition_schedules
-                        .enter_schedules
-                        .entry(S::DEPENDENCY_DEPTH)
-                        .or_default()
-                        .insert(OnEnter(entered.clone()).intern());
                 }
             };
         }
         None => {
             // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
-            if let Some(resource) = world.remove_resource::<State<S>>() {
-                world
-                    .try_run_schedule(ComputeDependantStates::<S>::default())
-                    .ok();
+            if let Some(resource) = current_state {
+                commands.remove_resource::<State<S>>();
 
-                world.send_event(StateTransitionEvent {
+                event.send(StateTransitionEvent {
                     before: Some(resource.get().clone()),
                     after: None,
                 });
-
-                let mut state_transition_schedules =
-                    world.get_resource_or_insert_with(StateTransitionSchedules::default);
-                state_transition_schedules
-                    .exit_schedules
-                    .entry(S::DEPENDENCY_DEPTH)
-                    .or_default()
-                    .insert(OnExit(resource.0).intern());
             }
         }
     }
-}
-
-fn prepare_state_transitions(world: &mut World) {
-    world.insert_resource(StateTransitionSchedules::default());
-}
-
-fn execute_state_transition_schedules(world: &mut World) {
-    if let Some(schedules) = world.remove_resource::<StateTransitionSchedules>() {
-        for (_, schedules) in schedules.exit_schedules.into_iter().rev() {
-            for schedule in schedules {
-                let _ = world.try_run_schedule(schedule);
-            }
-        }
-
-        for (_, schedules) in schedules.transition_schedules {
-            for schedule in schedules {
-                let _ = world.try_run_schedule(schedule);
-            }
-        }
-
-        for (_, schedules) in schedules.enter_schedules {
-            for schedule in schedules {
-                let _ = world.try_run_schedule(schedule);
-            }
-        }
-    }
-}
-
-fn execute_state_transitions(world: &mut World) {
-    prepare_state_transitions(world);
-    let _ = world.try_run_schedule(ManualStateTransitions);
-    while let Some((_, compute)) = world
-        .get_resource_mut::<StateTransitionSchedules>()
-        .and_then(|mut schedules| schedules.dependant_schedules.pop_first())
-    {
-        for schedule in compute {
-            let _ = world.try_run_schedule(schedule);
-        }
-    }
-    execute_state_transition_schedules(world);
 }
 
 /// Sets up the schedules and systems for handling state transitions
@@ -408,14 +303,34 @@ fn execute_state_transitions(world: &mut World) {
 ///
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
-pub fn setup_state_transitions_in_world(world: &mut World) {
+pub fn setup_state_transitions_in_world(world: &mut World, startup_label: Option<InternedScheduleLabel>) {
     let mut schedules = world.get_resource_or_insert_with(Schedules::default);
     if schedules.contains(StateTransition) {
         return;
     }
     let mut schedule = Schedule::new(StateTransition);
-    schedule.add_systems(execute_state_transitions);
+    schedule
+        .configure_sets((StateTransitionSteps::RunManualTransitions, StateTransitionSteps::RunDependentTransitions, StateTransitionSteps::RunExitSchedules, StateTransitionSteps::RunOnTransitionSchedules, StateTransitionSteps::RunExitSchedules).chain());
     schedules.insert(schedule);
+
+    if let Some(startup) = startup_label {
+        match schedules.get_mut(startup) {
+            Some(schedule) => {
+                schedule.add_systems(|world: &mut World| {
+                    let _ = world.try_run_schedule(StateTransition);
+                });
+            },
+            None => {
+                let mut schedule = Schedule::new(startup);
+
+                schedule.add_systems(|world: &mut World| {
+                    let _ = world.try_run_schedule(StateTransition);
+                });
+
+                schedules.insert(schedule);
+            }
+        }
+    }
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -428,20 +343,17 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
 /// should be done at App creation or at your own risk.
-pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
+pub fn apply_state_transition<S: FreelyMutableState>(mut event: EventWriter<StateTransitionEvent<S>>, mut commands: Commands, current_state: Option<ResMut<State<S>>>, next_state: Option<ResMut<NextState<S>>>) {
     // We want to check if the State and NextState resources exist
-    let (Some(next_state_resource), Some(current_state)) = (
-        world.get_resource::<NextState<S>>(),
-        world.get_resource::<State<S>>(),
-    ) else {
+    let (Some(next_state_resource), Some(current_state)) = (next_state, current_state) else {
         return;
     };
 
-    match next_state_resource {
+    match next_state_resource.as_ref() {
         NextState::Pending(new_state) => {
             if new_state != current_state.get() {
                 let new_state = new_state.clone();
-                internal_apply_state_transition(world, Some(new_state));
+                internal_apply_state_transition(event, commands, Some(current_state), Some(new_state));
             }
         }
         NextState::Unchanged => {
@@ -450,7 +362,56 @@ pub fn apply_state_transition<S: FreelyMutableState>(world: &mut World) {
         }
     }
 
-    world.insert_resource(NextState::<S>::Unchanged);
+    *next_state_resource.value = NextState::<S>::Unchanged;
+}
+
+fn should_run_transition<S: States, T: ScheduleLabel>(mut first: Local<bool>, res: Option<Res<State<S>>>, mut event: EventReader<StateTransitionEvent<S>>) -> (Option<StateTransitionEvent<S>>, PhantomData<T>) {
+    if !*first.0 {
+        *first.0 = true;
+        if let Some(res) = res {
+            event.clear();
+            return (Some(StateTransitionEvent { before: None, after: Some(res.get().clone())}), PhantomData);
+        }
+    }
+    (event.read().last().cloned(), PhantomData)
+}
+
+fn run_enter<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnEnter<S>>)>, mut world: &mut World) {
+    let Some(transition) = transition else {
+        return;
+    };
+
+    let Some(after) = transition.after else {
+        return;
+    };
+    
+    let _ = world.try_run_schedule(OnEnter(after));
+}
+
+fn run_exit<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnExit<S>>)>, mut world: &mut World) {
+    let Some(transition) = transition else {
+        return;
+    };
+
+    let Some(before) = transition.before else {
+        return;
+    };
+    
+    let _ = world.try_run_schedule(OnExit(before));
+}
+
+fn run_transition<S: States>(In((transition,_)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnTransition<S>>)>, mut world: &mut World) {
+    let Some(transition) = transition else {
+        return;
+    };
+    let Some(from) = transition.before else {
+        return;
+    };
+    let Some(to) = transition.after else {
+        return;
+    };
+    
+    let _ = world.try_run_schedule(OnTransition {from, to});
 }
 
 /// Trait defining a state that is automatically derived from other [`States`].
@@ -532,8 +493,8 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
-    fn register_state_compute_systems_in_schedule(schedules: &mut Schedules) {
-        Self::SourceStates::register_compute_systems_for_dependent_state::<Self>(schedules);
+    fn register_state_compute_systems_in_schedule(schedule: &mut Schedule) {
+        Self::SourceStates::register_compute_systems_for_dependent_state::<Self>(schedule);
     }
 }
 
@@ -563,13 +524,13 @@ pub trait StateSet: sealed::StateSetSealed {
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
-        schedules: &mut Schedules,
+        schedule: &mut Schedule,
     );
 
     /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
     /// `StateSet` is changed.
     fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
-        schedules: &mut Schedules,
+        schedule: &mut Schedule,
     );
 }
 
@@ -617,96 +578,66 @@ impl<S: InnerStateSet> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
     fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
-        schedules: &mut Schedules,
+        schedule: &mut Schedule,
     ) {
-        {
-            let system = |world: &mut World| {
-                let state_set = world.get_resource::<State<S::RawState>>();
-                let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set) {
-                    T::compute(state_set)
-                } else {
-                    None
-                };
-                internal_apply_state_transition(world, new_state);
-            };
-            let label = ComputeComputedState::<T>::default();
-            schedules.insert({
-                let mut schedule = Schedule::new(label);
-                schedule.add_systems(system);
-                schedule
-            });
-        }
-
-        {
-            let system = |mut transitions: ResMut<StateTransitionSchedules>| {
-                transitions
-                    .dependant_schedules
-                    .entry(<T as InnerStateSet>::DEPENDENCY_DEPTH)
-                    .or_default()
-                    .insert(ComputeComputedState::<T>::default().intern());
-            };
-            let label = ComputeDependantStates::<S::RawState>::default();
-            match schedules.get_mut(label.clone()) {
-                Some(schedule) => {
-                    schedule.add_systems(system);
-                }
-                None => {
-                    let mut schedule = Schedule::new(label);
-                    schedule.add_systems(system);
-                    schedules.insert(schedule);
-                }
+        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>, mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, state_set: Option<Res<State<S::RawState>>>| {
+            if parent_changed.is_empty() {
+                return;
             }
-        }
+            parent_changed.clear();
+
+            let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                T::compute(state_set)
+            } else {
+                None
+            };
+
+            internal_apply_state_transition(event, commands, current_state, new_state);
+        };
+
+        schedule
+            .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
+            .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
+            .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
+            .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+            .configure_sets(ApplyStateTransition::<T>::apply().in_set(StateTransitionSteps::RunDependentTransitions).after(ApplyStateTransition::<S::RawState>::apply()));        
     }
 
     fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
-        schedules: &mut Schedules,
+        schedule: &mut Schedule,
     ) {
-        {
-            let system = |world: &mut World| {
-                let state_set = world.get_resource::<State<S::RawState>>();
-                let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set) {
-                    T::exists(state_set)
-                } else {
-                    None
-                };
-                match new_state {
-                    Some(value) => {
-                        if !world.contains_resource::<State<T>>() {
-                            internal_apply_state_transition(world, Some(value));
-                        }
-                    }
-                    None => internal_apply_state_transition::<T>(world, None),
-                };
-            };
-            let label = ComputeComputedState::<T>::default();
-            schedules.insert({
-                let mut schedule = Schedule::new(label);
-                schedule.add_systems(system);
-                schedule
-            });
-        }
+        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>, mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, state_set: Option<Res<State<S::RawState>>>| {
+            if parent_changed.is_empty() {
+                return;
+            }
+            parent_changed.clear();
 
-        {
-            let system = |mut transitions: ResMut<StateTransitionSchedules>| {
-                transitions
-                    .dependant_schedules
-                    .entry(T::DEPENDENCY_DEPTH)
-                    .or_default()
-                    .insert(ComputeComputedState::<T>::default().intern());
+            let new_state = if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                T::exists(state_set)
+            } else {
+                None
             };
-            let label = ComputeDependantStates::<S::RawState>::default();
-            match schedules.get_mut(label.clone()) {
-                Some(schedule) => {
-                    schedule.add_systems(system);
+
+            match new_state {
+                Some(value) => {
+                    if current_state.is_none() {
+                        internal_apply_state_transition(event, commands, current_state, Some(value));
+                    }
                 }
                 None => {
-                    let mut schedule = Schedule::new(label);
-                    schedule.add_systems(system);
-                    schedules.insert(schedule);
-                }
-            }
-        }
+                    internal_apply_state_transition(event, commands, current_state, None);
+                },
+            };
+        };
+
+
+        schedule
+            .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
+            .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::RunManualTransitions))
+            .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
+            .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
+            .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+            .configure_sets(ApplyStateTransition::<T>::apply().in_set(StateTransitionSteps::RunDependentTransitions).after(ApplyStateTransition::<S::RawState>::apply()));        
     }
 }
 /// Trait defining a state that is automatically derived from other [`States`].
@@ -870,111 +801,93 @@ pub trait SubStates: States + FreelyMutableState {
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
     /// used.
-    fn register_state_exist_systems_in_schedules(schedules: &mut Schedules) {
-        Self::SourceStates::register_state_exist_systems_in_schedule::<Self>(schedules);
+    fn register_state_exist_systems_in_schedules(schedule: &mut Schedule) {
+        Self::SourceStates::register_state_exist_systems_in_schedule::<Self>(schedule);
     }
 }
 
 macro_rules! impl_state_set_sealed_tuples {
-    ($(($param: ident, $val: ident)), *) => {
+    ($(($param: ident, $val: ident, $evt: ident)), *) => {
         impl<$($param: InnerStateSet),*> StateSetSealed for  ($($param,)*) {}
 
         impl<$($param: InnerStateSet),*> StateSet for  ($($param,)*) {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
-            fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(schedules: &mut Schedules) {
-                {
-                    let system =  |world: &mut World| {
-                        let ($($val),*,) = ($(world.get_resource::<State<$param::RawState>>()),*,);
+            
+            fn register_compute_systems_for_dependent_state<T: ComputedStates<SourceStates = Self>>(
+                schedule: &mut Schedule,
+            ) {
+                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    if ($($evt.is_empty())&&*) {
+                        return;
+                    }
+                    $($evt.clear();)*
 
-                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val)),*,) {
-                            T::compute(($($val),*, ))
-                        } else {
-                            None
-                        };
-                        internal_apply_state_transition(world, new_state);
+                    let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                        T::compute(($($val),*, ))
+                    } else {
+                        None
                     };
 
-                    let label = ComputeComputedState::<T>::default();
-                    schedules.insert({
-                        let mut schedule = Schedule::new(label);
-                        schedule.add_systems(system);
-                        schedule
-                    });
-                }
+                    internal_apply_state_transition(event, commands, current_state, new_state);
+                };
 
-                {
-                    let system = |mut transitions: ResMut<StateTransitionSchedules>| {
-                        transitions.dependant_schedules.entry(<T as InnerStateSet>::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
-                    };
-
-                    $(let label = ComputeDependantStates::<$param::RawState>::default();
-                    match schedules.get_mut(label.clone()) {
-                        Some(schedule) => {
-                            schedule.add_systems(system);
-                        },
-                        None => {
-                            let mut schedule = Schedule::new(label);
-                            schedule.add_systems(system);
-                            schedules.insert(schedule);
-                        },
-                    })*
-                }
+                schedule
+                    .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
+                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
+                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
+                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+                    .configure_sets(
+                        ApplyStateTransition::<T>::apply()
+                        .in_set(StateTransitionSteps::RunDependentTransitions)
+                        $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
+                    );        
             }
+            
+            fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(
+                schedule: &mut Schedule,
+            ) {
+                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), mut event: EventWriter<StateTransitionEvent<T>>, mut commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    if ($($evt.is_empty())&&*) {
+                        return;
+                    }
+                    $($evt.clear();)*
 
-
-            fn register_state_exist_systems_in_schedule<T: SubStates<SourceStates = Self>>(schedules: &mut Schedules) {
-                {
-                    let system =  |world: &mut World| {
-                        let ($($val),*,) = ($(world.get_resource::<State<$param::RawState>>()),*,);
-
-                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val)),*,) {
-                            T::exists(($($val),*, ))
-                        } else {
-                            None
-                        };
-                        match new_state {
-                            Some(value) => {
-                                if !world.contains_resource::<State<T>>() {
-                                    internal_apply_state_transition(world, Some(value));
-                                }
-                            },
-                            None => internal_apply_state_transition::<T>(world, None),
-                        };
+                    let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                        T::exists(($($val),*, ))
+                    } else {
+                        None
                     };
-
-                    let label = ComputeComputedState::<T>::default();
-                    schedules.insert({
-                        let mut schedule = Schedule::new(label);
-                        schedule.add_systems(system);
-                        schedule
-                    });
-                }
-
-                {
-                    let system = |mut transitions: ResMut<StateTransitionSchedules>| {
-                        transitions.dependant_schedules.entry(T::DEPENDENCY_DEPTH).or_default().insert(ComputeComputedState::<T>::default().intern());
-                    };
-
-                    $(let label = ComputeDependantStates::<$param::RawState>::default();
-                    match schedules.get_mut(label.clone()) {
-                        Some(schedule) => {
-                            schedule.add_systems(system);
-                        },
+                    match new_state {
+                        Some(value) => {
+                            if current_state.is_none() {
+                                internal_apply_state_transition(event, commands, current_state, Some(value));
+                            }
+                        }
                         None => {
-                            let mut schedule = Schedule::new(label);
-                            schedule.add_systems(system);
-                            schedules.insert(schedule);
+                            internal_apply_state_transition(event, commands, current_state, None);
                         },
-                    })*
-                }
+                    };
+                };
+
+                schedule
+                    .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
+                    .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::RunManualTransitions))
+                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::RunEntranceSchedules))
+                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::RunExitSchedules))
+                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::RunOnTransitionSchedules))
+                    .configure_sets(
+                        ApplyStateTransition::<T>::apply()
+                        .in_set(StateTransitionSteps::RunDependentTransitions)
+                        $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
+                    );        
             }
         }
     };
 }
 
-all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s);
+all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s, ereader);
 
 #[cfg(test)]
 mod tests {
@@ -1014,14 +927,14 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
-        TestComputedState::register_state_compute_systems_in_schedule(&mut schedules);
-        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        let mut apply_changes = Schedule::new(StateTransition);
+        TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world);
+        setup_state_transitions_in_world(&mut world, None);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -1068,15 +981,15 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
-        SubState::register_state_exist_systems_in_schedules(&mut schedules);
-        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        let mut apply_changes = Schedule::new(StateTransition);
+        SubState::register_state_exist_systems_in_schedules(&mut apply_changes);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<SubState>);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world);
+        setup_state_transitions_in_world(&mut world, None);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -1125,16 +1038,16 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
-        TestComputedState::register_state_compute_systems_in_schedule(&mut schedules);
-        SubStateOfComputed::register_state_exist_systems_in_schedules(&mut schedules);
-        let mut apply_changes = Schedule::new(ManualStateTransitions);
+        let mut apply_changes = Schedule::new(StateTransition);
+        TestComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
+        SubStateOfComputed::register_state_exist_systems_in_schedules(&mut apply_changes);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<SubStateOfComputed>);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world);
+        setup_state_transitions_in_world(&mut world, None);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -1216,17 +1129,17 @@ mod tests {
         world.init_resource::<State<OtherState>>();
 
         let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
 
-        ComplexComputedState::register_state_compute_systems_in_schedule(&mut schedules);
+        ComplexComputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
 
-        let mut apply_changes = Schedule::new(ManualStateTransitions);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<OtherState>);
         schedules.insert(apply_changes);
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world);
+        setup_state_transitions_in_world(&mut world, None);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -1312,10 +1225,10 @@ mod tests {
         world.init_resource::<State<SimpleState2>>();
 
         let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
 
-        TestNewcomputedState::register_state_compute_systems_in_schedule(&mut schedules);
+        TestNewcomputedState::register_state_compute_systems_in_schedule(&mut apply_changes);
 
-        let mut apply_changes = Schedule::new(ManualStateTransitions);
         apply_changes.add_systems(apply_state_transition::<SimpleState>);
         apply_changes.add_systems(apply_state_transition::<SimpleState2>);
         schedules.insert(apply_changes);
@@ -1372,7 +1285,7 @@ mod tests {
 
         world.init_resource::<ComputedStateTransitionCounter>();
 
-        setup_state_transitions_in_world(&mut world);
+        setup_state_transitions_in_world(&mut world, None);
 
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
