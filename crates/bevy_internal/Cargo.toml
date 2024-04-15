@@ -15,6 +15,7 @@ trace = [
   "bevy_core_pipeline?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
+  "bevy_pbr?/trace",
   "bevy_render?/trace",
   "bevy_hierarchy/trace",
   "bevy_winit?/trace",
