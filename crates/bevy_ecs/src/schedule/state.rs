@@ -2,7 +2,7 @@
 //! 
 //! Most of the utilities around state involve running systems during transitions between states, or
 //! determining whether to run certain systems, though they can be used more directly as well. This
-//! makes it easier to transition between menues, add loading screens, pause games, and the more.
+//! makes it easier to transition between menus, add loading screens, pause games, and the more.
 //! 
 //! This module provides 3 distinct types of state, all of which implement the [`States`] trait:
 //! 
