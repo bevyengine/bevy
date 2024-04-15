@@ -481,7 +481,7 @@ fn run_transition<S: States>(
     let _ = world.try_run_schedule(OnTransition { from, to });
 }
 
-/// Trait defining a state that is automatically derived from other [`States`].
+/// A state whose value is automatically computed based on the values of other [`States`].
 ///
 /// A **computed state** is a state that is deterministically derived from a set of `SourceStates`.
 /// The [`StateSet`] is passed into the `compute` method whenever one of them changes, and the
