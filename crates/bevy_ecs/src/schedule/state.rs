@@ -1,4 +1,4 @@
-//! The `state` module provides the ability to use world-wide, interdependent, finite state machines.
+//! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //! 
 //! Most of the utilities around state involve running systems during transitions between states, or
 //! determining whether to run certain systems, though they can be used more directly as well. This
