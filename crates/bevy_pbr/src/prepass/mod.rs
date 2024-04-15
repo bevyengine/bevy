@@ -927,6 +927,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
+        Has<MotionVectorPrepass>,
         Option<Read<PreviousViewUniformOffset>>,
     );
     type ItemQuery = ();
@@ -934,8 +935,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform_offset, previous_view_uniform_offset): (
+        (view_uniform_offset, has_motion_vector_prepass, previous_view_uniform_offset): (
             &'_ ViewUniformOffset,
+            bool,
             Option<&'_ PreviousViewUniformOffset>,
         ),
         _entity: Option<()>,
@@ -944,21 +946,24 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
 
-        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
-            pass.set_bind_group(
-                I,
-                prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
-                &[
-                    view_uniform_offset.offset,
-                    previous_view_uniform_offset.offset,
-                ],
-            );
-        } else {
-            pass.set_bind_group(
-                I,
-                prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
-                &[view_uniform_offset.offset],
-            );
+        match previous_view_uniform_offset {
+            Some(previous_view_uniform_offset) if has_motion_vector_prepass => {
+                pass.set_bind_group(
+                    I,
+                    prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
+                    &[
+                        view_uniform_offset.offset,
+                        previous_view_uniform_offset.offset,
+                    ],
+                );
+            }
+            _ => {
+                pass.set_bind_group(
+                    I,
+                    prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
+                    &[view_uniform_offset.offset],
+                );
+            }
         }
 
         RenderCommandResult::Success
