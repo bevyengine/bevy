@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -296,7 +296,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
-    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
 }
@@ -488,7 +488,11 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
-        view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
+        view_entities.extend(
+            visible_entities
+                .iter::<WithSprite>()
+                .map(|e| e.index() as usize),
+        );
 
         transparent_phase
             .items
@@ -528,7 +532,7 @@ pub fn prepare_sprites(
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
     mut phases: Query<&mut SortedRenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,

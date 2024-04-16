@@ -1,26 +1,29 @@
 use crate::{
-    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::event_update_system,
+    intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{intern::Interned, tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use thiserror::Error;
 
-bevy_utils::define_label!(
+bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
     APP_LABEL_INTERNER
 );
 
-pub use bevy_utils::label::DynEq;
+pub use bevy_ecs::label::DynEq;
 
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
@@ -88,7 +91,12 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
         app.add_plugins(MainSchedulePlugin);
-
+        app.add_systems(
+            First,
+            event_update_system
+                .in_set(bevy_ecs::event::EventUpdates)
+                .run_if(bevy_ecs::event::event_update_condition),
+        );
         app.add_event::<AppExit>();
 
         app
@@ -368,8 +376,6 @@ impl App {
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
-    ///
-    /// [`event_update_system`]: bevy_ecs::event::event_update_system
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Event,

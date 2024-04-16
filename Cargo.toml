@@ -41,8 +41,7 @@ semicolon_if_nothing_returned = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
-#TODO(rust 1.77): enable `ref_as_ptr`
-# ref_as_ptr = "warn"
+ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
@@ -381,6 +380,7 @@ wasm = true
 [[example]]
 name = "2d_viewport_to_world"
 path = "examples/2d/2d_viewport_to_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
@@ -490,6 +490,7 @@ wasm = true
 [[example]]
 name = "sprite_tile"
 path = "examples/2d/sprite_tile.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_tile]
 name = "Sprite Tile"
@@ -500,6 +501,7 @@ wasm = true
 [[example]]
 name = "sprite_slice"
 path = "examples/2d/sprite_slice.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_slice]
 name = "Sprite Slice"
@@ -543,6 +545,7 @@ wasm = true
 [[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pixel_grid_snap]
 name = "Pixel Grid Snapping"
@@ -730,6 +733,7 @@ wasm = true
 [[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
@@ -894,6 +898,7 @@ wasm = true
 [[example]]
 name = "transmission"
 path = "examples/3d/transmission.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transmission]
 name = "Transmission"
@@ -1146,6 +1151,7 @@ wasm = true
 [[example]]
 name = "log_layers"
 path = "examples/app/log_layers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers]
 name = "Log layers"
@@ -1156,6 +1162,7 @@ wasm = false
 [[example]]
 name = "log_layers_ecs"
 path = "examples/app/log_layers_ecs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers_ecs]
 name = "Advanced log layers"
@@ -1238,6 +1245,17 @@ doc-scrape-examples = true
 [package.metadata.example.asset_loading]
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "asset_settings"
+path = "examples/asset/asset_settings.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_settings]
+name = "Asset Settings"
+description = "Demonstrates various methods of applying settings when loading an asset"
 category = "Assets"
 wasm = false
 
@@ -1413,6 +1431,7 @@ wasm = true
 [[example]]
 name = "pitch"
 path = "examples/audio/pitch.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pitch]
 name = "Pitch"
@@ -1585,6 +1604,7 @@ wasm = true
 [[example]]
 name = "one_shot_systems"
 path = "examples/ecs/one_shot_systems.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.one_shot_systems]
 name = "One Shot Systems"
@@ -1696,6 +1716,7 @@ wasm = false
 [[example]]
 name = "time"
 path = "examples/time/time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.time]
 name = "Time handling"
@@ -1706,6 +1727,7 @@ wasm = false
 [[example]]
 name = "virtual_time"
 path = "examples/time/virtual_time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.virtual_time]
 name = "Virtual time"
@@ -1778,6 +1800,17 @@ doc-scrape-examples = true
 [package.metadata.example.game_menu]
 name = "Game Menu"
 description = "A simple game menu"
+category = "Games"
+wasm = true
+
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
 category = "Games"
 wasm = true
 
@@ -2051,6 +2084,7 @@ wasm = true
 [[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material]
 name = "Extended Material"
@@ -2122,6 +2156,17 @@ doc-scrape-examples = true
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
 description = "A compute shader that simulates Conway's Game of Life"
+category = "Shaders"
+wasm = false
+
+[[example]]
+name = "gpu_readback"
+path = "examples/shader/gpu_readback.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_readback]
+name = "GPU readback"
+description = "A very simple compute shader that writes to a buffer that is read by the cpu"
 category = "Shaders"
 wasm = false
 

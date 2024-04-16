@@ -10,6 +10,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
+    texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_derive::EnumVariantMeta;
@@ -121,8 +122,8 @@ pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
-    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
-    /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
+    /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
     #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
@@ -1463,64 +1464,73 @@ pub enum GpuBufferInfo {
     NonIndexed,
 }
 
-impl RenderAsset for Mesh {
-    type PreparedAsset = GpuMesh;
+impl RenderAsset for GpuMesh {
+    type SourceAsset = Mesh;
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<Image>>,
+        SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
+    #[inline]
+    fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
+        mesh.asset_usage
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
-        self,
+        mesh: Self::SourceAsset,
         (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
             Self::Param,
         >,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
-        let vertex_buffer_data = self.get_vertex_buffer_data();
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let morph_targets = match mesh.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
+        let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = if let Some(data) = self.get_index_buffer_bytes() {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
-                count: self.indices().unwrap().len() as u32,
-                index_format: self.indices().unwrap().into(),
+                count: mesh.indices().unwrap().len() as u32,
+                index_format: mesh.indices().unwrap().into(),
             }
         } else {
             GpuBufferInfo::NonIndexed
         };
 
         let mesh_vertex_buffer_layout =
-            self.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
+            mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(self.primitive_topology());
+        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
         key_bits.set(
             BaseMeshPipelineKey::MORPH_TARGETS,
-            self.morph_targets.is_some(),
+            mesh.morph_targets.is_some(),
         );
 
         Ok(GpuMesh {
             vertex_buffer,
-            vertex_count: self.count_vertices() as u32,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            morph_targets: self
-                .morph_targets
-                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }
