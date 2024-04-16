@@ -89,7 +89,7 @@ fn handle_initialization_error(name: &str, res: Result<(), TaskPoolInitializatio
             warn!("{} already initialized.", name);
         }
         Err(err) => {
-            panic!("Error while initialzing: {}", err);
+            panic!("Error while initializing: {}", err);
         }
     }
 }
