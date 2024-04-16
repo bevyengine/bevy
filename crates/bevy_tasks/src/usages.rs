@@ -31,6 +31,10 @@ impl StaticTaskPool {
         self.thread_count.load(Ordering::Relaxed)
     }
 
+    pub fn is_initialized(&self) -> bool {
+        !self.threads.lock().unwrap().is_empty()
+    }
+
     /// Initializes the task pool with the configuration in
     ///
     /// # Panics
@@ -568,6 +572,26 @@ macro_rules! taskpool {
             pub fn get() -> &'static StaticTaskPool {
                 &$static.0
             }
+
+            /// Gets the global instance, or initializes it with the provided builder if
+            /// it hasn't already been initialized.
+            pub fn get_or_init(builder: TaskPoolBuilder) -> &'static StaticTaskPool {
+                let pool = &$static.0;
+                if pool.is_initialized() {
+                    pool.init(builder);
+                }
+                &$static.0
+            }
+
+            /// Gets the global instance, or initializes it with the default configuration if
+            /// it hasn't already been initialized.
+            pub fn get_or_default() -> &'static StaticTaskPool {
+                let pool = &$static.0;
+                if pool.is_initialized() {
+                    pool.init(Default::default());
+                }
+                &$static.0
+            }
         }
     };
 }
@@ -606,15 +630,19 @@ taskpool! {
 /// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn tick_global_task_pools_on_main_thread() {
-    COMPUTE_TASK_POOL.0.with_local_executor(|compute_local_executor| {
-        ASYNC_COMPUTE_TASK_POOL.0.with_local_executor(|async_local_executor| {
-            IO_TASK_POOL.0.with_local_executor(|io_local_executor| {
-                for _ in 0..100 {
-                    compute_local_executor.try_tick();
-                    async_local_executor.try_tick();
-                    io_local_executor.try_tick();
-                }
-            });
+    COMPUTE_TASK_POOL
+        .0
+        .with_local_executor(|compute_local_executor| {
+            ASYNC_COMPUTE_TASK_POOL
+                .0
+                .with_local_executor(|async_local_executor| {
+                    IO_TASK_POOL.0.with_local_executor(|io_local_executor| {
+                        for _ in 0..100 {
+                            compute_local_executor.try_tick();
+                            async_local_executor.try_tick();
+                            io_local_executor.try_tick();
+                        }
+                    });
+                });
         });
-    });
 }

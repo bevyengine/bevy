@@ -1312,7 +1312,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
-    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPool::new());
+    /// # bevy_tasks::ComputeTaskPool::get_or_default();
     ///
     /// let mut world = World::new();
     ///
