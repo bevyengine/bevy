@@ -12,19 +12,23 @@ mod task;
 pub use task::Task;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+mod static_task_pool;
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod task_pool;
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+pub use static_task_pool::{StaticScope, StaticTaskPool};
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor, StaticTaskPool, StaticScope};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, StaticScope, StaticTaskPool};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod thread_executor;
