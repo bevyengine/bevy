@@ -1,4 +1,7 @@
-use crate::{block_on, Task, TaskPool, TaskPoolBuilder, ThreadExecutor, ThreadExecutorTicker};
+use crate::{
+    block_on, Task, TaskPool, TaskPoolBuilder, TaskPoolInitializationError, ThreadExecutor,
+    ThreadExecutorTicker,
+};
 
 use async_executor::StaticExecutor;
 use async_task::FallibleTask;
@@ -47,13 +50,15 @@ impl StaticTaskPool {
     /// # Panics
     /// Panics if the task pool was already initialized or provided a builder that
     /// yields zero threads.
-    pub fn init(&'static self, builder: TaskPoolBuilder) {
+    pub fn init(
+        &'static self,
+        builder: TaskPoolBuilder,
+    ) -> Result<(), TaskPoolInitializationError> {
         let mut join_handles = self.threads.lock().unwrap();
 
         if !join_handles.is_empty() {
-            drop(join_handles);
             // TODO: figure out a way to support reconfiguring/reinitializing StaticTaskPools.
-            panic!("The TaskPool was already initialized.");
+            return Err(TaskPoolInitializationError::AlreadyInitialized);
         }
 
         let num_threads = builder
@@ -61,51 +66,58 @@ impl StaticTaskPool {
             .unwrap_or_else(crate::available_parallelism);
 
         if num_threads == 0 {
-            drop(join_handles);
-            panic!("Tried to initialize a TaskPool with zero threads.");
+            return Err(TaskPoolInitializationError::ZeroThreads);
         }
 
-        *join_handles = (0..num_threads)
-            .map(|i| {
-                let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
-                    format!("{thread_name} ({i})")
-                } else {
-                    format!("TaskPool ({i})")
-                };
-                let mut thread_builder = std::thread::Builder::new().name(thread_name);
+        *join_handles = Vec::with_capacity(num_threads);
+        for i in 0..num_threads {
+            let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
+                format!("{thread_name} ({i})")
+            } else {
+                format!("TaskPool ({i})")
+            };
+            let mut thread_builder = std::thread::Builder::new().name(thread_name);
 
-                if let Some(stack_size) = builder.stack_size {
-                    thread_builder = thread_builder.stack_size(stack_size);
-                }
+            if let Some(stack_size) = builder.stack_size {
+                thread_builder = thread_builder.stack_size(stack_size);
+            }
 
-                let on_thread_spawn = builder.on_thread_spawn.clone();
+            let on_thread_spawn = builder.on_thread_spawn.clone();
 
-                thread_builder
-                    .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            if let Some(on_thread_spawn) = on_thread_spawn {
-                                on_thread_spawn();
-                                drop(on_thread_spawn);
-                            }
-                            loop {
-                                let res = std::panic::catch_unwind(|| {
-                                    let tick_forever = async move {
-                                        loop {
-                                            local_executor.tick().await;
-                                        }
-                                    };
-                                    block_on(self.executor.run(tick_forever));
-                                });
-                                if res.is_ok() {
-                                    break;
+            let res = thread_builder.spawn(move || {
+                TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+                    if let Some(on_thread_spawn) = on_thread_spawn {
+                        on_thread_spawn();
+                        drop(on_thread_spawn);
+                    }
+                    loop {
+                        let res = std::panic::catch_unwind(|| {
+                            let tick_forever = async move {
+                                loop {
+                                    local_executor.tick().await;
                                 }
-                            }
+                            };
+                            block_on(self.executor.run(tick_forever));
                         });
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
+                        if res.is_ok() {
+                            break;
+                        }
+                    }
+                });
+            });
+            match res {
+                Ok(join_handle) => {
+                    join_handles.push(join_handle);
+                }
+                Err(join_handle) => {
+                    *join_handles = Vec::new();
+                    drop(join_handles);
+                    return Err(join_handle.into());
+                }
+            }
+        }
         self.thread_count.store(num_threads, Ordering::Relaxed);
+        Ok(())
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,

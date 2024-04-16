@@ -47,6 +47,7 @@ mod iter;
 pub use iter::ParallelIterator;
 
 pub use futures_lite;
+use thiserror::Error;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -60,6 +61,20 @@ pub mod prelude {
 }
 
 use std::num::NonZeroUsize;
+
+/// Potential errors when initializing a [`StaticTaskPool`].
+#[derive(Error, Debug)]
+pub enum TaskPoolInitializationError {
+    /// The task pool was already initialized and canot be changed after initialization.
+    #[error("The task pool is already initialized.")]
+    AlreadyInitialized,
+    /// The task pool would have been initialized with zero threads.
+    #[error("The task pool would have been initialized with zero threads.")]
+    ZeroThreads,
+    /// Initialization failed to spawn a thread.
+    #[error("Failed to spawn thread: {0:?}")]
+    ThreadSpawnError(#[from] std::io::Error),
+}
 
 /// Gets the logical CPU core count available to the current process.
 ///

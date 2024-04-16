@@ -1,5 +1,7 @@
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use bevy_utils::tracing::trace;
+use bevy_tasks::{
+    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, TaskPoolInitializationError,
+};
+use bevy_utils::tracing::{trace, warn};
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -80,6 +82,18 @@ impl Default for TaskPoolOptions {
     }
 }
 
+fn handle_initialization_error(name: &str, res: Result<(), TaskPoolInitializationError>) {
+    match res {
+        Ok(()) => {}
+        Err(TaskPoolInitializationError::AlreadyInitialized) => {
+            warn!("{} already initialized.", name);
+        }
+        Err(err) => {
+            panic!("Error while initialzing: {}", err);
+        }
+    }
+}
+
 impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
@@ -107,10 +121,13 @@ impl TaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            IoTaskPool::get_or_init(
-                TaskPoolBuilder::default()
-                    .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string()),
+            handle_initialization_error(
+                "IO Task Pool",
+                IoTaskPool::get().init(
+                    TaskPoolBuilder::default()
+                        .num_threads(io_threads)
+                        .thread_name("IO Task Pool".to_string()),
+                ),
             );
         }
 
@@ -123,10 +140,13 @@ impl TaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            AsyncComputeTaskPool::get_or_init(
-                TaskPoolBuilder::default()
-                    .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string()),
+            handle_initialization_error(
+                "Async Task Pool",
+                AsyncComputeTaskPool::get().init(
+                    TaskPoolBuilder::default()
+                        .num_threads(async_compute_threads)
+                        .thread_name("Async Compute Task Pool".to_string()),
+                ),
             );
         }
 
@@ -139,10 +159,13 @@ impl TaskPoolOptions {
 
             trace!("Compute Threads: {}", compute_threads);
 
-            ComputeTaskPool::get_or_init(
-                TaskPoolBuilder::default()
-                    .num_threads(compute_threads)
-                    .thread_name("Compute Task Pool".to_string()),
+            handle_initialization_error(
+                "Compute Task Pool",
+                ComputeTaskPool::get().init(
+                    TaskPoolBuilder::default()
+                        .num_threads(compute_threads)
+                        .thread_name("Compute Task Pool".to_string()),
+                ),
             );
         }
     }

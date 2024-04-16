@@ -1,5 +1,4 @@
-use super::TaskPoolBuilder;
-use crate::StaticTaskPool;
+use crate::{StaticTaskPool, TaskPoolBuilder, TaskPoolInitializationError};
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
@@ -19,20 +18,17 @@ macro_rules! taskpool {
             /// it hasn't already been initialized.
             pub fn get_or_init(builder: TaskPoolBuilder) -> &'static StaticTaskPool {
                 let pool = &$static.0;
-                if pool.is_initialized() {
-                    pool.init(builder);
+                match pool.init(builder) {
+                    Ok(()) => pool,
+                    Err(TaskPoolInitializationError::AlreadyInitialized) => pool,
+                    Err(err) => panic!("Error while initializing task pool: {}", err),
                 }
-                &$static.0
             }
 
             /// Gets the global instance, or initializes it with the default configuration if
             /// it hasn't already been initialized.
             pub fn get_or_default() -> &'static StaticTaskPool {
-                let pool = &$static.0;
-                if pool.is_initialized() {
-                    pool.init(Default::default());
-                }
-                &$static.0
+                Self::get_or_init(Default::default())
             }
         }
     };
