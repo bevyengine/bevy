@@ -31,6 +31,7 @@ impl StaticTaskPool {
         self.thread_count.load(Ordering::Relaxed)
     }
 
+    /// Checks if the threads for the task pool have been started.
     pub fn is_initialized(&self) -> bool {
         !self.threads.lock().unwrap().is_empty()
     }
