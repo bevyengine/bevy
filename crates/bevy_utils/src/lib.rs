@@ -16,7 +16,6 @@ pub mod prelude {
 }
 
 pub mod futures;
-pub mod label;
 mod short_names;
 pub use short_names::get_short_name;
 pub mod synccell;
@@ -24,7 +23,6 @@ pub mod syncunsafecell;
 
 mod cow_arc;
 mod default;
-pub mod intern;
 mod once;
 mod parallel_queue;
 

@@ -12,7 +12,7 @@ pub enum FontLoaderError {
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    /// An [InvalidFont](ab_glyph::InvalidFont) Error
+    /// An [`InvalidFont`](ab_glyph::InvalidFont) Error
     #[error(transparent)]
     FontInvalid(#[from] ab_glyph::InvalidFont),
 }
