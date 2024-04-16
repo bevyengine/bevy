@@ -65,7 +65,7 @@ use std::num::NonZeroUsize;
 /// Potential errors when initializing a [`StaticTaskPool`].
 #[derive(Error, Debug)]
 pub enum TaskPoolInitializationError {
-    /// The task pool was already initialized and canot be changed after initialization.
+    /// The task pool was already initialized and cannot be changed after initialization.
     #[error("The task pool is already initialized.")]
     AlreadyInitialized,
     /// The task pool would have been initialized with zero threads.
