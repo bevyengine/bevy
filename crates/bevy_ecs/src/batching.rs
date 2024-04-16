@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-/// Dictates how a parallel operation chunks up large quanitities
+/// Dictates how a parallel operation chunks up large quantities
 /// during iteration.
 ///
 /// A parallel query will chunk up large tables and archetypes into
@@ -22,7 +22,7 @@ use std::ops::Range;
 /// [`EventReader::par_read`]: crate::event::EventReader::par_read
 #[derive(Clone, Debug)]
 pub struct BatchingStrategy {
-    /// The upper and lower limits for how large a batch of entities.
+    /// The upper and lower limits for a batch of entities.
     ///
     /// Setting the bounds to the same value will result in a fixed
     /// batch size.
