@@ -14,7 +14,7 @@ pub struct Text {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by max_size
+    /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
 }
 

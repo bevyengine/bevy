@@ -40,7 +40,7 @@ struct BatchMeta<T: PartialEq> {
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
     pipeline_id: CachedRenderPipelineId,
-    /// The draw function id defines the RenderCommands that are called to
+    /// The draw function id defines the `RenderCommands` that are called to
     /// set the pipeline and bindings, and make the draw command
     draw_function_id: DrawFunctionId,
     dynamic_offset: Option<NonMaxU32>,

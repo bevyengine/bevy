@@ -172,7 +172,7 @@ struct EventInstance<E: Event> {
 #[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
-    /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
+    /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
     events_a: EventSequence<E>,
     /// Holds the newer events.
     events_b: EventSequence<E>,
