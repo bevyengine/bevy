@@ -1,21 +1,16 @@
 use bevy_ecs::world::World;
-use bevy_utils::define_label;
 use wgpu::ImageDataLayout;
 
 use crate::{
-    render_graph::InternedRenderLabel,
     render_graph_v2::{RenderGraph, RenderGraphBuilder},
     render_resource::{Texture, TextureDescriptor},
     renderer::RenderDevice,
 };
 
 use super::{
-    render_deps, IntoRenderResource, RenderHandle, RenderResource, RenderResourceId,
-    RenderResourceInit, RenderResourceMeta, RetainedRenderResource, SimpleResourceStore,
-    WriteRenderResource,
+    render_deps, IntoRenderResource, RenderHandle, RenderResource, RenderResourceInit,
+    RenderResourceMeta, RetainedRenderResource, SimpleResourceStore, WriteRenderResource,
 };
-
-define_label!(TextureLabel, TEXTURE_LABEL_INTERNER);
 
 impl RenderResource for Texture {
     type Descriptor = TextureDescriptor<'static>;

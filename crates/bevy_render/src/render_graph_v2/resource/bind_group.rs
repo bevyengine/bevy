@@ -54,22 +54,23 @@ impl<B: AsBindGroup> AsRenderBindGroup for B {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
     ) -> Result<BindGroup, AsBindGroupError> {
-        let images = node_context
-            .get_world_resource::<RenderAssets<Image>>()
-            .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        let fallback_image = node_context
-            .get_world_resource::<FallbackImage>()
-            .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        Ok(
-            <B as AsBindGroup>::as_bind_group(
-                &self,
-                layout,
-                render_device,
-                images,
-                fallback_image,
-            )?
-            .bind_group,
-        )
+        // let images = node_context
+        //     .get_world_resource::<RenderAssets<Image>>()
+        //     .ok_or(AsBindGroupError::RetryNextUpdate)?;
+        // let fallback_image = node_context
+        //     .get_world_resource::<FallbackImage>()
+        //     .ok_or(AsBindGroupError::RetryNextUpdate)?;
+        // Ok(
+        //     <B as AsBindGroup>::as_bind_group(
+        //         &self,
+        //         layout,
+        //         render_device,
+        //         images,
+        //         fallback_image,
+        //     )?
+        //     .bind_group,
+        // )
+        todo!()
     }
 }
 
