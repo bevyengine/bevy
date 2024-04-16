@@ -4,28 +4,21 @@ use wgpu::BufferDescriptor;
 use crate::{render_graph_v2::RenderGraph, render_resource::Buffer, renderer::RenderDevice};
 
 use super::{
-    IntoRenderResource, LastFrameRenderResource, RenderResource, RenderResourceId,
-    RenderResourceInit, RenderResourceMeta, WriteRenderResource,
+    IntoRenderResource, RenderResource, RenderResourceId, RenderResourceInit, RenderResourceMeta,
+    RetainedRenderResource, SimpleResourceStore, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
     type Descriptor = BufferDescriptor<'static>;
     type Data = Buffer;
+    type Store = SimpleResourceStore<Self>;
 
-    fn insert_data<'a>(
-        graph: &mut RenderGraph,
-        key: RenderResourceId,
-        data: RenderResourceInit<Self>,
-    ) {
-        graph.buffers.insert(key, data);
+    fn get_store(graph: &RenderGraph) -> &Self::Store {
+        &graph.buffers
     }
 
-    fn get_data<'a>(
-        graph: &'a RenderGraph,
-        _world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<Self>> {
-        graph.buffers.get_data(key)
+    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+        &mut graph.buffers
     }
 
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
@@ -35,18 +28,7 @@ impl RenderResource for Buffer {
 
 impl WriteRenderResource for Buffer {}
 
-impl LastFrameRenderResource for Buffer {
-    fn send_next_frame(graph: &mut RenderGraph, key: RenderResourceId) {
-        todo!()
-    }
-
-    fn get_last_frame(
-        graph: &RenderGraph,
-        label: crate::render_graph::InternedRenderLabel,
-    ) -> RenderResourceMeta<Self> {
-        todo!()
-    }
-}
+impl RetainedRenderResource for Buffer {}
 
 impl IntoRenderResource for BufferDescriptor<'static> {
     type Resource = Buffer;

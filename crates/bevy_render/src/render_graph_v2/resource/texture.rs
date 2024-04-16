@@ -10,30 +10,24 @@ use crate::{
 };
 
 use super::{
-    render_deps, IntoRenderResource, LastFrameRenderResource, RenderHandle, RenderResource,
-    RenderResourceId, RenderResourceInit, RenderResourceMeta, WriteRenderResource,
+    render_deps, IntoRenderResource, RenderHandle, RenderResource, RenderResourceId,
+    RenderResourceInit, RenderResourceMeta, RetainedRenderResource, SimpleResourceStore,
+    WriteRenderResource,
 };
 
 define_label!(TextureLabel, TEXTURE_LABEL_INTERNER);
 
 impl RenderResource for Texture {
     type Descriptor = TextureDescriptor<'static>;
-    type Data = Texture;
+    type Data = Self;
+    type Store = SimpleResourceStore<Self>;
 
-    fn insert_data<'a>(
-        graph: &mut RenderGraph,
-        key: RenderResourceId,
-        data: RenderResourceInit<Self>,
-    ) {
-        graph.textures.insert(key, data);
+    fn get_store(graph: &RenderGraph) -> &Self::Store {
+        &graph.textures
     }
 
-    fn get_data<'a>(
-        graph: &'a RenderGraph,
-        _world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<Self>> {
-        graph.textures.get_data(key)
+    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+        &mut graph.textures
     }
 
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
@@ -43,15 +37,7 @@ impl RenderResource for Texture {
 
 impl WriteRenderResource for Texture {}
 
-impl LastFrameRenderResource for Texture {
-    fn send_next_frame(graph: &mut RenderGraph, key: RenderResourceId) {
-        todo!()
-    }
-
-    fn get_last_frame(graph: &RenderGraph, label: InternedRenderLabel) -> RenderResourceMeta<Self> {
-        todo!()
-    }
-}
+impl RetainedRenderResource for Texture {}
 
 impl IntoRenderResource for TextureDescriptor<'static> {
     type Resource = Texture;

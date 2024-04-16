@@ -18,7 +18,7 @@ use crate::{
 
 use super::{
     DeferredResourceInit, IntoRenderResource, RenderResource, RenderResourceId, RenderResourceInit,
-    RenderResourceMeta,
+    RenderResourceMeta, RenderStore,
 };
 
 #[derive(Default)]
@@ -27,6 +27,42 @@ pub struct RenderGraphPipelines {
     queued_render_pipelines: HashMap<u16, DeferredResourceInit<RenderPipeline>>,
     compute_pipelines: HashMap<u16, RenderResourceMeta<ComputePipeline>>,
     queued_compute_pipelines: HashMap<u16, DeferredResourceInit<ComputePipeline>>,
+}
+
+impl RenderStore<RenderPipeline> for RenderGraphPipelines {
+    fn insert(&mut self, key: u16, data: RenderResourceInit<RenderPipeline>) {
+        todo!()
+    }
+
+    fn get<'a>(
+        &'a self,
+        world: &'a World,
+        key: u16,
+    ) -> Option<&'a RenderResourceMeta<RenderPipeline>> {
+        todo!()
+    }
+
+    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
+        todo!()
+    }
+}
+
+impl RenderStore<ComputePipeline> for RenderGraphPipelines {
+    fn insert(&mut self, key: u16, data: RenderResourceInit<ComputePipeline>) {
+        todo!()
+    }
+
+    fn get<'a>(
+        &'a self,
+        world: &'a World,
+        key: u16,
+    ) -> Option<&'a RenderResourceMeta<ComputePipeline>> {
+        todo!()
+    }
+
+    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
+        todo!()
+    }
 }
 
 impl RenderGraphPipelines {
@@ -75,46 +111,32 @@ impl RenderGraphPipelines {
 impl RenderResource for RenderPipeline {
     type Descriptor = RenderPipelineDescriptor;
     type Data = CachedRenderPipelineId;
+    type Store = RenderGraphPipelines;
 
-    fn insert_data<'a>(
-        graph: &mut RenderGraph,
-        key: RenderResourceId,
-        data: RenderResourceInit<Self>,
-    ) {
-        todo!()
+    fn get_store(graph: &RenderGraph) -> &Self::Store {
+        &graph.pipelines
     }
 
-    fn get_data<'a>(
-        graph: &'a RenderGraph,
-        world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<Self>> {
-        todo!()
+    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+        &mut graph.pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+        world.resource::<PipelineCache>().get_render_pipeline(*data)
     }
 }
 
 impl RenderResource for ComputePipeline {
     type Descriptor = ComputePipelineDescriptor;
     type Data = CachedComputePipelineId;
+    type Store = RenderGraphPipelines;
 
-    fn insert_data<'a>(
-        graph: &mut RenderGraph,
-        key: RenderResourceId,
-        data: RenderResourceInit<Self>,
-    ) {
-        todo!()
+    fn get_store(graph: &RenderGraph) -> &Self::Store {
+        &graph.pipelines
     }
 
-    fn get_data<'a>(
-        graph: &'a RenderGraph,
-        world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<Self>> {
-        todo!()
+    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+        &mut graph.pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {

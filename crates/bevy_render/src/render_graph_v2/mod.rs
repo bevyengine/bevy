@@ -3,7 +3,7 @@
 pub mod configurator;
 pub mod resource;
 
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 use crate::{
     render_graph::InternedRenderLabel,
@@ -17,11 +17,12 @@ use bevy_ecs::{
     world::{EntityRef, Ref, World},
 };
 use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
-use resource::{IntoRenderResource, RenderDependencies, RenderHandle, RenderResource};
-
-use self::resource::{
-    pipeline::RenderGraphPipelines, LastFrameRenderResource, SimpleResourceStore,
+use resource::{
+    pipeline::RenderGraphPipelines, IntoRenderResource, RenderDependencies, RenderHandle,
+    RenderResource, RenderStore, SimpleResourceStore,
 };
+
+use self::resource::{RenderResourceId, RetainedRenderResource, RetainedRenderStore};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -77,6 +78,7 @@ pub struct RenderGraphBuilder<'a> {
     graph: &'a mut RenderGraph,
     world: &'a World,
     view_entity: EntityRef<'a>,
+    render_device: &'a RenderDevice,
 }
 
 impl<'a> RenderGraphBuilder<'a> {
@@ -84,14 +86,28 @@ impl<'a> RenderGraphBuilder<'a> {
         &mut self,
         resource: R,
     ) -> RenderHandle<R::Resource> {
-        todo!()
+        let next_id: u16 = self.graph.next_id;
+        <R::Resource as RenderResource>::get_store_mut(self.graph).insert(
+            next_id,
+            resource.into_render_resource(self.world, self.render_device),
+        );
+        self.graph.next_id += 1;
+        RenderHandle {
+            id: RenderResourceId {
+                index: next_id,
+                generation: 0,
+            },
+            data: PhantomData,
+        }
     }
 
     pub fn get_descriptor_of<R: RenderResource>(
         &self,
         resource: RenderHandle<R>,
     ) -> Option<&R::Descriptor> {
-        R::get_data(self.graph, self.world, resource.id).and_then(|meta| meta.descriptor.as_ref())
+        R::get_store(self.graph)
+            .get(self.world, resource.id.index)
+            .and_then(|meta| meta.descriptor.as_ref())
     }
 
     pub fn descriptor_of<R: RenderResource>(&self, resource: RenderHandle<R>) -> &R::Descriptor {
@@ -99,18 +115,23 @@ impl<'a> RenderGraphBuilder<'a> {
             .expect("No descriptor found for resource")
     }
 
-    pub fn send_next_frame<R: LastFrameRenderResource>(
+    pub fn mark_retain<R: RetainedRenderResource>(
         &mut self,
         label: InternedRenderLabel,
         resource: RenderHandle<R>,
-    ) {
+    ) where
+        R::Store: RetainedRenderStore<R>,
+    {
         todo!()
     }
 
-    pub fn get_last_frame<R: LastFrameRenderResource>(
+    pub fn get_retained<R: RetainedRenderResource>(
         &mut self,
         label: InternedRenderLabel,
-    ) -> Option<RenderHandle<R>> {
+    ) -> Option<RenderHandle<R>>
+    where
+        R::Store: RetainedRenderStore<R>,
+    {
         todo!()
     }
 
@@ -183,7 +204,8 @@ impl<'a> NodeContext<'a> {
             panic!("Attempted to access a Render Resource of type {:?} not included in the node's dependencies", TypeId::of::<R>())
         }
 
-        R::get_data(self.graph, self.world, resource.id)
+        R::get_store(self.graph)
+            .get(self.world, resource.id.index)
             .and_then(|meta| R::from_data(&meta.resource, self.world))
             .expect("Could not resolve render resource")
     }

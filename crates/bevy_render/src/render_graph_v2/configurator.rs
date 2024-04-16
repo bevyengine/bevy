@@ -32,6 +32,7 @@ pub fn setup_view_render_graph_nodes(world: &mut World) {
                 graph: &mut render_graph,
                 world,
                 view_entity: world.entity(view_entity),
+                render_device: todo!(),
             };
             (configurator.0)(builder);
         }
