@@ -186,7 +186,7 @@ mod test {
     use bevy_ecs::prelude::*;
     use bevy_ecs::world::CommandQueue;
     use bevy_math::{vec3, Vec3};
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_tasks::ComputeTaskPool;
 
     use crate::systems::*;
     use crate::TransformBundle;
