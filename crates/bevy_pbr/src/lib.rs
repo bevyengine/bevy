@@ -269,6 +269,7 @@ impl Plugin for PbrPlugin {
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
