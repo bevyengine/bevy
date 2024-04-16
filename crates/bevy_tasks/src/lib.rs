@@ -24,7 +24,7 @@ pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, StaticScope, StaticTaskPool};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod thread_executor;

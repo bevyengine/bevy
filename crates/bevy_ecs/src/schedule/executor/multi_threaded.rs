@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{ComputeTaskPool, StaticScope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
@@ -132,7 +132,7 @@ pub struct ExecutorState {
 #[derive(Copy, Clone)]
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
-    scope: &'scope Scope<'scope, 'env, ()>,
+    scope: &'scope StaticScope<'scope, 'env, ()>,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -218,17 +218,13 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         let environment = &Environment::new(self, schedule, world);
 
-        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
-            false,
-            thread_executor,
-            |scope| {
-                let context = Context { environment, scope };
+        ComputeTaskPool::get().scope_with_executor(false, thread_executor, |scope| {
+            let context = Context { environment, scope };
 
-                // The first tick won't need to process finished systems, but we still need to run the loop in
-                // tick_executor() in case a system completes while the first tick still holds the mutex.
-                context.tick_executor();
-            },
-        );
+            // The first tick won't need to process finished systems, but we still need to run the loop in
+            // tick_executor() in case a system completes while the first tick still holds the mutex.
+            context.tick_executor();
+        });
 
         // End the borrows of self and world in environment by copying out the reference to systems.
         let systems = environment.systems;
