@@ -33,7 +33,6 @@ pub mod prelude {
 }
 
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::TransformSystem;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;

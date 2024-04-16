@@ -294,8 +294,7 @@ impl Plugin for VisibilityPlugin {
                     .in_set(UpdateProjectionFrusta)
                     .after(camera_system::<Projection>),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<WithMesh>
-                    .in_set(CheckVisibility),
+                check_visibility::<WithMesh>.in_set(CheckVisibility),
             ),
         );
     }
