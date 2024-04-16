@@ -350,8 +350,7 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_visibility::<WithLight>
-                        .in_set(VisibilitySystems::CheckVisibility)
-                        .after(TransformSystem::TransformPropagate),
+                        .in_set(VisibilitySystems::CheckVisibility),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)

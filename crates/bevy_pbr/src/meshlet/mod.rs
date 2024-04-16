@@ -169,8 +169,7 @@ impl Plugin for MeshletPlugin {
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                    .in_set(VisibilitySystems::CheckVisibility),
             );
     }
 

@@ -122,8 +122,7 @@ impl Plugin for SpritePlugin {
                         check_visibility::<WithMesh2d>,
                         check_visibility::<WithSprite>,
                     )
-                        .in_set(VisibilitySystems::CheckVisibility)
-                        .after(TransformSystem::TransformPropagate),
+                        .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 
