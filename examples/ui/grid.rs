@@ -25,7 +25,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
-                // Make node fill the entirety its parent (in this case the window)
+                // Make node fill the entirety of its parent (in this case the window)
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 // Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
