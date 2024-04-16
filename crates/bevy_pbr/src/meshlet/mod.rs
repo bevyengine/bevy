@@ -78,7 +78,7 @@ use bevy_render::{
     render_resource::{Shader, TextureUsages},
     view::{
         check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
-        Visibility, VisibilitySystems,
+        Visibility,
     },
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -168,14 +168,7 @@ impl Plugin for MeshletPlugin {
             .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,
-                check_visibility::<WithMeshletMesh>
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .after(VisibilitySystems::CalculateBounds)
-                    .after(VisibilitySystems::UpdateOrthographicFrusta)
-                    .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                    .after(VisibilitySystems::UpdateProjectionFrusta)
-                    .after(VisibilitySystems::VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
+                check_visibility::<WithMeshletMesh>.after(TransformSystem::TransformPropagate),
             );
     }
 

@@ -123,11 +123,6 @@ impl Plugin for SpritePlugin {
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility)
-                        .after(VisibilitySystems::CalculateBounds)
-                        .after(VisibilitySystems::UpdateOrthographicFrusta)
-                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                        .after(VisibilitySystems::UpdateProjectionFrusta)
-                        .after(VisibilitySystems::VisibilityPropagate)
                         .after(TransformSystem::TransformPropagate),
                 ),
             );
