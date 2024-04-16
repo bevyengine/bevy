@@ -92,14 +92,13 @@ impl AssetLoader for ImageLoader {
         load_context: &'a mut LoadContext,
     ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
+            // use the file extension for the image type
+            let ext = load_context.path().extension().unwrap().to_str().unwrap();
+
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let image_type = match settings.format {
-                ImageFormatSetting::FromExtension => {
-                    // use the file extension for the image type
-                    let ext = load_context.path().extension().unwrap().to_str().unwrap();
-                    ImageType::Extension(ext)
-                }
+                ImageFormatSetting::FromExtension => ImageType::Extension(ext),
                 ImageFormatSetting::Format(format) => ImageType::Format(format),
             };
             Ok(Image::from_buffer(
