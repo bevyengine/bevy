@@ -818,7 +818,7 @@ pub enum OpaqueRendererMethod {
 /// Common [`Material`] properties, calculated for a specific material instance.
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when.
-    /// AlphaMode::Opaque or AlphaMode::Mask
+    /// [`AlphaMode::Opaque`] or [`AlphaMode::Mask`]
     pub render_method: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,

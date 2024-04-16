@@ -1058,7 +1058,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// _This lock must be locked whenever a read or write to processed assets occurs_
     /// There are scenarios where processed assets (and their metadata) are being read and written in multiple places at once:
     /// * when the processor is running in parallel with an app
-    /// * when processing assets in parallel, the processor might read an asset's process_dependencies when processing new versions of those dependencies
+    /// * when processing assets in parallel, the processor might read an asset's `process_dependencies` when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
@@ -1101,7 +1101,7 @@ pub struct ProcessorAssetInfos {
     /// The "current" in memory view of the asset space. During processing, if path does not exist in this, it should
     /// be considered non-existent.
     /// NOTE: YOU MUST USE `Self::get_or_insert` or `Self::insert` TO ADD ITEMS TO THIS COLLECTION TO ENSURE
-    /// non_existent_dependants DATA IS CONSUMED
+    /// `non_existent_dependants` DATA IS CONSUMED
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
     /// Dependants for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
     /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.

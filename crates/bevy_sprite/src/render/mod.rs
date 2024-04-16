@@ -296,7 +296,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
-    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
 }

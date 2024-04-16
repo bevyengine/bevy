@@ -122,8 +122,8 @@ pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
-    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
-    /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
+    /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
     #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
