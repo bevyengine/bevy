@@ -110,6 +110,20 @@ fn pbr_input_from_standard_material(
 #else
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
 #endif
+
+#ifdef ALPHA_TO_COVERAGE
+    // Sharpen alpha edges.
+    //
+    // https://bgolus.medium.com/anti-aliased-alpha-test-the-esoteric-alpha-to-coverage-8b177335ae4f
+    let alpha_mode = pbr_bindings::material.flags &
+        pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
+        pbr_input.material.base_color.a = (pbr_input.material.base_color.a -
+                pbr_bindings::material.alpha_cutoff) /
+                max(fwidth(pbr_input.material.base_color.a), 0.0001) + 0.5;
+    }
+#endif // ALPHA_TO_COVERAGE
+
     }
 #endif // VERTEX_UVS
 

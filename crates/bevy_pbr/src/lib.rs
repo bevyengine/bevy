@@ -130,7 +130,7 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
-    /// Controls if the prepass is enabled for the StandardMaterial.
+    /// Controls if the prepass is enabled for the [`StandardMaterial`].
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
     /// Controls if [`DeferredPbrLightingPlugin`] is added.
@@ -269,6 +269,7 @@ impl Plugin for PbrPlugin {
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
