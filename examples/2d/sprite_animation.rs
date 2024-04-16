@@ -1,6 +1,6 @@
 //! Animates a sprite in response to a keyboard event.
 //!
-//! See sprite_sheet.rs for an example where the sprite animation loops indefinitely.
+//! See `sprite_sheet.rs` for an example where the sprite animation loops indefinitely.
 
 use std::time::Duration;
 
