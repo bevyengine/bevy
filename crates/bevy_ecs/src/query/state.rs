@@ -160,7 +160,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
-        for archetype in world.archetypes.iter() {
+        // Iterate in reverse to avoid reallocating the backing stores for accesses if there are a
+        // large number of archetypes and components.
+        for archetype in world.archetypes.iter().rev() {
             if state.new_archetype_internal(archetype) {
                 state.update_archetype_component_access(archetype, access);
             }
@@ -341,7 +343,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype in &archetypes[old_generation..] {
+        // Iterate in reverse to avoid reallocating the backing stores for accesses if there are a
+        // large number of new archetypes and components.
+        for archetype in archetypes[old_generation..].iter().rev() {
             self.new_archetype_internal(archetype);
         }
     }

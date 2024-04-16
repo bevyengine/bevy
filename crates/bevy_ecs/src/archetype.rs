@@ -769,7 +769,7 @@ impl Archetypes {
 
     /// Returns a read-only iterator over all archetypes.
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &Archetype> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Archetype> {
         self.archetypes.iter()
     }
 
