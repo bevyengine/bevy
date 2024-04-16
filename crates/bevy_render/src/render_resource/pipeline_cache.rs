@@ -954,7 +954,7 @@ impl PipelineCache {
 #[cfg(all(
     not(target_arch = "wasm32"),
     not(target_os = "macos"),
-    feature = "multi-threaded"
+    feature = "multi_threaded"
 ))]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
@@ -973,7 +973,7 @@ fn create_pipeline_task(
 #[cfg(any(
     target_arch = "wasm32",
     target_os = "macos",
-    not(feature = "multi-threaded")
+    not(feature = "multi_threaded")
 ))]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,

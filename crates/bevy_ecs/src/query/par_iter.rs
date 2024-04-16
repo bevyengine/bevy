@@ -115,7 +115,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             // SAFETY:
             // This method can only be called once per instance of QueryParIter,
@@ -129,7 +129,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                     .for_each(func);
             }
         }
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
@@ -156,7 +156,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;

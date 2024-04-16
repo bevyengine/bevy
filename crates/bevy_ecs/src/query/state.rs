@@ -1373,7 +1373,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         FN: Fn(D::Item<'w>) + Send + Sync + Clone,
