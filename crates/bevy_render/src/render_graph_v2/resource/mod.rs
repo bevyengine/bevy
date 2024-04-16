@@ -20,7 +20,7 @@ pub trait RenderResource: Sized + Send + Sync + 'static {
     type Data: Send + Sync + 'static;
     type Store: RenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store; //todo: proper generic resource table
+    fn get_store(graph: &RenderGraph) -> &Self::Store; //todo: proper generic resource table & make sure external users can't call this function
     fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
