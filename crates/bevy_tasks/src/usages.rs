@@ -26,7 +26,7 @@ pub struct StaticTaskPool {
 }
 
 impl StaticTaskPool {
-    /// The number of threads active in the TaskPool.
+    /// The number of threads active in the task pool.
     pub fn thread_num(&self) -> usize {
         self.thread_count.load(Ordering::Relaxed)
     }
@@ -39,7 +39,8 @@ impl StaticTaskPool {
     /// Initializes the task pool with the configuration in
     ///
     /// # Panics
-    /// Panics if the task pool was already initialized or provided a TaskPool
+    /// Panics if the task pool was already initialized or provided a builder that
+    /// yields zero threads.
     pub fn init(&'static self, builder: TaskPoolBuilder) {
         let mut join_handles = self.threads.lock().unwrap();
 
@@ -87,7 +88,7 @@ impl StaticTaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    block_on(self.executor.run(tick_forever))
+                                    block_on(self.executor.run(tick_forever));
                                 });
                                 if res.is_ok() {
                                     break;
