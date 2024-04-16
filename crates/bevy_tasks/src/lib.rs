@@ -23,7 +23,9 @@ pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor, StaticTaskPool, StaticScope};
+pub use single_threaded_task_pool::{
+    FakeTask, Scope, StaticScope, StaticTaskPool, TaskPool, TaskPoolBuilder, ThreadExecutor,
+};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]

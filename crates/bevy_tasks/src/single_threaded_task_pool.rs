@@ -88,8 +88,7 @@ impl TaskPool {
     /// Initializes the task pool with the provided builder. This always is a no-op
     /// true in single threaded builds.
     #[allow(unused_variables)]
-    pub fn init(&self, builder: TaskPoolBuilder) {
-    }
+    pub fn init(&self, builder: TaskPoolBuilder) {}
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
