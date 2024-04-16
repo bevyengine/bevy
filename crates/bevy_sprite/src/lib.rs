@@ -360,7 +360,7 @@ mod test {
 
         // Add entities
         let entity = app
-            .world
+            .world_mut()
             .spawn((
                 Sprite {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
@@ -376,7 +376,7 @@ mod test {
 
         // Get the AABB
         let aabb = *app
-            .world
+            .world_mut()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
