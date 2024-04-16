@@ -116,7 +116,7 @@ pub struct EnvironmentMapIds {
 /// A reflection probe is a type of environment map that specifies the light
 /// surrounding a region in space. For more information, see
 /// [`crate::environment_map`].
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct ReflectionProbeBundle {
     /// Contains a transform that specifies the position of this reflection probe in space.
     pub spatial: SpatialBundle,

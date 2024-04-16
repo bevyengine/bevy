@@ -133,7 +133,7 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,

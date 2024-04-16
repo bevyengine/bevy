@@ -5,7 +5,6 @@ use bevy::{
         embedded_asset,
         io::{Reader, Writer},
         processor::LoadTransformAndSave,
-        ron,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,

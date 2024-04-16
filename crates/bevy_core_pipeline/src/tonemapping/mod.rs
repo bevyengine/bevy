@@ -149,7 +149,7 @@ pub enum Tonemapping {
     AgX,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
-    /// Is sort of between Reinhard and ReinhardLuminance. Conceptually similar to reinhard-jodie.
+    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
     /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
     /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
