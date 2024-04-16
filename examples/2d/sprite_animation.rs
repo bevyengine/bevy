@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_internal::input::common_conditions::input_just_pressed;
+use bevy::input::common_conditions::input_just_pressed;
 
 fn main() {
     App::new()
