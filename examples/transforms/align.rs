@@ -1,10 +1,7 @@
 //! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
-use bevy::color::{
-    palettes::basic::{GRAY, RED, WHITE},
-    Color,
-};
-use bevy::input::mouse::{MouseButton, MouseButtonInput, MouseMotion};
+use bevy::color::palettes::basic::{GRAY, RED, WHITE};
+use bevy::input::mouse::{MouseButtonInput, MouseMotion};
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -54,6 +51,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin

@@ -67,6 +67,7 @@ pub trait Geometry {
 ///
 /// Returns `false` if the geometry is unsuitable for tangent generation including,
 /// but not limited to, lack of vertices.
+#[allow(unsafe_code)]
 pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }

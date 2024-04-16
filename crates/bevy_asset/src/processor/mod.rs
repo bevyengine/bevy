@@ -20,6 +20,11 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{debug, error, trace, warn};
+#[cfg(feature = "trace")]
+use bevy_utils::{
+    tracing::{info_span, instrument::Instrument},
+    ConditionalSendFuture,
+};
 use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -479,6 +484,8 @@ impl AssetProcessor {
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
         let mut process_plans = self.data.processors.write();
+        #[cfg(feature = "trace")]
+        let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
     }
 
@@ -1031,6 +1038,37 @@ impl AssetProcessorData {
     }
 }
 
+#[cfg(feature = "trace")]
+struct InstrumentedAssetProcessor<T>(T);
+
+#[cfg(feature = "trace")]
+impl<T: Process> Process for InstrumentedAssetProcessor<T> {
+    type Settings = T::Settings;
+    type OutputLoader = T::OutputLoader;
+
+    fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut crate::io::Writer,
+    ) -> impl ConditionalSendFuture<
+        Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
+    > {
+        // Change the processor type for the `AssetMeta`, which works because we share the `Settings` type.
+        let meta = AssetMeta {
+            meta_format_version: meta.meta_format_version,
+            processed_info: meta.processed_info,
+            asset: meta.asset,
+        };
+        let span = info_span!(
+            "asset processing",
+            processor = std::any::type_name::<T>(),
+            asset = context.path().to_string(),
+        );
+        self.0.process(context, meta, writer).instrument(span)
+    }
+}
+
 /// The (successful) result of processing an asset
 #[derive(Debug, Clone)]
 pub enum ProcessResult {
@@ -1058,7 +1096,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// _This lock must be locked whenever a read or write to processed assets occurs_
     /// There are scenarios where processed assets (and their metadata) are being read and written in multiple places at once:
     /// * when the processor is running in parallel with an app
-    /// * when processing assets in parallel, the processor might read an asset's process_dependencies when processing new versions of those dependencies
+    /// * when processing assets in parallel, the processor might read an asset's `process_dependencies` when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
@@ -1101,7 +1139,7 @@ pub struct ProcessorAssetInfos {
     /// The "current" in memory view of the asset space. During processing, if path does not exist in this, it should
     /// be considered non-existent.
     /// NOTE: YOU MUST USE `Self::get_or_insert` or `Self::insert` TO ADD ITEMS TO THIS COLLECTION TO ENSURE
-    /// non_existent_dependants DATA IS CONSUMED
+    /// `non_existent_dependants` DATA IS CONSUMED
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
     /// Dependants for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
     /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.
@@ -1203,10 +1241,8 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {asset_path}: {err}");
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    path: dependency,
-                    ..
-                }) = err
+                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError(dependency)) =
+                    err
                 {
                     let info = self.get_mut(&asset_path).expect("info should exist");
                     info.processed_info = Some(ProcessedInfo {
@@ -1214,7 +1250,7 @@ impl ProcessorAssetInfos {
                         full_hash: AssetHash::default(),
                         process_dependencies: vec![],
                     });
-                    self.add_dependant(&dependency, asset_path.to_owned());
+                    self.add_dependant(dependency.path(), asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");

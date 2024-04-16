@@ -1,11 +1,9 @@
-#![allow(clippy::undocumented_unsafe_blocks)]
-
 use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingSphere};
 use std::{mem::size_of, sync::Arc};
 
 const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 48;
 
-unsafe impl PersistentGpuBufferable for Arc<[u8]> {
+impl PersistentGpuBufferable for Arc<[u8]> {
     type Metadata = ();
 
     fn size_in_bytes(&self) -> usize {
@@ -17,7 +15,7 @@ unsafe impl PersistentGpuBufferable for Arc<[u8]> {
     }
 }
 
-unsafe impl PersistentGpuBufferable for Arc<[u32]> {
+impl PersistentGpuBufferable for Arc<[u32]> {
     type Metadata = u64;
 
     fn size_in_bytes(&self) -> usize {
@@ -36,7 +34,7 @@ unsafe impl PersistentGpuBufferable for Arc<[u32]> {
     }
 }
 
-unsafe impl PersistentGpuBufferable for Arc<[Meshlet]> {
+impl PersistentGpuBufferable for Arc<[Meshlet]> {
     type Metadata = (u64, u64);
 
     fn size_in_bytes(&self) -> usize {
@@ -64,7 +62,7 @@ unsafe impl PersistentGpuBufferable for Arc<[Meshlet]> {
     }
 }
 
-unsafe impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
+impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
     type Metadata = ();
 
     fn size_in_bytes(&self) -> usize {

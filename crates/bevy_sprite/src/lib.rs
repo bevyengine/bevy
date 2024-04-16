@@ -1,6 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -31,6 +32,8 @@ pub mod prelude {
     };
 }
 
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_transform::TransformSystem;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -43,14 +46,15 @@ pub use texture_slice::*;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
-    view::{NoFrustumCulling, VisibilitySystems},
+    view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -66,6 +70,22 @@ pub enum SpriteSystem {
     ExtractSprites,
     ComputeSlices,
 }
+
+/// A component that marks entities that aren't themselves sprites but become
+/// sprites during rendering.
+///
+/// Right now, this is used for `Text`.
+#[derive(Component, Reflect, Clone, Copy, Debug, Default)]
+#[reflect(Component, Default)]
+pub struct SpriteSource;
+
+/// A convenient alias for `With<Mesh2dHandle>>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithMesh2d = With<Mesh2dHandle>;
+
+/// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -83,7 +103,12 @@ impl Plugin for SpritePlugin {
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
+            .register_type::<SpriteSource>()
+            .add_plugins((
+                Mesh2dRenderPlugin,
+                ColorMaterialPlugin,
+                ExtractComponentPlugin::<SpriteSource>::default(),
+            ))
             .add_systems(
                 PostUpdate,
                 (
@@ -93,10 +118,21 @@ impl Plugin for SpritePlugin {
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
+                    (
+                        check_visibility::<WithMesh2d>,
+                        check_visibility::<WithSprite>,
+                    )
+                        .in_set(VisibilitySystems::CheckVisibility)
+                        .after(VisibilitySystems::CalculateBounds)
+                        .after(VisibilitySystems::UpdateOrthographicFrusta)
+                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
+                        .after(VisibilitySystems::UpdateProjectionFrusta)
+                        .after(VisibilitySystems::VisibilityPropagate)
+                        .after(TransformSystem::TransformPropagate),
                 ),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
@@ -124,7 +160,7 @@ impl Plugin for SpritePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpritePipeline>();
         }
     }
@@ -179,6 +215,18 @@ pub fn calculate_bounds_2d(
     }
 }
 
+impl ExtractComponent for SpriteSource {
+    type QueryData = ();
+
+    type QueryFilter = With<SpriteSource>;
+
+    type Out = SpriteSource;
+
+    fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(SpriteSource)
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -205,11 +253,14 @@ mod test {
         app.add_systems(Update, calculate_bounds_2d);
 
         // Add entities
-        let entity = app.world.spawn((Sprite::default(), image_handle)).id();
+        let entity = app
+            .world_mut()
+            .spawn((Sprite::default(), image_handle))
+            .id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -219,7 +270,7 @@ mod test {
 
         // Verify the AABB exists
         assert!(app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -244,7 +295,7 @@ mod test {
 
         // Add entities
         let entity = app
-            .world
+            .world_mut()
             .spawn((
                 Sprite {
                     custom_size: Some(Vec2::ZERO),
@@ -259,7 +310,7 @@ mod test {
 
         // Get the initial AABB
         let first_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
@@ -267,7 +318,7 @@ mod test {
 
         // Change `custom_size` of sprite
         let mut binding = app
-            .world
+            .world_mut()
             .get_entity_mut(entity)
             .expect("Could not find entity");
         let mut sprite = binding
@@ -280,7 +331,7 @@ mod test {
 
         // Get the re-calculated AABB
         let second_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()

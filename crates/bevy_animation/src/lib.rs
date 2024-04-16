@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -38,7 +39,6 @@ use graph::{AnimationGraph, AnimationNodeIndex};
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
-use sha1_smol::Sha1;
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
@@ -128,7 +128,7 @@ impl VariableCurve {
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
         // Subtract one for zero indexing!
-        let last_keyframe = self.keyframes.len() - 1;
+        let last_keyframe = self.keyframe_timestamps.len() - 1;
 
         // We want to find the index of the keyframe before the current time
         // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
@@ -1159,10 +1159,12 @@ impl AnimationTargetId {
     /// Typically, this will be the path from the animation root to the
     /// animation target (e.g. bone) that is to be animated.
     pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
-        let mut sha1 = Sha1::new();
-        sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        names.for_each(|name| sha1.update(name.as_bytes()));
-        let hash = sha1.digest().bytes()[0..16].try_into().unwrap();
+        let mut blake3 = blake3::Hasher::new();
+        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        for name in names {
+            blake3.update(name.as_bytes());
+        }
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
         Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
     }
 

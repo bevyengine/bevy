@@ -1,8 +1,9 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
+    LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -21,7 +22,7 @@ use bevy_ecs::{
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -32,7 +33,7 @@ use bevy_utils::tracing::error;
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -43,18 +44,20 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos3d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
-                    .after(prepare_assets::<LineGizmo>),
+                    .after(prepare_assets::<GpuLineGizmo>),
             );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -276,10 +279,10 @@ fn queue_line_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,
@@ -359,10 +362,10 @@ fn queue_line_joint_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent3d>,
+        &mut SortedRenderPhase<Transparent3d>,
         Option<&RenderLayers>,
         (
             Has<NormalPrepass>,

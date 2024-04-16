@@ -11,12 +11,13 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy_render::batching::no_gpu_preprocessing::{
+    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
+    BatchedInstanceBuffer,
+};
+use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
-    batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
-    },
+    batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
@@ -93,7 +94,7 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
@@ -101,12 +102,15 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_render_phase::<Transparent2d, Mesh2dPipeline>
+                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }
@@ -115,10 +119,14 @@ impl Plugin for Mesh2dRenderPlugin {
     fn finish(&self, app: &mut bevy_app::App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
+            let batched_instance_buffer =
+                BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
+
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
@@ -126,9 +134,7 @@ impl Plugin for Mesh2dRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(batched_instance_buffer)
                 .init_resource::<Mesh2dPipeline>();
         }
 
@@ -323,7 +329,7 @@ impl FromWorld for Mesh2dPipeline {
 impl Mesh2dPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -571,9 +577,9 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.binding() {
+    if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
@@ -666,7 +672,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
+    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMesh2dInstances>);
     type ViewQuery = ();
     type ItemQuery = ();
 

@@ -148,7 +148,7 @@ macro_rules! render_resource_wrapper {
 #[macro_export]
 macro_rules! define_atomic_id {
     ($atomic_id_type:ident) => {
-        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
         pub struct $atomic_id_type(core::num::NonZeroU32);
 
         // We use new instead of default to indicate that each ID created will be unique.

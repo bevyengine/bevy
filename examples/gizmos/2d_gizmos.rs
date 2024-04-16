@@ -89,6 +89,12 @@ fn draw_example_collection(
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
         YELLOW,
     );
+
+    // You can create more complex arrows using the arrow builder.
+    gizmos
+        .arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN)
+        .with_double_end()
+        .with_tip_length(10.);
 }
 
 fn update_config(

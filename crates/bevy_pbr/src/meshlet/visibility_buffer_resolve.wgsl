@@ -22,7 +22,7 @@
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
 #import bevy_pbr::{
-    prepass_bindings::previous_view_proj,
+    prepass_bindings::previous_view_uniforms,
     pbr_prepass_functions::calculate_motion_vector,
 }
 #endif
@@ -153,9 +153,9 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let previous_world_position_1 = mesh_position_local_to_world(previous_model, vec4(vertex_1.position, 1.0));
     let previous_world_position_2 = mesh_position_local_to_world(previous_model, vec4(vertex_2.position, 1.0));
     let previous_world_position_3 = mesh_position_local_to_world(previous_model, vec4(vertex_3.position, 1.0));
-    let previous_clip_position_1 = previous_view_proj * vec4(previous_world_position_1.xyz, 1.0);
-    let previous_clip_position_2 = previous_view_proj * vec4(previous_world_position_2.xyz, 1.0);
-    let previous_clip_position_3 = previous_view_proj * vec4(previous_world_position_3.xyz, 1.0);
+    let previous_clip_position_1 = previous_view_uniforms.view_proj * vec4(previous_world_position_1.xyz, 1.0);
+    let previous_clip_position_2 = previous_view_uniforms.view_proj * vec4(previous_world_position_2.xyz, 1.0);
+    let previous_clip_position_3 = previous_view_uniforms.view_proj * vec4(previous_world_position_3.xyz, 1.0);
     let previous_partial_derivatives = compute_partial_derivatives(
         array(previous_clip_position_1, previous_clip_position_2, previous_clip_position_3),
         frag_coord_ndc,

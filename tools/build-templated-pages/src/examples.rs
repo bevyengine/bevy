@@ -58,6 +58,9 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
             if panic_on_missing && metadatas.get(&technical_name).is_none() {
                 panic!("Missing metadata for example {technical_name}");
             }
+            if panic_on_missing && val.get("doc-scrape-examples").is_none() {
+                panic!("Example {technical_name} is missing doc-scrape-examples");
+            }
 
             if metadatas
                 .get(&technical_name)
