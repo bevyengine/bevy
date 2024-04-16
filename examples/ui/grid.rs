@@ -25,15 +25,15 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
-                // Make node fill the entirety it's parent (in this case the window)
+                // Make node fill the entirety its parent (in this case the window)
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 // Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
-                //   - The first column will size to the size of it's contents
+                //   - The first column will size to the size of its contents
                 //   - The second column will take up the remaining available space
                 grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
                 // Set the grid to have 3 rows with sizes [auto, minmax(0, 1fr), 20px]
-                //  - The first row will size to the size of it's contents
+                //  - The first row will size to the size of its contents
                 //  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
                 //  - The third row will be exactly 20px high
                 grid_template_rows: vec![
@@ -190,7 +190,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Create a coloured rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
-/// which will allow it to take it's size from the size of the grid area it occupies.
+/// which will allow it to take its size from the size of the grid area it occupies.
 fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
     builder
         .spawn(NodeBundle {
