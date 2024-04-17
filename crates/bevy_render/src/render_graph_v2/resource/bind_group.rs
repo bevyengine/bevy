@@ -1,6 +1,6 @@
 use bevy_ecs::world::World;
 use bevy_utils::HashMap;
-use wgpu::BindGroupLayoutEntry;
+use wgpu::{BindGroupLayoutEntry, TextureView};
 
 use crate::{
     prelude::Image,

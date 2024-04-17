@@ -7,7 +7,10 @@ use std::{any::TypeId, marker::PhantomData};
 
 use crate::{
     render_graph::InternedRenderLabel,
-    render_resource::{BindGroup, Buffer, PipelineCache, Texture},
+    render_resource::{
+        BindGroup, Buffer, ComputePipeline, PipelineCache, RenderPipeline, Sampler, Texture,
+        TextureView,
+    },
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{
@@ -19,10 +22,12 @@ use bevy_ecs::{
 use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
 
 use resource::{
-    bind_group::RenderBindGroups, pipeline::RenderGraphPipelines, IntoRenderResource,
-    RenderDependencies, RenderHandle, RenderResource, RenderResourceInit, RenderStore,
-    RetainedRenderResource, RetainedRenderStore, SimpleResourceStore,
+    bind_group::RenderBindGroups, IntoRenderResource, RenderDependencies, RenderHandle,
+    RenderResource, RenderResourceInit, RenderStore, RetainedRenderResource, RetainedRenderStore,
+    SimpleResourceStore,
 };
+
+use self::resource::{texture::RenderGraphSamplers, CachedResourceStore};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -45,8 +50,11 @@ pub struct RenderGraph {
     // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     bind_groups: RenderBindGroups,
     textures: SimpleResourceStore<Texture>,
+    views: SimpleResourceStore<TextureView>,
+    samplers: CachedResourceStore<Sampler>,
     buffers: SimpleResourceStore<Buffer>,
-    pipelines: RenderGraphPipelines,
+    render_pipelines: CachedResourceStore<RenderPipeline>,
+    compute_pipelines: CachedResourceStore<ComputePipeline>,
 }
 
 impl RenderGraph {
@@ -90,6 +98,21 @@ impl<'a> RenderGraphBuilder<'a> {
         <R::Resource as RenderResource>::get_store_mut(self.graph).insert(
             next_id,
             resource.into_render_resource(self.world, self.render_device),
+            self.world,
+            self.render_device,
+        );
+        self.graph.next_id += 1;
+        RenderHandle::new(next_id)
+    }
+
+    pub fn import_resource<R: RenderResource>(&mut self, resource: R::Data) -> RenderHandle<R> {
+        let next_id: u16 = self.graph.next_id;
+        R::get_store_mut(self.graph).insert(
+            next_id,
+            RenderResourceInit::Eager(resource::RenderResourceMeta {
+                descriptor: None,
+                resource,
+            }),
             self.world,
             self.render_device,
         );

@@ -1,11 +1,10 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use bevy_ecs::world::World;
 use bevy_utils::{all_tuples, HashMap, HashSet};
+use std::hash::Hash;
 
-use crate::{
-    render_graph::InternedRenderLabel, render_resource::PipelineCache, renderer::RenderDevice,
-};
+use crate::{render_graph::InternedRenderLabel, render_resource::Texture, renderer::RenderDevice};
 
 use bind_group::RenderBindGroup;
 
@@ -61,6 +60,7 @@ where
 {
 }
 
+#[derive(Clone)]
 pub struct RenderResourceMeta<R: RenderResource> {
     pub(super) descriptor: Option<R::Descriptor>,
     pub(super) resource: R::Data,
@@ -117,6 +117,75 @@ impl<R: RenderResource> RenderStore<R> for SimpleResourceStore<R> {
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
         for (key, init) in self.queued_resources.drain() {
             self.current_resources.insert(key, (init)(world, device));
+        }
+    }
+}
+
+pub struct CachedResourceStore<R: RenderResource>
+where
+    R::Descriptor: Clone + Hash + Eq,
+{
+    resources: HashMap<u16, Arc<RenderResourceMeta<R>>>,
+    queued_resources: HashMap<u16, DeferredResourceInit<R>>,
+    cached_resources: HashMap<R::Descriptor, Arc<RenderResourceMeta<R>>>,
+}
+
+impl<R: RenderResource> RenderStore<R> for CachedResourceStore<R>
+where
+    R::Descriptor: Clone + Hash + Eq,
+{
+    fn insert(
+        &mut self,
+        key: u16,
+        data: RenderResourceInit<R>,
+        world: &World,
+        render_device: &RenderDevice,
+    ) {
+        match data {
+            RenderResourceInit::FromDescriptor(descriptor) => {
+                let sampler = self
+                    .cached_resources
+                    .entry(descriptor.clone())
+                    .or_insert_with(|| {
+                        let sampler = R::from_descriptor(&descriptor, world, render_device);
+                        Arc::new(RenderResourceMeta {
+                            descriptor: Some(descriptor),
+                            resource: sampler,
+                        })
+                    });
+                self.resources.insert(key, sampler.clone());
+            }
+            RenderResourceInit::Eager(meta) => {
+                if let Some(descriptor) = meta.descriptor.clone() {
+                    let meta = Arc::new(meta);
+                    self.cached_resources
+                        .entry(descriptor)
+                        .or_insert(meta.clone());
+                    self.resources.insert(key, meta);
+                } else {
+                    self.resources.insert(key, Arc::new(meta));
+                };
+            }
+            RenderResourceInit::Deferred(init) => {
+                self.queued_resources.insert(key, init);
+            }
+        }
+    }
+
+    fn get<'a>(&'a self, world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>> {
+        self.resources.get(&key).map(|meta| &**meta)
+    }
+
+    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
+        for (key, init) in self.queued_resources.drain() {
+            let meta = (init)(world, device);
+            if let Some(descriptor) = meta.descriptor.clone() {
+                self.cached_resources
+                    .entry(descriptor)
+                    .or_insert(Arc::new(meta));
+            } else {
+                self.resources.insert(key, Arc::new(meta));
+            }
         }
     }
 }
@@ -191,6 +260,8 @@ impl<R: RenderResource> RenderHandle<R> {
         self.id.generation == 0
     }
 }
+
+impl RenderHandle<Texture> {}
 
 impl<T: RenderResource> Clone for RenderHandle<T> {
     fn clone(&self) -> Self {
