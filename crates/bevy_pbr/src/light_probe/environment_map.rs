@@ -330,13 +330,13 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
 }
 
 impl LightProbeComponent for EnvironmentMapLight {
-    type AssetId = EnvironmentMapIds;
+    type AssetKey = EnvironmentMapIds;
 
     // Information needed to render with the environment map attached to the
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
+    fn key(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetKey> {
         if let (Some(diffuse), Some(specular)) = (
             image_assets.get_key(&self.diffuse_map),
             image_assets.get_key(&self.specular_map),

@@ -476,10 +476,10 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
 
-        let Some(&material_asset_id) = material_instances.get(&item.entity()) else {
+        let Some(&material_asset_key) = material_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(material) = materials.get_with_key(material_asset_id) else {
+        let Some(material) = materials.get_with_key(material_asset_key) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
@@ -698,7 +698,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in visible_entities.iter::<WithMesh>() {
-            let Some(&material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(&material_asset_key) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
@@ -708,7 +708,7 @@ pub fn queue_material_meshes<M: Material>(
             let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                 continue;
             };
-            let Some(material) = render_materials.get_with_key(material_asset_id) else {
+            let Some(material) = render_materials.get_with_key(material_asset_key) else {
                 continue;
             };
 

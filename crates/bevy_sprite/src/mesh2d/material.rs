@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
+use bevy_asset::{Asset, AssetApp, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
@@ -12,9 +12,13 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
+    extract_instances::{
+        PendingRenderAssets, SetRenderAssetKey, UpdatePendingRenderAssetKeyPlugin,
+    },
     mesh::{GpuMesh, MeshVertexBufferLayoutRef},
     render_asset::{
-        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetKey, RenderAssetPlugin,
+        RenderAssets,
     },
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -31,7 +35,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
+use bevy_utils::{slotmap::Key, tracing::error};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -148,8 +152,15 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
+        app.init_asset::<M>().add_plugins(
+            (
+                RenderAssetPlugin::<PreparedMaterial2d<M>>::default(),
+                UpdatePendingRenderAssetKeyPlugin::<
+                    PreparedMaterial2d<M>,
+                    RenderMaterial2dInstances<M>,
+                >::default(),
+            ),
+        );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -174,22 +185,44 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d> {
+    #[deref]
+    map: EntityHashMap<RenderAssetKey>,
+    marker: PhantomData<M>,
+}
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            map: Default::default(),
+            marker: Default::default(),
+        }
+    }
+}
+
+impl<M: Material2d> SetRenderAssetKey for RenderMaterial2dInstances<M> {
+    fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
+        self.insert(entity, key);
     }
 }
 
 fn extract_material_meshes_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
+    mut pending_render_assets: ResMut<PendingRenderAssets<PreparedMaterial2d<M>>>,
+    render_assets: Res<RenderAssets<PreparedMaterial2d<M>>>,
     query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
 ) {
     material_instances.clear();
     for (entity, view_visibility, handle) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, handle.id());
+            let Some(key) = render_assets.get_key(handle.id()) else {
+                pending_render_assets
+                    .entry(handle.id())
+                    .or_default()
+                    .push(entity);
+                continue;
+            };
+            material_instances.insert(entity, key);
         }
     }
 }
@@ -337,10 +370,10 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&item.entity()) else {
+        let Some(&material_instance) = material_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(material2d) = materials.get(*material_instance) else {
+        let Some(material2d) = materials.get_with_key(material_instance) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
@@ -404,13 +437,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
             }
         }
         for visible_entity in visible_entities.iter::<WithMesh2d>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(&material_asset_key) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(material2d) = render_materials.get(*material_asset_id) else {
+            let Some(material2d) = render_materials.get_with_key(material_asset_key) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {

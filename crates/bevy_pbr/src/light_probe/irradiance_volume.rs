@@ -316,13 +316,13 @@ pub(crate) fn get_bind_group_layout_entries(
 }
 
 impl LightProbeComponent for IrradianceVolume {
-    type AssetId = RenderAssetKey;
+    type AssetKey = RenderAssetKey;
 
     // Irradiance volumes can't be attached to the view, so we store nothing
     // here.
     type ViewLightProbeInfo = ();
 
-    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
+    fn key(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetKey> {
         image_assets.get_key(&self.voxels)
     }
 

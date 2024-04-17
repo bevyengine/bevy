@@ -193,12 +193,12 @@ where
     // See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
 
-    // The IDs of all assets associated with this light probe.
+    // The keys of all assets associated with this light probe.
     //
     // Because each type of light probe component may reference different types
     // of assets (e.g. a reflection probe references two cubemap assets while an
     // irradiance volume references a single 3D texture asset), this is generic.
-    asset_id: C::AssetId,
+    asset_key: C::AssetKey,
 }
 
 /// A component, part of the render world, that stores the mapping from asset ID
@@ -218,11 +218,11 @@ where
     C: LightProbeComponent,
 {
     /// The list of environment maps presented to the shader, in order.
-    binding_index_to_textures: Vec<C::AssetId>,
+    binding_index_to_textures: Vec<C::AssetKey>,
 
-    /// The reverse of `binding_index_to_cubemap`: a map from the texture ID to
-    /// the index in `binding_index_to_cubemap`.
-    cubemap_to_binding_index: HashMap<C::AssetId, u32>,
+    /// The reverse of `binding_index_to_cubemap`: a map from the texture asset
+    /// key to the index in `binding_index_to_cubemap`.
+    cubemap_to_binding_index: HashMap<C::AssetKey, u32>,
 
     /// Information about each light probe, ready for upload to the GPU, sorted
     /// in order from closest to the camera to farthest.
@@ -259,8 +259,8 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     ///
     /// This can just be [`RenderAssetKey`] if the light probe only references one
     /// texture. If it references multiple textures, it will be a structure
-    /// containing those asset IDs.
-    type AssetId: Send + Sync + Clone + Eq + Hash;
+    /// containing those asset keys.
+    type AssetKey: Send + Sync + Clone + Eq + Hash;
 
     /// If the light probe can be attached to the view itself (as opposed to a
     /// cuboid region within the scene), this contains the information that will
@@ -271,9 +271,9 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// attached directly to views.
     type ViewLightProbeInfo: Send + Sync + Default;
 
-    /// Returns the asset ID or asset IDs of the texture or textures referenced
+    /// Returns the asset key or asset keys of the texture or textures referenced
     /// by this light probe.
-    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId>;
+    fn key(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetKey>;
 
     /// Returns the intensity of this light probe.
     ///
@@ -522,10 +522,10 @@ where
         (light_probe_transform, environment_map): (&GlobalTransform, &C),
         image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
-        environment_map.id(image_assets).map(|id| LightProbeInfo {
+        environment_map.key(image_assets).map(|key| LightProbeInfo {
             affine_transform: light_probe_transform.affine(),
             inverse_transform: light_probe_transform.compute_matrix().inverse(),
-            asset_id: id,
+            asset_key: key,
             intensity: environment_map.intensity(),
         })
     }
@@ -580,7 +580,7 @@ where
 
     /// Adds a cubemap to the list of bindings, if it wasn't there already, and
     /// returns its index within that list.
-    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &C::AssetId) -> u32 {
+    pub(crate) fn get_or_insert_cubemap(&mut self, cubemap_id: &C::AssetKey) -> u32 {
         *self
             .cubemap_to_binding_index
             .entry((*cubemap_id).clone())
@@ -608,7 +608,7 @@ where
     fn maybe_gather_light_probes(&mut self, light_probes: &[LightProbeInfo<C>]) {
         for light_probe in light_probes.iter().take(MAX_VIEW_LIGHT_PROBES) {
             // Determine the index of the cubemap in the binding array.
-            let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
+            let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_key);
 
             // Transpose the inverse transform to compress the structure on the
             // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
@@ -638,7 +638,7 @@ where
             inverse_transform: self.inverse_transform,
             affine_transform: self.affine_transform,
             intensity: self.intensity,
-            asset_id: self.asset_id.clone(),
+            asset_key: self.asset_key.clone(),
         }
     }
 }

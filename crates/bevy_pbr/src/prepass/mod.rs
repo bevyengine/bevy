@@ -776,14 +776,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         for visible_entity in visible_entities.iter::<WithMesh>() {
-            let Some(&material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(&material_asset_key) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get_with_key(material_asset_id) else {
+            let Some(material) = render_materials.get_with_key(material_asset_key) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {

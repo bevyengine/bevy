@@ -1663,10 +1663,10 @@ pub fn queue_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(&material_asset_id) = render_material_instances.get(&entity) else {
+                let Some(&material_asset_key) = render_material_instances.get(&entity) else {
                     continue;
                 };
-                let Some(material) = render_materials.get_with_key(material_asset_id) else {
+                let Some(material) = render_materials.get_with_key(material_asset_key) else {
                     continue;
                 };
                 let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) else {
