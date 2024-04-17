@@ -1,9 +1,9 @@
 use crate::serde::SerializationData;
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
+    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
+    Reflect, ReflectDeserialize, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
+    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -582,6 +582,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
+            TypeInfo::Set(set_info) => {
+                let mut dynamic_set = deserializer.deserialize_set(SetVisitor {
+                    set_info,
+                    registry: self.registry,
+                })?;
+                dynamic_set.set_represented_type(Some(self.registration.type_info()));
+                Ok(Box::new(dynamic_set))
+            }
             TypeInfo::Tuple(tuple_info) => {
                 let mut dynamic_tuple = deserializer.deserialize_tuple(
                     tuple_info.field_len(),
@@ -814,6 +822,44 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         }
 
         Ok(dynamic_map)
+    }
+}
+
+struct SetVisitor<'a> {
+    set_info: &'static SetInfo,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
+    type Value = DynamicSet;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("reflected set value")
+    }
+
+    fn visit_seq<V>(self, mut set: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut dynamic_set = DynamicSet::default();
+        let key_registration = get_registration(
+            self.set_info.key_type_id(),
+            self.set_info.key_type_path_table().path(),
+            self.registry,
+        )?;
+        let value_registration = get_registration(
+            self.set_info.value_type_id(),
+            self.set_info.value_type_path_table().path(),
+            self.registry,
+        )?;
+        while let Some(value) = set.next_element_seed(TypedReflectDeserializer {
+            registration: key_registration,
+            registry: self.registry,
+        })? {
+            dynamic_set.insert(value);
+        }
+
+        Ok(dynamic_set)
     }
 }
 
