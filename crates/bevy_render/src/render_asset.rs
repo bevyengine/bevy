@@ -247,7 +247,7 @@ impl<A: RenderAsset> RenderAssets<A> {
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A::SourceAsset>, &A)> {
         self.id_to_key.iter().filter_map(|(&id, &key)| {
             self.get_with_key(key)
-                .and_then(|prepared_asset| Some((id, prepared_asset)))
+                .map(|prepared_asset| (id, prepared_asset))
         })
     }
 }
