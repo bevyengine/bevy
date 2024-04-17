@@ -35,7 +35,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{slotmap::Key, tracing::error};
+use bevy_utils::tracing::error;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
