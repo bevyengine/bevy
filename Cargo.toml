@@ -343,6 +343,7 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
+async-channel = "2.2.1"
 argh = "0.1.12"
 thiserror = "1.0"
 
@@ -1214,6 +1215,17 @@ doc-scrape-examples = true
 [package.metadata.example.no_renderer]
 name = "No Renderer"
 description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "headless_renderer"
+path = "examples/app/headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_renderer]
+name = "Headless Renderer"
+description = "An application that runs with no window, but renders into image file"
 category = "Application"
 wasm = false
 
