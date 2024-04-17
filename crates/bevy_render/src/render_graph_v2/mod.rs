@@ -17,12 +17,12 @@ use bevy_ecs::{
     world::{EntityRef, Ref, World},
 };
 use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
-use resource::{
-    pipeline::RenderGraphPipelines, IntoRenderResource, RenderDependencies, RenderHandle,
-    RenderResource, RenderStore, SimpleResourceStore,
-};
 
-use self::resource::{RenderResourceId, RetainedRenderResource, RetainedRenderStore};
+use resource::{
+    bind_group::RenderBindGroups, pipeline::RenderGraphPipelines, IntoRenderResource,
+    RenderDependencies, RenderHandle, RenderResource, RenderResourceInit, RenderStore,
+    RetainedRenderResource, RetainedRenderStore, SimpleResourceStore,
+};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -43,7 +43,7 @@ pub struct RenderGraph {
     // bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
     // resources: HashMap<RenderGraphResourceId, Texture>,
     // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
-    bind_groups: (),
+    bind_groups: RenderBindGroups,
     textures: SimpleResourceStore<Texture>,
     buffers: SimpleResourceStore<Buffer>,
     pipelines: RenderGraphPipelines,
@@ -90,15 +90,11 @@ impl<'a> RenderGraphBuilder<'a> {
         <R::Resource as RenderResource>::get_store_mut(self.graph).insert(
             next_id,
             resource.into_render_resource(self.world, self.render_device),
+            self.world,
+            self.render_device,
         );
         self.graph.next_id += 1;
-        RenderHandle {
-            id: RenderResourceId {
-                index: next_id,
-                generation: 0,
-            },
-            data: PhantomData,
-        }
+        RenderHandle::new(next_id)
     }
 
     pub fn get_descriptor_of<R: RenderResource>(
@@ -106,7 +102,7 @@ impl<'a> RenderGraphBuilder<'a> {
         resource: RenderHandle<R>,
     ) -> Option<&R::Descriptor> {
         R::get_store(self.graph)
-            .get(self.world, resource.id.index)
+            .get(self.world, resource.index())
             .and_then(|meta| meta.descriptor.as_ref())
     }
 
@@ -115,14 +111,14 @@ impl<'a> RenderGraphBuilder<'a> {
             .expect("No descriptor found for resource")
     }
 
-    pub fn mark_retain<R: RetainedRenderResource>(
+    pub fn retain<R: RetainedRenderResource>(
         &mut self,
         label: InternedRenderLabel,
         resource: RenderHandle<R>,
     ) where
         R::Store: RetainedRenderStore<R>,
     {
-        todo!()
+        R::get_store_mut(self.graph).retain(resource.index(), label);
     }
 
     pub fn get_retained<R: RetainedRenderResource>(
@@ -132,7 +128,17 @@ impl<'a> RenderGraphBuilder<'a> {
     where
         R::Store: RetainedRenderStore<R>,
     {
-        todo!()
+        let next_id: u16 = self.graph.next_id;
+        let store = R::get_store_mut(self.graph);
+        let res = store.get_retained(label)?;
+        store.insert(
+            next_id,
+            RenderResourceInit::Eager(res),
+            self.world,
+            self.render_device,
+        );
+        self.graph.next_id += 1;
+        Some(RenderHandle::new(next_id))
     }
 
     pub fn new_bind_group<B: AsRenderBindGroup>(&mut self, desc: B) -> RenderBindGroup {
@@ -149,11 +155,11 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 
     pub fn features(&self) -> wgpu::Features {
-        todo!()
+        self.render_device.features()
     }
 
     pub fn limits(&self) -> wgpu::Limits {
-        todo!()
+        self.render_device.limits()
     }
 }
 
@@ -199,13 +205,13 @@ pub struct NodeContext<'a> {
 }
 
 impl<'a> NodeContext<'a> {
-    pub fn get<R: RenderResource>(&self, resource: RenderHandle<R>) -> &'a R {
-        if !self.dependencies.contains_resource(resource) {
+    pub fn get<R: RenderResource>(&self, resource: &RenderHandle<R>) -> &'a R {
+        if !self.dependencies.contains_resource(&resource) {
             panic!("Attempted to access a Render Resource of type {:?} not included in the node's dependencies", TypeId::of::<R>())
         }
 
         R::get_store(self.graph)
-            .get(self.world, resource.id.index)
+            .get(self.world, resource.index())
             .and_then(|meta| R::from_data(&meta.resource, self.world))
             .expect("Could not resolve render resource")
     }

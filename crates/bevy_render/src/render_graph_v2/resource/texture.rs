@@ -28,6 +28,14 @@ impl RenderResource for Texture {
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
         Some(data)
     }
+
+    fn from_descriptor(
+        descriptor: &Self::Descriptor,
+        world: &World,
+        render_device: &RenderDevice,
+    ) -> Self::Data {
+        render_device.create_texture(descriptor)
+    }
 }
 
 impl WriteRenderResource for Texture {}
@@ -59,8 +67,9 @@ pub fn new_texture_with_data(
 ) -> RenderHandle<Texture> {
     let size = descriptor.size;
     let mut tex = graph.new_resource(descriptor);
+    let t1 = tex.clone();
     graph.add_node(render_deps(&mut tex), move |ctx, _, queue| {
-        queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
+        queue.write_texture(ctx.get(&t1).as_image_copy(), data, data_layout, size);
     });
     tex
 }

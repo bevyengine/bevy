@@ -1,3 +1,4 @@
+use bevy_ecs::world::World;
 use bevy_utils::HashMap;
 use wgpu::BindGroupLayoutEntry;
 
@@ -7,13 +8,14 @@ use crate::{
     render_graph_v2::NodeContext,
     render_resource::{AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout},
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
 };
 
+#[derive(Default)]
 pub struct RenderBindGroups {
     layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
     bind_groups: HashMap<RenderBindGroup, BindGroup>,
-    queued_bind_groups: HashMap<RenderBindGroup, ()>, //todo: bind group job type;
+    queued_bind_groups: HashMap<RenderBindGroup, Box<dyn AsRenderBindGroup>>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -21,7 +23,7 @@ pub struct RenderBindGroup {
     id: u16,
 }
 
-pub trait AsRenderBindGroup {
+pub trait AsRenderBindGroup: Send + Sync + 'static {
     fn label(&self) -> Option<&'static str>;
 
     fn bind_group_layout(&self, render_device: &RenderDevice) -> BindGroupLayout {
@@ -34,12 +36,12 @@ pub trait AsRenderBindGroup {
     fn bind_group(
         self,
         node_context: NodeContext,
-        layout: &BindGroupLayout,
         render_device: &RenderDevice,
+        layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError>;
 }
 
-impl<B: AsBindGroup> AsRenderBindGroup for B {
+impl<B: AsBindGroup + Send + Sync + 'static> AsRenderBindGroup for B {
     fn label(&self) -> Option<&'static str> {
         <B as AsBindGroup>::label()
     }
@@ -51,32 +53,31 @@ impl<B: AsBindGroup> AsRenderBindGroup for B {
     fn bind_group(
         self,
         node_context: NodeContext,
-        layout: &BindGroupLayout,
         render_device: &RenderDevice,
+        layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
-        // let images = node_context
-        //     .get_world_resource::<RenderAssets<Image>>()
-        //     .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        // let fallback_image = node_context
-        //     .get_world_resource::<FallbackImage>()
-        //     .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        // Ok(
-        //     <B as AsBindGroup>::as_bind_group(
-        //         &self,
-        //         layout,
-        //         render_device,
-        //         images,
-        //         fallback_image,
-        //     )?
-        //     .bind_group,
-        // )
-        todo!()
+        let images = node_context
+            .get_world_resource::<RenderAssets<GpuImage>>()
+            .ok_or(AsBindGroupError::RetryNextUpdate)?;
+        let fallback_image = node_context
+            .get_world_resource::<FallbackImage>()
+            .ok_or(AsBindGroupError::RetryNextUpdate)?;
+        Ok(
+            <B as AsBindGroup>::as_bind_group(
+                &self,
+                layout,
+                render_device,
+                images,
+                fallback_image,
+            )?
+            .bind_group,
+        )
     }
 }
 
 impl<
-        F: FnOnce(NodeContext, &BindGroupLayout, &RenderDevice) -> Result<BindGroup, AsBindGroupError>,
-    > AsRenderBindGroup for (&'static str, &[BindGroupLayoutEntry], F)
+        F: FnOnce(NodeContext, &RenderDevice, &BindGroupLayout) -> BindGroup + Send + Sync + 'static,
+    > AsRenderBindGroup for (&'static str, &'static [BindGroupLayoutEntry], F)
 {
     fn label(&self) -> Option<&'static str> {
         Some(self.0)
@@ -94,16 +95,16 @@ impl<
     fn bind_group(
         self,
         node_context: NodeContext,
-        layout: &BindGroupLayout,
         render_device: &RenderDevice,
+        layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
-        (self.2)(node_context, layout, render_device)
+        Ok((self.2)(node_context, render_device, layout))
     }
 }
 
 impl<
-        F: FnOnce(NodeContext, &BindGroupLayout, &RenderDevice) -> Result<BindGroup, AsBindGroupError>,
-    > AsRenderBindGroup for (&[BindGroupLayoutEntry], F)
+        F: FnOnce(NodeContext, &RenderDevice, &BindGroupLayout) -> BindGroup + Send + Sync + 'static,
+    > AsRenderBindGroup for (&'static [BindGroupLayoutEntry], F)
 {
     fn label(&self) -> Option<&'static str> {
         None
@@ -121,9 +122,9 @@ impl<
     fn bind_group(
         self,
         node_context: NodeContext,
-        layout: &BindGroupLayout,
         render_device: &RenderDevice,
+        layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
-        (self.1)(node_context, layout, render_device)
+        Ok((self.1)(node_context, render_device, layout))
     }
 }

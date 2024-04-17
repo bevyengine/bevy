@@ -24,14 +24,44 @@ use super::{
 #[derive(Default)]
 pub struct RenderGraphPipelines {
     render_pipelines: HashMap<u16, RenderResourceMeta<RenderPipeline>>,
+    cached_render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
     queued_render_pipelines: HashMap<u16, DeferredResourceInit<RenderPipeline>>,
     compute_pipelines: HashMap<u16, RenderResourceMeta<ComputePipeline>>,
+    cached_compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     queued_compute_pipelines: HashMap<u16, DeferredResourceInit<ComputePipeline>>,
 }
 
 impl RenderStore<RenderPipeline> for RenderGraphPipelines {
-    fn insert(&mut self, key: u16, data: RenderResourceInit<RenderPipeline>) {
-        todo!()
+    fn insert(
+        &mut self,
+        key: u16,
+        data: RenderResourceInit<RenderPipeline>,
+        world: &World,
+        render_device: &RenderDevice,
+    ) {
+        match data {
+            RenderResourceInit::FromDescriptor(descriptor) => {
+                let pipeline_id = self
+                    .cached_render_pipelines
+                    .entry(descriptor.clone())
+                    .or_insert_with(|| {
+                        RenderPipeline::from_descriptor(&descriptor, world, render_device)
+                    });
+                self.render_pipelines.insert(
+                    key,
+                    RenderResourceMeta {
+                        descriptor: Some(descriptor),
+                        resource: *pipeline_id,
+                    },
+                );
+            }
+            RenderResourceInit::Eager(meta) => {
+                self.render_pipelines.insert(key, meta);
+            }
+            RenderResourceInit::Deferred(init) => {
+                self.queued_render_pipelines.insert(key, init);
+            }
+        }
     }
 
     fn get<'a>(
@@ -39,17 +69,47 @@ impl RenderStore<RenderPipeline> for RenderGraphPipelines {
         world: &'a World,
         key: u16,
     ) -> Option<&'a RenderResourceMeta<RenderPipeline>> {
-        todo!()
+        self.render_pipelines.get(&key)
     }
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
-        todo!()
+        for (id, init) in self.queued_render_pipelines.drain() {
+            self.render_pipelines.insert(id, (init)(world, device));
+        }
     }
 }
 
 impl RenderStore<ComputePipeline> for RenderGraphPipelines {
-    fn insert(&mut self, key: u16, data: RenderResourceInit<ComputePipeline>) {
-        todo!()
+    fn insert(
+        &mut self,
+        key: u16,
+        data: RenderResourceInit<ComputePipeline>,
+        world: &World,
+        render_device: &RenderDevice,
+    ) {
+        match data {
+            RenderResourceInit::FromDescriptor(descriptor) => {
+                let pipeline_id = self
+                    .cached_compute_pipelines
+                    .entry(descriptor.clone())
+                    .or_insert_with(|| {
+                        ComputePipeline::from_descriptor(&descriptor, world, render_device)
+                    });
+                self.compute_pipelines.insert(
+                    key,
+                    RenderResourceMeta {
+                        descriptor: Some(descriptor),
+                        resource: *pipeline_id,
+                    },
+                );
+            }
+            RenderResourceInit::Eager(meta) => {
+                self.compute_pipelines.insert(key, meta);
+            }
+            RenderResourceInit::Deferred(init) => {
+                self.queued_compute_pipelines.insert(key, init);
+            }
+        }
     }
 
     fn get<'a>(
@@ -57,11 +117,13 @@ impl RenderStore<ComputePipeline> for RenderGraphPipelines {
         world: &'a World,
         key: u16,
     ) -> Option<&'a RenderResourceMeta<ComputePipeline>> {
-        todo!()
+        self.compute_pipelines.get(&key)
     }
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
-        todo!()
+        for (id, init) in self.queued_compute_pipelines.drain() {
+            self.compute_pipelines.insert(id, (init)(world, device));
+        }
     }
 }
 
@@ -72,6 +134,7 @@ impl RenderGraphPipelines {
         resource: RenderResourceInit<RenderPipeline>,
     ) {
         match resource {
+            RenderResourceInit::FromDescriptor(desc) => todo!(),
             RenderResourceInit::Eager(meta) => {
                 self.render_pipelines.insert(key.index, meta);
             }
@@ -124,6 +187,16 @@ impl RenderResource for RenderPipeline {
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
         world.resource::<PipelineCache>().get_render_pipeline(*data)
     }
+
+    fn from_descriptor(
+        descriptor: &Self::Descriptor,
+        world: &World,
+        _render_device: &RenderDevice,
+    ) -> Self::Data {
+        world
+            .resource::<PipelineCache>()
+            .queue_render_pipeline(descriptor.clone())
+    }
 }
 
 impl RenderResource for ComputePipeline {
@@ -143,6 +216,16 @@ impl RenderResource for ComputePipeline {
         world
             .resource::<PipelineCache>()
             .get_compute_pipeline(*data)
+    }
+
+    fn from_descriptor(
+        descriptor: &Self::Descriptor,
+        world: &World,
+        _render_device: &RenderDevice,
+    ) -> Self::Data {
+        world
+            .resource::<PipelineCache>()
+            .queue_compute_pipeline(descriptor.clone())
     }
 }
 

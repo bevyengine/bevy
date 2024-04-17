@@ -4,6 +4,7 @@ use crate::{
     render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
 };
 use bevy_asset::Handle;
+use std::hash::{Hash, Hasher};
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
@@ -88,7 +89,7 @@ impl Deref for ComputePipeline {
 }
 
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -109,7 +110,21 @@ pub struct RenderPipelineDescriptor {
     pub fragment: Option<FragmentState>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+impl Hash for RenderPipelineDescriptor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        //Note: this hash doesn't include the label. if you in the future are wondering why your
+        //pipeline is showing up with the wrong id it's because of the Render Graph's caching
+        self.layout.hash(state);
+        self.push_constant_ranges.hash(state);
+        self.vertex.hash(state);
+        self.primitive.hash(state);
+        self.depth_stencil.hash(state);
+        self.multisample.hash(state);
+        self.fragment.hash(state);
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -161,7 +176,7 @@ impl VertexBufferLayout {
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -174,7 +189,7 @@ pub struct FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayout>,
@@ -185,4 +200,16 @@ pub struct ComputePipelineDescriptor {
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
+}
+
+impl Hash for ComputePipelineDescriptor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        //Note: this hash doesn't include the label. if you in the future are wondering why your
+        //pipeline is showing up with the wrong id it's because of the Render Graph's caching
+        self.layout.hash(state);
+        self.push_constant_ranges.hash(state);
+        self.shader.hash(state);
+        self.shader_defs.hash(state);
+        self.entry_point.hash(state);
+    }
 }

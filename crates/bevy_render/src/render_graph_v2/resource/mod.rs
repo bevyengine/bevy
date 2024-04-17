@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use bevy_ecs::world::World;
 use bevy_utils::{all_tuples, HashMap, HashSet};
 
-use crate::{render_graph::InternedRenderLabel, renderer::RenderDevice};
+use crate::{
+    render_graph::InternedRenderLabel, render_resource::PipelineCache, renderer::RenderDevice,
+};
 
 use bind_group::RenderBindGroup;
 
@@ -11,7 +13,6 @@ use super::RenderGraph;
 
 pub mod bind_group;
 pub mod buffer;
-mod encoder;
 pub mod pipeline;
 pub mod texture;
 
@@ -24,10 +25,22 @@ pub trait RenderResource: Sized + Send + Sync + 'static {
     fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
+
+    fn from_descriptor(
+        descriptor: &Self::Descriptor,
+        world: &World,
+        render_device: &RenderDevice,
+    ) -> Self::Data;
 }
 
 pub trait RenderStore<R: RenderResource>: Send + Sync + 'static {
-    fn insert(&mut self, key: u16, data: RenderResourceInit<R>);
+    fn insert(
+        &mut self,
+        key: u16,
+        data: RenderResourceInit<R>,
+        world: &World,
+        render_device: &RenderDevice,
+    );
 
     fn get<'a>(&'a self, world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>>;
 
@@ -35,9 +48,9 @@ pub trait RenderStore<R: RenderResource>: Send + Sync + 'static {
 }
 
 pub trait RetainedRenderStore<R: RenderResource>: RenderStore<R> {
-    fn mark_retain(&mut self, key: u16, label: InternedRenderLabel);
+    fn retain(&mut self, key: u16, label: InternedRenderLabel);
 
-    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<&RenderResourceMeta<R>>;
+    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>>;
 }
 
 pub trait WriteRenderResource: RenderResource {}
@@ -57,81 +70,74 @@ type DeferredResourceInit<R> =
     Box<dyn FnOnce(&mut World, &RenderDevice) -> RenderResourceMeta<R> + Send + Sync + 'static>;
 
 pub enum RenderResourceInit<R: RenderResource> {
+    FromDescriptor(R::Descriptor),
     Eager(RenderResourceMeta<R>),
     Deferred(DeferredResourceInit<R>),
 }
 
 pub struct SimpleResourceStore<R: RenderResource> {
-    last_frame_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
+    retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
     current_resources: HashMap<u16, RenderResourceMeta<R>>,
     queued_resources: HashMap<u16, DeferredResourceInit<R>>,
-    resources_to_save: HashMap<u16, InternedRenderLabel>,
+    resources_to_retain: HashMap<u16, InternedRenderLabel>,
 }
 
 impl<R: RenderResource> RenderStore<R> for SimpleResourceStore<R> {
-    fn insert(&mut self, key: u16, data: RenderResourceInit<R>) {
-        todo!()
+    fn insert(
+        &mut self,
+        key: u16,
+        data: RenderResourceInit<R>,
+        world: &World,
+        render_device: &RenderDevice,
+    ) {
+        match data {
+            RenderResourceInit::FromDescriptor(descriptor) => {
+                let resource = R::from_descriptor(&descriptor, world, render_device);
+                self.current_resources.insert(
+                    key,
+                    RenderResourceMeta {
+                        descriptor: Some(descriptor),
+                        resource,
+                    },
+                );
+            }
+            RenderResourceInit::Eager(meta) => {
+                self.current_resources.insert(key, meta);
+            }
+            RenderResourceInit::Deferred(init) => {
+                self.queued_resources.insert(key, init);
+            }
+        }
     }
 
-    fn get<'a>(&'a self, world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>> {
-        todo!()
+    fn get<'a>(&'a self, _world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>> {
+        self.current_resources.get(&key)
     }
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
-        todo!()
+        for (key, init) in self.queued_resources.drain() {
+            self.current_resources.insert(key, (init)(world, device));
+        }
     }
 }
 
 impl<R: RenderResource> RetainedRenderStore<R> for SimpleResourceStore<R> {
-    fn mark_retain(&mut self, key: u16, label: InternedRenderLabel) {
-        todo!()
+    fn retain(&mut self, key: u16, label: InternedRenderLabel) {
+        self.resources_to_retain.insert(key, label);
     }
 
-    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<&RenderResourceMeta<R>> {
-        todo!()
+    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>> {
+        self.retained_resources.remove(&label)
     }
 }
 
 impl<R: RenderResource> Default for SimpleResourceStore<R> {
     fn default() -> Self {
         Self {
-            last_frame_resources: Default::default(),
+            retained_resources: Default::default(),
             current_resources: Default::default(),
             queued_resources: Default::default(),
-            resources_to_save: Default::default(),
-        }
-    }
-}
-
-impl<R: RenderResource> SimpleResourceStore<R> {
-    pub fn insert(&mut self, key: RenderResourceId, resource: RenderResourceInit<R>) {
-        match resource {
-            RenderResourceInit::Eager(meta) => {
-                self.current_resources.insert(key.index, meta);
-            }
-            RenderResourceInit::Deferred(init) => {
-                self.queued_resources.insert(key.index, init);
-            }
-        };
-    }
-
-    pub fn init_deferred(&mut self, world: &mut World, render_device: &RenderDevice) {
-        for (id, init) in self.queued_resources.drain() {
-            self.current_resources
-                .insert(id, (init)(world, render_device));
-        }
-    }
-
-    pub fn get_data(&self, key: RenderResourceId) -> Option<&RenderResourceMeta<R>> {
-        self.current_resources.get(&key.index)
-    }
-
-    pub fn reset(&mut self) {
-        self.last_frame_resources.clear();
-        for (id, meta) in self.current_resources.drain() {
-            if let Some(label) = self.resources_to_save.get(&id) {
-                self.last_frame_resources.insert(*label, meta);
-            }
+            resources_to_retain: Default::default(),
         }
     }
 }
@@ -162,14 +168,36 @@ impl<R: RenderResource<Data = R>, F: FnOnce(&RenderDevice) -> R> IntoRenderResou
 }
 
 pub struct RenderHandle<R: RenderResource> {
-    pub(super) id: RenderResourceId,
-    pub(super) data: PhantomData<R>,
+    id: RenderResourceId,
+    data: PhantomData<R>,
 }
 
-impl<T: RenderResource> Copy for RenderHandle<T> {}
+impl<R: RenderResource> RenderHandle<R> {
+    pub(super) fn new(index: u16) -> Self {
+        Self {
+            id: RenderResourceId {
+                index,
+                generation: 0,
+            },
+            data: PhantomData,
+        }
+    }
+
+    pub(super) fn index(&self) -> u16 {
+        self.id.index
+    }
+
+    pub fn is_fresh(&self) -> bool {
+        self.id.generation == 0
+    }
+}
+
 impl<T: RenderResource> Clone for RenderHandle<T> {
     fn clone(&self) -> Self {
-        *self
+        RenderHandle {
+            id: self.id,
+            data: PhantomData,
+        }
     }
 }
 
@@ -222,7 +250,7 @@ impl RenderDependencies {
         self
     }
 
-    pub fn contains_resource<R: RenderResource>(&self, resource: RenderHandle<R>) -> bool {
+    pub fn contains_resource<R: RenderResource>(&self, resource: &RenderHandle<R>) -> bool {
         self.reads.contains(&resource.id) || self.writes.contains(&resource.id)
     }
 

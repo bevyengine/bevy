@@ -4,7 +4,7 @@ use wgpu::BufferDescriptor;
 use crate::{render_graph_v2::RenderGraph, render_resource::Buffer, renderer::RenderDevice};
 
 use super::{
-    IntoRenderResource, RenderResource, RenderResourceId, RenderResourceInit, RenderResourceMeta,
+    IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
     RetainedRenderResource, SimpleResourceStore, WriteRenderResource,
 };
 
@@ -24,6 +24,14 @@ impl RenderResource for Buffer {
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
         Some(data)
     }
+
+    fn from_descriptor(
+        descriptor: &Self::Descriptor,
+        world: &World,
+        render_device: &RenderDevice,
+    ) -> Self::Data {
+        render_device.create_buffer(descriptor)
+    }
 }
 
 impl WriteRenderResource for Buffer {}
@@ -35,10 +43,10 @@ impl IntoRenderResource for BufferDescriptor<'static> {
 
     fn into_render_resource(
         self,
-        _world: &World,
+        world: &World,
         render_device: &RenderDevice,
     ) -> RenderResourceInit<Self::Resource> {
-        let buf = render_device.create_buffer(&self);
+        let buf = Buffer::from_descriptor(&self, world, render_device);
         let meta = RenderResourceMeta {
             descriptor: Some(self),
             resource: buf,
