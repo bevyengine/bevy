@@ -182,6 +182,7 @@ Example | Description
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
+[Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
