@@ -10,10 +10,10 @@ keywords = ["bevy"]
 
 [features]
 multi-threaded = [
-   "dep:blocking", 
-   "dep:concurrent-queue", 
-   "dep:async-channel", 
-   "dep:async-task"
+  "dep:blocking",
+  "dep:concurrent-queue",
+  "dep:async-channel",
+  "dep:async-task",
 ]
 
 [dependencies]
