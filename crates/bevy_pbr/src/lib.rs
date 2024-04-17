@@ -350,15 +350,16 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_visibility::<WithLight>
-                        .in_set(VisibilitySystems::CheckVisibility)
+                    check_directional_light_mesh_visibility
+                        .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
-                        .after(VisibilitySystems::UpdateOrthographicFrusta)
-                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                        .after(VisibilitySystems::UpdateProjectionFrusta)
-                        .after(VisibilitySystems::VisibilityPropagate)
-                        .after(TransformSystem::TransformPropagate),
-                    check_light_mesh_visibility
+                        .after(TransformSystem::TransformPropagate)
+                        .after(SimulationLightSystems::UpdateLightFrusta)
+                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
+                        // because that resets entity `ViewVisibility` for the first view
+                        // which would override any results from this otherwise
+                        .after(VisibilitySystems::CheckVisibility),
+                    check_spot_point_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
