@@ -13,15 +13,15 @@ use crate::{
 };
 
 use super::{
-    render_deps, CachedResourceStore, DeferredResourceInit, IntoRenderResource, RenderHandle,
+    render_deps, CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderHandle,
     RenderResource, RenderResourceInit, RenderResourceMeta, RenderStore, RetainedRenderResource,
-    SimpleResourceStore, WriteRenderResource,
+    SimpleRenderStore, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
     type Descriptor = TextureDescriptor<'static>;
     type Data = Self;
-    type Store = SimpleResourceStore<Self>;
+    type Store = SimpleRenderStore<Self>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         &graph.textures
@@ -83,7 +83,7 @@ pub fn new_texture_with_data(
 impl RenderResource for TextureView {
     type Descriptor = TextureViewDescriptor<'static>;
     type Data = Self;
-    type Store = SimpleResourceStore<TextureView>;
+    type Store = SimpleRenderStore<TextureView>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         todo!()
@@ -109,7 +109,7 @@ impl RenderResource for TextureView {
 impl RenderResource for Sampler {
     type Descriptor = RenderGraphSamplerDescriptor;
     type Data = Self;
-    type Store = CachedResourceStore<Self>;
+    type Store = CachedRenderStore<Self>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         &graph.samplers

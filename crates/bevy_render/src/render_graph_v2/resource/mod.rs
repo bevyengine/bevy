@@ -75,14 +75,14 @@ pub enum RenderResourceInit<R: RenderResource> {
     Deferred(DeferredResourceInit<R>),
 }
 
-pub struct SimpleResourceStore<R: RenderResource> {
+pub struct SimpleRenderStore<R: RenderResource> {
     retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
     current_resources: HashMap<u16, RenderResourceMeta<R>>,
     queued_resources: HashMap<u16, DeferredResourceInit<R>>,
     resources_to_retain: HashMap<u16, InternedRenderLabel>,
 }
 
-impl<R: RenderResource> RenderStore<R> for SimpleResourceStore<R> {
+impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
     fn insert(
         &mut self,
         key: u16,
@@ -121,7 +121,7 @@ impl<R: RenderResource> RenderStore<R> for SimpleResourceStore<R> {
     }
 }
 
-pub struct CachedResourceStore<R: RenderResource>
+pub struct CachedRenderStore<R: RenderResource>
 where
     R::Descriptor: Clone + Hash + Eq,
 {
@@ -130,7 +130,7 @@ where
     cached_resources: HashMap<R::Descriptor, Arc<RenderResourceMeta<R>>>,
 }
 
-impl<R: RenderResource> RenderStore<R> for CachedResourceStore<R>
+impl<R: RenderResource> RenderStore<R> for CachedRenderStore<R>
 where
     R::Descriptor: Clone + Hash + Eq,
 {
@@ -190,7 +190,7 @@ where
     }
 }
 
-impl<R: RenderResource> RetainedRenderStore<R> for SimpleResourceStore<R> {
+impl<R: RenderResource> RetainedRenderStore<R> for SimpleRenderStore<R> {
     fn retain(&mut self, key: u16, label: InternedRenderLabel) {
         self.resources_to_retain.insert(key, label);
     }
@@ -200,7 +200,7 @@ impl<R: RenderResource> RetainedRenderStore<R> for SimpleResourceStore<R> {
     }
 }
 
-impl<R: RenderResource> Default for SimpleResourceStore<R> {
+impl<R: RenderResource> Default for SimpleRenderStore<R> {
     fn default() -> Self {
         Self {
             retained_resources: Default::default(),
@@ -211,7 +211,7 @@ impl<R: RenderResource> Default for SimpleResourceStore<R> {
     }
 }
 
-impl<R: RenderResource> Default for CachedResourceStore<R>
+impl<R: RenderResource> Default for CachedRenderStore<R>
 where
     R::Descriptor: Clone + Hash + Eq,
 {

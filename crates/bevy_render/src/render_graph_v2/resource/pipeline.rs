@@ -16,14 +16,14 @@ use crate::{
 };
 
 use super::{
-    CachedResourceStore, DeferredResourceInit, IntoRenderResource, RenderResource,
-    RenderResourceId, RenderResourceInit, RenderResourceMeta, RenderStore,
+    CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderResource, RenderResourceId,
+    RenderResourceInit, RenderResourceMeta, RenderStore,
 };
 
 impl RenderResource for RenderPipeline {
     type Descriptor = RenderPipelineDescriptor;
     type Data = CachedRenderPipelineId;
-    type Store = CachedResourceStore<Self>;
+    type Store = CachedRenderStore<Self>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         &graph.render_pipelines
@@ -51,7 +51,7 @@ impl RenderResource for RenderPipeline {
 impl RenderResource for ComputePipeline {
     type Descriptor = ComputePipelineDescriptor;
     type Data = CachedComputePipelineId;
-    type Store = CachedResourceStore<Self>;
+    type Store = CachedRenderStore<Self>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         &graph.compute_pipelines

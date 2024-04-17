@@ -24,10 +24,10 @@ use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
 use resource::{
     bind_group::RenderBindGroups, IntoRenderResource, RenderDependencies, RenderHandle,
     RenderResource, RenderResourceInit, RenderStore, RetainedRenderResource, RetainedRenderStore,
-    SimpleResourceStore,
+    SimpleRenderStore,
 };
 
-use resource::CachedResourceStore;
+use resource::CachedRenderStore;
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -49,12 +49,12 @@ pub struct RenderGraph {
     // resources: HashMap<RenderGraphResourceId, Texture>,
     // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     bind_groups: RenderBindGroups,
-    textures: SimpleResourceStore<Texture>,
-    views: SimpleResourceStore<TextureView>,
-    samplers: CachedResourceStore<Sampler>,
-    buffers: SimpleResourceStore<Buffer>,
-    render_pipelines: CachedResourceStore<RenderPipeline>,
-    compute_pipelines: CachedResourceStore<ComputePipeline>,
+    textures: SimpleRenderStore<Texture>,
+    views: SimpleRenderStore<TextureView>,
+    samplers: CachedRenderStore<Sampler>,
+    buffers: SimpleRenderStore<Buffer>,
+    render_pipelines: CachedRenderStore<RenderPipeline>,
+    compute_pipelines: CachedRenderStore<ComputePipeline>,
 }
 
 impl RenderGraph {

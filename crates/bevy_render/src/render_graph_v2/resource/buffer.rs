@@ -5,13 +5,13 @@ use crate::{render_graph_v2::RenderGraph, render_resource::Buffer, renderer::Ren
 
 use super::{
     IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
-    RetainedRenderResource, SimpleResourceStore, WriteRenderResource,
+    RetainedRenderResource, SimpleRenderStore, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
     type Descriptor = BufferDescriptor<'static>;
     type Data = Buffer;
-    type Store = SimpleResourceStore<Self>;
+    type Store = SimpleRenderStore<Self>;
 
     fn get_store(graph: &RenderGraph) -> &Self::Store {
         &graph.buffers
