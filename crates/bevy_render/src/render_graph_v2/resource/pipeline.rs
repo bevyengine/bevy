@@ -16,8 +16,7 @@ use crate::{
 };
 
 use super::{
-    CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderResource, RenderResourceId,
-    RenderResourceInit, RenderResourceMeta, RenderStore,
+    CachedRenderStore, IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
 };
 
 impl RenderResource for RenderPipeline {
@@ -48,6 +47,18 @@ impl RenderResource for RenderPipeline {
     }
 }
 
+impl IntoRenderResource for RenderPipelineDescriptor {
+    type Resource = RenderPipeline;
+
+    fn into_render_resource(
+        self,
+        _world: &World,
+        _render_device: &RenderDevice,
+    ) -> RenderResourceInit<Self::Resource> {
+        RenderResourceInit::FromDescriptor(self)
+    }
+}
+
 impl RenderResource for ComputePipeline {
     type Descriptor = ComputePipelineDescriptor;
     type Data = CachedComputePipelineId;
@@ -75,6 +86,18 @@ impl RenderResource for ComputePipeline {
         world
             .resource::<PipelineCache>()
             .queue_compute_pipeline(descriptor.clone())
+    }
+}
+
+impl IntoRenderResource for ComputePipelineDescriptor {
+    type Resource = ComputePipeline;
+
+    fn into_render_resource(
+        self,
+        _world: &World,
+        _render_device: &RenderDevice,
+    ) -> RenderResourceInit<Self::Resource> {
+        RenderResourceInit::FromDescriptor(self)
     }
 }
 

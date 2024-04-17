@@ -10,6 +10,7 @@ use crate::{
         TextureViewDescriptor,
     },
     renderer::RenderDevice,
+    texture::CachedTexture,
 };
 
 use super::{
