@@ -1,15 +1,10 @@
 use crate::io::AssetSourceId;
-use bevy_reflect::{
-    std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
-    GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath,
-    TypeRegistration, Typed, ValueInfo,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
-    hash::{Hash, Hasher},
+    hash::Hash,
     ops::Deref,
     path::{Path, PathBuf},
 };
@@ -52,7 +47,8 @@ use thiserror::Error;
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
-#[derive(Eq, PartialEq, Hash, Clone, Default)]
+#[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
+#[reflect_value(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
@@ -381,7 +377,7 @@ impl<'a> AssetPath<'a> {
 
     /// Resolves an embedded asset path via concatenation. The result will be an `AssetPath` which
     /// is resolved relative to this path. This is similar in operation to `resolve`, except that
-    /// the the 'file' portion of the base path (that is, any characters after the last '/')
+    /// the 'file' portion of the base path (that is, any characters after the last '/')
     /// is removed before concatenation, in accordance with the behavior specified in
     /// IETF RFC 1808 "Relative URIs".
     ///
@@ -431,34 +427,13 @@ impl<'a> AssetPath<'a> {
                 _ => rpath,
             };
 
-            let mut result_path = PathBuf::new();
-            if !is_absolute && source.is_none() {
-                for elt in base_path.iter() {
-                    if elt == "." {
-                        // Skip
-                    } else if elt == ".." {
-                        if !result_path.pop() {
-                            // Preserve ".." if insufficient matches (per RFC 1808).
-                            result_path.push(elt);
-                        }
-                    } else {
-                        result_path.push(elt);
-                    }
-                }
-            }
-
-            for elt in rpath.iter() {
-                if elt == "." {
-                    // Skip
-                } else if elt == ".." {
-                    if !result_path.pop() {
-                        // Preserve ".." if insufficient matches (per RFC 1808).
-                        result_path.push(elt);
-                    }
-                } else {
-                    result_path.push(elt);
-                }
-            }
+            let mut result_path = if !is_absolute && source.is_none() {
+                base_path
+            } else {
+                PathBuf::new()
+            };
+            result_path.push(rpath);
+            result_path = normalize_path(result_path.as_path());
 
             Ok(AssetPath {
                 source: match source {
@@ -473,10 +448,19 @@ impl<'a> AssetPath<'a> {
 
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
+    ///
+    /// Also strips out anything following a `?` to handle query parameters in URIs
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
-        let extension = file_name[index + 1..].to_lowercase();
+        let mut extension = file_name[index + 1..].to_lowercase();
+
+        // Strip off any query parameters
+        let query = extension.find('?');
+        if let Some(offset) = query {
+            extension.truncate(offset);
+        }
+
         Some(extension)
     }
 
@@ -593,134 +577,23 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     }
 }
 
-// NOTE: We manually implement "reflect value" because deriving Reflect on `AssetPath` breaks dynamic linking
-// See https://github.com/bevyengine/bevy/issues/9747
-// NOTE: This could use `impl_reflect_value` if it supported static lifetimes.
-
-impl GetTypeRegistration for AssetPath<'static> {
-    fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
-        registration
-    }
-}
-
-impl TypePath for AssetPath<'static> {
-    fn type_path() -> &'static str {
-        "bevy_asset::path::AssetPath<'static>"
-    }
-    fn short_type_path() -> &'static str {
-        "AssetPath<'static>"
-    }
-    fn type_ident() -> Option<&'static str> {
-        Some("AssetPath<'static>")
-    }
-    fn crate_name() -> Option<&'static str> {
-        None
-    }
-    fn module_path() -> Option<&'static str> {
-        None
-    }
-}
-impl Typed for AssetPath<'static> {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| {
-            let info = ValueInfo::new::<Self>();
-            TypeInfo::Value(info)
-        })
-    }
-}
-impl Reflect for AssetPath<'static> {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn core::any::Any> {
-        self
-    }
-    #[inline]
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
-    }
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
-        self
-    }
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-    #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-    #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = Reflect::as_any(value);
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+pub(crate) fn normalize_path(path: &Path) -> PathBuf {
+    let mut result_path = PathBuf::new();
+    for elt in path.iter() {
+        if elt == "." {
+            // Skip
+        } else if elt == ".." {
+            if !result_path.pop() {
+                // Preserve ".." if insufficient matches (per RFC 1808).
+                result_path.push(elt);
+            }
         } else {
-            panic!("Value is not {}.", std::any::type_name::<Self>());
+            result_path.push(elt);
         }
     }
-    #[inline]
-    fn set(
-        &mut self,
-        value: Box<dyn bevy_reflect::Reflect>,
-    ) -> Result<(), Box<dyn bevy_reflect::Reflect>> {
-        *self = <dyn bevy_reflect::Reflect>::take(value)?;
-        Ok(())
-    }
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Value
-    }
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
-    }
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
-    }
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
-    }
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
-    }
-    fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = bevy_reflect::utility::reflect_hasher();
-        Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
-        Hash::hash(self, &mut hasher);
-        Some(Hasher::finish(&hasher))
-    }
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = <dyn Reflect>::as_any(value);
-        if let Some(value) = <dyn core::any::Any>::downcast_ref::<Self>(value) {
-            Some(PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
-    }
-    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        ::core::fmt::Debug::fmt(self, f)
-    }
-}
-impl FromReflect for AssetPath<'static> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(Clone::clone(<dyn core::any::Any>::downcast_ref::<
-            AssetPath<'static>,
-        >(<dyn Reflect>::as_any(reflect))?))
-    }
+    result_path
 }
 
 #[cfg(test)]
@@ -1066,5 +939,8 @@ mod tests {
 
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.get_full_extension(), None);
+
+        let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
+        assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
     }
 }

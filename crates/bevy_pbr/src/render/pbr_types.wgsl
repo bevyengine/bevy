@@ -6,7 +6,7 @@ struct StandardMaterial {
     base_color: vec4<f32>,
     emissive: vec4<f32>,
     attenuation_color: vec4<f32>,
-    uv_transform: mat3x2<f32>,
+    uv_transform: mat3x3<f32>,
     perceptual_roughness: f32,
     metallic: f32,
     reflectance: f32,
@@ -51,6 +51,7 @@ const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 1073741824u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED: u32       = 1610612736u; // (3u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD: u32                 = 2147483648u; // (4u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32            = 2684354560u; // (5u32 << 29)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE: u32   = 3221225472u; // (6u32 << 29)
 // ↑ To calculate/verify the values above, use the following playground:
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7792f8dd6fc6a8d4d0b6b1776898a7f4
 
@@ -78,7 +79,7 @@ fn standard_material_new() -> StandardMaterial {
     material.max_relief_mapping_search_steps = 5u;
     material.deferred_lighting_pass_id = 1u;
     // scale 1, translation 0, rotation 0
-    material.uv_transform = mat3x2<f32>(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+    material.uv_transform = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
 
     return material;
 }

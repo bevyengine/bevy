@@ -78,6 +78,12 @@ impl BatchingStrategy {
     }
 }
 
+impl Default for BatchingStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
@@ -109,7 +115,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         {
             // SAFETY:
             // This method can only be called once per instance of QueryParIter,
@@ -123,7 +129,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                     .for_each(func);
             }
         }
-        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
@@ -150,7 +156,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         }
     }
 
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
@@ -160,24 +166,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
+        let id_iter = self.state.matched_storage_ids.iter();
         let max_size = if D::IS_DENSE && F::IS_DENSE {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.world_metadata().storages().tables };
-            self.state
-                .matched_table_ids
-                .iter()
-                .map(|id| tables[*id].entity_count())
+            id_iter
+                // SAFETY: The if check ensures that matched_storage_ids stores TableIds
+                .map(|id| unsafe { tables[id.table_id].entity_count() })
                 .max()
-                .unwrap_or(0)
         } else {
             let archetypes = &self.world.archetypes();
-            self.state
-                .matched_archetype_ids
-                .iter()
-                .map(|id| archetypes[*id].len())
+            id_iter
+                // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
+                .map(|id| unsafe { archetypes[id.archetype_id].len() })
                 .max()
-                .unwrap_or(0)
         };
+        let max_size = max_size.unwrap_or(0);
 
         let batches = thread_count * self.batching_strategy.batches_per_thread;
         // Round up to the nearest batch size.

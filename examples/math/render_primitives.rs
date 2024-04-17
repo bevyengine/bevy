@@ -165,26 +165,18 @@ const TRIANGLE: Triangle2d = Triangle2d {
     ],
 };
 
-const PLANE_2D: Plane2d = Plane2d {
-    normal: Direction2d::Y,
-};
-const PLANE_3D: Plane3d = Plane3d {
-    normal: Direction3d::Y,
-};
+const PLANE_2D: Plane2d = Plane2d { normal: Dir2::Y };
+const PLANE_3D: Plane3d = Plane3d { normal: Dir3::Y };
 
-const LINE2D: Line2d = Line2d {
-    direction: Direction2d::X,
-};
-const LINE3D: Line3d = Line3d {
-    direction: Direction3d::X,
-};
+const LINE2D: Line2d = Line2d { direction: Dir2::X };
+const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Direction2d::X,
+    direction: Dir2::X,
     half_length: BIG_2D,
 };
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Direction3d::X,
+    direction: Dir3::X,
     half_length: BIG_3D,
 };
 
@@ -384,7 +376,7 @@ fn update_text(
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter_mut().for_each(|mut header_text| {
         if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value = new_text.clone();
+            kind.value.clone_from(&new_text);
         };
     });
 }

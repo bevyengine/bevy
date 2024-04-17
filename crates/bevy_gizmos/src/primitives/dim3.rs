@@ -3,12 +3,12 @@
 use super::helpers::*;
 use std::f32::consts::TAU;
 
+use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Direction3d, Line3d,
-    Plane3d, Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus,
 };
-use bevy_math::{Quat, Vec3};
-use bevy_render::color::Color;
+use bevy_math::{Dir3, Quat, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -29,21 +29,21 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
         primitive: P,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
 
 // direction 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Direction3d> for Gizmos<'w, 's, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, T> {
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
         &mut self,
-        primitive: Direction3d,
+        primitive: Dir3,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.arrow(position, position + (rotation * *primitive), color);
     }
@@ -85,14 +85,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T>
         primitive: Sphere,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         SphereBuilder {
             gizmos: self,
             radius: primitive.radius,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -139,7 +139,7 @@ pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     gizmos: &'a mut Gizmos<'w, 's, T>,
 
     // direction of the normal orthogonal to the plane
-    normal: Direction3d,
+    normal: Dir3,
 
     // Rotation of the sphere around the origin in 3D space
     rotation: Quat,
@@ -184,14 +184,14 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T
         primitive: Plane3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
             normal: primitive.normal,
             rotation,
             position,
-            color,
+            color: color.into(),
             axis_count: 4,
             segment_count: 3,
             segment_length: 0.25,
@@ -218,7 +218,7 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
             .map(|angle| Quat::from_axis_angle(normal, angle))
             .for_each(|quat| {
                 let axis_direction = quat * normals_normal;
-                let direction = Direction3d::new_unchecked(axis_direction);
+                let direction = Dir3::new_unchecked(axis_direction);
 
                 // for each axis draw dotted line
                 (0..)
@@ -251,12 +251,13 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T>
         primitive: Line3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let color = color.into();
         let direction = rotation * *primitive.direction;
         self.arrow(position, position + direction, color);
 
@@ -278,7 +279,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's,
         primitive: Segment3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -303,7 +304,7 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive3d<Polyline3d<N>
         primitive: Polyline3d<N>,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -328,7 +329,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'
         primitive: BoxedPolyline3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -355,7 +356,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
         primitive: Cuboid,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -390,6 +391,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
         // lines connecting upper and lower rectangles of the cuboid
         let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
 
+        let color = color.into();
         upper
             .chain(lower)
             .chain(connections)
@@ -439,7 +441,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, 
         primitive: Cylinder,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
@@ -447,7 +449,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, 
             half_height: primitive.half_height,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -536,7 +538,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's,
         primitive: Capsule3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
@@ -544,7 +546,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's,
             half_length: primitive.half_length,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -609,14 +611,36 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     // Color of the cone
     color: Color,
 
-    // Number of segments used to approximate the cone geometry
-    segments: usize,
+    // Number of segments used to approximate the cone base geometry
+    base_segments: usize,
+
+    // Number of segments used to approximate the cone height geometry
+    height_segments: usize,
 }
 
 impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
-    /// Set the number of segments used to approximate the cone geometry.
+    /// Set the number of segments used to approximate the cone geometry for its base and height.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+        self.base_segments = segments;
+        self.height_segments = segments;
+        self
+    }
+
+    /// Set the number of segments to approximate the height of the cone geometry.
+    ///
+    /// `segments` should be a multiple of the value passed to [`Self::height_segments`]
+    /// for the height to connect properly with the base.
+    pub fn base_segments(mut self, segments: usize) -> Self {
+        self.base_segments = segments;
+        self
+    }
+
+    /// Set the number of segments to approximate the height of the cone geometry.
+    ///
+    /// `segments` should be a divisor of the value passed to [`Self::base_segments`]
+    /// for the height to connect properly with the base.
+    pub fn height_segments(mut self, segments: usize) -> Self {
+        self.height_segments = segments;
         self
     }
 }
@@ -629,7 +653,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
         primitive: Cone,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
@@ -637,8 +661,9 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
             height: primitive.height,
             position,
             rotation,
-            color,
-            segments: DEFAULT_NUMBER_SEGMENTS,
+            color: color.into(),
+            base_segments: DEFAULT_NUMBER_SEGMENTS,
+            height_segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
 }
@@ -656,7 +681,8 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
             position,
             rotation,
             color,
-            segments,
+            base_segments,
+            height_segments,
         } = self;
 
         let half_height = *height * 0.5;
@@ -665,7 +691,7 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
         draw_circle_3d(
             gizmos,
             *radius,
-            *segments,
+            *base_segments,
             *rotation,
             *position - *rotation * Vec3::Y * half_height,
             *color,
@@ -673,7 +699,7 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
 
         // connect the base circle with the tip of the cone
         let end = Vec3::Y * half_height;
-        circle_coordinates(*radius, *segments)
+        circle_coordinates(*radius, *height_segments)
             .map(|p| Vec3::new(p.x, -half_height, p.y))
             .map(move |p| [p, end])
             .map(|ps| ps.map(rotate_then_translate_3d(*rotation, *position)))
@@ -725,7 +751,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w
         primitive: ConicalFrustum,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
             gizmos: self,
@@ -734,7 +760,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w
             height: primitive.height,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -837,7 +863,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> 
         primitive: Torus,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,
@@ -845,7 +871,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> 
             major_radius: primitive.major_radius,
             position,
             rotation,
-            color,
+            color: color.into(),
             minor_segments: DEFAULT_NUMBER_SEGMENTS,
             major_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -915,5 +941,34 @@ impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
                     .short_arc_3d_between(center, from, to, *color)
                     .segments(*minor_segments);
             });
+    }
+}
+
+// tetrahedron
+
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: Tetrahedron,
+        position: Vec3,
+        rotation: Quat,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c, d] = primitive
+            .vertices
+            .map(rotate_then_translate_3d(rotation, position));
+
+        let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
+
+        let color = color.into();
+        for (a, b) in lines.into_iter() {
+            self.line(a, b, color);
+        }
     }
 }

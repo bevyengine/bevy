@@ -3,8 +3,13 @@ use crate::{
     path::AssetPath,
 };
 use async_broadcast::RecvError;
-use bevy_log::{error, warn};
 use bevy_tasks::ComputeTaskPool;
+use bevy_utils::tracing::{error, warn};
+#[cfg(feature = "trace")]
+use bevy_utils::{
+    tracing::{info_span, instrument::Instrument},
+    ConditionalSendFuture,
+};
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
@@ -13,7 +18,7 @@ use thiserror::Error;
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
     type_id_to_loaders: TypeIdMap<Vec<usize>>,
-    extension_to_loaders: HashMap<String, Vec<usize>>,
+    extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_name_to_loader: HashMap<&'static str, usize>,
     preregistered_loaders: HashMap<&'static str, usize>,
 }
@@ -30,6 +35,8 @@ impl AssetLoaders {
         let loader_asset_type = TypeId::of::<L::Asset>();
         let loader_asset_type_name = std::any::type_name::<L::Asset>();
 
+        #[cfg(feature = "trace")]
+        let loader = InstrumentedAssetLoader(loader);
         let loader = Arc::new(loader);
 
         let (loader_index, is_new) =
@@ -41,10 +48,10 @@ impl AssetLoaders {
 
         if is_new {
             let mut duplicate_extensions = Vec::new();
-            for extension in loader.extensions() {
+            for extension in AssetLoader::extensions(&*loader) {
                 let list = self
                     .extension_to_loaders
-                    .entry(extension.to_string())
+                    .entry((*extension).into())
                     .or_default();
 
                 if !list.is_empty() {
@@ -105,7 +112,7 @@ impl AssetLoaders {
         for extension in extensions {
             let list = self
                 .extension_to_loaders
-                .entry(extension.to_string())
+                .entry((*extension).into())
                 .or_default();
 
             if !list.is_empty() {
@@ -292,6 +299,34 @@ impl MaybeAssetLoader {
     }
 }
 
+#[cfg(feature = "trace")]
+struct InstrumentedAssetLoader<T>(T);
+
+#[cfg(feature = "trace")]
+impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
+    type Asset = T::Asset;
+    type Settings = T::Settings;
+    type Error = T::Error;
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut crate::io::Reader,
+        settings: &'a Self::Settings,
+        load_context: &'a mut crate::LoadContext,
+    ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
+        let span = info_span!(
+            "asset loading",
+            loader = std::any::type_name::<T>(),
+            asset = load_context.asset_path().to_string(),
+        );
+        self.0.load(reader, settings, load_context).instrument(span)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        self.0.extensions()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -307,12 +342,16 @@ mod tests {
 
     use super::*;
 
+    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct A(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct B(usize);
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
     struct C(usize);
 
@@ -341,21 +380,19 @@ mod tests {
 
         type Error = String;
 
-        fn load<'a>(
+        async fn load<'a>(
             &'a self,
-            _: &'a mut crate::io::Reader,
+            _: &'a mut crate::io::Reader<'_>,
             _: &'a Self::Settings,
-            _: &'a mut crate::LoadContext,
-        ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+            _: &'a mut crate::LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
             self.sender.send(()).unwrap();
 
-            Box::pin(async move {
-                Err(format!(
-                    "Loaded {}:{}",
-                    std::any::type_name::<Self::Asset>(),
-                    N
-                ))
-            })
+            Err(format!(
+                "Loaded {}:{}",
+                std::any::type_name::<Self::Asset>(),
+                N
+            ))
         }
 
         fn extensions(&self) -> &[&str] {

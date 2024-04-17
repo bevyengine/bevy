@@ -1,6 +1,5 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -107,11 +106,8 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<
-        TMap: Map + TypePath,
-        TKey: Hash + Reflect + TypePath,
-        TValue: Reflect + TypePath,
-    >() -> Self {
+    pub fn new<TMap: Map + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
+    {
         Self {
             type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
@@ -586,7 +582,7 @@ mod tests {
         assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
 
-        *value = values[0].to_owned();
+        value.clone_from(&values[0].to_owned());
 
         assert_eq!(
             map.get(&1usize as &dyn Reflect)

@@ -1,7 +1,8 @@
 //! Demonstrates how to work with Cubic curves.
 
 use bevy::{
-    math::{cubic_splines::CubicCurve, vec3},
+    color::palettes::css::{ORANGE, SILVER, WHITE},
+    math::vec3,
     prelude::*,
 };
 
@@ -39,7 +40,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::ORANGE),
+            material: materials.add(Color::from(ORANGE)),
             transform: Transform::from_translation(points[0][0]),
             ..default()
         },
@@ -61,7 +62,7 @@ fn setup(
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
-        material: materials.add(Color::SILVER),
+        material: materials.add(Color::from(SILVER)),
         ..default()
     });
 
@@ -77,7 +78,7 @@ fn animate_cube(time: Res<Time>, mut query: Query<(&mut Transform, &Curve)>, mut
 
     for (mut transform, cubic_curve) in &mut query {
         // Draw the curve
-        gizmos.linestrip(cubic_curve.0.iter_positions(50), Color::WHITE);
+        gizmos.linestrip(cubic_curve.0.iter_positions(50), WHITE);
         // position takes a point from the curve where 0 is the initial point
         // and 1 is the last point
         transform.translation = cubic_curve.0.position(t);

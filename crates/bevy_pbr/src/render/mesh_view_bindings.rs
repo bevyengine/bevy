@@ -17,18 +17,12 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
+    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
-#[cfg(any(
-    not(feature = "webgl"),
-    not(target_arch = "wasm32"),
-    feature = "webgpu"
-))]
-use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
@@ -192,7 +186,7 @@ fn layout_entries(
             (
                 2,
                 #[cfg(all(
-                    not(ios_simulator),
+                    not(feature = "ios_simulator"),
                     any(
                         not(feature = "webgl"),
                         not(target_arch = "wasm32"),
@@ -201,7 +195,7 @@ fn layout_entries(
                 ))]
                 texture_cube_array(TextureSampleType::Depth),
                 #[cfg(any(
-                    ios_simulator,
+                    feature = "ios_simulator",
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 texture_cube(TextureSampleType::Depth),
@@ -376,7 +370,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
-        Res<RenderAssets<Image>>,
+        Res<RenderAssets<GpuImage>>,
         FallbackImageMsaa,
         Res<FallbackImage>,
         Res<FallbackImageZero>,
@@ -502,7 +496,8 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
+            let lut_bindings =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling

@@ -1,7 +1,4 @@
-use bevy_math::{
-    primitives::{Direction3d, Plane3d},
-    Quat, Vec2, Vec3,
-};
+use bevy_math::{primitives::Plane3d, Dir3, Quat, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -30,7 +27,7 @@ impl Default for PlaneMeshBuilder {
 impl PlaneMeshBuilder {
     /// Creates a new [`PlaneMeshBuilder`] from a given normal and size.
     #[inline]
-    pub fn new(normal: Direction3d, size: Vec2) -> Self {
+    pub fn new(normal: Dir3, size: Vec2) -> Self {
         Self {
             plane: Plane3d { normal },
             half_size: size / 2.0,
@@ -59,7 +56,7 @@ impl PlaneMeshBuilder {
     /// Sets the normal of the plane, aka the direction the plane is facing.
     #[inline]
     #[doc(alias = "facing")]
-    pub fn normal(mut self, normal: Direction3d) -> Self {
+    pub fn normal(mut self, normal: Dir3) -> Self {
         self.plane = Plane3d { normal };
         self
     }

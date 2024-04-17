@@ -15,7 +15,7 @@ use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
@@ -112,7 +112,7 @@ impl ImageFormat {
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value]
+#[reflect_value(Default)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -279,7 +279,7 @@ pub struct ImageSamplerDescriptor {
     pub compare: Option<ImageCompareFunction>,
     /// Must be at least 1. If this is not 1, all filter modes must be linear.
     pub anisotropy_clamp: u16,
-    /// Border color to use when `address_mode`` is [`ImageAddressMode::ClampToBorder`].
+    /// Border color to use when `address_mode` is [`ImageAddressMode::ClampToBorder`].
     pub border_color: Option<ImageSamplerBorderColor>,
 }
 
@@ -822,46 +822,45 @@ pub struct GpuImage {
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
-    pub size: Vec2,
+    pub size: UVec2,
     pub mip_level_count: u32,
 }
 
-impl RenderAsset for Image {
-    type PreparedAsset = GpuImage;
+impl RenderAsset for GpuImage {
+    type SourceAsset = Image;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
         SRes<DefaultImageSampler>,
     );
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
+    #[inline]
+    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
+        image.asset_usage
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        self,
+        image: Self::SourceAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
-            &self.texture_descriptor,
+            &image.texture_descriptor,
             // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
             wgpu::util::TextureDataOrder::default(),
-            &self.data,
+            &image.data,
         );
 
+        let size = image.size();
         let texture_view = texture.create_view(
-            self.texture_view_descriptor
+            image
+                .texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
         );
-        let size = Vec2::new(
-            self.texture_descriptor.size.width as f32,
-            self.texture_descriptor.size.height as f32,
-        );
-        let sampler = match self.sampler {
+        let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
@@ -871,10 +870,10 @@ impl RenderAsset for Image {
         Ok(GpuImage {
             texture,
             texture_view,
-            texture_format: self.texture_descriptor.format,
+            texture_format: image.texture_descriptor.format,
             sampler,
             size,
-            mip_level_count: self.texture_descriptor.mip_level_count,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }
@@ -939,9 +938,7 @@ impl CompressedImageFormats {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
-    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn image_size() {
@@ -962,9 +959,11 @@ mod test {
             image.size_f32()
         );
     }
+
     #[test]
     fn image_default_size() {
         let image = Image::default();
+        assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

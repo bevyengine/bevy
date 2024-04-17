@@ -1,8 +1,8 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, Archetypes},
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
-    entity::Entity,
+    component::{Component, ComponentId, StorageType, Tick},
+    entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -18,7 +18,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// There are many types that natively implement this trait:
 ///
-/// - **Component references.**
+/// - **Component references. (&T and &mut T)**
 ///   Fetches a component by reference (immutably or mutably).
 /// - **`QueryData` tuples.**
 ///   If every element of a tuple implements `QueryData`, then the tuple itself also implements the same trait.
@@ -27,6 +27,14 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///   but nesting of tuples allows infinite `WorldQuery`s.
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
+/// - **[`EntityLocation`].**
+///   Gets the location metadata of the queried entity.
+/// - **[`EntityRef`].**
+///   Read-only access to arbitrary components on the queried entity.
+/// - **[`EntityMut`].**
+///   Mutable access to arbitrary components on the queried entity.
+/// - **[`&Archetype`](Archetype).**
+///   Read-only access to the archetype-level metadata of the queried entity.
 /// - **[`Option`].**
 ///   By default, a world query only tests entities that have the matching component types.
 ///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
@@ -344,6 +352,78 @@ unsafe impl QueryData for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
+unsafe impl WorldQuery for EntityLocation {
+    type Item<'w> = EntityLocation;
+    type Fetch<'w> = &'w Entities;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        world.entities()
+    }
+
+    // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
+    // in most practical use case.
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        unsafe { fetch.get(entity).debug_checked_unwrap() }
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl QueryData for EntityLocation {
+    type ReadOnly = Self;
+}
+
+/// SAFETY: access is read only
+unsafe impl ReadOnlyQueryData for EntityLocation {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
@@ -709,11 +789,86 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
 }
 
+/// SAFETY:
+/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// This is sound because `fetch` does not access components.
+unsafe impl WorldQuery for &Archetype {
+    type Item<'w> = &'w Archetype;
+    type Fetch<'w> = (&'w Entities, &'w Archetypes);
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        (world.entities(), world.archetypes())
+    }
+
+    // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
+    // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        let (entities, archetypes) = *fetch;
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        let location = unsafe { entities.get(entity).debug_checked_unwrap() };
+        // SAFETY: The assigned archetype for a living entity must always be valid.
+        unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() }
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_world: &World) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl QueryData for &Archetype {
+    type ReadOnly = Self;
+}
+
+/// SAFETY: access is read only
+unsafe impl ReadOnlyQueryData for &Archetype {}
+
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
@@ -747,7 +902,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -764,7 +919,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -806,7 +961,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_components.debug_checked_unwrap() };
@@ -862,13 +1017,13 @@ unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
 #[doc(hidden)]
 pub struct RefFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 
     last_run: Tick,
@@ -905,7 +1060,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> RefFetch<'w, T> {
         RefFetch {
             table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -924,7 +1079,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -965,7 +1120,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let (table_components, added_ticks, changed_ticks) =
@@ -1045,13 +1200,13 @@ unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
-    // T::Storage = TableStorage
+    // T::STORAGE_TYPE = StorageType::Table
     table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
-    // T::Storage = SparseStorage
+    // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
 
     last_run: Tick,
@@ -1088,7 +1243,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
                 // which we are allowed to access since we registered it in `update_archetype_component_access`.
                 // Note that we do not actually access any components in this function, we just get a shared
@@ -1107,7 +1262,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -1148,7 +1303,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let (table_components, added_ticks, changed_ticks) =
@@ -1410,6 +1565,12 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
+impl<T> std::fmt::Debug for Has<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "Has<{}>", std::any::type_name::<T>())
+    }
+}
+
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
@@ -1433,7 +1594,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -1648,7 +1809,7 @@ all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
-pub struct NopWorldQuery<D: QueryData>(PhantomData<D>);
+pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.

@@ -1,16 +1,16 @@
 pub mod copy_lighting_id;
 pub mod node;
 
-use std::{cmp::Reverse, ops::Range};
+use std::ops::Range;
 
-use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    mesh::Mesh,
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
+    render_phase::{BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use nonmax::NonMaxU32;
+
+use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
@@ -18,40 +18,26 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 
 /// Opaque phase of the 3D Deferred pass.
 ///
-/// Sorted front-to-back by the z-distance in front of the camera.
+/// Sorted by pipeline, then by mesh to improve batching.
 ///
 /// Used to render all 3D meshes with materials that have no transparency.
+#[derive(PartialEq, Eq, Hash)]
 pub struct Opaque3dDeferred {
-    pub entity: Entity,
-    pub asset_id: AssetId<Mesh>,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub key: OpaqueNoLightmap3dBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Opaque3dDeferred {
-    type SortKey = (usize, AssetId<Mesh>);
-
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        // Sort by pipeline, then by mesh to massively decrease drawcall counts in real scenes.
-        (self.pipeline_id.id(), self.asset_id)
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+        self.key.draw_function
     }
 
     #[inline]
@@ -72,53 +58,56 @@ impl PhaseItem for Opaque3dDeferred {
     #[inline]
     fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
         &mut self.dynamic_offset
+    }
+}
+
+impl BinnedPhaseItem for Opaque3dDeferred {
+    type BinKey = OpaqueNoLightmap3dBinKey;
+
+    #[inline]
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
+        self.key.pipeline
     }
 }
 
 /// Alpha mask phase of the 3D Deferred pass.
 ///
-/// Sorted front-to-back by the z-distance in front of the camera.
+/// Sorted by pipeline, then by mesh to improve batching.
 ///
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dDeferred {
-    pub distance: f32,
-    pub entity: Entity,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub key: OpaqueNoLightmap3dBinKey,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for AlphaMask3dDeferred {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
-
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        self.key.draw_function
     }
 
     #[inline]
@@ -142,9 +131,27 @@ impl PhaseItem for AlphaMask3dDeferred {
     }
 }
 
+impl BinnedPhaseItem for AlphaMask3dDeferred {
+    type BinKey = OpaqueNoLightmap3dBinKey;
+
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+        }
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for AlphaMask3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
+        self.key.pipeline
     }
 }

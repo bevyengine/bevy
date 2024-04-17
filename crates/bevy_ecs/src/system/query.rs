@@ -407,6 +407,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the read-only query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
@@ -442,6 +445,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
@@ -473,6 +479,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Example
     ///
@@ -509,6 +518,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` query items without repetition.
     ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Example
     ///
     /// ```
@@ -539,8 +551,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
-    /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Example
     ///
@@ -596,8 +608,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
-    /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///
@@ -648,6 +660,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the query items.
     ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
     /// # Safety
     ///
     /// This function makes it possible to violate Rust's aliasing guarantees.
@@ -668,6 +683,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates over all possible combinations of `K` query items without repetition.
+    ///
+    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -691,6 +709,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities, and may not be unique if the input
+    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Safety
     ///
@@ -723,6 +744,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a parallel iterator over the query results for the given [`World`].
     ///
+    /// This parallel iterator is always guaranteed to return results from each matching entity once and
+    /// only once.  Iteration order and thread assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
+    /// on [`QueryIter`].
+    ///
     /// This can only be called for read-only queries, see [`par_iter_mut`] for write-queries.
     ///
     /// Note that you must use the `for_each` method to iterate over the
@@ -742,6 +769,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
+    ///
+    /// This parallel iterator is always guaranteed to return results from each matching entity once and
+    /// only once.  Iteration order and thread assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
+    /// on [`QueryIter`].
     ///
     /// This can only be called for mutable queries, see [`par_iter`] for read-only-queries.
     ///
@@ -779,6 +812,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the read-only query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
@@ -898,6 +933,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1011,6 +1048,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1175,6 +1214,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns `true` if there are no query items.
     ///
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
+    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
+    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
+    /// result for a match.
+    ///
     /// # Example
     ///
     /// Here, the score is increased only if an entity with a `Player` component is present in the world:
@@ -1193,6 +1237,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(update_score_system);
     /// ```
+    ///
+    /// [`Added`]: crate::query::Added
+    /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self) -> bool {
         // SAFETY:
@@ -1206,6 +1253,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
     ///
@@ -1292,12 +1341,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Besides removing parameters from the query, you can also
     /// make limited changes to the types of parameters.
     ///
-    /// * Can always add/remove `Entity`
+    /// * Can always add/remove [`Entity`]
+    /// * Can always add/remove [`EntityLocation`]
+    /// * Can always add/remove [`&Archetype`]
     /// * `Ref<T>` <-> `&T`
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///    
+    ///  
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`&Archetype`]: crate::archetype::Archetype
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
@@ -1311,7 +1364,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY: There are no other active borrows of data from world
+        // SAFETY:
+        // - We have exclusive access to the query
+        // - `self` has correctly captured it's access
+        // - Access is checked to be a subset of the query's access when the state is created.
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewD, NewF>(world);
         QueryLens {
@@ -1325,6 +1381,99 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Gets a [`QueryLens`] with the same accesses as the existing query
     pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
         self.transmute_lens()
+    }
+
+    /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
+    ///
+    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filter
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// To maintain or change filter terms see `Self::join_filtered`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Transform;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Enemy;
+    /// #
+    /// # let mut world = World::default();
+    /// # world.spawn((Transform, Player));
+    /// # world.spawn((Transform, Enemy));
+    ///
+    /// fn system(
+    ///     mut transforms: Query<&Transform>,
+    ///     mut players: Query<&Player>,
+    ///     mut enemies: Query<&Enemy>
+    /// ) {
+    ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
+    ///     for (transform, player) in &players_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    ///
+    ///     let mut enemies_transforms: QueryLens<(&Transform, &Enemy)> = transforms.join(&mut enemies);
+    ///     for (transform, enemy) in &enemies_transforms.query() {
+    ///         // do something with a and b
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(system);
+    /// # schedule.run(&mut world);
+    /// ```
+    /// ## Panics
+    ///
+    /// This will panic if `NewD` is not a subset of the union of the original fetch `Q` and `OtherD`.
+    ///
+    /// ## Allowed Transmutes
+    ///
+    /// Like `transmute_lens` the query terms can be changed with some restrictions.
+    /// See [`Self::transmute_lens`] for more details.
+    pub fn join<OtherD: QueryData, NewD: QueryData>(
+        &mut self,
+        other: &mut Query<OtherD>,
+    ) -> QueryLens<'_, NewD> {
+        self.join_filtered(other)
+    }
+
+    /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
+    ///
+    /// Note that the lens with iterate a subset of the original queries tables
+    /// and archetypes. This means that additional archetypal query terms like
+    /// `With` and `Without` will not necessarily be respected and non-archetypal
+    /// terms like `Added` and `Changed` will only be respected if they are in
+    /// the type signature.
+    pub fn join_filtered<
+        OtherD: QueryData,
+        OtherF: QueryFilter,
+        NewD: QueryData,
+        NewF: QueryFilter,
+    >(
+        &mut self,
+        other: &mut Query<OtherD, OtherF>,
+    ) -> QueryLens<'_, NewD, NewF> {
+        // SAFETY:
+        // - The queries have correctly captured their access.
+        // - We have exclusive access to both queries.
+        // - Access for QueryLens is checked when state is created.
+        let world = unsafe { self.world.world() };
+        let state = self
+            .state
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
+        QueryLens {
+            world: self.world,
+            state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
     }
 }
 

@@ -128,7 +128,7 @@ fn spawn_sphere(
     commands.spawn(PbrBundle {
         mesh: sphere_mesh.clone(),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
@@ -293,7 +293,7 @@ impl AppStatus {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
+                ..default()
             },
         )
     }
@@ -331,17 +331,15 @@ fn rotate_camera(
 // Loads the cubemaps from the assets directory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-
         // Just use the specular map for the skybox since it's not too blurry.
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
-        let specular_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+        let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
 
         Cubemaps {
-            diffuse: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_reflection_probe: asset_server
-                .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+            diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_reflection_probe: world
+                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
             skybox: specular_map,
         }

@@ -5,11 +5,11 @@ use bevy_utils::tracing::trace;
 /// set up [`TaskPoolPlugin`](super::TaskPoolPlugin)
 #[derive(Clone, Debug)]
 pub struct TaskPoolOptions {
-    /// If the number of physical cores is less than min_total_threads, force using
-    /// min_total_threads
+    /// If the number of physical cores is less than `min_total_threads`, force using
+    /// `min_total_threads`
     pub min_total_threads: usize,
-    /// If the number of physical cores is greater than max_total_threads, force using
-    /// max_total_threads
+    /// If the number of physical cores is greater than `max_total_threads`, force using
+    /// `max_total_threads`
     pub max_total_threads: usize,
 }
 

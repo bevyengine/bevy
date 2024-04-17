@@ -12,11 +12,19 @@ keywords = ["bevy"]
 webgl = []
 webgpu = []
 pbr_transmission_textures = []
+shader_format_glsl = ["bevy_render/shader_format_glsl"]
+trace = ["bevy_render/trace"]
+ios_simulator = ["bevy_render/ios_simulator"]
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["dep:range-alloc", "dep:bincode"]
+# Enables processing meshes into meshlet meshes
+meshlet_processor = ["dep:meshopt", "dep:thiserror"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
@@ -30,13 +38,23 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
 # other
+meshopt = { version = "0.2", optional = true }
+thiserror = { version = "1", optional = true }
 bitflags = "2.3"
-fixedbitset = "0.4"
+fixedbitset = "0.5"
 # direct dependency required for derive macro
-bytemuck = { version = "1", features = ["derive"] }
+bytemuck = { version = "1", features = ["derive", "must_cast"] }
 radsort = "0.1"
 smallvec = "1.6"
-thread_local = "1.0"
+serde = { version = "1", features = ["derive", "rc"] }
+bincode = { version = "1", optional = true }
+range-alloc = { version = "0.1", optional = true }
+nonmax = "0.5"
+static_assertions = "1"
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

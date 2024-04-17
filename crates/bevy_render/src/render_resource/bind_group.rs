@@ -1,15 +1,14 @@
 use crate::{
     define_atomic_id,
-    prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
 };
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::thiserror::Error;
 use encase::ShaderType;
 use std::ops::Deref;
+use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
@@ -58,14 +57,14 @@ impl Deref for BindGroup {
 ///
 /// This is an opinionated trait that is intended to make it easy to generically
 /// convert a type into a [`BindGroup`]. It provides access to specific render resources,
-/// such as [`RenderAssets<Image>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
+/// such as [`RenderAssets<GpuImage>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
 /// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
-/// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
+/// for an [`Image`](crate::texture::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
 /// # Deriving
@@ -74,12 +73,13 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{color::Color, render_resource::*, texture::Image};
+/// # use bevy_render::{render_resource::*, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
@@ -109,14 +109,14 @@ impl Deref for BindGroup {
 /// * `uniform(BINDING_INDEX)`
 ///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
 ///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///   [`Color`](crate::color::Color). It can also be derived for custom structs.
+///   [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
 ///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///    (with a different binding index) if a binding of the sampler for the [`Image`] is also required.
+///    (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -144,7 +144,7 @@ impl Deref for BindGroup {
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///     (with a different binding index) if a binding of the texture for the [`Image`] is also required.
+///     (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
@@ -162,24 +162,26 @@ impl Deref for BindGroup {
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     this_field_is_ignored: String,
 /// }
 /// ```
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup, texture::Image};
+/// # use bevy_render::{render_resource::AsBindGroup, texture::Image};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Option<Handle<Image>>,
@@ -190,11 +192,12 @@ impl Deref for BindGroup {
 ///
 /// Field uniforms with the same index will be combined into a single binding:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     #[uniform(0)]
 ///     roughness: f32,
 /// }
@@ -216,7 +219,7 @@ impl Deref for BindGroup {
 ///     much like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
 ///     which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
 ///     logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
-///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<Image>`] is
+///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<GpuImage>`] is
 ///     required.
 /// * `bind_group_data(DataType)`
 ///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
@@ -227,17 +230,18 @@ impl Deref for BindGroup {
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// #[uniform(0, CoolMaterialUniform)]
 /// struct CoolMaterial {
-///     color: Color,
+///     color: LinearRgba,
 ///     roughness: f32,
 /// }
 ///
 /// #[derive(ShaderType)]
 /// struct CoolMaterialUniform {
-///     color: Color,
+///     color: LinearRgba,
 ///     roughness: f32,
 /// }
 ///
@@ -253,12 +257,13 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     is_shaded: bool,
 /// }
 ///
@@ -289,7 +294,7 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
@@ -320,7 +325,7 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
@@ -390,7 +395,7 @@ impl OwnedBindingResource {
 pub trait AsBindGroupShaderType<T: ShaderType> {
     /// Return the `T` [`ShaderType`] for `self`. When used in [`AsBindGroup`]
     /// derives, it is safe to assume that all images in `self` exist.
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> T;
+    fn as_bind_group_shader_type(&self, images: &RenderAssets<GpuImage>) -> T;
 }
 
 impl<T, U: ShaderType> AsBindGroupShaderType<U> for T
@@ -398,7 +403,7 @@ where
     for<'a> &'a T: Into<U>,
 {
     #[inline]
-    fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> U {
+    fn as_bind_group_shader_type(&self, _images: &RenderAssets<GpuImage>) -> U {
         self.into()
     }
 }
@@ -406,7 +411,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_render;
+    use crate::{self as bevy_render, prelude::Image};
     use bevy_asset::Handle;
 
     #[test]

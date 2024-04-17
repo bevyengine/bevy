@@ -56,7 +56,7 @@ impl TableId {
     /// Will panic if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        assert!(index as u32 as usize == index);
+        debug_assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
@@ -116,7 +116,7 @@ impl TableRow {
     /// Will panic if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
-        assert!(index as u32 as usize == index);
+        debug_assert!(index as u32 as usize == index);
         Self(index as u32)
     }
 
@@ -796,7 +796,7 @@ impl Table {
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Vec<ComponentId>, TableId>,
+    table_ids: HashMap<Box<[ComponentId]>, TableId>,
 }
 
 impl Default for Tables {
@@ -872,10 +872,7 @@ impl Tables {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (
-                    component_ids.to_vec(),
-                    TableId::from_usize(tables.len() - 1),
-                )
+                (component_ids.into(), TableId::from_usize(tables.len() - 1))
             });
 
         *value

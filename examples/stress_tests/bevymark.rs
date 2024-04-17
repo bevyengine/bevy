@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
@@ -17,7 +18,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
@@ -180,10 +182,10 @@ struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
     quad: Mesh2dHandle,
-    color_rng: StdRng,
-    material_rng: StdRng,
-    velocity_rng: StdRng,
-    transform_rng: StdRng,
+    color_rng: ChaCha8Rng,
+    material_rng: ChaCha8Rng,
+    velocity_rng: ChaCha8Rng,
+    transform_rng: ChaCha8Rng,
 }
 
 #[derive(Component)]
@@ -220,18 +222,20 @@ fn setup(
         quad: meshes
             .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
             .into(),
-        color_rng: StdRng::seed_from_u64(42),
-        material_rng: StdRng::seed_from_u64(42),
-        velocity_rng: StdRng::seed_from_u64(42),
-        transform_rng: StdRng::seed_from_u64(42),
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        color_rng: ChaCha8Rng::seed_from_u64(42),
+        material_rng: ChaCha8Rng::seed_from_u64(42),
+        velocity_rng: ChaCha8Rng::seed_from_u64(42),
+        transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color, value: &str| {
+    let text_section = move |color: Srgba, value: &str| {
         TextSection::new(
             value,
             TextStyle {
                 font_size: 40.0,
-                color,
+                color: color.into(),
                 ..default()
             },
         )
@@ -246,20 +250,20 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
-                    text_section(Color::GREEN, "Bird Count: "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (raw): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (SMA): "),
-                    text_section(Color::CYAN, ""),
-                    text_section(Color::GREEN, "\nFPS (EMA): "),
-                    text_section(Color::CYAN, ""),
+                    text_section(LIME, "Bird Count: "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (raw): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (SMA): "),
+                    text_section(AQUA, ""),
+                    text_section(LIME, "\nFPS (EMA): "),
+                    text_section(AQUA, ""),
                 ]),
                 StatsText,
             ));
@@ -299,17 +303,19 @@ fn mouse_handler(
     windows: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
-    mut rng: Local<Option<StdRng>>,
+    mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
     if rng.is_none() {
-        *rng = Some(StdRng::seed_from_u64(42));
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
     let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::rgb_linear(rng.gen(), rng.gen(), rng.gen());
+        counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -331,7 +337,7 @@ fn mouse_handler(
 fn bird_velocity_transform(
     half_extents: Vec2,
     mut translation: Vec3,
-    velocity_rng: &mut StdRng,
+    velocity_rng: &mut ChaCha8Rng,
     waves: Option<usize>,
     dt: f32,
 ) -> (Transform, Vec3) {
@@ -367,11 +373,7 @@ fn spawn_birds(
     let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
     let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
 
-    let half_extents = 0.5
-        * Vec2::new(
-            primary_window_resolution.width(),
-            primary_window_resolution.height(),
-        );
+    let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
     let current_count = counter.count;
@@ -395,7 +397,7 @@ fn spawn_birds(
                     );
 
                     let color = if args.vary_per_instance {
-                        Color::rgb_linear(
+                        Color::linear_rgb(
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
                             bird_resources.color_rng.gen(),
@@ -463,7 +465,7 @@ fn spawn_birds(
     }
 
     counter.count += spawn_count;
-    counter.color = Color::rgb_linear(
+    counter.color = Color::linear_rgb(
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
         bird_resources.color_rng.gen(),
@@ -508,7 +510,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_extents = 0.5 * Vec2::new(window.width(), window.height());
+    let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
         handle_collision(half_extents, &transform.translation, &mut bird.velocity);
@@ -540,7 +542,9 @@ fn counter_system(
 }
 
 fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
-    let mut color_rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     while textures.len() < args.material_texture_count {
         let pixel = [color_rng.gen(), color_rng.gen(), color_rng.gen(), 255];
         textures.push(images.add(Image::new_fill(
@@ -575,12 +579,14 @@ fn init_materials(
         texture: textures.first().cloned(),
     }));
 
-    let mut color_rng = StdRng::seed_from_u64(42);
-    let mut texture_rng = StdRng::seed_from_u64(42);
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {
-                color: Color::rgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
             })
         })

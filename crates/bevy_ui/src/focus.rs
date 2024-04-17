@@ -12,9 +12,10 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
-
-use bevy_utils::{smallvec::SmallVec, HashMap};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
+
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -251,9 +252,16 @@ pub fn ui_focus_system(
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position = camera_cursor_positions
-                .get(&camera_entity)
-                .map(|cursor_position| (*cursor_position - node_rect.min) / node_rect.size());
+            let relative_cursor_position =
+                camera_cursor_positions
+                    .get(&camera_entity)
+                    .and_then(|cursor_position| {
+                        // ensure node size is non-zero in all dimensions, otherwise relative position will be
+                        // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
+                        // false positives for mouse_over (#12395)
+                        (node_rect.size().cmpgt(Vec2::ZERO).all())
+                            .then_some((*cursor_position - node_rect.min) / node_rect.size())
+                    });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
