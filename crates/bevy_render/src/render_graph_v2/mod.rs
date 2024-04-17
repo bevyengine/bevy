@@ -27,7 +27,7 @@ use resource::{
     SimpleResourceStore,
 };
 
-use self::resource::{texture::RenderGraphSamplers, CachedResourceStore};
+use resource::CachedResourceStore;
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines

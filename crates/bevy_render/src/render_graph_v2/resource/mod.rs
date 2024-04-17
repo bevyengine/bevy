@@ -211,6 +211,19 @@ impl<R: RenderResource> Default for SimpleResourceStore<R> {
     }
 }
 
+impl<R: RenderResource> Default for CachedResourceStore<R>
+where
+    R::Descriptor: Clone + Hash + Eq,
+{
+    fn default() -> Self {
+        Self {
+            resources: Default::default(),
+            queued_resources: Default::default(),
+            cached_resources: Default::default(),
+        }
+    }
+}
+
 pub trait IntoRenderResource {
     type Resource: RenderResource;
 
