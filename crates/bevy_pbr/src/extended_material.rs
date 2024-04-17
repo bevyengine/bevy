@@ -128,11 +128,10 @@ pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub extension: E,
 }
 
-
 impl<B, E> Default for ExtendedMaterial<B, E>
-    where
-        B: Material + Default,
-        E: MaterialExtension + Default,
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
 {
     fn default() -> Self {
         Self {
