@@ -1,6 +1,6 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
-    TypePath, TypePathTable,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, SetInfo, StructInfo, TupleInfo,
+    TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -106,6 +106,7 @@ pub enum TypeInfo {
     List(ListInfo),
     Array(ArrayInfo),
     Map(MapInfo),
+    Set(SetInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
 }
@@ -120,6 +121,7 @@ impl TypeInfo {
             Self::List(info) => info.type_id(),
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
+            Self::Set(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
         }
@@ -136,6 +138,7 @@ impl TypeInfo {
             Self::List(info) => info.type_path_table(),
             Self::Array(info) => info.type_path_table(),
             Self::Map(info) => info.type_path_table(),
+            Self::Set(info) => info.type_path_table(),
             Self::Enum(info) => info.type_path_table(),
             Self::Value(info) => info.type_path_table(),
         }
