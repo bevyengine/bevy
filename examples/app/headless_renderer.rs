@@ -158,8 +158,8 @@ mod frame_capture {
                     );
 
                     let texture_extent = Extent3d {
-                        width: src_image.size.x as u32,
-                        height: src_image.size.y as u32,
+                        width: src_image.size.x,
+                        height: src_image.size.y,
                         depth_or_array_layers: 1,
                     };
 
@@ -332,7 +332,7 @@ mod frame_capture {
 
                         let images_dir =
                             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
-                        print!("Saving image to: {:?}\n", images_dir);
+                        println!("Saving image to: {images_dir:?}");
                         std::fs::create_dir_all(&images_dir).unwrap();
 
                         let number = rng.gen::<u128>();
