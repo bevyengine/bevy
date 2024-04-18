@@ -15,6 +15,8 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
+/// The camera coordinate space is right handed y-up.
+/// This means "forward" is -Z, with +X being "right".
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -133,6 +135,8 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
+/// The camera coordinate space is right handed y-up.
+/// This means "forward" is -Z, with +X being "right".
 #[derive(Bundle, Clone)]
 pub struct Camera3dBundle {
     pub camera: Camera,
