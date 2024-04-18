@@ -8,7 +8,12 @@ runs:
       uses: rui314/setup-mold@v1
       with:
         make-default: false
-    
+
+    - name: Symlink Mold
+      if: ${{ runner.os == 'linux' }}
+      shell: bash
+      run: ln -s /usr/bin/mold /usr/bin/local/mold
+
     - name: Install Sold
       if: ${{ runner.os == 'macos' }}
       uses: BD103/bevy-prebuilt@main
