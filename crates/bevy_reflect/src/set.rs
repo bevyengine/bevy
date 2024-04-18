@@ -9,11 +9,10 @@ use crate::{
     TypePath, TypePathTable,
 };
 
-/// A trait used to power [map-like] operations via [reflection].
+/// A trait used to power [set-like] operations via [reflection].
 ///
-/// Set contain zero or more entries of a key and its associated value,
-/// and correspond to types like [`HashSet`].
-/// The order of these entries is not guaranteed by this trait.
+/// Set contain zero or more entries of a value, and correspond to types like [`HashSet`]. The
+/// order of these entries is not guaranteed by this trait.
 ///
 /// # Hashing
 ///
@@ -30,34 +29,26 @@ use crate::{
 /// use bevy_utils::HashSet;
 ///
 ///
-/// let foo: &mut dyn Set = &mut HashSet::<u32, bool>::new();
-/// foo.insert_boxed(Box::new(123_u32), Box::new(true));
+/// let foo: &mut dyn Set = &mut HashSet::<u32>::new();
+/// foo.insert_boxed(Box::new(123_u32));
 /// assert_eq!(foo.len(), 1);
 ///
 /// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.downcast_ref::<bool>(), Some(&true));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
-/// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
+/// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: Reflect {
-    /// Returns a reference to the value associated with the given key.
+    /// Returns a reference to the value.
     ///
-    /// If no value is associated with `key`, returns `None`.
+    /// If no value is contained, returns `None`.
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
 
-    /// Returns a mutable reference to the value associated with the given key.
-    ///
-    /// If no value is associated with `key`, returns `None`.
-    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
-
-    /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
+    /// Returns the value at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
 
-    /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
-    fn get_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-
-    /// Returns the number of elements in the map.
+    /// Returns the number of elements in the set.
     fn len(&self) -> usize;
 
     /// Returns `true` if the list contains no elements.
@@ -65,29 +56,29 @@ pub trait Set: Reflect {
         self.len() == 0
     }
 
-    /// Returns an iterator over the key-value pairs of the map.
+    /// Returns an iterator over the values of the set.
     fn iter(&self) -> SetIter;
 
-    /// Drain the key-value pairs of this map to get a vector of owned values.
+    /// Drain the values of this set to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
-    /// Clones the map, producing a [`DynamicSet`].
+    /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
 
-    /// Inserts a key-value pair into the map.
+    /// Inserts a value into the set.
     ///
-    /// If the map did not have this key present, `None` is returned.
-    /// If the map did have this key present, the value is updated, and the old value is returned.
+    /// If the set did not have this value present, `None` is returned.
+    /// If the set did have this value present, it is updated, and the old value is returned.
     fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>>;
 
-    /// Removes an entry from the map.
+    /// Removes an value from the set.
     ///
-    /// If the map did not have this key present, `None` is returned.
-    /// If the map did have this key present, the removed value is returned.
+    /// If the set did not have this value present, `None` is returned.
+    /// If the set did have this value present, it is returned.
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
 }
 
-/// A container for compile-time map info.
+/// A container for compile-time set info.
 #[derive(Clone, Debug)]
 pub struct SetInfo {
     type_path: TypePathTable,
@@ -111,20 +102,20 @@ impl SetInfo {
         }
     }
 
-    /// Sets the docstring for this map.
+    /// Sets the docstring for this set.
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the map.
+    /// A representation of the type path of the set.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
     pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
-    /// The [stable, full type path] of the map.
+    /// The [stable, full type path] of the set.
     ///
     /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
@@ -134,12 +125,12 @@ impl SetInfo {
         self.type_path_table().path()
     }
 
-    /// The [`TypeId`] of the map.
+    /// The [`TypeId`] of the set.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
-    /// Check if the given type matches the map type.
+    /// Check if the given type matches the set type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
@@ -161,7 +152,7 @@ impl SetInfo {
         TypeId::of::<T>() == self.value_type_id
     }
 
-    /// The docstring of this map, if any.
+    /// The docstring of this set, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
@@ -198,7 +189,7 @@ impl DynamicSet {
         self.represented_type = represented_type;
     }
 
-    /// Inserts a typed key-value pair into the map.
+    /// Inserts a typed value into the set.
     pub fn insert<V: Reflect>(&mut self, value: V) {
         self.insert_boxed(Box::new(value));
     }
@@ -211,19 +202,8 @@ impl Set for DynamicSet {
             .map(|index| &**self.values.get(*index).unwrap())
     }
 
-    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
-        self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
-            .cloned()
-            .map(move |index| &mut **self.values.get_mut(index).unwrap())
-    }
-
     fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
-    }
-
-    fn get_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        self.values.get_mut(index).map(|value| &mut **value)
     }
 
     fn len(&self) -> usize {
@@ -341,7 +321,7 @@ impl Reflect for DynamicSet {
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DynamicMap(")?;
+        write!(f, "DynamicSet(")?;
         set_debug(self, f)?;
         write!(f, ")")
     }
@@ -360,17 +340,17 @@ impl Debug for DynamicSet {
     }
 }
 
-/// An iterator over the key-value pairs of a [`Map`].
+/// An iterator over the values of a [`Set`].
 pub struct SetIter<'a> {
-    map: &'a dyn Set,
+    set: &'a dyn Set,
     index: usize,
 }
 
 impl<'a> SetIter<'a> {
     /// Creates a new [`SetIter`].
     #[inline]
-    pub const fn new(map: &'a dyn Set) -> SetIter {
-        SetIter { map, index: 0 }
+    pub const fn new(set: &'a dyn Set) -> SetIter {
+        SetIter { set, index: 0 }
     }
 }
 
@@ -378,13 +358,13 @@ impl<'a> Iterator for SetIter<'a> {
     type Item = &'a dyn Reflect;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.map.get_at(self.index);
+        let value = self.set.get_at(self.index);
         self.index += 1;
         value
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.map.len();
+        let size = self.set.len();
         (size, Some(size))
     }
 }
@@ -400,12 +380,12 @@ impl IntoIterator for DynamicSet {
 
 impl<'a> ExactSizeIterator for SetIter<'a> {}
 
-/// Compares a [`Map`] with a [`Reflect`] value.
+/// Compares a [`Set`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
-/// - `b` is a map;
+/// - `b` is a set;
 /// - `b` is the same length as `a`;
-/// - For each key-value pair in `a`, `b` contains a value for the given key,
+/// - For each value pair in `a`, `b` contains the value too,
 ///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
@@ -434,21 +414,21 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn Reflect) -> Option<bool> {
     Some(true)
 }
 
-/// The default debug formatter for [`Map`] types.
+/// The default debug formatter for [`Set`] types.
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashMap;
+/// # use bevy_utils::HashSet;
 /// use bevy_reflect::Reflect;
 ///
-/// let mut my_set = HashMap::new();
-/// my_set.insert(123, String::from("Hello"));
+/// let mut my_set = HashSet::new();
+/// my_set.insert(String::from("Hello"));
 /// println!("{:#?}", &my_set as &dyn Reflect);
 ///
 /// // Output:
 ///
 /// // {
-/// //   123: "Hello",
+/// //   "Hello",
 /// // }
 /// ```
 #[inline]
@@ -460,25 +440,23 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
     debug.finish()
 }
 
-/// Applies the elements of reflected map `b` to the corresponding elements of map `a`.
+/// Applies the elements of reflected set `b` to the corresponding elements of set `a`.
 ///
-/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `b` does not exist in `a`, the value is cloned and inserted.
 ///
 /// # Panics
 ///
-/// This function panics if `b` is not a reflected map.
+/// This function panics if `b` is not a reflected set.
 #[inline]
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
-            if let Some(a_value) = a.get_mut(b_value) {
-                a_value.apply(b_value);
-            } else {
+            if a.get(b_value).is_none() {
                 a.insert_boxed(b_value.clone_value());
             }
         }
     } else {
-        panic!("Attempted to apply a non-map type to a map type.");
+        panic!("Attempted to apply a non-set type to a set type.");
     }
 }
 
@@ -505,7 +483,7 @@ mod tests {
 
     #[test]
     fn test_set_get_at() {
-        let values = ["first", "second", "third"];
+        let values = ["first", "second", "second"];
         let mut set = DynamicSet::default();
         set.insert(values[0].to_string());
         set.insert(values[1].to_string());
@@ -515,37 +493,10 @@ mod tests {
         let value = value_r
             .downcast_ref::<String>()
             .expect("Couldn't downcast to String");
-        assert_eq!(value, &values[2].to_owned());
+        assert_eq!(value, &values[1].to_owned());
 
         assert!(set.get_at(2).is_none());
-        set.remove(&1usize as &dyn Reflect);
+        set.remove(&String::from("first") as &dyn Reflect);
         assert!(set.get_at(1).is_none());
-    }
-
-    #[test]
-    fn test_set_get_at_mut() {
-        let values = ["first", "second", "third"];
-        let mut set = DynamicSet::default();
-        set.insert(values[0].to_string());
-        set.insert(values[1].to_string());
-        set.insert(values[2].to_string());
-
-        let value_r = set.get_at_mut(1).expect("Item wasn't found");
-        let value = value_r
-            .downcast_mut::<String>()
-            .expect("Couldn't downcast to String");
-        assert_eq!(value, &mut values[2].to_owned());
-
-        value.clone_from(&values[0].to_owned());
-
-        assert_eq!(
-            set.get(&1usize as &dyn Reflect)
-                .expect("Item wasn't found")
-                .downcast_ref::<String>()
-                .expect("Couldn't downcast to String"),
-            &values[0].to_owned()
-        );
-
-        assert!(set.get_at(2).is_none());
     }
 }
