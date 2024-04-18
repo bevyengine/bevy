@@ -3,8 +3,8 @@
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-        Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
+        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
     },
     Dir3, Mat3, Quat, Vec2, Vec3,
 };
@@ -21,7 +21,7 @@ impl Bounded3d for Sphere {
     }
 }
 
-impl Bounded3d for Plane3d {
+impl Bounded3d for InfinitePlane3d {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         let normal = rotation * *self.normal;
         let facing_x = normal == Vec3::X || normal == Vec3::NEG_X;
@@ -310,7 +310,7 @@ mod tests {
     use crate::{
         bounding::Bounded3d,
         primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
+            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
             Segment3d, Sphere, Torus,
         },
         Dir3,
@@ -334,23 +334,24 @@ mod tests {
     fn plane() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
-        let aabb1 = Plane3d::new(Vec3::X).aabb_3d(translation, Quat::IDENTITY);
+        let aabb1 = InfinitePlane3d::new(Vec3::X).aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb1.min, Vec3::new(2.0, -f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec3::new(2.0, f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let aabb2 = Plane3d::new(Vec3::Y).aabb_3d(translation, Quat::IDENTITY);
+        let aabb2 = InfinitePlane3d::new(Vec3::Y).aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb2.min, Vec3::new(-f32::MAX / 2.0, 1.0, -f32::MAX / 2.0));
         assert_eq!(aabb2.max, Vec3::new(f32::MAX / 2.0, 1.0, f32::MAX / 2.0));
 
-        let aabb3 = Plane3d::new(Vec3::Z).aabb_3d(translation, Quat::IDENTITY);
+        let aabb3 = InfinitePlane3d::new(Vec3::Z).aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb3.min, Vec3::new(-f32::MAX / 2.0, -f32::MAX / 2.0, 0.0));
         assert_eq!(aabb3.max, Vec3::new(f32::MAX / 2.0, f32::MAX / 2.0, 0.0));
 
-        let aabb4 = Plane3d::new(Vec3::ONE).aabb_3d(translation, Quat::IDENTITY);
+        let aabb4 = InfinitePlane3d::new(Vec3::ONE).aabb_3d(translation, Quat::IDENTITY);
         assert_eq!(aabb4.min, Vec3::splat(-f32::MAX / 2.0));
         assert_eq!(aabb4.max, Vec3::splat(f32::MAX / 2.0));
 
-        let bounding_sphere = Plane3d::new(Vec3::Y).bounding_sphere(translation, Quat::IDENTITY);
+        let bounding_sphere =
+            InfinitePlane3d::new(Vec3::Y).bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation);
         assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
     }
