@@ -22,12 +22,14 @@ use bevy_ecs::{
 use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
 
 use resource::{
-    bind_group::RenderBindGroups, IntoRenderResource, RenderDependencies, RenderHandle,
-    RenderResource, RenderResourceInit, RenderStore, RetainedRenderResource, RetainedRenderStore,
+    bind_group::RenderBindGroups, DependencySet, IntoRenderResource, RenderHandle, RenderResource,
+    RenderResourceInit, RenderStore, RetainedRenderResource, RetainedRenderStore,
     SimpleRenderStore,
 };
 
 use resource::CachedRenderStore;
+
+use self::resource::{IntoRenderData, RenderData, RenderResourceMeta};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -105,12 +107,16 @@ impl<'a> RenderGraphBuilder<'a> {
         RenderHandle::new(next_id)
     }
 
-    pub fn import_resource<R: RenderResource>(&mut self, resource: R::Data) -> RenderHandle<R> {
+    pub fn import_resource<R: RenderResource>(
+        &mut self,
+        descriptor: Option<R::Descriptor>,
+        resource: R::Data,
+    ) -> RenderHandle<R> {
         let next_id: u16 = self.graph.next_id;
         R::get_store_mut(self.graph).insert(
             next_id,
-            RenderResourceInit::Eager(resource::RenderResourceMeta {
-                descriptor: None,
+            RenderResourceInit::Eager(RenderResourceMeta {
+                descriptor,
                 resource,
             }),
             self.world,
@@ -168,9 +174,13 @@ impl<'a> RenderGraphBuilder<'a> {
         todo!()
     }
 
-    pub fn add_node<F: FnOnce(NodeContext, &RenderDevice, &RenderQueue) + 'static>(
-        &mut self,
-        dependencies: RenderDependencies,
+    pub fn add_node<
+        'n,
+        D: RenderData,
+        F: FnOnce(NodeContext<'_, D>, &RenderDevice, &RenderQueue) + 'static,
+    >(
+        &'n mut self,
+        dependencies: impl IntoRenderData<Data = D>,
         node: F,
     ) -> &mut Self {
         todo!();
@@ -220,34 +230,21 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 }
 
-pub struct NodeContext<'a> {
-    graph: &'a RenderGraph,
+pub struct NodeContext<'a, D: RenderData> {
+    graph: &'a mut RenderGraph,
     world: &'a World,
     view_entity: EntityRef<'a>,
-    dependencies: RenderDependencies,
+    input: D::Handle,
 }
 
-impl<'a> NodeContext<'a> {
-    pub fn get<R: RenderResource>(&self, resource: &RenderHandle<R>) -> &'a R {
-        if !self.dependencies.contains_resource(&resource) {
-            panic!("Attempted to access a Render Resource of type {:?} not included in the node's dependencies", TypeId::of::<R>())
-        }
-
-        R::get_store(self.graph)
-            .get(self.world, resource.index())
-            .and_then(|meta| R::from_data(&meta.resource, self.world))
-            .expect("Could not resolve render resource")
-    }
-
-    pub fn get_bind_group<R: RenderResource>(&self, bind_group: RenderBindGroup) -> &BindGroup {
-        if !self.dependencies.contains_bind_group(bind_group) {
-            panic!("Attempted to access a bind group not included in the node's dependencies")
-        }
-        todo!()
+impl<'a, D: RenderData> NodeContext<'a, D> {
+    pub fn input(&mut self) -> D::Item<'_> {
+        D::get_from_graph(&self.input, self.graph, self.world)
+            .expect("Could not access input for node. NodeContext::input() is not guaranteed to succeed when called more than once")
     }
 }
 
-impl<'a> NodeContext<'a> {
+impl<'a, D: RenderData> NodeContext<'a, D> {
     pub fn world_resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }

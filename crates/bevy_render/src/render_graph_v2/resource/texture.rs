@@ -14,9 +14,9 @@ use crate::{
 };
 
 use super::{
-    render_deps, CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderHandle,
-    RenderResource, RenderResourceInit, RenderResourceMeta, RenderStore, RetainedRenderResource,
-    SimpleRenderStore, WriteRenderResource,
+    CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderHandle, RenderResource,
+    RenderResourceInit, RenderResourceMeta, RenderStore, RetainedRenderResource, SimpleRenderStore,
+    WriteRenderResource,
 };
 
 impl RenderResource for Texture {
@@ -66,17 +66,17 @@ impl IntoRenderResource for TextureDescriptor<'static> {
     }
 }
 
-pub fn new_texture_with_data(
-    graph: &mut RenderGraphBuilder,
+pub fn new_texture_with_data<'a>(
+    graph: &'a mut RenderGraphBuilder,
     descriptor: TextureDescriptor<'static>,
     data_layout: ImageDataLayout,
     data: &'static [u8],
-) -> RenderHandle<Texture> {
+) -> RenderHandle<'a, Texture> {
     let size = descriptor.size;
     let mut tex = graph.new_resource(descriptor);
-    let t1 = tex.clone();
-    graph.add_node(render_deps(&mut tex), move |ctx, _, queue| {
-        queue.write_texture(ctx.get(&t1).as_image_copy(), data, data_layout, size);
+    graph.add_node(&mut tex, move |mut ctx, _, queue| {
+        let tex = ctx.input();
+        queue.write_texture(tex.as_image_copy(), data, data_layout, size);
     });
     tex
 }

@@ -1,6 +1,7 @@
-use bevy_ecs::world::World;
+use std::marker::PhantomData;
+
 use bevy_utils::HashMap;
-use wgpu::{BindGroupLayoutEntry, TextureView};
+use wgpu::BindGroupLayoutEntry;
 
 use crate::{
     prelude::Image,
@@ -14,13 +15,24 @@ use crate::{
 #[derive(Default)]
 pub struct RenderBindGroups {
     layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
-    bind_groups: HashMap<RenderBindGroup, BindGroup>,
-    queued_bind_groups: HashMap<RenderBindGroup, Box<dyn AsRenderBindGroup>>,
+    bind_groups: HashMap<u16, BindGroup>,
+    queued_bind_groups: HashMap<u16, Box<dyn AsRenderBindGroup>>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct RenderBindGroup {
-    id: u16,
+pub struct RenderBindGroup<'a> {
+    pub(super) id: u16,
+    data: PhantomData<&'a BindGroup>,
+}
+
+impl<'a> RenderBindGroup<'a> {
+    pub(crate) fn as_unsafe(&self) -> UnsafeRenderBindGroup {
+        UnsafeRenderBindGroup { id: self.id }
+    }
+}
+
+pub(crate) struct UnsafeRenderBindGroup {
+    pub(super) id: u16,
 }
 
 pub trait AsRenderBindGroup: Send + Sync + 'static {
@@ -35,7 +47,7 @@ pub trait AsRenderBindGroup: Send + Sync + 'static {
 
     fn bind_group(
         self,
-        node_context: NodeContext,
+        node_context: NodeContext<'_, ()>, //TODO: PROPER DEPENDENCIES AAAAAAAA
         render_device: &RenderDevice,
         layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError>;
@@ -52,7 +64,7 @@ impl<B: AsBindGroup + Send + Sync + 'static> AsRenderBindGroup for B {
 
     fn bind_group(
         self,
-        node_context: NodeContext,
+        node_context: NodeContext<'_, ()>,
         render_device: &RenderDevice,
         layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
@@ -76,7 +88,10 @@ impl<B: AsBindGroup + Send + Sync + 'static> AsRenderBindGroup for B {
 }
 
 impl<
-        F: FnOnce(NodeContext, &RenderDevice, &BindGroupLayout) -> BindGroup + Send + Sync + 'static,
+        F: FnOnce(NodeContext<'_, ()>, &RenderDevice, &BindGroupLayout) -> BindGroup
+            + Send
+            + Sync
+            + 'static,
     > AsRenderBindGroup for (&'static str, &'static [BindGroupLayoutEntry], F)
 {
     fn label(&self) -> Option<&'static str> {
@@ -94,7 +109,7 @@ impl<
 
     fn bind_group(
         self,
-        node_context: NodeContext,
+        node_context: NodeContext<'_, ()>,
         render_device: &RenderDevice,
         layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
@@ -103,7 +118,10 @@ impl<
 }
 
 impl<
-        F: FnOnce(NodeContext, &RenderDevice, &BindGroupLayout) -> BindGroup + Send + Sync + 'static,
+        F: FnOnce(NodeContext<'_, ()>, &RenderDevice, &BindGroupLayout) -> BindGroup
+            + Send
+            + Sync
+            + 'static,
     > AsRenderBindGroup for (&'static [BindGroupLayoutEntry], F)
 {
     fn label(&self) -> Option<&'static str> {
@@ -121,7 +139,7 @@ impl<
 
     fn bind_group(
         self,
-        node_context: NodeContext,
+        node_context: NodeContext<'_, ()>,
         render_device: &RenderDevice,
         layout: &BindGroupLayout,
     ) -> Result<BindGroup, AsBindGroupError> {
