@@ -1168,6 +1168,14 @@ const_assert_eq!(
     0
 );
 
+// Ensure that the reserved bits don't overlap with the topology bits
+const_assert_eq!(
+    (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
+        << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
+    0
+);
+
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
