@@ -764,7 +764,7 @@ impl Triangle3d {
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
     ///
-    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `f32::EPSILON`.
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
     pub fn is_degenerate(&self) -> bool {
