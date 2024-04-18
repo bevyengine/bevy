@@ -16,20 +16,20 @@ use bind_group::RenderBindGroup;
 
 use self::bind_group::UnsafeRenderBindGroup;
 
-use super::RenderGraph;
+use super::{seal, RenderGraph};
 
 pub mod bind_group;
 pub mod buffer;
 pub mod pipeline;
 pub mod texture;
 
-pub trait RenderResource: Sized + Send + Sync + 'static {
+pub trait RenderResource: seal::Super {
     type Descriptor: Send + Sync + 'static;
     type Data: Send + Sync + 'static;
     type Store: RenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store; //todo: proper generic resource table & make sure external users can't call this function
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store;
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store; //todo: proper generic resource table & make sure external users can't call this function
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
 
@@ -421,7 +421,11 @@ impl<R: RenderResource> Clone for UnsafeRenderHandle<R> {
     }
 }
 
-pub trait RenderData {
+struct MutResource;
+struct RefResource;
+struct TakeResource;
+
+pub trait RenderData<Marker> {
     type Item<'w>;
     type Handle: Send + Sync + 'static;
 
@@ -433,80 +437,7 @@ pub trait RenderData {
     ) -> Option<Self::Item<'w>>;
 }
 
-pub trait IntoRenderData {
-    type Data: RenderData;
-
-    fn into_render_data(self) -> <Self::Data as RenderData>::Handle;
-}
-
-impl<R: RenderResource> RenderData for &R {
-    type Item<'w> = &'w R;
-    type Handle = UnsafeRenderHandle<R>;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
-        dependencies.add(handle)
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-        R::get_store(graph)
-            .get(world, handle.id)
-            .and_then(|meta| R::from_data(&meta.resource, world))
-    }
-}
-
-impl<'a, R: RenderResource> IntoRenderData for &RenderHandle<'a, R> {
-    type Data = &'a R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData>::Handle {
-        self.as_unsafe()
-    }
-}
-
-impl<'a, R: RenderResource> IntoRenderData for &mut RenderHandle<'a, R> {
-    type Data = &'a mut R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData>::Handle {
-        self.as_unsafe_mut()
-    }
-}
-
-impl<'a, R: RenderResource> IntoRenderData for RenderHandle<'a, R> {
-    type Data = R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData>::Handle {
-        self.into_unsafe()
-    }
-}
-
-impl<'a> IntoRenderData for &RenderBindGroup<'a> {
-    type Data = &'a BindGroup;
-
-    fn into_render_data(self) -> <Self::Data as RenderData>::Handle {
-        self.as_unsafe()
-    }
-}
-
-macro_rules! impl_into_render_data {
-    ($(($T: ident, $t: ident)),*) => {
-        impl <$($T: IntoRenderData),*> IntoRenderData for ($($T,)*) {
-            type Data = ($($T::Data,)*);
-
-            #[allow(clippy::unused_unit)]
-            fn into_render_data(self) -> <Self::Data as RenderData>::Handle {
-                let ($($t,)*) = self;
-                ($($t.into_render_data(),)*)
-            }
-        }
-    }
-}
-
-all_tuples!(impl_into_render_data, 0, 16, T, t);
-
-impl<R: RenderResource> RenderData for &R {
+impl<R: RenderResource> RenderData<RefResource> for &R {
     type Item<'w> = &'w R;
     type Handle = UnsafeRenderHandle<R>;
 
@@ -523,7 +454,7 @@ impl<R: RenderResource> RenderData for &R {
     }
 }
 
-impl<R: RenderResource> RenderData for &mut R {
+impl<R: RenderResource> RenderData<MutResource> for &mut R {
     type Item<'w> = &'w mut R;
     type Handle = UnsafeRenderHandle<R>;
 
@@ -540,7 +471,7 @@ impl<R: RenderResource> RenderData for &mut R {
     }
 }
 
-impl<R: RenderResource> RenderData for R {
+impl<R: RenderResource> RenderData<TakeResource> for R {
     type Item<'w> = R;
     type Handle = UnsafeRenderHandle<R>;
 
@@ -557,7 +488,7 @@ impl<R: RenderResource> RenderData for R {
     }
 }
 
-impl RenderData for &BindGroup {
+impl RenderData<RefResource> for &BindGroup {
     type Item<'w> = &'w BindGroup;
     type Handle = UnsafeRenderBindGroup;
 
@@ -573,7 +504,7 @@ impl RenderData for &BindGroup {
     }
 }
 
-impl<D: RenderData, const N: usize> RenderData for [D; N] {
+impl<M, D: RenderData<M>, const N: usize> RenderData<[M; N]> for [D; N] {
     type Item<'w> = [D::Item<'w>; N];
     type Handle = [D::Handle; N];
 
@@ -597,8 +528,8 @@ impl<D: RenderData, const N: usize> RenderData for [D; N] {
 }
 
 macro_rules! impl_render_data {
-    ($(($T: ident, $t: ident, $i: ident)),*) => {
-        impl <$($T: RenderData),*> RenderData for ($($T,)*) {
+    ($(($T: ident, $M:ident, $t: ident, $i: ident)),*) => {
+        impl <$($M,)* $($T: RenderData<$M>),*> RenderData<($($M,)*)> for ($($T,)*) {
             type Item<'w> = ($($T::Item<'w>,)*);
             type Handle = ($($T::Handle,)*);
 
@@ -620,7 +551,61 @@ macro_rules! impl_render_data {
     };
 }
 
-all_tuples!(impl_render_data, 0, 16, T, t, i);
+all_tuples!(impl_render_data, 0, 16, T, M, t, i);
+
+pub trait IntoRenderData<Marker> {
+    type Data: RenderData<Marker>;
+
+    fn into_render_data(self) -> <Self::Data as RenderData<Marker>>::Handle;
+}
+
+impl<'a, R: RenderResource> IntoRenderData<RefResource> for &RenderHandle<'a, R> {
+    type Data = &'a R;
+
+    fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
+        self.as_unsafe()
+    }
+}
+
+impl<'a, R: RenderResource> IntoRenderData<MutResource> for &mut RenderHandle<'a, R> {
+    type Data = &'a mut R;
+
+    fn into_render_data(self) -> <Self::Data as RenderData<MutResource>>::Handle {
+        self.as_unsafe_mut()
+    }
+}
+
+impl<'a, R: RenderResource> IntoRenderData<TakeResource> for RenderHandle<'a, R> {
+    type Data = R;
+
+    fn into_render_data(self) -> <Self::Data as RenderData<TakeResource>>::Handle {
+        self.into_unsafe()
+    }
+}
+
+impl<'a> IntoRenderData<RefResource> for &RenderBindGroup<'a> {
+    type Data = &'a BindGroup;
+
+    fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
+        self.as_unsafe()
+    }
+}
+
+macro_rules! impl_into_render_data {
+    ($(($T: ident, $M: ident, $t: ident)),*) => {
+        impl <$($M,)* $($T: IntoRenderData<$M>),*> IntoRenderData<($($M,)*)> for ($($T,)*) {
+            type Data = ($($T::Data,)*);
+
+            #[allow(clippy::unused_unit)]
+            fn into_render_data(self) -> <Self::Data as RenderData<($($M,)*)>>::Handle {
+                let ($($t,)*) = self;
+                ($($t.into_render_data(),)*)
+            }
+        }
+    }
+}
+
+all_tuples!(impl_into_render_data, 0, 16, T, M, t);
 
 // impl<'a, R: RenderResource> IntoRenderDependency<'a> for &'a RenderHandle<R> {
 //     fn into_render_dependency(self) -> RenderDependency {

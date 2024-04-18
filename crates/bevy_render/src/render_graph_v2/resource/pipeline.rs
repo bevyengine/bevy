@@ -5,7 +5,7 @@ use bevy_ecs::{
 
 use crate::{
     mesh::MeshVertexBufferLayoutRef,
-    render_graph_v2::RenderGraph,
+    render_graph_v2::{seal, RenderGraph},
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
         ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
@@ -19,16 +19,18 @@ use super::{
     CachedRenderStore, IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
 };
 
+impl seal::Super for RenderPipeline {}
+
 impl RenderResource for RenderPipeline {
     type Descriptor = RenderPipelineDescriptor;
     type Data = CachedRenderPipelineId;
     type Store = CachedRenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         &graph.render_pipelines
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         &mut graph.render_pipelines
     }
 
@@ -59,16 +61,18 @@ impl IntoRenderResource for RenderPipelineDescriptor {
     }
 }
 
+impl seal::Super for ComputePipeline {}
+
 impl RenderResource for ComputePipeline {
     type Descriptor = ComputePipelineDescriptor;
     type Data = CachedComputePipelineId;
     type Store = CachedRenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         &graph.compute_pipelines
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         &mut graph.compute_pipelines
     }
 

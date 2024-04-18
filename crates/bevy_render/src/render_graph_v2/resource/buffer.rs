@@ -1,23 +1,29 @@
 use bevy_ecs::world::World;
 use wgpu::BufferDescriptor;
 
-use crate::{render_graph_v2::RenderGraph, render_resource::Buffer, renderer::RenderDevice};
+use crate::{
+    render_graph_v2::{seal, RenderGraph},
+    render_resource::Buffer,
+    renderer::RenderDevice,
+};
 
 use super::{
     IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
     RetainedRenderResource, SimpleRenderStore, WriteRenderResource,
 };
 
+impl seal::Super for Buffer {}
+
 impl RenderResource for Buffer {
     type Descriptor = BufferDescriptor<'static>;
     type Data = Buffer;
     type Store = SimpleRenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         &graph.buffers
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         &mut graph.buffers
     }
 

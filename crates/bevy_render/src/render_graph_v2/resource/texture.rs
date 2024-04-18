@@ -4,7 +4,7 @@ use bevy_utils::HashMap;
 use std::{borrow::Cow, hash::Hash, sync::Arc};
 
 use crate::{
-    render_graph_v2::{RenderGraph, RenderGraphBuilder},
+    render_graph_v2::{seal, RenderGraph, RenderGraphBuilder},
     render_resource::{
         ImageDataLayout, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView,
         TextureViewDescriptor,
@@ -19,16 +19,18 @@ use super::{
     WriteRenderResource,
 };
 
+impl seal::Super for Texture {}
+
 impl RenderResource for Texture {
     type Descriptor = TextureDescriptor<'static>;
     type Data = Self;
     type Store = SimpleRenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         &graph.textures
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         &mut graph.textures
     }
 
@@ -75,22 +77,25 @@ pub fn new_texture_with_data<'a>(
     let size = descriptor.size;
     let mut tex = graph.new_resource(descriptor);
     graph.add_node(&mut tex, move |mut ctx, _, queue| {
+        //todo: internal mutability on ctx?
         let tex = ctx.input();
         queue.write_texture(tex.as_image_copy(), data, data_layout, size);
     });
     tex
 }
 
+impl seal::Super for TextureView {}
+
 impl RenderResource for TextureView {
     type Descriptor = TextureViewDescriptor<'static>;
     type Data = Self;
     type Store = SimpleRenderStore<TextureView>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         todo!()
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         todo!()
     }
 
@@ -107,16 +112,18 @@ impl RenderResource for TextureView {
     }
 }
 
+impl seal::Super for Sampler {}
+
 impl RenderResource for Sampler {
     type Descriptor = RenderGraphSamplerDescriptor;
     type Data = Self;
     type Store = CachedRenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph) -> &Self::Store {
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
         &graph.samplers
     }
 
-    fn get_store_mut(graph: &mut RenderGraph) -> &mut Self::Store {
+    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
         &mut graph.samplers
     }
 
