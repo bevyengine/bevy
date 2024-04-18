@@ -1130,7 +1130,7 @@ mod tests {
 
         assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
         assert_eq!(triangle.area(), 3.0233467, "incorrect area");
-        assert_eq!(triangle.perimeter(), 9.8322915, "incorrect perimeter");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
         assert_eq!(
             triangle.circumcenter(),
             Vec3::new(-1., 1.75, 0.75),
