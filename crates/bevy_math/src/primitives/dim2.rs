@@ -851,6 +851,14 @@ mod tests {
     fn ellipse_math() {
         let ellipse = Ellipse::new(3.0, 1.0);
         assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+
+        assert_eq!(ellipse.eccentricity(), 0.94280905, "incorrect eccentricity");
+
+        let line = Ellipse::new(1., 0.);
+        assert_eq!(line.eccentricity(), 1., "incorrect line eccentricity");
+
+        let circle = Ellipse::new(2., 2.);
+        assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
     }
 
     #[test]

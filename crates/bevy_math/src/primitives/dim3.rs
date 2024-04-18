@@ -923,8 +923,8 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
+    use crate::Quat;
     use approx::assert_relative_eq;
-    use glam::Quat;
 
     #[test]
     fn direction_creation() {
