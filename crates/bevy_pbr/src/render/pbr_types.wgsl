@@ -15,6 +15,8 @@ struct StandardMaterial {
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
+    clearcoat: f32,
+    clearcoat_perceptual_roughness: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -44,6 +46,9 @@ const STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT: u32 = 1024u;
 const STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT: u32          = 2048u;
 const STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT: u32 = 4096u;
 const STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT: u32        = 8192u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT: u32          = 16384u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT: u32 = 32768u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_TEXTURE_BIT: u32   = 65536u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
@@ -101,6 +106,7 @@ struct PbrInput {
     // view world position
     V: vec3<f32>,
     lightmap_light: vec3<f32>,
+    clearcoat_N: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
 };

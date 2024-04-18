@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     pbr_prepass_functions,
+    pbr_bindings,
     pbr_bindings::material,
     pbr_types,
     pbr_functions,
@@ -45,25 +46,30 @@ fn fragment(
             is_front,
         );
 
-        let normal = pbr_functions::apply_normal_mapping(
+        var normal = world_normal;
+
+#ifdef VERTEX_UVS
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+        let Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, in.uv, in.ddx_uv, in.ddy_uv).rgb;
+#else   // MESHLET_MESH_MATERIAL_PASS
+        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, in.uv, view.mip_bias).rgb;
+#endif  // MESHLET_MESH_MATERIAL_PASS
+        normal = pbr_functions::apply_normal_mapping(
             material.flags,
             world_normal,
             double_sided,
             is_front,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARD_MATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif // STANDARD_MATERIAL_NORMAL_MAP
-#endif // VERTEX_TANGENTS
-#ifdef VERTEX_UVS
-            in.uv,
-#endif // VERTEX_UVS
+            Nt,
             view.mip_bias,
-#ifdef MESHLET_MESH_MATERIAL_PASS
-            in.ddx_uv,
-            in.ddy_uv,
-#endif // MESHLET_MESH_MATERIAL_PASS
         );
+
+#endif  // STANDARD_MATERIAL_NORMAL_MAP
+#endif  // VERTEX_TANGENTS
+#endif  // VERTEX_UVS
 
         out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);
     } else {

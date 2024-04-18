@@ -338,6 +338,61 @@ pub struct StandardMaterial {
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
 
+    /// An extra thin translucent layer on top of the main PBR layer. According
+    /// to the Filament spec, this is commonly used for materials such as car
+    /// paints, soda cans, lacquered wood, acrylic, and so forth.
+    ///
+    /// This value specifies the strength of the layer, which affects how
+    /// visible the clearcoat layer will be.
+    ///
+    /// Defaults to zero, specifying no clearcoat layer.
+    pub clearcoat: f32,
+
+    /// An image texture that specifies the strength of the clearcoat layer in
+    /// the red channel. Values sampled from this texture are multiplied by the
+    /// main [`StandardMaterial::clearcoat`] factor.
+    ///
+    /// As this is a non-color map, it must not be loaded as sRGB.
+    #[texture(19)]
+    #[sampler(20)]
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_texture: Option<Handle<Image>>,
+
+    /// The roughness of the clearcoat material. This is specified in exactly
+    /// the same way as the [`StandardMaterial::perceptual_roughness`].
+    ///
+    /// If the [`StandardMaterial::clearcoat`] value if zero, this has no
+    /// effect.
+    ///
+    /// Defaults to 0.5.
+    pub clearcoat_perceptual_roughness: f32,
+
+    /// An image texture that specifies the roughness of the clearcoat level in
+    /// the green channel.  Values from this texture are multiplied by the main
+    /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
+    ///
+    /// As this is a non-color map, it must not be loaded as sRGB.
+    #[texture(21)]
+    #[sampler(22)]
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_roughness_texture: Option<Handle<Image>>,
+
+    /// An image texture that specifies a normal map that is to be applied to
+    /// the clearcoat layer. This can be used to simulate, for example,
+    /// scratches on an outer layer of varnish. Normal maps are in the same
+    /// format as [`StandardMaterial::normal_map_texture`].
+    ///
+    /// Note that, if a clearcoat normal map isn't specified, the main normal
+    /// map, if any, won't be applied to the clearcoat. If you want a normal map
+    /// that applies to both the main materal and to the clearcoat, specify it
+    /// in both [`StandardMaterial::normal_map_texture`] and this field.
+    ///
+    /// As this is a non-color map, it must not be loaded as sRGB.
+    #[texture(23)]
+    #[sampler(24)]
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_normal_texture: Option<Handle<Image>>,
+
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
     ///
@@ -579,6 +634,14 @@ impl Default for StandardMaterial {
             attenuation_distance: f32::INFINITY,
             occlusion_texture: None,
             normal_map_texture: None,
+            clearcoat: 0.0,
+            clearcoat_perceptual_roughness: 0.5,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_texture: None,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_texture: None,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_texture: None,
             flip_normal_map_y: false,
             double_sided: false,
             cull_mode: Some(Face::Back),
@@ -641,6 +704,9 @@ bitflags::bitflags! {
         const THICKNESS_TEXTURE          = 1 << 11;
         const DIFFUSE_TRANSMISSION_TEXTURE = 1 << 12;
         const ATTENUATION_ENABLED        = 1 << 13;
+        const CLEARCOAT_TEXTURE          = 1 << 14;
+        const CLEARCOAT_ROUGHNESS_TEXTURE = 1 << 15;
+        const CLEARCOAT_NORMAL_TEXTURE   = 1 << 16;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -690,6 +756,8 @@ pub struct StandardMaterialUniform {
     pub ior: f32,
     /// How far light travels through the volume underneath the material surface before being absorbed
     pub attenuation_distance: f32,
+    pub clearcoat: f32,
+    pub clearcoat_perceptual_roughness: f32,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -753,6 +821,20 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
                 flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
             }
         }
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        {
+            if self.clearcoat_texture.is_some() {
+                flags |= StandardMaterialFlags::CLEARCOAT_TEXTURE;
+            }
+            if self.clearcoat_roughness_texture.is_some() {
+                flags |= StandardMaterialFlags::CLEARCOAT_ROUGHNESS_TEXTURE;
+            }
+            if self.clearcoat_normal_texture.is_some() {
+                flags |= StandardMaterialFlags::CLEARCOAT_NORMAL_TEXTURE;
+            }
+        }
+
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
             let normal_map_id = self.normal_map_texture.as_ref().map(|h| h.id()).unwrap();
@@ -799,6 +881,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
+            clearcoat: self.clearcoat,
+            clearcoat_perceptual_roughness: self.clearcoat_perceptual_roughness,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,
             thickness: self.thickness,
@@ -829,6 +913,8 @@ bitflags! {
         const RELIEF_MAPPING        = 0x08;
         const DIFFUSE_TRANSMISSION  = 0x10;
         const SPECULAR_TRANSMISSION = 0x20;
+        const CLEARCOAT             = 0x40;
+        const CLEARCOAT_NORMAL_MAP  = 0x80;
         const DEPTH_BIAS            = 0xffffffff_00000000;
     }
 }
@@ -865,6 +951,15 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::SPECULAR_TRANSMISSION,
             material.specular_transmission > 0.0,
         );
+
+        key.set(StandardMaterialKey::CLEARCOAT, material.clearcoat > 0.0);
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        key.set(
+            StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
+            material.clearcoat > 0.0 && material.clearcoat_normal_texture.is_some(),
+        );
+
         key.insert(StandardMaterialKey::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
@@ -941,38 +1036,37 @@ impl Material for StandardMaterial {
         if let Some(fragment) = descriptor.fragment.as_mut() {
             let shader_defs = &mut fragment.shader_defs;
 
-            if key
-                .bind_group_data
-                .contains(StandardMaterialKey::NORMAL_MAP)
-            {
-                shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
-            }
-            if key
-                .bind_group_data
-                .contains(StandardMaterialKey::RELIEF_MAPPING)
-            {
-                shader_defs.push("RELIEF_MAPPING".into());
-            }
-
-            if key
-                .bind_group_data
-                .contains(StandardMaterialKey::DIFFUSE_TRANSMISSION)
-            {
-                shader_defs.push("STANDARD_MATERIAL_DIFFUSE_TRANSMISSION".into());
-            }
-
-            if key
-                .bind_group_data
-                .contains(StandardMaterialKey::SPECULAR_TRANSMISSION)
-            {
-                shader_defs.push("STANDARD_MATERIAL_SPECULAR_TRANSMISSION".into());
-            }
-
-            if key.bind_group_data.intersects(
-                StandardMaterialKey::DIFFUSE_TRANSMISSION
-                    | StandardMaterialKey::SPECULAR_TRANSMISSION,
-            ) {
-                shader_defs.push("STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION".into());
+            for (flags, shader_def) in [
+                (
+                    StandardMaterialKey::NORMAL_MAP,
+                    "STANDARD_MATERIAL_NORMAL_MAP",
+                ),
+                (StandardMaterialKey::RELIEF_MAPPING, "RELIEF_MAPPING"),
+                (
+                    StandardMaterialKey::DIFFUSE_TRANSMISSION,
+                    "STANDARD_MATERIAL_DIFFUSE_TRANSMISSION",
+                ),
+                (
+                    StandardMaterialKey::SPECULAR_TRANSMISSION,
+                    "STANDARD_MATERIAL_SPECULAR_TRANSMISSION",
+                ),
+                (
+                    StandardMaterialKey::DIFFUSE_TRANSMISSION
+                        | StandardMaterialKey::SPECULAR_TRANSMISSION,
+                    "STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT,
+                    "STANDARD_MATERIAL_CLEARCOAT",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
+                    "STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP",
+                ),
+            ] {
+                if key.bind_group_data.intersects(flags) {
+                    shader_defs.push(shader_def.into());
+                }
             }
         }
 

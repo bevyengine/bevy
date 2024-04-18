@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 dds = []
 pbr_transmission_textures = []
+pbr_multi_layer_material_textures = []
 
 [dependencies]
 # bevy

@@ -3,6 +3,7 @@
 #import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
+#import bevy_pbr::lighting::F_Schlick_vec
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -118,6 +119,13 @@ fn environment_map_light(
     N: vec3<f32>,
     R: vec3<f32>,
     F0: vec3<f32>,
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    clearcoat_NdotV: f32,
+    clearcoat_N: vec3<f32>,
+    clearcoat_R: vec3<f32>,
+    clearcoat: f32,
+    clearcoat_perceptual_roughness: f32,
+#endif  // STANDARD_MATERIAL_CLEARCOAT
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
@@ -153,7 +161,6 @@ fn environment_map_light(
     let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
-
     if (!found_diffuse_indirect) {
         out.diffuse = (FmsEms + kD) * radiances.irradiance;
     } else {
@@ -161,5 +168,30 @@ fn environment_map_light(
     }
 
     out.specular = FssEss * radiances.radiance;
+
+    // Clearcoat
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+
+    // Calculate the Fresnel term `Fc` for the clearcoat layer.
+    // 0.04 is a hardcoded value for F0 from the Filament spec.
+    let clearcoat_F0 = vec3<f32>(0.04);
+    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat;
+    let inv_Fc = 1.0 - Fc;
+    let clearcoat_radiances = compute_radiances(
+        clearcoat_perceptual_roughness,
+        clearcoat_N,
+        clearcoat_R,
+        world_position,
+        found_diffuse_indirect);
+
+    // Composite the clearcoat layer on top of the existing one.
+    // These formulas are from Filament:
+    // <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat>
+    out.diffuse *= inv_Fc;
+    out.specular = out.specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
+
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
     return out;
 }

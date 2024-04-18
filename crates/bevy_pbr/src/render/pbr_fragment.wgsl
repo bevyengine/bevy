@@ -170,6 +170,34 @@ fn pbr_input_from_standard_material(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
+        // Clearcoat factor
+        pbr_input.material.clearcoat = pbr_bindings::material.clearcoat;
+#ifdef VERTEX_UVS
+#ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            pbr_input.material.clearcoat *= textureSampleGrad(pbr_bindings::clearcoat_texture, pbr_bindings::clearcoat_sampler, uv, in.ddx_uv, in.ddy_uv).r;
+#else   // MESHLET_MESH_MATERIAL_PASS
+            pbr_input.material.clearcoat *= textureSampleBias(pbr_bindings::clearcoat_texture, pbr_bindings::clearcoat_sampler, uv, view.mip_bias).r;
+#endif  // MESHLET_MESH_MATERIAL_PASS
+        }
+#endif  // PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+#endif  // VERTEX_UVS
+
+        // Clearcoat roughness
+        pbr_input.material.clearcoat_perceptual_roughness = pbr_bindings::material.clearcoat_perceptual_roughness;
+#ifdef VERTEX_UVS
+#ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT) != 0u) {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            pbr_input.material.clearcoat_perceptual_roughness *= textureSampleGrad(pbr_bindings::clearcoat_roughness_texture, pbr_bindings::clearcoat_roughness_sampler, uv, in.ddx_uv, in.ddy_uv).g;
+#else   // MESHLET_MESH_MATERIAL_PASS
+            pbr_input.material.clearcoat_perceptual_roughness *= textureSampleBias(pbr_bindings::clearcoat_roughness_texture, pbr_bindings::clearcoat_roughness_sampler, uv, view.mip_bias).g;
+#endif  // MESHLET_MESH_MATERIAL_PASS
+        }
+#endif  // PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+#endif  // VERTEX_UVS
+
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
@@ -237,26 +265,63 @@ fn pbr_input_from_standard_material(
 
         // N (normal vector)
 #ifndef LOAD_PREPASS_NORMALS
+
+        pbr_input.N = normalize(pbr_input.world_normal);
+        pbr_input.clearcoat_N = pbr_input.N;
+
+#ifdef VERTEX_UVS
+#ifdef VERTEX_TANGENTS
+
+#ifdef STANDARD_MATERIAL_NORMAL_MAP
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+        let Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, in.ddx_uv, in.ddy_uv).rgb;
+#else   // MESHLET_MESH_MATERIAL_PASS
+        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, view.mip_bias).rgb;
+#endif  // MESHLET_MESH_MATERIAL_PASS
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
             pbr_input.world_normal,
             double_sided,
             is_front,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARD_MATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif
-#endif
-#ifdef VERTEX_UVS
-            uv,
-#endif
+            Nt,
             view.mip_bias,
-#ifdef MESHLET_MESH_MATERIAL_PASS
-            in.ddx_uv,
-            in.ddy_uv,
-#endif
         );
-#endif
+
+#endif  // STANDARD_MATERIAL_NORMAL_MAP
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+
+        // Note: `KHR_materials_clearcoat` specifies that, if there's no
+        // clearcoat normal map, we must set the normal to the mesh's normal,
+        // and not to the main layer's bumped normal.
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+        let clearcoat_Nt = textureSampleGrad(pbr_bindings::clearcoat_normal_texture, pbr_bindings::clearcoat_normal_sampler, uv, in.ddx_uv, in.ddy_uv).rgb;
+#else   // MESHLET_MESH_MATERIAL_PASS
+        let clearcoat_Nt = textureSampleBias(pbr_bindings::clearcoat_normal_texture, pbr_bindings::clearcoat_normal_sampler, uv, view.mip_bias).rgb;
+#endif  // MESHLET_MESH_MATERIAL_PASS
+        pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(
+            pbr_bindings::material.flags,
+            pbr_input.world_normal,
+            double_sided,
+            is_front,
+            in.world_tangent,
+            clearcoat_Nt,
+            view.mip_bias,
+        );
+
+#endif  // STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
+
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
+#endif  // VERTEX_TANGENTS
+#endif  // VERTEX_UVS
+
+#endif  // LOAD_PREPASS_NORMALS
 
 // TODO: Meshlet support
 #ifdef LIGHTMAP
