@@ -3,7 +3,7 @@
 
 use crate::{Quat, VectorSpace};
 use std::{
-    cmp::{max, max_by, min_by},
+    cmp::{max_by, min_by},
     marker::PhantomData,
     ops::{Deref, RangeInclusive},
 };
@@ -86,6 +86,16 @@ impl Interval {
         }
         let scale = other.length() / self.length();
         Ok(move |x| (x - self.start) * scale + other.start)
+    }
+
+    /// Get an iterator over `points` equally-spaced points from this interval in increasing order.
+    /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
+    pub fn spaced_points(self, points: usize) -> Option<impl Iterator<Item = f32>> {
+        if points < 2 {
+            return None;
+        }
+        let step = self.length() / (points - 1) as f32;
+        Some((0..points).map(move |x| self.start + x as f32 * step))
     }
 }
 
@@ -183,10 +193,12 @@ where
             return Err(ResamplingError::InfiniteInterval(InfiniteIntervalError));
         }
 
-        // When `samples` is 1, we just record the starting point, and `step` doesn't matter.
-        let subdivisions = max(1, samples - 1);
-        let step = self.domain().length() / subdivisions as f32;
-        let samples: Vec<T> = (0..samples).map(|s| self.sample(s as f32 * step)).collect();
+        let samples: Vec<T> = self
+            .domain()
+            .spaced_points(samples)
+            .unwrap()
+            .map(|t| self.sample(t))
+            .collect();
         Ok(SampleCurve {
             domain: self.domain(),
             samples,
@@ -206,8 +218,9 @@ where
     fn resample_uneven(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
-    ) -> Result<UnevenSampleCurve<T>, ResamplingError> 
-    where Self: Sized
+    ) -> Result<UnevenSampleCurve<T>, ResamplingError>
+    where
+        Self: Sized,
     {
         let mut times: Vec<f32> = sample_times
             .into_iter()
@@ -342,19 +355,21 @@ where
     /// Borrow this curve rather than taking ownership of it. This is essentially an alias for a
     /// prefix `&`; the point is that intermediate operations can be performed while retaining
     /// access to the original curve.
-    /// 
+    ///
     /// # Example
     /// ```
     /// # use bevy_math::curve::*;
     /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
-    /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes 
+    /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
     /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample(100).unwrap();
     /// // Do something else with `my_curve` since we retained ownership:
     /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
     /// ```
     fn by_ref(&self) -> &Self
-    where Self: Sized {
+    where
+        Self: Sized,
+    {
         self
     }
 }
@@ -454,12 +469,8 @@ where
 
     /// Like [`Curve::graph`], but with a concrete return type.
     pub fn graph_concrete(self) -> SampleCurve<(f32, T)> {
-        let subdivisions = self.samples.len() - 1;
-        let step = self.domain.length() / subdivisions as f32;
-        let times: Vec<f32> = (0..self.samples.len())
-            .map(|s| self.domain.start() + (s as f32 * step))
-            .collect();
-        let new_samples: Vec<(f32, T)> = times.into_iter().zip(self.samples).collect();
+        let times = self.domain().spaced_points(self.samples.len()).unwrap();
+        let new_samples: Vec<(f32, T)> = times.zip(self.samples).collect();
         SampleCurve {
             domain: self.domain,
             samples: new_samples,
@@ -891,19 +902,4 @@ where
     T: Interpolable,
 {
     curve.map(|(s, t)| (t, s))
-}
-
-#[test]
-fn my_test() {
-    let my_curve = function_curve((0.0..=1.0).try_into().unwrap(), |t| t * t + 1.0);
-    let samples = my_curve.by_ref().map(|x| x * 2.0).resample(100).unwrap();
-    let new_curve = my_curve.map(|x| x * x);
-    println!("samples: {:?}", samples.samples);
-}
-
-#[test]
-fn another_test() {
-    let boxed_curve: Box<dyn Curve<f32>> = Box::new(function_curve(everywhere(), |t| t * t));
-    println!("size: {:?}", std::mem::size_of::<Box<dyn Curve<f32>> >());
-    let mapped = boxed_curve.map(|x| 2.0 * x);
 }
