@@ -11,13 +11,13 @@ runs:
     
     - name: Install Sold
       if: ${{ runner.os == 'macos' }}
-      uses: BD103/bevy-prebuilt
+      uses: BD103/bevy-prebuilt@main
       with:
         sold: true
 
     - name: Install cargo-binutils
       if: ${{ runner.os == 'windows' }}
-      uses: BD103/bevy-prebuilt
+      uses: BD103/bevy-prebuilt@main
       with:
         cargo-binutils: true
 

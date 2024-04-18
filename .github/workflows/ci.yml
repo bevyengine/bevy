@@ -34,6 +34,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/config-fast-builds
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -60,6 +61,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: ./.github/actions/config-fast-builds
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
