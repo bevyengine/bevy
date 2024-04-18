@@ -85,7 +85,9 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
-        let culling_workgroups = meshlet_view_resources.scene_meshlet_count.div_ceil(64);
+        let culling_workgroups = (meshlet_view_resources.scene_meshlet_count.div_ceil(64) as f32)
+            .cbrt()
+            .ceil() as u32;
         let write_index_buffer_workgroups = (meshlet_view_resources.scene_meshlet_count as f32)
             .cbrt()
             .ceil() as u32;
@@ -297,7 +299,7 @@ fn cull_pass(
         &[view_offset.offset, previous_view_offset.offset],
     );
     cull_pass.set_pipeline(culling_pipeline);
-    cull_pass.dispatch_workgroups(culling_workgroups, 1, 1);
+    cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
 }
 
 fn write_index_buffer_pass(

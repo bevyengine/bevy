@@ -19,22 +19,24 @@
 
 @compute
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 instanced meshlet per thread
-fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
-    if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
+fn cull_meshlets(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>, @builtin(local_invocation_id) local_invocation_id: vec3<u32>) {
+    // Calculate the cluster ID for this thread
+    let cluster_id = local_invocation_id.x + 64u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
+    if cluster_id >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    if !meshlet_is_second_pass_candidate(cluster_id.x) { return; }
+    if !meshlet_is_second_pass_candidate(cluster_id) { return; }
 #endif
 
     // Check for instance culling
-    let instance_id = meshlet_thread_instance_ids[cluster_id.x];
+    let instance_id = meshlet_thread_instance_ids[cluster_id];
 #ifdef MESHLET_FIRST_CULLING_PASS
     if should_cull_instance(instance_id) { return; }
 #endif
 
     // Calculate world-space culling bounding sphere for the cluster
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
+    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
@@ -110,8 +112,8 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
 #else
     var occlusion_bits = u32(meshlet_visible);
 #endif
-    occlusion_bits <<= (cluster_id.x % 16u) * 2u;
-    atomicOr(&meshlet_occlusion[cluster_id.x / 16u], occlusion_bits);
+    occlusion_bits <<= (cluster_id % 16u) * 2u;
+    atomicOr(&meshlet_occlusion[cluster_id / 16u], occlusion_bits);
 }
 
 // https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
