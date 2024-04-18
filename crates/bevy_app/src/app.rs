@@ -180,7 +180,7 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// fn my_runner(mut app: App) {
+    /// fn my_runner(mut app: App) -> AppExit {
     ///     loop {
     ///         println!("In main loop");
     ///         app.update();
@@ -911,7 +911,7 @@ mod tests {
         system::Commands,
     };
 
-    use crate::{App, Plugin};
+    use crate::{App, AppExit, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1112,19 +1112,21 @@ mod tests {
     /// fix: <https://github.com/bevyengine/bevy/pull/10389>
     #[test]
     fn regression_test_10385() {
-        use super::{Res, Resource};
+        use super::{Res, Resource, AppExit};
         use crate::PreUpdate;
 
         #[derive(Resource)]
         struct MyState {}
 
-        fn my_runner(mut app: App) {
+        fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
             app.world_mut().insert_resource(my_state);
 
             for _ in 0..5 {
                 app.update();
             }
+
+            AppExit::Success
         }
 
         fn my_system(_: Res<MyState>) {

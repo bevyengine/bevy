@@ -41,7 +41,7 @@ semicolon_if_nothing_returned = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
-#ref_as_ptr = "warn"
+ref_as_ptr = "warn"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
