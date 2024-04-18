@@ -85,7 +85,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
-        let culling_workgroups = meshlet_view_resources.scene_meshlet_count.div_ceil(64);
+        let culling_workgroups = meshlet_view_resources.scene_meshlet_count.div_ceil(128);
         let write_index_buffer_workgroups = (meshlet_view_resources.scene_meshlet_count as f32)
             .cbrt()
             .ceil() as u32;
