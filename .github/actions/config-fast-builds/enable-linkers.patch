@@ -1,0 +1,56 @@
+diff --git a/.cargo/config_fast_builds.toml b/.cargo/config_fast_builds.toml
+index 5f1adb685..4c8aecb49 100644
+--- a/.cargo/config_fast_builds.toml
++++ b/.cargo/config_fast_builds.toml
+@@ -74,7 +74,7 @@ rustflags = [
+   # - Ubuntu: `sudo apt-get install lld clang`
+   # - Fedora: `sudo dnf install lld clang`
+   # - Arch: `sudo pacman -S lld clang`
+-  "-Clink-arg=-fuse-ld=lld",
++  # "-Clink-arg=-fuse-ld=lld",
+ 
+   # Mold linker
+   #
+@@ -83,7 +83,7 @@ rustflags = [
+   # - Ubuntu: `sudo apt-get install mold clang`
+   # - Fedora: `sudo dnf install mold clang`
+   # - Arch: `sudo pacman -S mold clang`
+-  # "-Clink-arg=-fuse-ld=/usr/bin/mold",
++  "-Clink-arg=-fuse-ld=/usr/bin/mold",
+ 
+   # Nightly
+   # "-Zshare-generics=y",
+@@ -98,14 +98,14 @@ rustflags = [
+   #
+   # Brew: `brew install llvm`
+   # Manually: <https://lld.llvm.org/MachO/index.html>
+-  "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
++  # "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
+ 
+   # Sold linker
+   #
+   # You may need to install it:
+   #
+   # Manually: <https://github.com/bluewhalesystems/sold>
+-  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
++  "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+ 
+   # Nightly
+   # "-Zshare-generics=y",
+@@ -120,14 +120,14 @@ rustflags = [
+   #
+   # Brew: `brew install llvm`
+   # Manually: <https://lld.llvm.org/MachO/index.html>
+-  "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
++  # "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
+ 
+   # Sold linker
+   #
+   # You may need to install it:
+   #
+   # Manually: <https://github.com/bluewhalesystems/sold>
+-  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
++  "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+ 
+   # Nightly
+   # "-Zshare-generics=y",

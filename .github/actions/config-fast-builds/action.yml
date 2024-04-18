@@ -1,0 +1,35 @@
+name: Configure faster builds
+descrition: Uses `config_fast_builds.toml` to speed up compile times.
+runs:
+  using: composite
+  steps:
+    - name: Install Mold
+      if: ${{ runner.os == 'linux' }}
+      uses: rui314/setup-mold@v1
+      with:
+        make-default: false
+    
+    - name: Install Sold
+      if: ${{ runner.os == 'macos' }}
+      uses: BD103/bevy-prebuilt
+      with:
+        sold: true
+
+    - name: Install cargo-binutils
+      if: ${{ runner.os == 'windows' }}
+      uses: BD103/bevy-prebuilt
+      with:
+        cargo-binutils: true
+
+    - name: Install llvm-tools
+      if: ${{ runner.os == 'windows' }}
+      shell: bash
+      run: rustup component add llvm-tools
+
+    - name: Enable faster linkers
+      shell: bash
+      run: git apply .github/actions/config-fast-builds/enable-linkers.patch
+
+    - name: Copy `config_fast_builds.toml` to `config.toml`
+      shell: bash
+      run: cp .cargo/{config_fast_builds,config}.toml
