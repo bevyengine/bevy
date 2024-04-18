@@ -106,15 +106,24 @@ impl Ellipse {
         }
     }
 
+    #[inline(always)]
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse. The eccentricity can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    pub fn eccentricity(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        a.hypot(b) / a
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_major(self) -> f32 {
+    pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_minor(self) -> f32 {
+    pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
 
