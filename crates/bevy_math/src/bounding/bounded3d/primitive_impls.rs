@@ -4,7 +4,7 @@ use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
         BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
-        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
     Dir3, Mat3, Quat, Vec2, Vec3,
 };

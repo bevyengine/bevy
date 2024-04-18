@@ -4,10 +4,7 @@ use std::f32::{
 };
 
 use super::{Circle, Primitive3d};
-use crate::{
-    bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Mat3, Quat, Vec2, Vec3,
-};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
