@@ -67,15 +67,15 @@ pub trait Set: Reflect {
 
     /// Inserts a value into the set.
     ///
-    /// If the set did not have this value present, `None` is returned.
-    /// If the set did have this value present, it is updated, and the old value is returned.
-    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>>;
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Box<dyn Reflect>;
 
     /// Removes an value from the set.
     ///
-    /// If the set did not have this value present, `None` is returned.
-    /// If the set did have this value present, it is returned.
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
+    fn remove(&mut self, key: &dyn Reflect) -> Box<dyn Reflect>;
 }
 
 /// A container for compile-time set info.
@@ -230,27 +230,31 @@ impl Set for DynamicSet {
         }
     }
 
-    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>> {
+    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Box<dyn Reflect> {
         match self.indices.entry(value.reflect_hash().expect(HASH_ERROR)) {
             Entry::Occupied(entry) => {
                 let old_value = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
-                Some(value)
+                Box::new(false) as Box<dyn Reflect>
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.values.len());
                 self.values.push(value);
-                None
+                Box::new(true) as Box<dyn Reflect>
             }
         }
     }
 
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
-        let index = self
+    fn remove(&mut self, value: &dyn Reflect) -> Box<dyn Reflect> {
+        let res = self
             .indices
-            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
-        let value = self.values.remove(index);
-        Some(value)
+            .remove(&value.reflect_hash().expect(HASH_ERROR))
+            .map(|index| {
+                self.values.remove(index);
+                true
+            })
+            .unwrap_or(false);
+        Box::new(res) as Box<dyn Reflect>
     }
 }
 
