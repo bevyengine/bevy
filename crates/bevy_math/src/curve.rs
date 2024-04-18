@@ -5,7 +5,7 @@ use crate::{Quat, VectorSpace};
 use std::{
     cmp::{max, max_by, min_by},
     marker::PhantomData,
-    ops::RangeInclusive,
+    ops::{Deref, RangeInclusive},
 };
 
 /// A nonempty closed interval, possibly infinite in either direction.
@@ -134,6 +134,7 @@ impl Interpolable for Quat {
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
+#[derive(Debug)] // TODO: Make this an actual Error.
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
     NotEnoughSamples(usize),
@@ -205,7 +206,9 @@ where
     fn resample_uneven(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
-    ) -> Result<UnevenSampleCurve<T>, ResamplingError> {
+    ) -> Result<UnevenSampleCurve<T>, ResamplingError> 
+    where Self: Sized
+    {
         let mut times: Vec<f32> = sample_times
             .into_iter()
             .filter(|t| t.is_finite() && self.domain().contains(*t))
@@ -334,6 +337,40 @@ where
             second: other,
             _phantom: PhantomData,
         })
+    }
+
+    /// Borrow this curve rather than taking ownership of it. This is essentially an alias for a
+    /// prefix `&`; the point is that intermediate operations can be performed while retaining
+    /// access to the original curve.
+    /// 
+    /// # Example
+    /// ```
+    /// # use bevy_math::curve::*;
+    /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
+    /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes 
+    /// // ownership of its input.
+    /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample(100).unwrap();
+    /// // Do something else with `my_curve` since we retained ownership:
+    /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
+    /// ```
+    fn by_ref(&self) -> &Self
+    where Self: Sized {
+        self
+    }
+}
+
+impl<T, C, D> Curve<T> for D
+where
+    T: Interpolable,
+    C: Curve<T> + ?Sized,
+    D: Deref<Target = C>,
+{
+    fn domain(&self) -> Interval {
+        <C as Curve<T>>::domain(self)
+    }
+
+    fn sample(&self, t: f32) -> T {
+        <C as Curve<T>>::sample(self, t)
     }
 }
 
@@ -854,4 +891,19 @@ where
     T: Interpolable,
 {
     curve.map(|(s, t)| (t, s))
+}
+
+#[test]
+fn my_test() {
+    let my_curve = function_curve((0.0..=1.0).try_into().unwrap(), |t| t * t + 1.0);
+    let samples = my_curve.by_ref().map(|x| x * 2.0).resample(100).unwrap();
+    let new_curve = my_curve.map(|x| x * x);
+    println!("samples: {:?}", samples.samples);
+}
+
+#[test]
+fn another_test() {
+    let boxed_curve: Box<dyn Curve<f32>> = Box::new(function_curve(everywhere(), |t| t * t));
+    println!("size: {:?}", std::mem::size_of::<Box<dyn Curve<f32>> >());
+    let mapped = boxed_curve.map(|x| 2.0 * x);
 }
