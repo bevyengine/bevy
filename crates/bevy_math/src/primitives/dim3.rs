@@ -1,10 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{
-    bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Mat3, Quat, Vec3,
-};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -770,59 +767,6 @@ impl Triangle3d {
     }
 }
 
-impl Bounded3d for Triangle3d {
-    /// Get the bounding box of the triangle.
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let [a, b, c] = self.vertices;
-
-        let a = rotation * a;
-        let b = rotation * b;
-        let c = rotation * c;
-
-        let min = a.min(b).min(c);
-        let max = a.max(b).max(c);
-
-        let bounding_center = (max + min) / 2.0 + translation;
-        let half_extents = (max - min) / 2.0;
-
-        Aabb3d::new(bounding_center, half_extents)
-    }
-
-    /// Get the bounding sphere of the triangle.
-    ///
-    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
-    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
-    /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        if self.is_degenerate() {
-            let (p1, p2) = self.largest_side();
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation, rotation);
-        }
-
-        let [a, b, c] = self.vertices;
-
-        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
-            Some((b, c))
-        } else if (c - b).dot(a - b) <= 0.0 {
-            Some((c, a))
-        } else if (a - c).dot(b - c) <= 0.0 {
-            Some((a, b))
-        } else {
-            None
-        };
-
-        if let Some((p1, p2)) = side_opposite_to_non_acute {
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            segment.bounding_sphere(translation, rotation)
-        } else {
-            let circumcenter = self.circumcenter();
-            let radius = circumcenter.distance(a);
-            BoundingSphere::new(circumcenter + translation, radius)
-        }
-    }
-}
-
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -909,6 +853,7 @@ mod tests {
 
     use super::*;
     use approx::assert_relative_eq;
+    use glam::Quat;
 
     #[test]
     fn direction_creation() {
