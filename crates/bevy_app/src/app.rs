@@ -889,7 +889,7 @@ pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
     Success,
-    /// [`App`] experienced unhandleable error.
+    /// The [`App`] experienced an unhandleable error.
     Error,
 }
 
