@@ -18,7 +18,7 @@
 ///    the instance, frustum, and LOD tests in the first pass, but were not visible last frame according to the occlusion culling.
 
 @compute
-@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
+@workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 instanced meshlet per thread
 fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
