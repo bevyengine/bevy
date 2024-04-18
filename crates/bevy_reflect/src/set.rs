@@ -5,8 +5,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathTable,
+    self as bevy_reflect, hash_error, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -45,6 +45,11 @@ pub trait Set: Reflect {
     /// If no value is contained, returns `None`.
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
 
+    /// Returns a mutable reference to the value.
+    ///
+    /// If no value is contained, returns `None`.
+    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
+
     /// Returns the value at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
 
@@ -67,15 +72,15 @@ pub trait Set: Reflect {
 
     /// Inserts a value into the set.
     ///
-    /// If the set did not have this value present, `None` is returned.
-    /// If the set did have this value present, it is updated, and the old value is returned.
-    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>>;
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Box<dyn Reflect>;
 
     /// Removes an value from the set.
     ///
-    /// If the set did not have this value present, `None` is returned.
-    /// If the set did have this value present, it is returned.
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
+    fn remove(&mut self, key: &dyn Reflect) -> Box<dyn Reflect>;
 }
 
 /// A container for compile-time set info.
@@ -159,8 +164,6 @@ impl SetInfo {
     }
 }
 
-const HASH_ERROR: &str = "the given key does not support hashing";
-
 /// An ordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
@@ -198,8 +201,15 @@ impl DynamicSet {
 impl Set for DynamicSet {
     fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&value.reflect_hash().expect(HASH_ERROR))
+            .get(&value.reflect_hash().expect(hash_error!(value)))
             .map(|index| &**self.values.get(*index).unwrap())
+    }
+
+    fn get_mut(&mut self, value: &dyn Reflect) -> Option<&mut dyn Reflect> {
+        self.indices
+            .get(&value.reflect_hash().expect(hash_error!(value)))
+            .cloned()
+            .map(|index| &mut **self.values.get_mut(index).unwrap())
     }
 
     fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
@@ -230,27 +240,34 @@ impl Set for DynamicSet {
         }
     }
 
-    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(value.reflect_hash().expect(HASH_ERROR)) {
+    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Box<dyn Reflect> {
+        match self
+            .indices
+            .entry(value.reflect_hash().expect(hash_error!(value)))
+        {
             Entry::Occupied(entry) => {
                 let old_value = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
-                Some(value)
+                Box::new(false) as Box<dyn Reflect>
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.values.len());
                 self.values.push(value);
-                None
+                Box::new(true) as Box<dyn Reflect>
             }
         }
     }
 
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
-        let index = self
+    fn remove(&mut self, value: &dyn Reflect) -> Box<dyn Reflect> {
+        let res = self
             .indices
-            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
-        let value = self.values.remove(index);
-        Some(value)
+            .remove(&value.reflect_hash().expect(hash_error!(value)))
+            .map(|index| {
+                self.values.remove(index);
+                true
+            })
+            .unwrap_or(false);
+        Box::new(res) as Box<dyn Reflect>
     }
 }
 
@@ -289,6 +306,10 @@ impl Reflect for DynamicSet {
 
     fn apply(&mut self, value: &dyn Reflect) {
         set_apply(self, value);
+    }
+
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        set_try_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -458,6 +479,34 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-set type to a set type.");
     }
+}
+
+/// Tries to apply the elements of reflected set `b` to the corresponding elements of set `a`
+/// and returns a Result.
+///
+/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
+/// applying elements to each other fails.
+#[inline]
+pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Set(set_value) = b.reflect_ref() {
+        for b_value in set_value.iter() {
+            if let Some(a_value) = a.get_mut(b_value) {
+                a_value.try_apply(b_value)?;
+            } else {
+                a.insert_boxed(b_value.clone_value());
+            }
+        }
+    } else {
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Set,
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]
