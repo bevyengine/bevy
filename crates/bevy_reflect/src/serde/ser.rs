@@ -518,12 +518,9 @@ impl<'a> Serialize for SetSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(self.set.len()))?;
-        for (key, value) in self.set.iter() {
-            state.serialize_entry(
-                &TypedReflectSerializer::new(key, self.registry),
-                &TypedReflectSerializer::new(value, self.registry),
-            )?;
+        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
+        for value in self.set.iter() {
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }

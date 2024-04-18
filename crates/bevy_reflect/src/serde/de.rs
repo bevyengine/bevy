@@ -2,7 +2,7 @@ use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
     DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
-    Reflect, ReflectDeserialize, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
+    Reflect, ReflectDeserialize, Set, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
     TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
@@ -583,7 +583,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_map))
             }
             TypeInfo::Set(set_info) => {
-                let mut dynamic_set = deserializer.deserialize_set(SetVisitor {
+                let mut dynamic_set = deserializer.deserialize_seq(SetVisitor {
                     set_info,
                     registry: self.registry,
                 })?;
@@ -842,21 +842,16 @@ impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
         V: SeqAccess<'de>,
     {
         let mut dynamic_set = DynamicSet::default();
-        let key_registration = get_registration(
-            self.set_info.key_type_id(),
-            self.set_info.key_type_path_table().path(),
-            self.registry,
-        )?;
         let value_registration = get_registration(
             self.set_info.value_type_id(),
             self.set_info.value_type_path_table().path(),
             self.registry,
         )?;
         while let Some(value) = set.next_element_seed(TypedReflectDeserializer {
-            registration: key_registration,
+            registration: value_registration,
             registry: self.registry,
         })? {
-            dynamic_set.insert(value);
+            dynamic_set.insert_boxed(value);
         }
 
         Ok(dynamic_set)

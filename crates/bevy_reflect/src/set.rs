@@ -52,10 +52,10 @@ pub trait Set: Reflect {
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
 
     /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
+    fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
-    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)>;
+    fn get_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -69,7 +69,7 @@ pub trait Set: Reflect {
     fn iter(&self) -> SetIter;
 
     /// Drain the key-value pairs of this map to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>;
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the map, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -78,11 +78,7 @@ pub trait Set: Reflect {
     ///
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the value is updated, and the old value is returned.
-    fn insert_boxed(
-        &mut self,
-        key: Box<dyn Reflect>,
-        value: Box<dyn Reflect>,
-    ) -> Option<Box<dyn Reflect>>;
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>>;
 
     /// Removes an entry from the map.
     ///
@@ -96,8 +92,6 @@ pub trait Set: Reflect {
 pub struct SetInfo {
     type_path: TypePathTable,
     type_id: TypeId,
-    key_type_path: TypePathTable,
-    key_type_id: TypeId,
     value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
@@ -106,13 +100,10 @@ pub struct SetInfo {
 
 impl SetInfo {
     /// Create a new [`SetInfo`].
-    pub fn new<TSet: Set + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
-    {
+    pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
             type_path: TypePathTable::of::<TSet>(),
             type_id: TypeId::of::<TSet>(),
-            key_type_path: TypePathTable::of::<TKey>(),
-            key_type_id: TypeId::of::<TKey>(),
             value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
@@ -151,23 +142,6 @@ impl SetInfo {
     /// Check if the given type matches the map type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
-    }
-
-    /// A representation of the type path of the key type.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn key_type_path_table(&self) -> &TypePathTable {
-        &self.key_type_path
-    }
-
-    /// The [`TypeId`] of the key.
-    pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
-    }
-
-    /// Check if the given type matches the key type.
-    pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
     }
 
     /// A representation of the type path of the value type.
@@ -231,29 +205,25 @@ impl DynamicSet {
 }
 
 impl Set for DynamicSet {
-    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
+    fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
-            .map(|index| &*self.values.get(*index).unwrap().1)
+            .get(&value.reflect_hash().expect(HASH_ERROR))
+            .map(|index| &**self.values.get(*index).unwrap())
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
             .get(&key.reflect_hash().expect(HASH_ERROR))
             .cloned()
-            .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
+            .map(move |index| &mut **self.values.get_mut(index).unwrap())
     }
 
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
-        self.values
-            .get(index)
-            .map(|(key, value)| (&**key, &**value))
+    fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
+        self.values.get(index).map(|value| &**value)
     }
 
-    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
-        self.values
-            .get_mut(index)
-            .map(|(key, value)| (&**key, &mut **value))
+    fn get_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        self.values.get_mut(index).map(|value| &mut **value)
     }
 
     fn len(&self) -> usize {
@@ -264,7 +234,7 @@ impl Set for DynamicSet {
         SetIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         self.values
     }
 
@@ -274,7 +244,7 @@ impl Set for DynamicSet {
             values: self
                 .values
                 .iter()
-                .map(|(key, value)| (key.clone_value(), value.clone_value()))
+                .map(|value| value.clone_value())
                 .collect(),
             indices: self.indices.clone(),
         }
@@ -283,7 +253,7 @@ impl Set for DynamicSet {
     fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Option<Box<dyn Reflect>> {
         match self.indices.entry(value.reflect_hash().expect(HASH_ERROR)) {
             Entry::Occupied(entry) => {
-                let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
+                let old_value = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
                 Some(value)
             }
@@ -299,7 +269,7 @@ impl Set for DynamicSet {
         let index = self
             .indices
             .remove(&key.reflect_hash().expect(HASH_ERROR))?;
-        let (_key, value) = self.values.remove(index);
+        let value = self.values.remove(index);
         Some(value)
     }
 }
@@ -405,7 +375,7 @@ impl<'a> SetIter<'a> {
 }
 
 impl<'a> Iterator for SetIter<'a> {
-    type Item = (&'a dyn Reflect, &'a dyn Reflect);
+    type Item = &'a dyn Reflect;
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.map.get_at(self.index);
@@ -420,7 +390,7 @@ impl<'a> Iterator for SetIter<'a> {
 }
 
 impl IntoIterator for DynamicSet {
-    type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
+    type Item = Box<dyn Reflect>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -449,8 +419,9 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn Reflect) -> Option<bool> {
         return Some(false);
     }
 
-    for (key, value) in a.iter() {
-        if let Some(set_value) = set.get(key) {
+    for value in a.iter() {
+        // REVIEW: just trying to do minimal adjustments here. Does this even make sense?
+        if let Some(set_value) = set.get(value) {
             let eq_result = value.reflect_partial_eq(set_value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;
@@ -498,12 +469,12 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
 /// This function panics if `b` is not a reflected map.
 #[inline]
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
-    if let ReflectRef::Map(set_value) = b.reflect_ref() {
-        for (key, b_value) in set_value.iter() {
-            if let Some(a_value) = a.get_mut(key) {
+    if let ReflectRef::Set(set_value) = b.reflect_ref() {
+        for b_value in set_value.iter() {
+            if let Some(a_value) = a.get_mut(b_value) {
                 a_value.apply(b_value);
             } else {
-                a.insert_boxed(key.clone_value(), b_value.clone_value());
+                a.insert_boxed(b_value.clone_value());
             }
         }
     } else {
@@ -521,18 +492,13 @@ mod tests {
     fn test_into_iter() {
         let expected = ["foo", "bar", "baz"];
 
-        let mut map = DynamicSet::default();
-        map.insert(0usize, expected[0].to_string());
-        map.insert(1usize, expected[1].to_string());
-        map.insert(2usize, expected[2].to_string());
+        let mut set = DynamicSet::default();
+        set.insert(expected[0].to_string());
+        set.insert(expected[1].to_string());
+        set.insert(expected[2].to_string());
 
-        for (index, item) in map.into_iter().enumerate() {
-            let key = item.0.take::<usize>().expect("couldn't downcast to usize");
-            let value = item
-                .1
-                .take::<String>()
-                .expect("couldn't downcast to String");
-            assert_eq!(index, key);
+        for (index, item) in set.into_iter().enumerate() {
+            let value = item.take::<String>().expect("couldn't downcast to String");
             assert_eq!(expected[index], value);
         }
     }
@@ -540,54 +506,46 @@ mod tests {
     #[test]
     fn test_set_get_at() {
         let values = ["first", "second", "third"];
-        let mut map = DynamicSet::default();
-        map.insert(0usize, values[0].to_string());
-        map.insert(1usize, values[1].to_string());
-        map.insert(1usize, values[2].to_string());
+        let mut set = DynamicSet::default();
+        set.insert(values[0].to_string());
+        set.insert(values[1].to_string());
+        set.insert(values[2].to_string());
 
-        let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
+        let value_r = set.get_at(1).expect("Item wasn't found");
         let value = value_r
             .downcast_ref::<String>()
             .expect("Couldn't downcast to String");
-        let key = key_r
-            .downcast_ref::<usize>()
-            .expect("Couldn't downcast to usize");
-        assert_eq!(key, &1usize);
         assert_eq!(value, &values[2].to_owned());
 
-        assert!(map.get_at(2).is_none());
-        map.remove(&1usize as &dyn Reflect);
-        assert!(map.get_at(1).is_none());
+        assert!(set.get_at(2).is_none());
+        set.remove(&1usize as &dyn Reflect);
+        assert!(set.get_at(1).is_none());
     }
 
     #[test]
     fn test_set_get_at_mut() {
         let values = ["first", "second", "third"];
-        let mut map = DynamicSet::default();
-        map.insert(0usize, values[0].to_string());
-        map.insert(1usize, values[1].to_string());
-        map.insert(1usize, values[2].to_string());
+        let mut set = DynamicSet::default();
+        set.insert(values[0].to_string());
+        set.insert(values[1].to_string());
+        set.insert(values[2].to_string());
 
-        let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
+        let value_r = set.get_at_mut(1).expect("Item wasn't found");
         let value = value_r
             .downcast_mut::<String>()
             .expect("Couldn't downcast to String");
-        let key = key_r
-            .downcast_ref::<usize>()
-            .expect("Couldn't downcast to usize");
-        assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
 
         value.clone_from(&values[0].to_owned());
 
         assert_eq!(
-            map.get(&1usize as &dyn Reflect)
+            set.get(&1usize as &dyn Reflect)
                 .expect("Item wasn't found")
                 .downcast_ref::<String>()
                 .expect("Couldn't downcast to String"),
             &values[0].to_owned()
         );
 
-        assert!(map.get_at(2).is_none());
+        assert!(set.get_at(2).is_none());
     }
 }
