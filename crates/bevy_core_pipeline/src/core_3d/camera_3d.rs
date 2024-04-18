@@ -135,8 +135,8 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-/// The camera coordinate space is right handed y-up.
-/// This means "forward" is -Z, with +X being "right".
+/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// This means "forward" is -Z.
 #[derive(Bundle, Clone)]
 pub struct Camera3dBundle {
     pub camera: Camera,
