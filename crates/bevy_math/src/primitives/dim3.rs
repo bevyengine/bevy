@@ -1,4 +1,7 @@
-use std::f32::consts::{FRAC_PI_3, PI};
+use std::f32::{
+    consts::{FRAC_PI_3, PI},
+    EPSILON,
+};
 
 use super::{Circle, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec3};
@@ -703,7 +706,7 @@ impl Triangle3d {
         let [a, b, c] = self.vertices;
         let ab = b - a;
         let ac = c - a;
-        ab.cross(ac).length() < 10e-7
+        ab.cross(ac).length() < EPSILON
     }
 
     /// Reverse the triangle by swapping the first and last vertices.
