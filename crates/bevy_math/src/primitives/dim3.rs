@@ -4,7 +4,10 @@ use std::f32::{
 };
 
 use super::{Circle, Primitive3d};
-use crate::{Dir3, InvalidDirectionError, Mat3, Vec3};
+use crate::{
+    bounding::{Aabb3d, Bounded3d, BoundingSphere},
+    Dir3, InvalidDirectionError, Mat3, Quat, Vec2, Vec3,
+};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -67,33 +70,38 @@ impl Sphere {
     }
 }
 
-/// An unbounded plane in 3D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
+    /// Half of the width and height of the plane
+    pub half_size: Vec2,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
-    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and height of `1.0`.
     fn default() -> Self {
-        Self { normal: Dir3::Y }
+        Self {
+            normal: Dir3::Y,
+            half_size: Vec2::splat(0.5),
+        }
     }
 }
 
 impl Plane3d {
-    /// Create a new `Plane3d` from a normal
+    /// Create a new `Plane3d` from a normal and a half size
     ///
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
-    pub fn new(normal: Vec3) -> Self {
+    pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
             normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
+            half_size,
         }
     }
 
@@ -109,8 +117,71 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Dir3::new((b - a).cross(c - a))
-            .expect("plane must be defined by three finite points that don't lie on the same line");
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "finite plane must be defined by three finite points that don't lie on the same line",
+        );
+        let translation = (a + b + c) / 3.0;
+
+        (
+            Self {
+                normal,
+                ..Default::default()
+            },
+            translation,
+        )
+    }
+}
+
+/// An unbounded plane in 3D space. It forms a separating surface through the origin,
+/// stretching infinitely far
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct InfinitePlane3d {
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    pub normal: Dir3,
+}
+impl Primitive3d for InfinitePlane3d {}
+
+impl Default for InfinitePlane3d {
+    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self { normal: Dir3::Y }
+    }
+}
+
+impl InfinitePlane3d {
+    /// Create a new `InfinitePlane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline(always)]
+    pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
+    where
+        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+    {
+        Self {
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
+        }
+    }
+
+    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
+    /// of those points.
+    ///
+    /// The direction of the plane normal is determined by the winding order
+    /// of the triangular shape formed by the points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a valid normal can not be computed, for example when the points
+    /// are *collinear* and lie on the same line.
+    #[inline(always)]
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "infinite plane must be defined by three finite points that don't lie on the same line",
+        );
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
@@ -922,6 +993,14 @@ mod tests {
     #[test]
     fn plane_from_points() {
         let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        assert_eq!(plane.half_size, Vec2::new(0.5, 0.5), "incorrect half size");
+        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+    }
+
+    #[test]
+    fn infinite_plane_from_points() {
+        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
         assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
     }

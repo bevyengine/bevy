@@ -128,6 +128,19 @@ pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub extension: E,
 }
 
+impl<B, E> Default for ExtendedMaterial<B, E>
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
+{
+    fn default() -> Self {
+        Self {
+            base: B::default(),
+            extension: E::default(),
+        }
+    }
+}
+
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
