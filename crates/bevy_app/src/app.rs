@@ -1112,7 +1112,7 @@ mod tests {
     /// fix: <https://github.com/bevyengine/bevy/pull/10389>
     #[test]
     fn regression_test_10385() {
-        use super::{Res, Resource, AppExit};
+        use super::{AppExit, Res, Resource};
         use crate::PreUpdate;
 
         #[derive(Resource)]
