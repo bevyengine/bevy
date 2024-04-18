@@ -227,6 +227,7 @@ impl TypeInfo {
             Self::List(info) => info.docs(),
             Self::Array(info) => info.docs(),
             Self::Map(info) => info.docs(),
+            Self::Set(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
         }
