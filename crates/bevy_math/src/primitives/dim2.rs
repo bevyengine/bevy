@@ -112,7 +112,7 @@ impl Ellipse {
         let a = self.semi_major();
         let b = self.semi_minor();
 
-        a.hypot(b) / a
+        (a * a - b * b).sqrt() / a
     }
 
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
