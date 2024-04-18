@@ -281,6 +281,7 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
     let mut runner_state = WinitAppRunnerState::default();
 
+    // TODO: AppExit is effectively a u8 we could use a AtomicU8 here instead of a mutex.
     let mut exit_status = Arc::new(Mutex::new(AppExit::Success));
     let handle_exit_status = exit_status.clone();
 
@@ -330,7 +331,7 @@ pub fn winit_runner(mut app: App) -> AppExit {
     // should drop the event handler. if this is not the case something funky is happening.
     Arc::get_mut(&mut exit_status)
         .map(|mutex| mutex.get_mut().unwrap().clone())
-        .unwrap_or(AppExit::Error)
+        .unwrap_or(AppExit::error())
 }
 
 #[allow(clippy::too_many_arguments /* TODO: probs can reduce # of args */)]
@@ -365,11 +366,12 @@ fn handle_winit_event(
         }
         runner_state.redraw_requested = true;
 
+        // BEFORE_MERGE(Brezak): Consider replacing after discussion and before pr.
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
             let mut exit_events = app_exit_event_reader.read(app_exit_events);
             if exit_events.len() != 0 {
                 *exit_status = exit_events
-                    .find(|exit| **exit == AppExit::Error)
+                    .find(|exit| exit.is_error())
                     .cloned()
                     .unwrap_or(AppExit::Success);
                 event_loop.exit();
@@ -820,11 +822,12 @@ fn run_app_update_if_should(
             }
         }
 
+        // BEFORE_MERGE(Brezak): Consider replacing after discussion and before pr.
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
             let mut exit_events = app_exit_event_reader.read(app_exit_events);
             if exit_events.len() != 0 {
                 *exit_status = exit_events
-                    .find(|exit| **exit == AppExit::Error)
+                    .find(|exit| exit.is_error())
                     .cloned()
                     .unwrap_or(AppExit::Success);
                 event_loop.exit();

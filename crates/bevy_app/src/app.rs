@@ -13,10 +13,13 @@ use bevy_ecs::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::{
     fmt::Debug,
     process::{ExitCode, Termination},
+};
+use std::{
+    num::NonZeroU8,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
 
@@ -852,6 +855,37 @@ impl App {
         self.main_mut().ignore_ambiguity(schedule, a, b);
         self
     }
+
+    /// Attempts to determine if an [`AppExit`] was raised since the last update.
+    ///
+    /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
+    pub fn should_exit(&self) -> Option<AppExit> {
+        let mut reader = ManualEventReader::default();
+
+        self.should_exit_manual(&mut reader)
+    }
+
+    /// Several app runners in this crate keep their own [`ManualEventReader<AppExit>`].
+    /// This exists to accommodate them.
+    pub(crate) fn should_exit_manual(
+        &self,
+        reader: &mut ManualEventReader<AppExit>,
+    ) -> Option<AppExit> {
+        let events = self.world().get_resource::<Events<AppExit>>()?;
+
+        let mut events = reader.read(events);
+
+        if events.len() != 0 {
+            return Some(
+                events
+                    .find(|exit| exit.is_error())
+                    .cloned()
+                    .unwrap_or(AppExit::Success),
+            );
+        }
+
+        None
+    }
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
@@ -870,9 +904,9 @@ fn run_once(mut app: App) -> AppExit {
     if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
         if exit_code_reader
             .read(app_exit_events)
-            .any(|exit| *exit == AppExit::Error)
+            .any(AppExit::is_error)
         {
-            return AppExit::Error;
+            return AppExit::error();
         }
     }
 
@@ -890,21 +924,62 @@ pub enum AppExit {
     #[default]
     Success,
     /// The [`App`] experienced an unhandleable error.
-    Error,
+    /// Holds the exit code we expect our app to return.
+    Error(NonZeroU8),
+}
+
+impl AppExit {
+    /// Creates a [`AppExit::Error`] with a error code of 1.
+    #[must_use]
+    pub fn error() -> Self {
+        Self::Error(NonZeroU8::MIN)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Success`].
+    #[must_use]
+    pub fn is_success(&self) -> bool {
+        matches!(self, AppExit::Success)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Error`].
+    #[must_use]
+    pub fn is_error(&self) -> bool {
+        matches!(self, AppExit::Error(_))
+    }
+
+    /// Creates a [`AppExit`] from a code.
+    ///
+    /// When code is 0 a [`AppExit::Success`] is constructed otherwise a
+    /// [`AppExit::Error`] is constructed.
+    #[must_use]
+    pub fn from_code(code: u8) -> Self {
+        match NonZeroU8::new(code) {
+            Some(code) => Self::Error(code),
+            None => Self::Success,
+        }
+    }
+}
+
+impl From<u8> for AppExit {
+    #[must_use]
+    fn from(value: u8) -> Self {
+        Self::from_code(value)
+    }
 }
 
 impl Termination for AppExit {
     fn report(self) -> std::process::ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
-            AppExit::Error => ExitCode::FAILURE,
+            // We leave logging an error to our users
+            AppExit::Error(value) => ExitCode::from(value.get()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use std::{marker::PhantomData, mem};
 
     use bevy_ecs::{
         schedule::{OnEnter, States},
@@ -1112,7 +1187,7 @@ mod tests {
     /// fix: <https://github.com/bevyengine/bevy/pull/10389>
     #[test]
     fn regression_test_10385() {
-        use super::{AppExit, Res, Resource};
+        use super::{Res, Resource};
         use crate::PreUpdate;
 
         #[derive(Resource)]
@@ -1138,5 +1213,12 @@ mod tests {
             .set_runner(my_runner)
             .add_systems(PreUpdate, my_system)
             .run();
+    }
+
+    #[test]
+    fn app_exit_size() {
+        // There wont be many of them so the size isn't a issue but
+        // it's nice they're so small let's keep it that way.
+        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
     }
 }
