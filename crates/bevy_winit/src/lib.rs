@@ -19,6 +19,8 @@ mod winit_config;
 pub mod winit_event;
 mod winit_windows;
 
+use std::sync::{Arc, Mutex};
+
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
@@ -263,7 +265,7 @@ type UserEvent = RequestRedraw;
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner(mut app: App) {
+pub fn winit_runner(mut app: App) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
@@ -278,6 +280,9 @@ pub fn winit_runner(mut app: App) {
         .insert_non_send_resource(event_loop.create_proxy());
 
     let mut runner_state = WinitAppRunnerState::default();
+
+    let mut exit_status = Arc::new(Mutex::new(AppExit::Success));
+    let handle_exit_status = exit_status.clone();
 
     // prepare structures to access data in the world
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
@@ -298,6 +303,8 @@ pub fn winit_runner(mut app: App) {
     let mut winit_events = Vec::default();
     // set up the event loop
     let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
+        let mut exit_status = handle_exit_status.lock().unwrap();
+
         handle_winit_event(
             &mut app,
             &mut app_exit_event_reader,
@@ -307,6 +314,7 @@ pub fn winit_runner(mut app: App) {
             &mut focused_windows_state,
             &mut redraw_event_reader,
             &mut winit_events,
+            &mut exit_status,
             event,
             event_loop,
         );
@@ -317,6 +325,12 @@ pub fn winit_runner(mut app: App) {
     if let Err(err) = event_loop.run(event_handler) {
         error!("winit event loop returned an error: {err}");
     }
+
+    // We should be the only ones holding this `Arc` since the event loop exiting cleanly
+    // should drop the event handler. if this is not the case something funky is happening.
+    Arc::get_mut(&mut exit_status)
+        .map(|mutex| mutex.get_mut().unwrap().clone())
+        .unwrap_or(AppExit::Error)
 }
 
 #[allow(clippy::too_many_arguments /* TODO: probs can reduce # of args */)]
@@ -334,6 +348,7 @@ fn handle_winit_event(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
+    exit_status: &mut AppExit,
     event: Event<UserEvent>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
 ) {
@@ -351,7 +366,12 @@ fn handle_winit_event(
         runner_state.redraw_requested = true;
 
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
+            let mut exit_events = app_exit_event_reader.read(app_exit_events);
+            if exit_events.len() != 0 {
+                *exit_status = exit_events
+                    .find(|exit| **exit == AppExit::Error)
+                    .cloned()
+                    .unwrap_or(AppExit::Success);
                 event_loop.exit();
                 return;
             }
@@ -411,6 +431,7 @@ fn handle_winit_event(
                         app_exit_event_reader,
                         redraw_event_reader,
                         winit_events,
+                        exit_status,
                     );
                     if runner_state.active != ActiveState::Suspended {
                         event_loop.set_control_flow(ControlFlow::Poll);
@@ -638,6 +659,7 @@ fn handle_winit_event(
                         app_exit_event_reader,
                         redraw_event_reader,
                         winit_events,
+                        exit_status,
                     );
                 }
                 _ => {}
@@ -738,6 +760,7 @@ fn run_app_update_if_should(
     app_exit_event_reader: &mut ManualEventReader<AppExit>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
+    exit_status: &mut AppExit,
 ) {
     runner_state.reset_on_update();
 
@@ -798,8 +821,14 @@ fn run_app_update_if_should(
         }
 
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.read(app_exit_events).last().is_some() {
+            let mut exit_events = app_exit_event_reader.read(app_exit_events);
+            if exit_events.len() != 0 {
+                *exit_status = exit_events
+                    .find(|exit| **exit == AppExit::Error)
+                    .cloned()
+                    .unwrap_or(AppExit::Success);
                 event_loop.exit();
+                return;
             }
         }
     }

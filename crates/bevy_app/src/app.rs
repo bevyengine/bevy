@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::event_update_system,
+    event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -13,8 +13,11 @@ use bevy_ecs::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::{
+    fmt::Debug,
+    process::{ExitCode, Termination},
+};
 use thiserror::Error;
 
 bevy_ecs::define_label!(
@@ -151,7 +154,7 @@ impl App {
     /// # Panics
     ///
     /// Panics if not all plugins have been built.
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> AppExit {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
         if self.is_building_plugins() {
@@ -160,7 +163,7 @@ impl App {
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         let app = std::mem::replace(self, App::empty());
-        (runner)(app);
+        (runner)(app)
     }
 
     /// Sets the function that will be called when the app is run.
@@ -187,7 +190,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, f: impl FnOnce(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
         self.runner = Box::new(f);
         self
     }
@@ -851,9 +854,9 @@ impl App {
     }
 }
 
-type RunnerFn = Box<dyn FnOnce(App)>;
+type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
-fn run_once(mut app: App) {
+fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
         #[cfg(not(target_arch = "wasm32"))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
@@ -862,16 +865,42 @@ fn run_once(mut app: App) {
     app.cleanup();
 
     app.update();
+
+    let mut exit_code_reader = ManualEventReader::default();
+    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
+        if exit_code_reader
+            .read(app_exit_events)
+            .any(|exit| *exit == AppExit::Error)
+        {
+            return AppExit::Error;
+        }
+    }
+
+    AppExit::Success
 }
 
-/// An event that indicates the [`App`] should exit. If one or more of these are present at the
-/// end of an update, the [runner](App::set_runner) will end and ([maybe](App::run)) return
-/// control to the caller.
+/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
 /// for this event run before the current update ends.
-#[derive(Event, Debug, Clone, Default)]
-pub struct AppExit;
+#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
+pub enum AppExit {
+    /// [`App`] exited without any problems.
+    #[default]
+    Success,
+    /// [`App`] experienced unhandleable error.
+    Error,
+}
+
+impl Termination for AppExit {
+    fn report(self) -> std::process::ExitCode {
+        match self {
+            AppExit::Success => ExitCode::SUCCESS,
+            AppExit::Error => ExitCode::FAILURE,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
