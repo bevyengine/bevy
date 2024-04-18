@@ -107,7 +107,10 @@ impl Ellipse {
     }
 
     #[inline(always)]
-    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse. The eccentricity can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    ///
+    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
     pub fn eccentricity(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
