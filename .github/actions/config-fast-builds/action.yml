@@ -15,7 +15,11 @@ runs:
       shell: bash
       run: rustup component add llvm-tools
 
+    - shell: bash
+      run: echo /usr/local/bin >> $GITHUB_PATH
+
     - name: Enable faster linkers
+      if: ${{ runner.os != 'windows' }} # LLD is already enabled on Windows
       shell: bash
       run: git apply .github/actions/config-fast-builds/enable-linkers.patch
 
