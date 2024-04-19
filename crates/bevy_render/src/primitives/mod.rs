@@ -318,7 +318,7 @@ impl CubemapFrusta {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect, Clone)]
 #[reflect(Component, Default)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
