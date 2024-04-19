@@ -366,7 +366,7 @@ fn handle_winit_event(
         }
         runner_state.redraw_requested = true;
 
-        // BEFORE_MERGE(Brezak): Consider replacing after discussion and before pr.
+        // TODO: Replace with `App::should_exit()`
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
             let mut exit_events = app_exit_event_reader.read(app_exit_events);
             if exit_events.len() != 0 {
@@ -822,7 +822,7 @@ fn run_app_update_if_should(
             }
         }
 
-        // BEFORE_MERGE(Brezak): Consider replacing after discussion and before pr.
+        // TODO: Replace with `App::should_exit()`
         if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
             let mut exit_events = app_exit_event_reader.read(app_exit_events);
             if exit_events.len() != 0 {

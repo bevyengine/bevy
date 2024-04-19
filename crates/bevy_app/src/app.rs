@@ -859,6 +859,8 @@ impl App {
     /// Attempts to determine if an [`AppExit`] was raised since the last update.
     ///
     /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
+    /// This should be called after every [`update()`](App::update) otherwise you risk
+    /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
         let mut reader = ManualEventReader::default();
 
@@ -918,6 +920,11 @@ fn run_once(mut app: App) -> AppExit {
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
 /// for this event run before the current update ends.
+///
+/// # Portability
+/// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
+/// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
+/// we only allow error codes between 1 and [255](u8::MAX).
 #[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
@@ -931,28 +938,28 @@ pub enum AppExit {
 impl AppExit {
     /// Creates a [`AppExit::Error`] with a error code of 1.
     #[must_use]
-    pub fn error() -> Self {
+    pub const fn error() -> Self {
         Self::Error(NonZeroU8::MIN)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
     #[must_use]
-    pub fn is_success(&self) -> bool {
+    pub const fn is_success(&self) -> bool {
         matches!(self, AppExit::Success)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Error`].
     #[must_use]
-    pub fn is_error(&self) -> bool {
+    pub const fn is_error(&self) -> bool {
         matches!(self, AppExit::Error(_))
     }
 
     /// Creates a [`AppExit`] from a code.
     ///
-    /// When code is 0 a [`AppExit::Success`] is constructed otherwise a
+    /// When `code` is 0 a [`AppExit::Success`] is constructed otherwise a
     /// [`AppExit::Error`] is constructed.
     #[must_use]
-    pub fn from_code(code: u8) -> Self {
+    pub const fn from_code(code: u8) -> Self {
         match NonZeroU8::new(code) {
             Some(code) => Self::Error(code),
             None => Self::Success,
