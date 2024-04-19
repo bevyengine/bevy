@@ -73,7 +73,7 @@ fn fragment(
     var accumulator: vec4<f32>;
     var weight_total = 0.0;
     let n_samples = i32(settings.samples);
-    let noise = hash_noise(frag_coords, globals.frame_count); // 0 to 1
+    let noise = utils::interleaved_gradient_noise(vec2<f32>(frag_coords), globals.frame_count); // 0 to 1
        
     for (var i = -n_samples; i < n_samples; i++) {
         // The current sample step vector, from in.uv
@@ -120,7 +120,7 @@ fn fragment(
             // sample was occluding the fragment?"
             //
             // Note to future maintainers: proceed with caution when making any changes here, and
-            // ensure you check all oclusion/disocclusion scenarios and fullscreen camera rotation
+            // ensure you check all occlusion/disocclusion scenarios and fullscreen camera rotation
             // blur for regressions.
             let frag_speed = length(step_vector);
             let sample_speed = length(sample_motion) / 2.0; // Halved because the sample is centered
@@ -137,7 +137,8 @@ fn fragment(
         accumulator += weight * sample_color;
     }
 
-    let has_moved_less_than_a_pixel = length(this_motion_vector * texture_size) < 1.0;
+    let has_moved_less_than_a_pixel = 
+        dot(this_motion_vector * texture_size, this_motion_vector * texture_size) < 1.0;
     // In case no samples were accepted, fall back to base color.
     // We also fall back if motion is small, to not break antialiasing.
     if weight_total <= 0.0 || has_moved_less_than_a_pixel {
@@ -145,24 +146,4 @@ fn fragment(
         weight_total = 1.0;
     }
     return accumulator / weight_total;
-}
-
-fn hash_noise(ifrag_coord: vec2<i32>, frame: u32) -> f32 {
-    let urnd = uhash(u32(ifrag_coord.x), (u32(ifrag_coord.y) << 11u) + frame);
-    return unormf(urnd);
-}
-
-fn uhash(a: u32, b: u32) -> u32 { 
-    var x = ((a * 1597334673u) ^ (b * 3812015801u));
-    // from https://nullprogram.com/blog/2018/07/31/
-    x = x ^ (x >> 16u);
-    x = x * 0x7feb352du;
-    x = x ^ (x >> 15u);
-    x = x * 0x846ca68bu;
-    x = x ^ (x >> 16u);
-    return x;
-}
-
-fn unormf(n: u32) -> f32 { 
-    return f32(n) * (1.0 / f32(0xffffffffu)); 
 }

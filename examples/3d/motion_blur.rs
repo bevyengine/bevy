@@ -192,7 +192,7 @@ fn spawn_barriers(
     });
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_CONES {
-            let pos = race_track_shape(
+            let pos = race_track_pos(
                 offset,
                 (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
             );
@@ -221,7 +221,7 @@ fn spawn_trees(
 
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_TREES {
-            let pos = race_track_shape(
+            let pos = race_track_pos(
                 offset,
                 (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
             );
@@ -229,13 +229,13 @@ fn spawn_trees(
             commands.spawn(PbrBundle {
                 mesh: sphere.clone(),
                 material: leaves.clone(),
-                transform: Transform::from_xyz(x, 0.0, z).with_scale(Vec3::splat(0.4)),
+                transform: Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
                 ..default()
             });
             commands.spawn(PbrBundle {
                 mesh: capsule.clone(),
                 material: trunk.clone(),
-                transform: Transform::from_xyz(x, -0.4, z).with_scale(Vec3::new(0.05, 0.5, 0.05)),
+                transform: Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
                 ..default()
             });
         }
@@ -294,8 +294,9 @@ fn keyboard_inputs(
     text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
 }
 
-// Parametric function for a looping race track. `offset` will return the point offset normal to the center of the race course.
-fn race_track_shape(offset: f32, t: f32) -> Vec2 {
+/// Parametric function for a looping race track. `offset` will return the point offset
+/// perpendicular to the track at the given point.
+fn race_track_pos(offset: f32, t: f32) -> Vec2 {
     let x_tweak = 2.0;
     let y_tweak = 3.0;
     let scale = 8.0;
@@ -321,8 +322,8 @@ fn move_cars(
         let speed_variation = (dx * dx + dz * dz).sqrt() * 0.15;
         let t = t + speed_variation;
         let prev = transform.translation;
-        transform.translation.x = race_track_shape(0.0, t).x;
-        transform.translation.z = race_track_shape(0.0, t).y;
+        transform.translation.x = race_track_pos(0.0, t).x;
+        transform.translation.z = race_track_pos(0.0, t).y;
         transform.translation.y = -0.59;
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
@@ -348,7 +349,7 @@ fn move_camera(
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);
-            transform.translation = Vec3::new(15.0, 1.0, 0.0);
+            transform.translation = Vec3::new(15.0, -0.5, 0.0);
             if let Projection::Perspective(perspective) = &mut *projection {
                 perspective.fov = 0.05;
             }
@@ -365,7 +366,7 @@ fn move_camera(
 }
 
 fn uv_debug_texture() -> Image {
-    use bevy::render::texture::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor};
+    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*, texture::*};
     const TEXTURE_SIZE: usize = 7;
 
     let mut palette = [
@@ -381,20 +382,20 @@ fn uv_debug_texture() -> Image {
     }
 
     let mut img = Image::new_fill(
-        bevy::render::render_resource::Extent3d {
+        Extent3d {
             width: TEXTURE_SIZE as u32,
             height: TEXTURE_SIZE as u32,
             depth_or_array_layers: 1,
         },
-        bevy::render::render_resource::TextureDimension::D2,
+        TextureDimension::D2,
         &texture_data,
-        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
         address_mode_u: ImageAddressMode::Repeat,
         address_mode_v: ImageAddressMode::MirrorRepeat,
-        mag_filter: bevy::render::texture::ImageFilterMode::Nearest,
+        mag_filter: ImageFilterMode::Nearest,
         ..ImageSamplerDescriptor::linear()
     });
     img

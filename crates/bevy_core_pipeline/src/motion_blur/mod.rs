@@ -76,7 +76,7 @@ pub struct MotionBlur {
     /// The lower the shutter angle, the less exposure time and thus less blur.
     ///
     /// A value greater than one is non-physical and results in an object's blur stretching further
-    /// than it traveled in that frame. This might be a desireable effect for artistic reasons, but
+    /// than it traveled in that frame. This might be a desirable effect for artistic reasons, but
     /// consider allowing users to opt out of this.
     ///
     /// This value is intentionally tied to framerate to avoid the aforementioned non-physical
@@ -131,9 +131,7 @@ impl Plugin for MotionBlurPlugin {
             ExtractComponentPlugin::<MotionBlur>::default(),
             UniformComponentPlugin::<MotionBlur>::default(),
         ));
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -158,6 +156,12 @@ impl Plugin for MotionBlurPlugin {
                     Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<pipeline::MotionBlurPipeline>();
     }

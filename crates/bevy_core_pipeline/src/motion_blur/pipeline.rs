@@ -109,9 +109,8 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
 
         let mut shader_defs = vec![];
 
-        match key.samples {
-            1 => (),
-            _ => shader_defs.push(ShaderDefVal::from("MULTISAMPLED")),
+        if key.samples > 1 {
+            shader_defs.push(ShaderDefVal::from("MULTISAMPLED"));
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
