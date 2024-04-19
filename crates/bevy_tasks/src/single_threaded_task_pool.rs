@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 thread_local! {
-    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
 }
 
 /// Used to create a [`TaskPool`].
