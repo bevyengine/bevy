@@ -45,7 +45,7 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will not allocate any memeory.
+    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memeory.
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
         arr.set_capacity(capacity);
@@ -58,20 +58,17 @@ impl<T> ThinArrayPtr<T> {
     }
 
     /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
+    /// The caller should update their saved `capacity` value to reflect the fact that it was changed
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `usize`
-    ///
-    /// # Safety
-    /// - the current capacity is indeed 0
-    /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
-    pub unsafe fn alloc(&mut self, capacity: NonZeroUsize) {
+    pub fn alloc(&mut self, capacity: NonZeroUsize) {
         self.set_capacity(capacity.get());
         if size_of::<T>() != 0 {
             let new_layout = Layout::array::<T>(capacity.get())
                 .expect("layout should be valid (arithmetic overflow)");
             // SAFETY:
-            // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
+            // - layout has non-zero size, `capacity` > 0, `size` > 0 (`size_of::<T>() != 0`)
             self.data = NonNull::new(unsafe { alloc(new_layout) })
                 .unwrap_or_else(|| handle_alloc_error(new_layout))
                 .cast();
@@ -94,7 +91,7 @@ impl<T> ThinArrayPtr<T> {
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
-            // - the size of `T` is non 0 (ZSTs aren't supported in this type), and `new_capacity` > 0
+            // - the size of `T` is non 0, and `new_capacity` > 0
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
             // here and the overflow is handled in `Layout::array`

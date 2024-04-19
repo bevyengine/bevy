@@ -97,9 +97,10 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
+    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     ///
     /// # Safety
-    /// `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
+    /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
@@ -107,10 +108,8 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     }
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
-    ///
-    /// # Safety
-    /// This will overwrite any previous allocation, so the caller must ensure that no previous allocation has been made (capacity = 0)
-    pub unsafe fn alloc(&mut self, new_capacity: NonZeroUsize) {
+    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
+    pub fn alloc(&mut self, new_capacity: NonZeroUsize) {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);
         self.changed_ticks.alloc(new_capacity);
