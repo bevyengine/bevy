@@ -20,8 +20,7 @@
 #
 # Mold is a newer linker written by one of the authors of LLD. It boasts even greater performance, specifically
 # through its high parallelism, though it only supports Linux and MacOS. On MacOS, you will need to download a
-# fork (maintained by the same author) named Sold and compile it yourself. (Note that Sold is for personal use
-# only, and has a paid commerical license.)
+# fork (maintained by the same author) named Sold and compile it yourself.
 #
 # Due to the limited platform support and adverse nature on MacOS, Mold disabled by default in this file. If you
 # wish to enable it, follow the installation instructions for your corresponding target, disable LLD by
