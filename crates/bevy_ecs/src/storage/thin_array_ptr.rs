@@ -31,6 +31,7 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
+    #[inline(always)]
     fn set_capacity(&mut self, _capacity: usize) {
         #[cfg(debug_assertions)]
         {
@@ -38,6 +39,7 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
+    #[inline(always)]
     fn assert_capacity(&self, _capacity: usize) {
         #[cfg(debug_assertions)]
         {
@@ -46,6 +48,7 @@ impl<T> ThinArrayPtr<T> {
     }
 
     /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
+    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
         arr.set_capacity(capacity);
@@ -87,7 +90,8 @@ impl<T> ThinArrayPtr<T> {
         self.assert_capacity(current_capacity.get());
         self.set_capacity(new_capacity.get());
         if size_of::<T>() != 0 {
-            let new_layout = Layout::array::<T>(new_capacity.get()).debug_checked_unwrap();
+            let new_layout =
+                Layout::array::<T>(new_capacity.get()).expect("overflow while allocating memory");
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
@@ -125,6 +129,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
+    #[inline]
     pub unsafe fn get_unchecked_raw(&mut self, index: usize) -> *mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
@@ -137,6 +142,7 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
     /// - The element at index `index` must be safe to read (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
+    #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> &'_ T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
@@ -150,7 +156,7 @@ impl<T> ThinArrayPtr<T> {
         unsafe {
             ptr.as_ref()
                 // SAFETY: We can use `unwarp_unchecked` because the pointer isn't null)
-                .unwrap_unchecked()
+                .debug_checked_unwrap()
         }
     }
 
@@ -159,6 +165,7 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
     /// - The element at index `index` must be safe to write to (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
+    #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &'_ mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
@@ -184,6 +191,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
     /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    #[inline]
     pub unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
         &mut self,
         index: usize,
@@ -202,6 +210,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
     /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    #[inline]
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         index: usize,
@@ -219,6 +228,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
     /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         index: usize,
@@ -232,6 +242,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - ensure that `current_len` is indeed the len of the array
+    #[inline]
     unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
         if current_len == 0 {
             None
@@ -274,6 +285,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - `slice_len` must match the actual length of the array
+    #[inline]
     pub unsafe fn as_slice(&self, slice_len: usize) -> &[T] {
         // SAFETY:
         // - the data is valid - allocated with the same allocater

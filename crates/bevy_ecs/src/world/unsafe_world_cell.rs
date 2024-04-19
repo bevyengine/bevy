@@ -10,7 +10,6 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::{Res, Resource},
@@ -888,19 +887,13 @@ impl<'w> UnsafeEntityCell<'w> {
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     /// # Safety:
-    /// - the `location` must correspond to a valid [`Table`] that exists in this world.
     /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
-    unsafe fn fetch_table(self, location: EntityLocation) -> &'w Table {
+    unsafe fn fetch_table(self, location: EntityLocation) -> Option<&'w Table> {
         // SAFETY:
         // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
         // - `location` contains a valid `TableId`, so getting the table won't fail
-        unsafe {
-            self.storages()
-                .tables
-                .get(location.table_id)
-                .debug_checked_unwrap()
-        }
+        unsafe { self.storages().tables.get(location.table_id) }
     }
 
     #[inline]
@@ -935,7 +928,7 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let table = world.fetch_table(location);
+            let table = world.fetch_table(location)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             table.get_component(component_id, location.table_row)
         }
@@ -961,7 +954,7 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let table = world.fetch_table(location);
+            let table = world.fetch_table(location)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
@@ -995,7 +988,7 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let table = world.fetch_table(location);
+            let table = world.fetch_table(location)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             table.get_ticks_unchecked(component_id, location.table_row)
         }
