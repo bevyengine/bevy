@@ -27,32 +27,52 @@ impl Benchmark {
                 world
                     .spawn((
                         (
-                            A::<2>(Mat4::from_scale(Vec3::ONE)),
-                            B::<2>(Mat4::from_scale(Vec3::ONE)),
-                            C::<2>(Mat4::from_scale(Vec3::ONE)),
-                            D::<2>(Mat4::from_scale(Vec3::ONE)),
-                            E::<2>(Mat4::from_scale(Vec3::ONE)),
-                            F::<2>(Mat4::from_scale(Vec3::ONE)),
-                            A::<3>(Mat4::from_scale(Vec3::ONE)),
-                            B::<3>(Mat4::from_scale(Vec3::ONE)),
-                            C::<3>(Mat4::from_scale(Vec3::ONE)),
-                            D::<3>(Mat4::from_scale(Vec3::ONE)),
-                        ),
-                        (
-                            E::<3>(Mat4::from_scale(Vec3::ONE)),
-                            F::<3>(Mat4::from_scale(Vec3::ONE)),
-                            A::<4>(Mat4::from_scale(Vec3::ONE)),
-                            B::<4>(Mat4::from_scale(Vec3::ONE)),
-                            C::<4>(Mat4::from_scale(Vec3::ONE)),
-                            D::<4>(Mat4::from_scale(Vec3::ONE)),
-                            E::<4>(Mat4::from_scale(Vec3::ONE)),
-                            F::<4>(Mat4::from_scale(Vec3::ONE)),
                             A::<1>(Mat4::from_scale(Vec3::ONE)),
                             B::<1>(Mat4::from_scale(Vec3::ONE)),
                             C::<1>(Mat4::from_scale(Vec3::ONE)),
                             D::<1>(Mat4::from_scale(Vec3::ONE)),
                             E::<1>(Mat4::from_scale(Vec3::ONE)),
-                            F::<1>(Mat4::from_scale(Vec3::ONE)),
+                            A::<2>(Mat4::from_scale(Vec3::ONE)),
+                            B::<2>(Mat4::from_scale(Vec3::ONE)),
+                            C::<2>(Mat4::from_scale(Vec3::ONE)),
+                            D::<2>(Mat4::from_scale(Vec3::ONE)),
+                            E::<2>(Mat4::from_scale(Vec3::ONE)),
+                        ),
+                        (
+                            A::<3>(Mat4::from_scale(Vec3::ONE)),
+                            B::<3>(Mat4::from_scale(Vec3::ONE)),
+                            C::<3>(Mat4::from_scale(Vec3::ONE)),
+                            D::<3>(Mat4::from_scale(Vec3::ONE)),
+                            E::<3>(Mat4::from_scale(Vec3::ONE)),
+                            A::<4>(Mat4::from_scale(Vec3::ONE)),
+                            B::<4>(Mat4::from_scale(Vec3::ONE)),
+                            C::<4>(Mat4::from_scale(Vec3::ONE)),
+                            D::<4>(Mat4::from_scale(Vec3::ONE)),
+                            E::<4>(Mat4::from_scale(Vec3::ONE)),
+                        ),
+                        (
+                            A::<5>(Mat4::from_scale(Vec3::ONE)),
+                            B::<5>(Mat4::from_scale(Vec3::ONE)),
+                            C::<5>(Mat4::from_scale(Vec3::ONE)),
+                            D::<5>(Mat4::from_scale(Vec3::ONE)),
+                            E::<5>(Mat4::from_scale(Vec3::ONE)),
+                            A::<6>(Mat4::from_scale(Vec3::ONE)),
+                            B::<6>(Mat4::from_scale(Vec3::ONE)),
+                            C::<6>(Mat4::from_scale(Vec3::ONE)),
+                            D::<6>(Mat4::from_scale(Vec3::ONE)),
+                            E::<6>(Mat4::from_scale(Vec3::ONE)),
+                        ),
+                        (
+                            A::<7>(Mat4::from_scale(Vec3::ONE)),
+                            B::<7>(Mat4::from_scale(Vec3::ONE)),
+                            C::<7>(Mat4::from_scale(Vec3::ONE)),
+                            D::<7>(Mat4::from_scale(Vec3::ONE)),
+                            E::<7>(Mat4::from_scale(Vec3::ONE)),
+                            A::<8>(Mat4::from_scale(Vec3::ONE)),
+                            B::<8>(Mat4::from_scale(Vec3::ONE)),
+                            C::<8>(Mat4::from_scale(Vec3::ONE)),
+                            D::<8>(Mat4::from_scale(Vec3::ONE)),
+                            E::<8>(Mat4::from_scale(Vec3::ONE)),
                         ),
                     ))
                     .id(),
@@ -64,13 +84,22 @@ impl Benchmark {
 
     pub fn run(&mut self) {
         for entity in &self.1 {
-            self.0
-                .entity_mut(*entity)
-                .insert(F(Mat4::from_scale(Vec3::ONE)));
+            self.0.entity_mut(*entity).insert((
+                F::<1>(Mat4::from_scale(Vec3::ONE)),
+                F::<2>(Mat4::from_scale(Vec3::ONE)),
+                F::<3>(Mat4::from_scale(Vec3::ONE)),
+                F::<4>(Mat4::from_scale(Vec3::ONE)),
+                F::<5>(Mat4::from_scale(Vec3::ONE)),
+                F::<6>(Mat4::from_scale(Vec3::ONE)),
+                F::<7>(Mat4::from_scale(Vec3::ONE)),
+                F::<8>(Mat4::from_scale(Vec3::ONE)),
+            ));
         }
 
         for entity in &self.1 {
-            self.0.entity_mut(*entity).remove::<F>();
+            self.0
+                .entity_mut(*entity)
+                .remove::<(F<1>, F<2>, F<3>, F<4>, F<5>, F<6>, F<7>, F<8>)>();
         }
     }
 }

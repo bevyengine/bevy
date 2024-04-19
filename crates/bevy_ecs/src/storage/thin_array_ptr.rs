@@ -285,7 +285,7 @@ impl<T> ThinArrayPtr<T> {
 
 impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
     fn from(value: Box<[T]>) -> Self {
-        let len = value.len();
+        let _len = value.len();
         let slice_ptr = Box::<[T]>::into_raw(value);
         // SAFETY: We just got the pointer from a reference
         let first_element_ptr = unsafe { (*slice_ptr).as_mut_ptr() };
@@ -293,7 +293,7 @@ impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
             // SAFETY: The pointer can't be null, it came from a reference
             data: unsafe { NonNull::new_unchecked(first_element_ptr) },
             #[cfg(debug_assertions)]
-            capacity: len,
+            capacity: _len,
         }
     }
 }
