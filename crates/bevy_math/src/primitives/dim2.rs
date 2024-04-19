@@ -107,7 +107,7 @@ impl Ellipse {
     }
 
     #[inline(always)]
-    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// Get the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
     /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
     ///
     /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
@@ -118,6 +118,16 @@ impl Ellipse {
         (a * a - b * b).sqrt() / a
     }
 
+    #[inline(always)]
+    /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
+    pub fn focal_length(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt()
+    }
+
+    #[inline(always)]
     /// Get an approximation for the perimeter or circumference of the ellipse.
     ///
     /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
