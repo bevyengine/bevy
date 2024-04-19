@@ -118,6 +118,60 @@ impl Ellipse {
         (a * a - b * b).sqrt() / a
     }
 
+    /// Get an approximation for the perimeter or circumference of the ellipse.
+    ///
+    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
+    pub fn perimeter(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        // In the case that `a == b`, the ellipse is a circle
+        if a / b - 1. < 1e-5 {
+            return PI * (a + b);
+        };
+
+        // In the case that `a` is much larger than `b`, the ellipse is a line
+        if a / b > 1e4 {
+            return 4. * a;
+        };
+
+        // These values are  the result of (0.5 choose n)^2 where n is the index in the array
+        // They could be calculated on the fly but hardcoding them yields more accurate and faster results
+        // because the actual calculation for these values involves factorials and numbers > 10^23
+        const BINOMIAL_COEFFICIENTS: [f32; 21] = [
+            1.,
+            0.25,
+            0.015625,
+            0.00390625,
+            0.00152587890625,
+            0.0007476806640625,
+            0.00042057037353515625,
+            0.00025963783264160156,
+            0.00017140153795480728,
+            0.0001190288458019495,
+            0.00008599834109190851,
+            0.00006414339077309705,
+            0.00004910978356065243,
+            0.000038430585064475054,
+            0.0000306366271241032,
+            0.00002481566797052359,
+            0.000020380836682822598,
+            0.00001694289277871325,
+            0.000014236736293224328,
+            0.000012077563683656372,
+            0.000010333865426828484,
+        ];
+
+        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
+        // We only use the terms up to `i == 20` for this approximation
+        let h = ((a - b) / (a + b)).powi(2);
+
+        PI * (a + b)
+            * (0..=20)
+                .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
+                .sum::<f32>()
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
     pub fn semi_major(&self) -> f32 {
@@ -859,6 +913,21 @@ mod tests {
 
         let circle = Ellipse::new(2., 2.);
         assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
+    }
+
+    #[test]
+    fn ellipse_perimeter() {
+        let circle = Ellipse::new(1., 1.);
+        assert_eq!(circle.perimeter(), 6.2831855, "incorrect perimeter");
+
+        let line = Ellipse::new(75_000., 0.5);
+        assert_eq!(line.perimeter(), 300_000., "incorrect perimeter");
+
+        let ellipse = Ellipse::new(0.5, 2.);
+        assert_eq!(ellipse.perimeter(), 8.578423, "incorrect perimeter");
+
+        let ellipse = Ellipse::new(5., 3.);
+        assert_eq!(ellipse.perimeter(), 25.5269988, "incorrect perimeter");
     }
 
     #[test]
