@@ -107,7 +107,7 @@ impl Ellipse {
     }
 
     #[inline(always)]
-    /// Get the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
     /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
     ///
     /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
@@ -153,23 +153,23 @@ impl Ellipse {
             0.25,
             0.015625,
             0.00390625,
-            0.00152587890625,
-            0.0007476806640625,
-            0.00042057037353515625,
-            0.00025963783264160156,
-            0.00017140153795480728,
-            0.0001190288458019495,
-            0.00008599834109190851,
-            0.00006414339077309705,
-            0.00004910978356065243,
-            0.000038430585064475054,
-            0.0000306366271241032,
-            0.00002481566797052359,
-            0.000020380836682822598,
-            0.00001694289277871325,
-            0.000014236736293224328,
-            0.000012077563683656372,
-            0.000010333865426828484,
+            0.0015258789,
+            0.00074768066,
+            0.00042057037,
+            0.00025963783,
+            0.00017140154,
+            0.000119028846,
+            0.00008599834,
+            0.00006414339,
+            0.000049109784,
+            0.000038430585,
+            0.000030636627,
+            0.000024815668,
+            0.000020380836,
+            0.000016942893,
+            0.000014236736,
+            0.000012077564,
+            0.000010333865,
         ];
 
         // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
@@ -937,7 +937,7 @@ mod tests {
         assert_eq!(ellipse.perimeter(), 8.578423, "incorrect perimeter");
 
         let ellipse = Ellipse::new(5., 3.);
-        assert_eq!(ellipse.perimeter(), 25.5269988, "incorrect perimeter");
+        assert_eq!(ellipse.perimeter(), 25.526999, "incorrect perimeter");
     }
 
     #[test]
