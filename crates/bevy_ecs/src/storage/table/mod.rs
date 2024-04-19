@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;
-use std::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
+use std::{alloc::Layout, num::NonZeroUsize};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -250,7 +250,7 @@ impl Table {
     /// being released (i.e. files handles not being released, memory leaks, etc.)
     ///
     /// # Safety
-    /// Row must be in-bounds
+    /// - `row` must be in-bounds
     pub(crate) unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
         row: TableRow,
@@ -261,7 +261,7 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
@@ -295,13 +295,12 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_thin_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
-
         TableMoveResult {
             new_row,
             swapped_entity: if is_last {
@@ -327,7 +326,7 @@ impl Table {
         change_tick: Tick,
     ) {
         debug_assert!(row.as_usize() < self.len());
-        self.get_thin_column_mut(component_id)
+        self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .initialize(row, comp_ptr, change_tick);
     }
@@ -345,7 +344,7 @@ impl Table {
         change_tick: Tick,
     ) {
         debug_assert!(row.as_usize() < self.len());
-        self.get_thin_column_mut(component_id)
+        self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .replace(row, comp_ptr, change_tick);
     }
@@ -368,7 +367,7 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
-                .get_thin_column_mut(*component_id)
+                .get_column_mut(*component_id)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, last_element_index, row, new_row);
         }
@@ -389,7 +388,7 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .map(|col| col.data.get_sub_slice(self.len()))
     }
 
@@ -400,7 +399,7 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .map(|col| col.added_ticks.as_slice(self.len()))
     }
 
@@ -411,7 +410,7 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .map(|col| col.changed_ticks.as_slice(self.len()))
     }
 
@@ -423,7 +422,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> &UnsafeCell<Tick> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .debug_checked_unwrap()
             .changed_ticks
             .get_unchecked(row.as_usize())
@@ -437,7 +436,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> &UnsafeCell<Tick> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .debug_checked_unwrap()
             .added_ticks
             .get_unchecked(row.as_usize())
@@ -451,21 +450,19 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_thin_column(component_id)
-            .map(|col| ComponentTicks {
-                added: col.added_ticks.get_unchecked(row.as_usize()).read(),
-                changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
-            })
+        self.get_column(component_id).map(|col| ComponentTicks {
+            added: col.added_ticks.get_unchecked(row.as_usize()).read(),
+            changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
+        })
     }
 
-    /// Fetches a read-only reference to the non-ZST [`ThinColumn`] for a given [`Component`] within the
-    /// table.
+    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_thin_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
         self.columns.get(component_id)
     }
 
@@ -476,10 +473,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_thin_column_mut(
-        &mut self,
-        component_id: ComponentId,
-    ) -> Option<&mut ThinColumn> {
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
         self.columns.get_mut(component_id)
     }
 
@@ -519,9 +513,10 @@ impl Table {
         }
     }
 
-    /// # Safety
-    /// - The current capacity of the columns is 0
-    pub(crate) unsafe fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
+    /// Allocate memory for the columns in the [`Table`]
+    ///
+    /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
+    fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         self.poisoned = true;
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we manually set `self.poisoned` to true. If the drop method is called when `self.poisoned` is true,
@@ -532,9 +527,11 @@ impl Table {
         self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
     }
 
+    /// Reallocate memory for the columns in the [`Table`]
+    ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
-    pub(crate) unsafe fn realloc_columns(
+    unsafe fn realloc_columns(
         &mut self,
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
@@ -636,11 +633,11 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> OwningPtr<'_> {
-        if let Some(col) = self.get_thin_column_mut(component_id) {
-            return col.data.get_unchecked_mut(row.as_usize()).promote();
-        }
-        // TODO: Is this actually safe? We're need to return a pointer to a ZST - but this is no different than if we actually fetched the data, right?
-        OwningPtr::new(NonNull::dangling())
+        self.get_column_mut(component_id)
+            .debug_checked_unwrap()
+            .data
+            .get_unchecked_mut(row.as_usize())
+            .promote()
     }
 
     /// Get the component at a given `row`, if the [`Table`] stores components with the given `component_id`
@@ -652,7 +649,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<Ptr<'_>> {
-        self.get_thin_column(component_id)
+        self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
 }
@@ -825,7 +822,7 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table.get_thin_column_mut(component_id).unwrap().initialize(
+                    table.get_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
                         Tick::new(0),

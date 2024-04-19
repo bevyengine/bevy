@@ -4,14 +4,9 @@ use crate::storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr};
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
 ///
-/// [`ThinColumn`] makes a compile-time distinction between [`ZST`] types, and non-[`ZST`] types - for performance reasons.
-/// It's also much less flexible when it comes to allocations.
-///
 /// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
 /// instead of working directly with [`ThinColumn`].
-///
-/// [`ZST`]: https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts
 pub struct ThinColumn {
     pub(super) data: BlobArray,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
@@ -19,15 +14,13 @@ pub struct ThinColumn {
 }
 
 impl ThinColumn {
-    // TODO: Docs
-    ///
+    /// Create a new [`ThinColumn`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            data: BlobArray::with_capacity(
-                component_info.layout(),
-                component_info.drop(),
-                capacity,
-            ),
+            // SAFETY: The components stored in this columns will match the information in `component_info`
+            data: unsafe {
+                BlobArray::with_capacity(component_info.layout(), component_info.drop(), capacity)
+            },
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
         }
@@ -180,6 +173,8 @@ impl ThinColumn {
         }
     }
 
+    /// # Safety
+    /// `len` must match the actual length of the column
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);

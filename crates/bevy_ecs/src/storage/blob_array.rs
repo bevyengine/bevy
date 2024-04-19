@@ -24,7 +24,20 @@ pub(super) struct BlobArray {
 }
 
 impl BlobArray {
-    pub fn with_capacity(
+    /// Create a new [`BlobArray`] with a specified `capacity`.
+    /// If `capacity` is 0, no allocations will be made.
+    ///
+    /// `drop` is an optional function pointer that is meant to be invoked when any element in the [`BlobArray`]
+    /// should be dropped. For all Rust-based types, this should match 1:1 with the implementation of [`Drop`]
+    /// if present, and should be `None` if `T: !Drop`. For non-Rust based types, this should match any cleanup
+    /// processes typically associated with the stored element.
+    ///
+    /// # Safety
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobArray`].
+    /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    ///
+    /// [`needs_drop`]: core::mem::needs_drop
+    pub unsafe fn with_capacity(
         item_layout: Layout,
         drop_fn: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
@@ -178,7 +191,7 @@ impl BlobArray {
                 .expect("array layout should be valid");
             let new_data
             // SAFETY:
-            // - layout has non-zero size because capacity > 0, and the blob isn't ZST (IS_ZST == false)
+            // - layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
             = unsafe {std::alloc::alloc(new_layout)};
 
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
@@ -209,7 +222,7 @@ impl BlobArray {
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
-            // - `item_layout.size() > 0` (IS_ZST==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
+            // - `item_layout.size() > 0` (`self.is_zst`==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
