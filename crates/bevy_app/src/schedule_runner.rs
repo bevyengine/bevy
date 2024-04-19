@@ -142,7 +142,7 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         let c = move || {
                             let mut app = Rc::get_mut(&mut rc).unwrap();
-                            let delay = tick(&mut app, wait);
+                            let delay = tick(app, wait);
                             if let Ok(delay) = delay {
                                 set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap));
                             }
