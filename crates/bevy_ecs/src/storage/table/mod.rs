@@ -145,7 +145,7 @@ impl TableRow {
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
-pub struct TableBuilder {
+pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, ThinColumn>,
     capacity: usize,
 }
@@ -381,6 +381,8 @@ impl Table {
         }
     }
 
+    /// Get the data of the column matching `component_id` as a slice.
+    ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -392,6 +394,8 @@ impl Table {
             .map(|col| col.data.get_sub_slice(self.len()))
     }
 
+    /// Get the added ticks of the column matching `component_id` as a slice.
+    ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -403,6 +407,8 @@ impl Table {
             .map(|col| col.added_ticks.as_slice(self.len()))
     }
 
+    /// Get the changed ticks of the column matching `component_id` as a slice.
+    ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -414,6 +420,8 @@ impl Table {
             .map(|col| col.changed_ticks.as_slice(self.len()))
     }
 
+    /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
+    ///
     /// # Safety
     /// - `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -428,6 +436,8 @@ impl Table {
             .get_unchecked(row.as_usize())
     }
 
+    /// Get the specific [`add tick`](Tick) of the component matching `component_id` in `row`.
+    ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -442,6 +452,8 @@ impl Table {
             .get_unchecked(row.as_usize())
     }
 
+    /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
+    ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
@@ -595,6 +607,7 @@ impl Table {
         self.entities.is_empty()
     }
 
+    /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         let len = self.len();
         for col in self.columns.values_mut() {
@@ -603,7 +616,7 @@ impl Table {
         }
     }
 
-    /// Iterates over the [`Column`]s of the [`Table`].
+    /// Iterates over the [`ThinColumn`]s of the [`Table`].
     pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
         self.columns.values()
     }
