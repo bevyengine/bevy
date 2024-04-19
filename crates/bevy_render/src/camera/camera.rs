@@ -482,7 +482,7 @@ pub enum CameraOutputMode {
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
     /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
     /// them to be lost. Only use this if you know what you are doing!
-    /// In camera setups with multiple active cameras rendering to the same RenderTarget, the Skip mode can be used to remove
+    /// In camera setups with multiple active cameras rendering to the same [`RenderTarget`], the Skip mode can be used to remove
     /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
     Skip,
 }

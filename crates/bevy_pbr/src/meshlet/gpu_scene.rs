@@ -634,11 +634,11 @@ pub struct MeshletGpuScene {
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
-    /// Per-instance Entity, RenderLayers, and NotShadowCaster
+    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
     instances: Vec<(Entity, RenderLayers, bool)>,
     /// Per-instance transforms, model matrices, and render flags
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
-    /// Per-view per-instance visibility bit. Used for RenderLayer and NotShadowCaster support.
+    /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,

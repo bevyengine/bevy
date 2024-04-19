@@ -85,7 +85,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 }
 
 /// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 pub struct TemporalAntiAliasBundle {
     pub settings: TemporalAntiAliasSettings,
     pub jitter: TemporalJitter,

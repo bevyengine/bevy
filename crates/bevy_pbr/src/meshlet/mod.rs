@@ -84,7 +84,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_transform::TransformSystem;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -101,6 +100,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
+/// * Near-seamless level of detail (LOD).
 /// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
 /// * Much greater memory usage.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
@@ -169,14 +169,7 @@ impl Plugin for MeshletPlugin {
             .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,
-                check_visibility::<WithMeshletMesh>
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .after(VisibilitySystems::CalculateBounds)
-                    .after(VisibilitySystems::UpdateOrthographicFrusta)
-                    .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                    .after(VisibilitySystems::UpdateProjectionFrusta)
-                    .after(VisibilitySystems::VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
+                check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
             );
     }
 

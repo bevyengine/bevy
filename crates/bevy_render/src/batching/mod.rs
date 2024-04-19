@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Query, ResMut, SystemParam, SystemParamItem},
+    system::{Query, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
@@ -40,7 +40,7 @@ struct BatchMeta<T: PartialEq> {
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
     pipeline_id: CachedRenderPipelineId,
-    /// The draw function id defines the RenderCommands that are called to
+    /// The draw function id defines the `RenderCommands` that are called to
     /// set the pipeline and bindings, and make the draw command
     draw_function_id: DrawFunctionId,
     dynamic_offset: Option<NonMaxU32>,
@@ -133,30 +133,6 @@ pub trait GetFullBatchData: GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<NonMaxU32>;
-}
-
-/// A system that runs early in extraction and clears out all the
-/// [`gpu_preprocessing::BatchedInstanceBuffers`] for the frame.
-///
-/// We have to run this during extraction because, if GPU preprocessing is in
-/// use, the extraction phase will write to the mesh input uniform buffers
-/// directly, so the buffers need to be cleared before then.
-pub fn clear_batched_instance_buffers<GFBD>(
-    cpu_batched_instance_buffer: Option<
-        ResMut<no_gpu_preprocessing::BatchedInstanceBuffer<GFBD::BufferData>>,
-    >,
-    gpu_batched_instance_buffers: Option<
-        ResMut<gpu_preprocessing::BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    >,
-) where
-    GFBD: GetFullBatchData,
-{
-    if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        cpu_batched_instance_buffer.clear();
-    }
-    if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        gpu_batched_instance_buffers.clear();
-    }
 }
 
 /// Sorts a render phase that uses bins.

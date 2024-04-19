@@ -582,7 +582,7 @@ mod tests {
         assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
 
-        *value = values[0].to_owned();
+        value.clone_from(&values[0].to_owned());
 
         assert_eq!(
             map.get(&1usize as &dyn Reflect)
