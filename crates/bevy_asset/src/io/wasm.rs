@@ -94,7 +94,7 @@ impl AssetReader for HttpWasmAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
-        Ok(self.fetch_bytes(meta_path).await?)
+        self.fetch_bytes(meta_path).await
     }
 
     async fn read_directory<'a>(
