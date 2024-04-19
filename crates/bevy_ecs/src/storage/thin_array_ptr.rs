@@ -1,6 +1,6 @@
 use crate::query::DebugCheckedUnwrap;
 use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
-use std::mem::needs_drop;
+use std::mem::{needs_drop, size_of};
 use std::num::NonZeroUsize;
 use std::ptr::{self, NonNull};
 
@@ -12,28 +12,35 @@ pub struct ThinArrayPtr<T> {
 }
 
 impl<T> ThinArrayPtr<T> {
-    #[cfg(debug_assertions)]
     fn empty() -> Self {
-        Self {
-            data: NonNull::dangling(),
-            capacity: 0,
+        #[cfg(debug_assertions)]
+        {
+            Self {
+                data: NonNull::dangling(),
+                capacity: 0,
+            }
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            Self {
+                data: NonNull::dangling(),
+            }
         }
     }
 
-    #[cfg(not(debug_assertions))]
-    fn empty() -> Self {
-        Self {
-            data: NonNull::dangling(),
+    fn set_capacity(&mut self, _capacity: usize) {
+        #[cfg(debug_assertions)]
+        {
+            self.capacity = _capacity;
         }
     }
 
-    #[cfg(debug_assertions)]
-    fn set_capacity(&mut self, capacity: usize) {
-        self.capacity = capacity;
+    fn assert_capacity(&self, _capacity: usize) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert_eq!(self.capacity, _capacity);
+        }
     }
-
-    #[cfg(not(debug_assertions))]
-    fn set_capacity(&mut self, _capacity: usize) {}
 
     /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will not allocate any memeory.
     pub fn with_capacity(capacity: usize) -> Self {
@@ -57,13 +64,15 @@ impl<T> ThinArrayPtr<T> {
     /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn alloc(&mut self, capacity: NonZeroUsize) {
         self.set_capacity(capacity.get());
-        let new_layout = Layout::array::<T>(capacity.get())
-            .expect("layout should be valid (arithmetic overflow)");
-        // SAFETY:
-        // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
-        self.data = NonNull::new(unsafe { alloc(new_layout) })
-            .unwrap_or_else(|| handle_alloc_error(new_layout))
-            .cast();
+        if size_of::<T>() != 0 {
+            let new_layout = Layout::array::<T>(capacity.get())
+                .expect("layout should be valid (arithmetic overflow)");
+            // SAFETY:
+            // - layout has non-zero size, `count` > 0, `size` > 0 (ThinArrayPtr doesn't support ZSTs)
+            self.data = NonNull::new(unsafe { alloc(new_layout) })
+                .unwrap_or_else(|| handle_alloc_error(new_layout))
+                .cast();
+        }
     }
 
     /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
@@ -75,26 +84,28 @@ impl<T> ThinArrayPtr<T> {
     /// - the current capacity is indeed greater than 0
     /// The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
-        debug_assert_eq!(current_capacity.get(), self.capacity);
+        self.assert_capacity(current_capacity.get());
         self.set_capacity(new_capacity.get());
-        let new_layout = Layout::array::<T>(new_capacity.get()).debug_checked_unwrap();
-        // SAFETY:
-        // - ptr was be allocated via this allocator
-        // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
-        // - the size of `T` is non 0 (ZSTs aren't supported in this type), and `new_capacity` > 0
-        // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-        // since the item size is always a multiple of its align, the rounding cannot happen
-        // here and the overflow is handled in `Layout::array`
-        self.data = NonNull::new(unsafe {
-            realloc(
-                self.data.cast().as_ptr(),
-                // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
-                Layout::array::<T>(current_capacity.get()).debug_checked_unwrap(),
-                new_layout.size(),
-            )
-        })
-        .unwrap_or_else(|| handle_alloc_error(new_layout))
-        .cast();
+        if size_of::<T>() != 0 {
+            let new_layout = Layout::array::<T>(new_capacity.get()).debug_checked_unwrap();
+            // SAFETY:
+            // - ptr was be allocated via this allocator
+            // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
+            // - the size of `T` is non 0 (ZSTs aren't supported in this type), and `new_capacity` > 0
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+            // since the item size is always a multiple of its align, the rounding cannot happen
+            // here and the overflow is handled in `Layout::array`
+            self.data = NonNull::new(unsafe {
+                realloc(
+                    self.data.cast().as_ptr(),
+                    // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
+                    Layout::array::<T>(current_capacity.get()).debug_checked_unwrap(),
+                    new_layout.size(),
+                )
+            })
+            .unwrap_or_else(|| handle_alloc_error(new_layout))
+            .cast();
+        }
     }
 
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
@@ -214,9 +225,7 @@ impl<T> ThinArrayPtr<T> {
         last_element_index: usize,
     ) {
         let val = &mut self.swap_remove_and_forget_unchecked(index, last_element_index);
-        if needs_drop::<T>() {
-            std::ptr::drop_in_place(val as *mut T);
-        }
+        std::ptr::drop_in_place(val as *mut T);
     }
 
     /// Get a raw pointer to the last element of the array, return `None` if the length is 0
@@ -252,7 +261,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `current_capacity` is indeed the capacity of the array
     /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
     pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
-        debug_assert_eq!(current_capacity, self.capacity);
+        self.assert_capacity(current_capacity);
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
@@ -277,7 +286,6 @@ impl<T> ThinArrayPtr<T> {
 impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
     fn from(value: Box<[T]>) -> Self {
         let len = value.len();
-        T::assert_zero_size();
         let slice_ptr = Box::<[T]>::into_raw(value);
         // SAFETY: We just got the pointer from a reference
         let first_element_ptr = unsafe { (*slice_ptr).as_mut_ptr() };
@@ -289,19 +297,3 @@ impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
         }
     }
 }
-
-const fn check_non_zero_sized<T>() {
-    if std::mem::size_of::<T>() == 0 {
-        panic!("type is zero-sized");
-    }
-}
-
-trait PanicWhenZeroSized: Sized {
-    const _CHECK: () = check_non_zero_sized::<Self>();
-    #[allow(path_statements, clippy::no_effect)]
-    fn assert_zero_size() {
-        <Self as PanicWhenZeroSized>::_CHECK;
-    }
-}
-
-impl<T> PanicWhenZeroSized for T {}

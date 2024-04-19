@@ -4,41 +4,17 @@ use bevy_ecs::prelude::*;
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
-struct A(Mat4);
+struct A<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
-struct B(Mat4);
+struct B<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
-struct C(Mat4);
+struct C<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
-struct D(Mat4);
+struct D<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
-struct E(Mat4);
+struct E<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
-struct F(Mat4);
-#[derive(Component, Copy, Clone)]
-struct A2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct B2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct C2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct D2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct E2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct F2(Mat4);
-#[derive(Component, Copy, Clone)]
-struct A3(Mat4);
-#[derive(Component, Copy, Clone)]
-struct B3(Mat4);
-#[derive(Component, Copy, Clone)]
-struct C3(Mat4);
-#[derive(Component, Copy, Clone)]
-struct D3(Mat4);
-#[derive(Component, Copy, Clone)]
-struct E3(Mat4);
-#[derive(Component, Copy, Clone)]
-struct F3(Mat4);
+struct F<const N: usize>(Mat4);
 
 pub struct Benchmark(World, Vec<Entity>);
 
@@ -50,21 +26,34 @@ impl Benchmark {
             entities.push(
                 world
                     .spawn((
-                        A(Mat4::from_scale(Vec3::ONE)),
-                        B(Mat4::from_scale(Vec3::ONE)),
-                        C(Mat4::from_scale(Vec3::ONE)),
-                        D(Mat4::from_scale(Vec3::ONE)),
-                        E(Mat4::from_scale(Vec3::ONE)),
-                        A2(Mat4::from_scale(Vec3::ONE)),
-                        B2(Mat4::from_scale(Vec3::ONE)),
-                        C2(Mat4::from_scale(Vec3::ONE)),
-                        D2(Mat4::from_scale(Vec3::ONE)),
-                        E2(Mat4::from_scale(Vec3::ONE)),
-                        A3(Mat4::from_scale(Vec3::ONE)),
-                        B3(Mat4::from_scale(Vec3::ONE)),
-                        C3(Mat4::from_scale(Vec3::ONE)),
-                        D3(Mat4::from_scale(Vec3::ONE)),
-                        E3(Mat4::from_scale(Vec3::ONE)),
+                        (
+                            A::<2>(Mat4::from_scale(Vec3::ONE)),
+                            B::<2>(Mat4::from_scale(Vec3::ONE)),
+                            C::<2>(Mat4::from_scale(Vec3::ONE)),
+                            D::<2>(Mat4::from_scale(Vec3::ONE)),
+                            E::<2>(Mat4::from_scale(Vec3::ONE)),
+                            F::<2>(Mat4::from_scale(Vec3::ONE)),
+                            A::<3>(Mat4::from_scale(Vec3::ONE)),
+                            B::<3>(Mat4::from_scale(Vec3::ONE)),
+                            C::<3>(Mat4::from_scale(Vec3::ONE)),
+                            D::<3>(Mat4::from_scale(Vec3::ONE)),
+                        ),
+                        (
+                            E::<3>(Mat4::from_scale(Vec3::ONE)),
+                            F::<3>(Mat4::from_scale(Vec3::ONE)),
+                            A::<4>(Mat4::from_scale(Vec3::ONE)),
+                            B::<4>(Mat4::from_scale(Vec3::ONE)),
+                            C::<4>(Mat4::from_scale(Vec3::ONE)),
+                            D::<4>(Mat4::from_scale(Vec3::ONE)),
+                            E::<4>(Mat4::from_scale(Vec3::ONE)),
+                            F::<4>(Mat4::from_scale(Vec3::ONE)),
+                            A::<1>(Mat4::from_scale(Vec3::ONE)),
+                            B::<1>(Mat4::from_scale(Vec3::ONE)),
+                            C::<1>(Mat4::from_scale(Vec3::ONE)),
+                            D::<1>(Mat4::from_scale(Vec3::ONE)),
+                            E::<1>(Mat4::from_scale(Vec3::ONE)),
+                            F::<1>(Mat4::from_scale(Vec3::ONE)),
+                        ),
                     ))
                     .id(),
             );
