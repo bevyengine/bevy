@@ -15,6 +15,10 @@ fn my_runner(mut app: App) -> AppExit {
             input.0 = line.unwrap();
         }
         app.update();
+
+        if let Some(exit) = app.should_exit() {
+            return exit;
+        }
     }
 
     AppExit::Success
@@ -24,10 +28,17 @@ fn print_system(input: Res<Input>) {
     println!("You typed: {}", input.0);
 }
 
-fn main() {
+fn exit_system(input: Res<Input>, mut exit_event: EventWriter<AppExit>) {
+    if input.0 == "exit" {
+        exit_event.send(AppExit::Success);
+    }
+}
+
+// AppExit implements `Termination` so we can return it from main.
+fn main() -> AppExit {
     App::new()
         .insert_resource(Input(String::new()))
         .set_runner(my_runner)
-        .add_systems(Update, print_system)
-        .run();
+        .add_systems(Update, (print_system, exit_system))
+        .run()
 }

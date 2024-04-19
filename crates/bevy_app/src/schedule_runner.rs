@@ -149,7 +149,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         let base_tick_closure = moved_tick_closure.clone();
 
                         let tick_app = move || {
-                            let mut app = Rc::get_mut(&mut app).unwrap();
+                            let app = Rc::get_mut(&mut app).unwrap();
                             let delay = tick(app, wait);
                             match delay {
                                 Ok(delay) => set_timeout(

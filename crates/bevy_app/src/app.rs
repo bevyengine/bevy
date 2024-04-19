@@ -187,6 +187,9 @@ impl App {
     ///     loop {
     ///         println!("In main loop");
     ///         app.update();
+    ///         if let Some(exit) = app.should_exit() {
+    ///             return exit;
+    ///         }
     ///     }
     /// }
     ///
