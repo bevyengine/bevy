@@ -888,9 +888,9 @@ impl<'w> UnsafeEntityCell<'w> {
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     /// # Safety:
+    /// - the `location` must correspond to a valid [`Table`] that exists in this world.
     /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
-    /// - the returned `Table` is only used in ways that would not conflict with any existing
-    ///   borrows of world data.
+    /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
     unsafe fn fetch_table(self, location: EntityLocation) -> &'w Table {
         // SAFETY:
         // - caller ensures returned data is not misused and we have not created any borrows of component/resource data

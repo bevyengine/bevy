@@ -178,6 +178,7 @@ impl TableBuilder {
             columns: self.columns.into_immutable(),
             zst_columns: self.zst_columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            poisoned: false,
         }
     }
 }
@@ -198,6 +199,8 @@ pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn<false>>,
     zst_columns: ImmutableSparseSet<ComponentId, ThinColumn<true>>,
     entities: Vec<Entity>,
+    /// This is set to `true` if an allocation triggered an unwind
+    poisoned: bool,
 }
 
 impl Table {
@@ -602,14 +605,19 @@ impl Table {
     }
 
     /// # Safety
-    /// - The current capacity of the columns in 0
+    /// - The current capacity of the columns is 0
     pub(crate) unsafe fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
+        self.poisoned = true;
+        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+        // To avoid this, we manually set `self.poisoned` to true. If the drop method is called when `self.poisoned` is true,
+        // nothing will be deallocated - avoiding possible UB (but still leaking memory).
         for col in self.columns.values_mut() {
             col.alloc(new_capacity);
         }
         for zst_col in self.zst_columns.values_mut() {
             zst_col.alloc(new_capacity);
         }
+        self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
     }
 
     /// # Safety
@@ -619,6 +627,11 @@ impl Table {
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
+        self.poisoned = true;
+        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+        // To avoid this, we manually set `self.poisoned` to true. If the drop method is called when `self.poisoned` is true,
+        // nothing will be deallocated - avoiding possible UB (but still leaking memory).
+
         // SAFETY:
         // - There's no overflow
         // - `current_capacity` is indeed the capacity - safety requirement
@@ -629,6 +642,7 @@ impl Table {
         for zst_col in self.zst_columns.values_mut() {
             zst_col.realloc(current_column_capacity, new_capacity);
         }
+        self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
     }
 
     /// Allocates space for a new entity
@@ -883,19 +897,21 @@ impl IndexMut<TableId> for Tables {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        let len = self.len();
-        let cap = self.capacity();
-        self.entities.clear();
-        for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
-            unsafe {
-                col.drop(cap, len);
+        if !self.poisoned {
+            let len = self.len();
+            let cap = self.capacity();
+            self.entities.clear();
+            for col in self.columns.values_mut() {
+                // SAFETY: `cap` and `len` are correct
+                unsafe {
+                    col.drop(cap, len);
+                }
             }
-        }
-        for col in self.zst_columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
-            unsafe {
-                col.drop(cap, len);
+            for col in self.zst_columns.values_mut() {
+                // SAFETY: `cap` and `len` are correct
+                unsafe {
+                    col.drop(cap, len);
+                }
             }
         }
     }

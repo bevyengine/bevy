@@ -5,6 +5,9 @@ use std::num::NonZeroUsize;
 use std::ptr::{self, NonNull};
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
+///
+/// This type can be treated as a `ManuallyDrop<Box<[T]>>` without a built in length. To avoid,
+/// memory leaks, [`drop`](Self::drop) must be called when no longer in use.
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
     #[cfg(debug_assertions)]

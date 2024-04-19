@@ -14,9 +14,9 @@ use std::{
 /// it a blobby Vec, a `BlobVec`.
 pub(super) struct BlobVec {
     item_layout: Layout,
-    pub(super) capacity: usize,
+    capacity: usize,
     /// Number of elements, not bytes
-    pub(super) len: usize,
+    len: usize,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped

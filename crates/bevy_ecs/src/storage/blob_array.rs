@@ -176,7 +176,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
     /// The owner of this [`BlobArray`] must call this method with the correct information.
     ///
     /// # Safety
-    /// `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
+    /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         if cap != 0 && !IS_ZST {
             self.clear_elements(len);
@@ -194,7 +194,7 @@ impl<const IS_ZST: bool> BlobArray<IS_ZST> {
                 .expect("array layout should be valid");
             let new_data
             // SAFETY:
-            // - layout has non-zero size because capacity > 0, and the blob isn't ZST (this method is only available for BlobArray<false>)
+            // - layout has non-zero size because capacity > 0, and the blob isn't ZST (IS_ZST == false)
             = unsafe {std::alloc::alloc(new_layout)};
 
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));

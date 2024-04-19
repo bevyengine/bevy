@@ -229,8 +229,6 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     }
 }
 
-//
-
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
 /// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
