@@ -15,6 +15,8 @@ struct D<const N: usize>(Mat4);
 struct E<const N: usize>(Mat4);
 #[derive(Component, Copy, Clone)]
 struct F<const N: usize>(Mat4);
+#[derive(Component, Copy, Clone)]
+struct Z<const N: usize>;
 
 pub struct Benchmark(World, Vec<Entity>);
 
@@ -68,11 +70,13 @@ impl Benchmark {
                             C::<7>(Mat4::from_scale(Vec3::ONE)),
                             D::<7>(Mat4::from_scale(Vec3::ONE)),
                             E::<7>(Mat4::from_scale(Vec3::ONE)),
-                            A::<8>(Mat4::from_scale(Vec3::ONE)),
-                            B::<8>(Mat4::from_scale(Vec3::ONE)),
-                            C::<8>(Mat4::from_scale(Vec3::ONE)),
-                            D::<8>(Mat4::from_scale(Vec3::ONE)),
-                            E::<8>(Mat4::from_scale(Vec3::ONE)),
+                            Z::<1>,
+                            Z::<2>,
+                            Z::<3>,
+                            Z::<4>,
+                            Z::<5>,
+                            Z::<6>,
+                            Z::<7>,
                         ),
                     ))
                     .id(),
@@ -92,14 +96,16 @@ impl Benchmark {
                 F::<5>(Mat4::from_scale(Vec3::ONE)),
                 F::<6>(Mat4::from_scale(Vec3::ONE)),
                 F::<7>(Mat4::from_scale(Vec3::ONE)),
-                F::<8>(Mat4::from_scale(Vec3::ONE)),
             ));
         }
 
         for entity in &self.1 {
             self.0
                 .entity_mut(*entity)
-                .remove::<(F<1>, F<2>, F<3>, F<4>, F<5>, F<6>, F<7>, F<8>)>();
+                .remove::<(F<1>, F<2>, F<3>, F<4>, F<5>, F<6>, F<7>)>();
+            self.0
+                .entity_mut(*entity)
+                .remove::<(Z<1>, Z<2>, Z<3>, Z<4>, Z<5>, Z<6>, Z<7>)>();
         }
     }
 }
