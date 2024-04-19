@@ -146,8 +146,7 @@ impl TableRow {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn<false>>,
-    zst_columns: SparseSet<ComponentId, ThinColumn<true>>,
+    columns: SparseSet<ComponentId, ThinColumn>,
     capacity: usize,
 }
 
@@ -156,7 +155,6 @@ impl TableBuilder {
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            zst_columns: SparseSet::with_capacity(column_capacity),
             capacity,
         }
     }
@@ -164,10 +162,10 @@ impl TableBuilder {
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        match column_with_capacity(self.capacity, component_info) {
-            ColumnCreationResult::ZST(col) => self.zst_columns.insert(component_info.id(), col),
-            ColumnCreationResult::NotZST(col) => self.columns.insert(component_info.id(), col),
-        }
+        self.columns.insert(
+            component_info.id(),
+            ThinColumn::with_capacity(component_info, self.capacity),
+        );
         self
     }
 
@@ -176,7 +174,6 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
-            zst_columns: self.zst_columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
             poisoned: false,
         }
@@ -196,8 +193,7 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn<false>>,
-    zst_columns: ImmutableSparseSet<ComponentId, ThinColumn<true>>,
+    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
     /// This is set to `true` if an allocation triggered an unwind
     poisoned: bool,
@@ -238,13 +234,6 @@ impl Table {
             // - the `len` is kept within `self.entities`, it will update accordingly.
             unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
         }
-        for zst_col in self.zst_columns.values_mut() {
-            // SAFETY:
-            // - `row` < `len`
-            // - `last_element_index` = `len` - 1
-            // - the `len` is kept within `self.entities`, it will update accordingly.
-            unsafe { zst_col.swap_remove_and_drop_unchecked(last_element_index, row) };
-        }
         let is_last = row.as_usize() == last_element_index;
         self.entities.swap_remove(row.as_usize());
         if is_last {
@@ -277,14 +266,6 @@ impl Table {
             } else {
                 // It's the caller's responsibility to drop these cases.
                 column.swap_remove_and_forget_unchecked(last_element_index, row);
-            }
-        }
-        for (component_id, zst_column) in self.zst_columns.iter_mut() {
-            if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(zst_column, last_element_index, row, new_row);
-            } else {
-                // It's the caller's responsibility to drop these cases.
-                zst_column.swap_remove_and_forget_unchecked(last_element_index, row);
             }
         }
 
@@ -320,13 +301,6 @@ impl Table {
                 column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
-        for (component_id, zst_column) in self.zst_columns.iter_mut() {
-            if let Some(new_column) = new_table.get_thin_zst_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(zst_column, last_element_index, row, new_row);
-            } else {
-                zst_column.swap_remove_and_drop_unchecked(last_element_index, row);
-            }
-        }
 
         TableMoveResult {
             new_row,
@@ -353,13 +327,9 @@ impl Table {
         change_tick: Tick,
     ) {
         debug_assert!(row.as_usize() < self.len());
-        if let Some(col) = self.get_thin_column_mut(component_id) {
-            col.initialize(row, comp_ptr, change_tick);
-        } else {
-            self.get_thin_zst_column_mut(component_id)
-                .debug_checked_unwrap()
-                .initialize(row, comp_ptr, change_tick);
-        }
+        self.get_thin_column_mut(component_id)
+            .debug_checked_unwrap()
+            .initialize(row, comp_ptr, change_tick);
     }
 
     /// Replace the component at the given `row` with the component at `comp_ptr`
@@ -374,13 +344,10 @@ impl Table {
         comp_ptr: OwningPtr<'_>,
         change_tick: Tick,
     ) {
-        if let Some(col) = self.get_thin_column_mut(component_id) {
-            col.replace(row, comp_ptr, change_tick);
-        } else {
-            self.get_thin_zst_column_mut(component_id)
-                .debug_checked_unwrap()
-                .replace(row, comp_ptr, change_tick);
-        }
+        debug_assert!(row.as_usize() < self.len());
+        self.get_thin_column_mut(component_id)
+            .debug_checked_unwrap()
+            .replace(row, comp_ptr, change_tick);
     }
 
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
@@ -405,12 +372,6 @@ impl Table {
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, last_element_index, row, new_row);
         }
-        for (component_id, zst_column) in self.zst_columns.iter_mut() {
-            new_table
-                .get_thin_zst_column_mut(*component_id)
-                .debug_checked_unwrap()
-                .initialize_from_unchecked(zst_column, last_element_index, row, new_row);
-        }
         TableMoveResult {
             new_row,
             swapped_entity: if is_last {
@@ -428,10 +389,7 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.data.get_sub_slice(self.len()));
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .map(|col| col.data.get_sub_slice(self.len()))
     }
 
@@ -442,10 +400,7 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.added_ticks.as_slice(self.len()));
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .map(|col| col.added_ticks.as_slice(self.len()))
     }
 
@@ -456,25 +411,19 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.changed_ticks.as_slice(self.len()));
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .map(|col| col.changed_ticks.as_slice(self.len()))
     }
 
     /// # Safety
-    /// `row.as_usize()` < `self.len()`
+    /// - `row.as_usize()` < `self.len()`
     /// - `T` must match the `component_id`
     pub unsafe fn get_column_changed_tick(
         &self,
         component_id: ComponentId,
         row: TableRow,
     ) -> &UnsafeCell<Tick> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return col.changed_ticks.get_unchecked(row.as_usize());
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .debug_checked_unwrap()
             .changed_ticks
             .get_unchecked(row.as_usize())
@@ -488,10 +437,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> &UnsafeCell<Tick> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return col.added_ticks.get_unchecked(row.as_usize());
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .debug_checked_unwrap()
             .added_ticks
             .get_unchecked(row.as_usize())
@@ -505,13 +451,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return Some(ComponentTicks {
-                added: col.added_ticks.get_unchecked(row.as_usize()).read(),
-                changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
-            });
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .map(|col| ComponentTicks {
                 added: col.added_ticks.get_unchecked(row.as_usize()).read(),
                 changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
@@ -525,7 +465,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_thin_column(&self, component_id: ComponentId) -> Option<&ThinColumn<false>> {
+    pub fn get_thin_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
         self.columns.get(component_id)
     }
 
@@ -539,33 +479,8 @@ impl Table {
     pub(crate) fn get_thin_column_mut(
         &mut self,
         component_id: ComponentId,
-    ) -> Option<&mut ThinColumn<false>> {
+    ) -> Option<&mut ThinColumn> {
         self.columns.get_mut(component_id)
-    }
-
-    /// Fetches a read-only reference to the ZST [`ThinColumn`] for a given [`Component`] within the
-    /// table.
-    ///
-    /// Returns `None` if the corresponding component does not belong to the table.
-    ///
-    /// [`Component`]: crate::component::Component
-    #[inline]
-    pub fn get_thin_zst_column(&self, component_id: ComponentId) -> Option<&ThinColumn<true>> {
-        self.zst_columns.get(component_id)
-    }
-
-    /// Fetches a mutable reference to the ZST [`ThinColumn`] for a given [`Component`] within the
-    /// table.
-    ///
-    /// Returns `None` if the corresponding component does not belong to the table.
-    ///
-    /// [`Component`]: crate::component::Component
-    #[inline]
-    pub(crate) fn get_thin_zst_column_mut(
-        &mut self,
-        component_id: ComponentId,
-    ) -> Option<&mut ThinColumn<true>> {
-        self.zst_columns.get_mut(component_id)
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
@@ -575,7 +490,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
-        self.columns.contains(component_id) || self.zst_columns.contains(component_id)
+        self.columns.contains(component_id)
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
@@ -614,9 +529,6 @@ impl Table {
         for col in self.columns.values_mut() {
             col.alloc(new_capacity);
         }
-        for zst_col in self.zst_columns.values_mut() {
-            zst_col.alloc(new_capacity);
-        }
         self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
     }
 
@@ -639,9 +551,6 @@ impl Table {
         for col in self.columns.values_mut() {
             col.realloc(current_column_capacity, new_capacity);
         }
-        for zst_col in self.zst_columns.values_mut() {
-            zst_col.realloc(current_column_capacity, new_capacity);
-        }
         self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
     }
 
@@ -657,14 +566,6 @@ impl Table {
             col.added_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-        }
-        for zst_col in self.zst_columns.values_mut() {
-            zst_col
-                .added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            zst_col
-                .changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
         }
         TableRow::from_usize(len)
@@ -703,20 +604,11 @@ impl Table {
             // SAFETY: `len` is the actual length of the column
             unsafe { col.check_change_ticks(len, change_tick) };
         }
-        for zst_col in self.zst_columns.values_mut() {
-            // SAFETY: `len` is the actual length of the column
-            unsafe { zst_col.check_change_ticks(len, change_tick) };
-        }
     }
 
     /// Iterates over the [`Column`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn<false>> {
+    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
         self.columns.values()
-    }
-
-    /// Iterates over the ZST [`Column`]s of the [`Table`].
-    pub fn iter_zst_columns(&self) -> impl Iterator<Item = &ThinColumn<true>> {
-        self.zst_columns.values()
     }
 
     /// Clears all of the stored components in the [`Table`].
@@ -726,11 +618,6 @@ impl Table {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
-        }
-        for zst_column in self.zst_columns.values_mut() {
-            // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
-            // so `self.len()` should match the columns' len
-            unsafe { zst_column.clear(len) };
         }
         self.entities.clear();
     }
@@ -765,10 +652,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<Ptr<'_>> {
-        if let Some(col) = self.get_thin_column(component_id) {
-            return Some(col.data.get_unchecked(row.as_usize()));
-        }
-        self.get_thin_zst_column(component_id)
+        self.get_thin_column(component_id)
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
 }
@@ -902,12 +786,6 @@ impl Drop for Table {
             let cap = self.capacity();
             self.entities.clear();
             for col in self.columns.values_mut() {
-                // SAFETY: `cap` and `len` are correct
-                unsafe {
-                    col.drop(cap, len);
-                }
-            }
-            for col in self.zst_columns.values_mut() {
                 // SAFETY: `cap` and `len` are correct
                 unsafe {
                     col.drop(cap, len);

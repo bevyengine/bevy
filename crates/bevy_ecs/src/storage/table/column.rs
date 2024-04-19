@@ -1,8 +1,5 @@
 use super::*;
-use crate::storage::{
-    blob_array::{new_blob_array, BlobArray, BlobArrayCreation},
-    thin_array_ptr::ThinArrayPtr,
-};
+use crate::storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr};
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
@@ -15,48 +12,27 @@ use crate::storage::{
 /// instead of working directly with [`ThinColumn`].
 ///
 /// [`ZST`]: https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts
-pub struct ThinColumn<const IS_ZST: bool> {
-    pub(super) data: BlobArray<IS_ZST>,
+pub struct ThinColumn {
+    pub(super) data: BlobArray,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
 }
 
-#[doc(hidden)]
-pub enum ColumnCreationResult {
-    ZST(ThinColumn<true>),
-    NotZST(ThinColumn<false>),
-}
-
-/// Create a new [`ThinColumn`] for the given [`ComponentInfo`] with some `capacity`
-pub(super) fn column_with_capacity(
-    capacity: usize,
-    component_info: &ComponentInfo,
-) -> ColumnCreationResult {
-    // SAFETY: `ComponentInfo` has the correct `Layout` and drop function
-    let blob_arr = unsafe { new_blob_array(component_info.layout(), component_info.drop()) };
-    let added_ticks = ThinArrayPtr::with_capacity(capacity);
-    let changed_ticks = ThinArrayPtr::with_capacity(capacity);
-
-    match blob_arr {
-        BlobArrayCreation::NotZST(mut data) => {
-            if let Some(cap) = NonZeroUsize::new(capacity) {
-                data.alloc(cap);
-            }
-            ColumnCreationResult::NotZST(ThinColumn {
-                data,
-                added_ticks,
-                changed_ticks,
-            })
+impl ThinColumn {
+    // TODO: Docs
+    ///
+    pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
+        Self {
+            data: BlobArray::with_capacity(
+                component_info.layout(),
+                component_info.drop(),
+                capacity,
+            ),
+            added_ticks: ThinArrayPtr::with_capacity(capacity),
+            changed_ticks: ThinArrayPtr::with_capacity(capacity),
         }
-        BlobArrayCreation::Zst(data) => ColumnCreationResult::ZST(ThinColumn {
-            data,
-            added_ticks,
-            changed_ticks,
-        }),
     }
-}
 
-impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
@@ -159,7 +135,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut ThinColumn<IS_ZST>,
+        other: &mut ThinColumn,
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
@@ -207,9 +183,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
-        if !IS_ZST {
-            self.data.clear_elements(len);
-        }
+        self.data.clear_elements(len);
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
@@ -222,9 +196,7 @@ impl<const IS_ZST: bool> ThinColumn<IS_ZST> {
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
-        if !IS_ZST {
-            self.data.drop(cap, len);
-        }
+        self.data.drop(cap, len);
     }
 }
 
