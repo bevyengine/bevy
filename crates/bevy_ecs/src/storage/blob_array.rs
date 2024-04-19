@@ -333,12 +333,36 @@ impl BlobArray {
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
         if index_to_remove != index_to_keep {
-            std::ptr::swap_nonoverlapping::<u8>(
-                self.get_unchecked_mut(index_to_keep).as_ptr(),
-                self.get_unchecked_mut(index_to_remove).as_ptr(),
-                self.item_layout.size(),
-            );
+            return self
+                .swap_remove_and_forget_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         }
+        // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
+        // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
+        self.get_unchecked_mut(index_to_keep).promote()
+    }
+
+    /// The same as [`Self::swap_remove_and_forget_unchecked`] but the two elements must non-overlapping.
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - `index_to_keep` < `len`
+    /// - `index_to_remove` < `len`
+    /// - `index_to_remove` != `index_to_keep`
+    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
+    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
+    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    #[inline]
+    pub unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
+        &mut self,
+        index_to_remove: usize,
+        index_to_keep: usize,
+    ) -> OwningPtr<'_> {
+        std::ptr::swap_nonoverlapping::<u8>(
+            self.get_unchecked_mut(index_to_keep).as_ptr(),
+            self.get_unchecked_mut(index_to_remove).as_ptr(),
+            self.item_layout.size(),
+        );
         // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
         // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
         self.get_unchecked_mut(index_to_keep).promote()
@@ -369,6 +393,31 @@ impl BlobArray {
     ) {
         let drop = self.drop;
         let value = self.swap_remove_and_forget_unchecked(index_to_remove, index_to_keep);
+        if let Some(drop) = drop {
+            drop(value);
+        }
+    }
+
+    /// The same as [`Self::swap_remove_and_drop_unchecked`] but the two elements must non-overlapping.
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - `index_to_keep` < `len`
+    /// - `index_to_remove` < `len`
+    /// - `index_to_remove` != `index_to_keep`
+    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
+    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
+    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    #[inline]
+    pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
+        &mut self,
+        index_to_remove: usize,
+        index_to_keep: usize,
+    ) {
+        let drop = self.drop;
+        let value =
+            self.swap_remove_and_forget_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
             drop(value);
         }

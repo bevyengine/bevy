@@ -26,6 +26,30 @@ impl ThinColumn {
         }
     }
 
+    /// Swap-remove and drop the removed element, but the component at `row` must not be the last elment.
+    ///
+    /// # Safety
+    /// - `row.as_usize()` < `len`
+    /// - `last_element_index` = `len - 1`
+    /// - `last_element_index` != `row.as_usize()`
+    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
+        &mut self,
+        last_element_index: usize,
+        row: TableRow,
+    ) {
+        self.data
+            .swap_remove_and_drop_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+        let added = &mut self
+            .added_ticks
+            .swap_remove_and_forget_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+        let changed = &mut self
+            .changed_ticks
+            .swap_remove_and_forget_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+        std::ptr::drop_in_place(added as *mut UnsafeCell<Tick>);
+        std::ptr::drop_in_place(changed as *mut UnsafeCell<Tick>);
+    }
+
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety

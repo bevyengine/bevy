@@ -151,7 +151,7 @@ pub(crate) struct TableBuilder {
 }
 
 impl TableBuilder {
-    ///  Start building a new [`Table`] with a specified `column_capacity` (How many components per column?) and a `capacity` (How many columns?)
+    /// Start building a new [`Table`] with a specified `column_capacity` (How many components per column?) and a `capacity` (How many columns?)
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
@@ -175,7 +175,6 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
-            poisoned: false,
         }
     }
 }
@@ -195,8 +194,15 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
-    /// This is set to `true` if an allocation triggered an unwind
-    poisoned: bool,
+}
+
+struct AbortOnPanic;
+
+impl Drop for AbortOnPanic {
+    fn drop(&mut self) {
+        // Panicking while unwinding will force an abort.
+        panic!("Aborting due to allocator error");
+    }
 }
 
 impl Table {
@@ -227,12 +233,17 @@ impl Table {
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.len());
         let last_element_index = self.len() - 1;
-        for col in self.columns.values_mut() {
-            // SAFETY:
-            // - `row` < `len`
-            // - `last_element_index` = `len` - 1
-            // - the `len` is kept within `self.entities`, it will update accordingly.
-            unsafe { col.swap_remove_and_drop_unchecked(last_element_index, row) };
+        if row.as_usize() != last_element_index {
+            for col in self.columns.values_mut() {
+                // SAFETY:
+                // - `row` < `len`
+                // - `last_element_index` = `len` - 1
+                // - `row` != last_elment_index
+                // - the `len` is kept within `self.entities`, it will update accordingly.
+                unsafe {
+                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row)
+                };
+            }
         }
         let is_last = row.as_usize() == last_element_index;
         self.entities.swap_remove(row.as_usize());
@@ -268,7 +279,6 @@ impl Table {
                 column.swap_remove_and_forget_unchecked(last_element_index, row);
             }
         }
-
         TableMoveResult {
             new_row,
             swapped_entity: if is_last {
@@ -529,14 +539,14 @@ impl Table {
     ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
-        self.poisoned = true;
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we manually set `self.poisoned` to true. If the drop method is called when `self.poisoned` is true,
-        // nothing will be deallocated - avoiding possible UB (but still leaking memory).
+        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
+        // called, and abort the program.
+        let _guard = AbortOnPanic;
         for col in self.columns.values_mut() {
             col.alloc(new_capacity);
         }
-        self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
+        core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
     }
 
     /// Reallocate memory for the columns in the [`Table`]
@@ -548,10 +558,10 @@ impl Table {
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
-        self.poisoned = true;
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we manually set `self.poisoned` to true. If the drop method is called when `self.poisoned` is true,
-        // nothing will be deallocated - avoiding possible UB (but still leaking memory).
+        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
+        // called, and abort the program.
+        let _guard = AbortOnPanic;
 
         // SAFETY:
         // - There's no overflow
@@ -560,7 +570,7 @@ impl Table {
         for col in self.columns.values_mut() {
             col.realloc(current_column_capacity, new_capacity);
         }
-        self.poisoned = false; // The allocations didn't trigger an unwind, so we set the flag to `false`.
+        core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
     }
 
     /// Allocates space for a new entity
@@ -791,15 +801,13 @@ impl IndexMut<TableId> for Tables {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        if !self.poisoned {
-            let len = self.len();
-            let cap = self.capacity();
-            self.entities.clear();
-            for col in self.columns.values_mut() {
-                // SAFETY: `cap` and `len` are correct
-                unsafe {
-                    col.drop(cap, len);
-                }
+        let len = self.len();
+        let cap = self.capacity();
+        self.entities.clear();
+        for col in self.columns.values_mut() {
+            // SAFETY: `cap` and `len` are correct
+            unsafe {
+                col.drop(cap, len);
             }
         }
     }
