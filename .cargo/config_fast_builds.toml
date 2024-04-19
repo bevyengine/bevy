@@ -22,9 +22,9 @@
 # through its high parallelism, though it only supports Linux and MacOS. On MacOS, you will need to download a
 # fork (maintained by the same author) named Sold and compile it yourself.
 #
-# Due to the limited platform support and adverse nature on MacOS, Mold disabled by default in this file. If you
-# wish to enable it, follow the installation instructions for your corresponding target, disable LLD by
-# commenting out its `-Clink-arg=...` line, and enable Mold by *uncommenting* its `-Clink-arg=...` line.
+# Mold is  disabled by default in this file. If you wish to enable it, follow the installation instructions for
+# your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
+# *uncommenting* its `-Clink-arg=...` line.
 #
 # For more information, please see Mold's repository at <https://github.com/rui314/mold> and Sold's repository
 # as <https://github.com/bluewhalesystems/sold>.
