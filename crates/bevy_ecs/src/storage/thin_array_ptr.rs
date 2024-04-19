@@ -41,7 +41,7 @@ impl<T> ThinArrayPtr<T> {
     fn assert_capacity(&self, _capacity: usize) {
         #[cfg(debug_assertions)]
         {
-            debug_assert_eq!(self.capacity, _capacity);
+            assert_eq!(self.capacity, _capacity);
         }
     }
 
