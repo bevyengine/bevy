@@ -8,26 +8,27 @@
 # ## LLD
 #
 # LLD is a linker from the LLVM project that supports Linux, Windows, MacOS, and WASM. It has the greatest
-# platform support and the easiest installation process. It is enabled by default in this file, so do not
-# worry about modifying anything!
+# platform support and the easiest installation process. It is enabled by default in this file for Linux
+# and Windows. On MacOS, the default linker yields higher performance than LLD and is used instead.
 #
 # To install, please scroll to the corresponding table for your target (eg. `[target.x86_64-pc-windows-msvc]`
 # for Windows) and follow the steps under `LLD linker`.
 #
 # For more information, please see LLD's website at <https://lld.llvm.org>.
 #
-# ## Mold / Sold
+# ## Mold
 #
 # Mold is a newer linker written by one of the authors of LLD. It boasts even greater performance, specifically
-# through its high parallelism, though it only supports Linux and MacOS. On MacOS, you will need to download a
-# fork (maintained by the same author) named Sold and compile it yourself.
+# through its high parallelism, though it only supports Linux.
 #
 # Mold is  disabled by default in this file. If you wish to enable it, follow the installation instructions for
 # your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
 # *uncommenting* its `-Clink-arg=...` line.
 #
-# For more information, please see Mold's repository at <https://github.com/rui314/mold> and Sold's repository
-# as <https://github.com/bluewhalesystems/sold>.
+# There is a fork of Mold named Sold that supports MacOS, but it is unmaintained and is about the same speed as
+# the default ld64 linker. For this reason, it is not included in this file.
+#
+# For more information, please see Mold's repository at <https://github.com/rui314/mold>.
 #
 # # Nightly configuration
 #
@@ -93,18 +94,13 @@ rustflags = [
 rustflags = [
   # LLD linker
   #
+  # The default ld64 linker is faster, you should continue using it instead.
+  #
   # You may need to install it:
   #
   # Brew: `brew install llvm`
   # Manually: <https://lld.llvm.org/MachO/index.html>
-  "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
-
-  # Sold linker
-  #
-  # You may need to install it:
-  #
-  # Manually: <https://github.com/bluewhalesystems/sold>
-  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+  # "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
 
   # Nightly
   # "-Zshare-generics=y",
@@ -115,18 +111,13 @@ rustflags = [
 rustflags = [
   # LLD linker
   #
+  # The default ld64 linker is faster, you should continue using it instead.
+  #
   # You may need to install it:
   #
   # Brew: `brew install llvm`
   # Manually: <https://lld.llvm.org/MachO/index.html>
-  "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
-
-  # Sold linker
-  #
-  # You may need to install it:
-  #
-  # Manually: <https://github.com/bluewhalesystems/sold>
-  # "-Clink-arg=-fuse-ld=/usr/local/bin/ld64.sold",
+  # "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
 
   # Nightly
   # "-Zshare-generics=y",
