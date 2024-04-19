@@ -3,12 +3,12 @@
 //! The way we will do this is via a [`mpsc`] channel. [`mpsc`] channels allow 2 unrelated
 //! parts of the program to communicate (in this case, [`Layer`]s and Bevy's ECS).
 //!
-//! Inside the [`update_subscriber`] function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
-//! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the [`AdvancedLayer`] and the [`Receiver`](mpsc::Receiver) will
-//! go into a non-send resource called [`LogEvents`] (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
-//! From there we will use [`transfer_log_events`] to transfer log events from [`LogEvents`] to an ECS event called [`LogEvent`].
+//! Inside the `update_subscriber` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
+//! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
+//! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
+//! From there we will use `transfer_log_events` to transfer log events from `LogEvents` to an ECS event called `LogEvent`.
 //!
-//! Finally, after all that we can access the [`LogEvent`] event from our systems and use it.
+//! Finally, after all that we can access the `LogEvent` event from our systems and use it.
 //! In this example we build a simple log viewer.
 
 use std::sync::mpsc;
@@ -32,7 +32,7 @@ struct LogEvent {
 #[derive(Deref, DerefMut)]
 struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
-/// Transfers information from the [`LogEvents`] resource to [`Events<LogEvent>`](LogEvent).
+/// Transfers information from the `LogEvents` resource to [`Events<LogEvent>`](LogEvent).
 fn transfer_log_events(
     receiver: NonSend<CapturedLogEvents>,
     mut log_events: EventWriter<LogEvent>,

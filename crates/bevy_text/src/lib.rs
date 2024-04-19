@@ -78,6 +78,10 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
+/// A convenient alias for `With<Text>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithText = With<Text>;
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()

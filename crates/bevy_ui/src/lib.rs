@@ -137,13 +137,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                check_visibility::<WithNode>
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .after(VisibilitySystems::CalculateBounds)
-                    .after(VisibilitySystems::UpdateOrthographicFrusta)
-                    .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                    .after(VisibilitySystems::UpdateProjectionFrusta)
-                    .after(VisibilitySystems::VisibilityPropagate),
+                check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.before(UiSystem::Layout),
                 apply_deferred
                     .after(update_target_camera_system)

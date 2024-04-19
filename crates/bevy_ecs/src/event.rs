@@ -1,7 +1,13 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, Resource, SystemParam};
+use crate::change_detection::MutUntyped;
+use crate::{
+    change_detection::{DetectChangesMut, Mut},
+    component::{ComponentId, Tick},
+    system::{Local, Res, ResMut, Resource, SystemParam},
+    world::World,
+};
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
 use bevy_utils::detailed_trace;
@@ -166,7 +172,7 @@ struct EventInstance<E: Event> {
 #[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
-    /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
+    /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
     events_a: EventSequence<E>,
     /// Holds the newer events.
     events_b: EventSequence<E>,
@@ -253,7 +259,13 @@ impl<E: Event> Events<E> {
     ///
     /// If you need access to the events that were removed, consider using [`Events::update_drain`].
     pub fn update(&mut self) {
-        let _ = self.update_drain();
+        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        self.events_b.clear();
+        self.events_b.start_event_count = self.event_count;
+        debug_assert_eq!(
+            self.events_a.start_event_count + self.events_a.len(),
+            self.events_b.start_event_count
+        );
     }
 
     /// Swaps the event buffers and drains the oldest event buffer, returning an iterator
@@ -798,48 +810,90 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
-#[doc(hidden)]
+struct RegisteredEvent {
+    component_id: ComponentId,
+    // Required to flush the secondary buffer and drop events even if left unchanged.
+    previously_updated: bool,
+    // SAFETY: The component ID and the function must be used to fetch the Events<T> resource
+    // of the same type initialized in `register_event`, or improper type casts will occur.
+    update: unsafe fn(MutUntyped),
+}
+
+/// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
+/// to update all of the events.
 #[derive(Resource, Default)]
-pub struct EventUpdateSignal(bool);
+pub struct EventRegistry {
+    needs_update: bool,
+    event_updates: Vec<RegisteredEvent>,
+}
+
+impl EventRegistry {
+    /// Registers an event type to be updated.
+    pub fn register_event<T: Event>(world: &mut World) {
+        // By initializing the resource here, we can be sure that it is present,
+        // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
+        let component_id = world.init_resource::<Events<T>>();
+        let mut registry = world.get_resource_or_insert_with(Self::default);
+        registry.event_updates.push(RegisteredEvent {
+            component_id,
+            previously_updated: false,
+            update: |ptr| {
+                // SAFETY: The resource was initialized with the type Events<T>.
+                unsafe { ptr.with_type::<Events<T>>() }
+                    .bypass_change_detection()
+                    .update();
+            },
+        });
+    }
+
+    /// Updates all of the registered events in the World.
+    pub fn run_updates(&mut self, world: &mut World, last_change_tick: Tick) {
+        for registered_event in &mut self.event_updates {
+            // Bypass the type ID -> Component ID lookup with the cached component ID.
+            if let Some(events) = world.get_resource_mut_by_id(registered_event.component_id) {
+                let has_changed = events.has_changed_since(last_change_tick);
+                if registered_event.previously_updated || has_changed {
+                    // SAFETY: The update function pointer is called with the resource
+                    // fetched from the same component ID.
+                    unsafe { (registered_event.update)(events) };
+                    // Always set to true if the events have changed, otherwise disable running on the second invocation
+                    // to wait for more changes.
+                    registered_event.previously_updated =
+                        has_changed || !registered_event.previously_updated;
+                }
+            }
+        }
+    }
+}
 
 #[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EventUpdates;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
-pub fn signal_event_update_system(signal: Option<ResMut<EventUpdateSignal>>) {
-    if let Some(mut s) = signal {
-        s.0 = true;
+pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
+    if let Some(mut registry) = signal {
+        registry.needs_update = true;
     }
 }
 
-/// Resets the `EventUpdateSignal`
-pub fn reset_event_update_signal_system(signal: Option<ResMut<EventUpdateSignal>>) {
-    if let Some(mut s) = signal {
-        s.0 = false;
+/// A system that calls [`Events::update`] on all registered [`Events`] in the world.
+pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
+    if world.contains_resource::<EventRegistry>() {
+        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
+            registry.run_updates(world, *last_change_tick);
+            // Disable the system until signal_event_update_system runs again.
+            registry.needs_update = false;
+        });
     }
+    *last_change_tick = world.change_tick();
 }
 
-/// A system that calls [`Events::update`].
-pub fn event_update_system<T: Event>(
-    update_signal: Option<Res<EventUpdateSignal>>,
-    mut events: ResMut<Events<T>>,
-) {
-    if let Some(signal) = update_signal {
-        // If we haven't got a signal to update the events, but we *could* get such a signal
-        // return early and update the events later.
-        if !signal.0 {
-            return;
-        }
-    }
-
-    events.update();
-}
-
-/// A run condition that checks if the event's [`event_update_system`]
-/// needs to run or not.
-pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
-    !events.events_a.is_empty() || !events.events_b.is_empty()
+/// A run condition for [`event_update_system`].
+pub fn event_update_condition(signal: Option<Res<EventRegistry>>) -> bool {
+    // If we haven't got a signal to update the events, but we *could* get such a signal
+    // return early and update the events later.
+    signal.map_or(false, |signal| signal.needs_update)
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
