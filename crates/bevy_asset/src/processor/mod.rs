@@ -408,7 +408,7 @@ impl AssetProcessor {
         infos.remove(&asset_path).await;
     }
 
-    /// Handles a renamed source asset by moving it's processed results to the new location and updating in-memory paths + metadata.
+    /// Handles a renamed source asset by moving its processed results to the new location and updating in-memory paths + metadata.
     /// This will cause direct path dependencies to break.
     async fn handle_renamed_asset(&self, source: &AssetSource, old: PathBuf, new: PathBuf) {
         let mut infos = self.data.asset_infos.write().await;
