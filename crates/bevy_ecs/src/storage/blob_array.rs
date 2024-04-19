@@ -25,18 +25,20 @@ pub(super) struct BlobArray {
 
 impl BlobArray {
     pub fn with_capacity(
-        layout: Layout,
+        item_layout: Layout,
         drop_fn: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> Self {
         if capacity == 0 {
+            let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+            let data = bevy_ptr::dangling_with_align(align);
             Self {
-                item_layout: layout,
+                item_layout,
                 drop: drop_fn,
-                data: NonNull::dangling(),
+                data,
             }
         } else {
-            let mut arr = Self::with_capacity(layout, drop_fn, 0);
+            let mut arr = Self::with_capacity(item_layout, drop_fn, 0);
             // SAFETY: `capacity` > 0
             unsafe { arr.alloc(NonZeroUsize::new_unchecked(capacity)) }
             arr
