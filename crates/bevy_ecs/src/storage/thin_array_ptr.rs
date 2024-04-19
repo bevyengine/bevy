@@ -45,7 +45,7 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memeory.
+    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
         arr.set_capacity(capacity);
