@@ -37,7 +37,7 @@ impl HttpWasmAssetReader {
     }
 }
 
-fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Error + 'a {
+fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_ {
     move |value| {
         let message = match JSON::stringify(&value) {
             Ok(js_str) => format!("Failed to {context}: {js_str}"),
