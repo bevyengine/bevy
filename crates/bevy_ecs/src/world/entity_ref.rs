@@ -469,6 +469,12 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    fn from(value: &'w mut EntityMut<'_>) -> Self {
+        value.reborrow()
+    }
+}
+
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
     fn from(value: EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.

@@ -6,7 +6,10 @@
 //! Same as [`super::component`], but for bundles.
 use std::any::TypeId;
 
-use crate::{prelude::Bundle, world::EntityWorldMut};
+use crate::{
+    prelude::Bundle,
+    world::{EntityMut, EntityWorldMut},
+};
 use bevy_reflect::{FromReflect, FromType, Reflect, ReflectRef, TypeRegistry};
 
 use super::ReflectComponent;
@@ -26,7 +29,7 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert()`].
     pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply: fn(EntityMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
     pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
@@ -55,13 +58,13 @@ impl ReflectBundle {
     /// # Panics
     ///
     /// Panics if there is no [`Bundle`] of the given type.
-    pub fn apply(
+    pub fn apply<'a>(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: impl Into<EntityMut<'a>>,
         bundle: &dyn Reflect,
         registry: &TypeRegistry,
     ) {
-        (self.0.apply)(entity, bundle, registry);
+        (self.0.apply)(entity.into(), bundle, registry);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
@@ -121,7 +124,7 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
                 let bundle = B::from_reflect(reflected_bundle).unwrap();
                 entity.insert(bundle);
             },
-            apply: |entity, reflected_bundle, registry| {
+            apply: |mut entity, reflected_bundle, registry| {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
@@ -130,10 +133,10 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| insert_field(entity, field, registry)),
+                            .for_each(|field| apply_field(&mut entity, field, registry)),
                         ReflectRef::Tuple(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| insert_field(entity, field, registry)),
+                            .for_each(|field| apply_field(&mut entity, field, registry)),
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
@@ -170,29 +173,16 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
     }
 }
 
-fn insert_field(entity: &mut EntityWorldMut, field: &dyn Reflect, registry: &TypeRegistry) {
+fn apply_field(entity: &mut EntityMut, field: &dyn Reflect, registry: &TypeRegistry) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
-        reflect_component.apply(entity, field);
+        reflect_component.apply(entity.reborrow(), field);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
-        reflect_bundle.apply(entity, field, registry);
+        reflect_bundle.apply(entity.reborrow(), field, registry);
     } else {
-        let is_component = entity
-            .world()
-            .components()
-            .get_id(field.type_id())
-            .is_some();
-
-        if is_component {
-            panic!(
-                "no `ReflectComponent` registration found for `{}`",
-                field.reflect_type_path(),
-            );
-        } else {
-            panic!(
-                "no `ReflectBundle` registration found for `{}`",
-                field.reflect_type_path(),
-            )
-        }
+        panic!(
+            "no `ReflectComponent` nor `ReflectBundle` registration found for `{}`",
+            field.reflect_type_path()
+        );
     }
 }
 

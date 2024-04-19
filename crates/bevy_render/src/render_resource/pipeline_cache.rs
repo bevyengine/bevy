@@ -494,8 +494,14 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    /// Returns an iterator over the pipelines in the pipeline cache.
     pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
         self.pipelines.iter()
+    }
+
+    /// Returns a iterator of the IDs of all currently waiting pipelines.
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> + '_ {
+        self.waiting_pipelines.iter().copied()
     }
 
     /// Create a new pipeline cache associated with the given render device.
