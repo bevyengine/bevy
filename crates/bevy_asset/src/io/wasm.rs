@@ -81,7 +81,7 @@ impl HttpWasmAssetReader {
                 Ok(reader)
             }
             404 => Err(AssetReaderError::NotFound(path)),
-            status => Err(AssetReaderError::HttpError(status as u16)),
+            status => Err(AssetReaderError::HttpError(status)),
         }
     }
 }
