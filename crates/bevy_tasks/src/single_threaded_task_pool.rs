@@ -106,10 +106,12 @@ impl TaskPool {
         T: Send + 'static,
     {
         let executor = &async_executor::LocalExecutor::new();
+        // TODO: Safety comment
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
         let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        // TODO: Safety comment
         let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
             unsafe { mem::transmute(&results) };
 
@@ -120,6 +122,7 @@ impl TaskPool {
             env: PhantomData,
         };
 
+        // TODO: Safety comment
         let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
 
         f(scope_ref);
