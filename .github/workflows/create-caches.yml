@@ -158,8 +158,8 @@ jobs:
 
       - name: Document workspace
         run: |
-          cargo doc --workspace --all-features --no-deps --document-private-items
           cargo test --workspace --doc
+          cargo doc --workspace --all-features --no-deps --document-private-items
 
       - name: Save cache
         uses: ./.github/actions/cache
