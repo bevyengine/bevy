@@ -70,8 +70,10 @@ use bevy_ecs::schedule::State;
 /// ## Examples
 ///
 /// Reading and checking against the current set of pressed buttons:
-/// ```
-/// use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
 ///
 /// fn main() {
 ///     App::new()
@@ -87,17 +89,6 @@ use bevy_ecs::schedule::State;
 ///         .add_systems(
 ///             Update,
 ///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
-///         )
-///         .add_systems(
-///             Update,
-///             something_used.run_if(
-///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(KeyCode::KeyE))
-///                     .or_else(input_just_pressed(GamepadButton::new(
-///                         Gamepad::new(0),
-///                         GamepadButtonType::West,
-///                     ))),
-///             ),
 ///         )
 ///         .run();
 /// }
@@ -122,11 +113,34 @@ use bevy_ecs::schedule::State;
 ///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
 ///     }
 /// }
+/// ```
+///
+/// Generic handling of a form of use-key:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
+/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             something_used.run_if(
+///                 input_just_pressed(KeyCode::KeyE)
+///                     .or_else(input_just_pressed(KeyCode::KeyE))
+///                     .or_else(input_just_pressed(GamepadButton::new(
+///                         Gamepad::new(0),
+///                         GamepadButtonType::West,
+///                     ))),
+///             ),
+///         )
+///         .run();
+/// }
 ///
 /// fn something_used() {
 ///     println!("Generic use-ish button pressed.");
 /// }
-///
 /// ```
 ///
 /// ## Note
