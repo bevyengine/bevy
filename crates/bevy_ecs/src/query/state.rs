@@ -161,8 +161,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
         for archetype in world.archetypes.iter() {
-            if state.new_archetype_internal(archetype) {
-                state.update_archetype_component_access(archetype, access);
+            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
+            // come directly from the same world.
+            unsafe {
+                if state.new_archetype_internal(archetype) {
+                    state.update_archetype_component_access(archetype, access);
+                }
             }
         }
         state.archetype_generation = world.archetypes.generation();
@@ -342,7 +346,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype_internal(archetype);
+            // SAFETY: The validate_world call ensures that the world is the same the QueryState
+            // was initialized from.
+            unsafe {
+                self.new_archetype_internal(archetype);
+            }
         }
     }
 
@@ -371,13 +379,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     ///
     /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    pub fn new_archetype(
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    pub unsafe fn new_archetype(
         &mut self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        if self.new_archetype_internal(archetype) {
-            self.update_archetype_component_access(archetype, access);
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+        let matches = unsafe { self.new_archetype_internal(archetype) };
+        if matches {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+            unsafe { self.update_archetype_component_access(archetype, access) };
         }
     }
 
@@ -386,7 +400,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
     /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
-    fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
@@ -431,7 +448,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
     ///
     /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    pub fn update_archetype_component_access(
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    pub unsafe fn update_archetype_component_access(
         &mut self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
