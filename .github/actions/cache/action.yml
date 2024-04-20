@@ -72,7 +72,8 @@ runs:
 
     # Either save a new cache...
     - name: Save cache
-      if: ${{ inputs.action == 'save' }}
+      # We don't save caches from the merge queue either, due to Github's cache isolation policy.
+      if: ${{ inputs.action == 'save' && github.event_name != 'merge_group' }}
       uses: actions/cache/save@v4
       with:
         path: |
