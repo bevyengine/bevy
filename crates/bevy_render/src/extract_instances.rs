@@ -141,6 +141,14 @@ fn extract_visible<EI>(
     }
 }
 
+/// A helper-plugin to update render world data with [`RenderAssetKey`]s after
+/// [`RenderAsset`]s have been prepared.
+///
+/// At extraction time, [`RenderAssetKey`]s can be looked up for an [`AssetId`]
+/// from a [`RenderAssets`] [`Resource`]. If they are not present, then the
+/// [`RenderAsset`] may not yet be loaded, but may be loaded this frame. This
+/// plugin manages updating the [`RenderAssetKey`]s for those entities once the
+/// [`RenderAsset`] has been in the corresponding [`prepare_assets`] system.
 pub struct UpdatePendingRenderAssetKeyPlugin<A: RenderAsset, SRAK: SetRenderAssetKey> {
     marker: PhantomData<(A, SRAK)>,
 }
@@ -173,10 +181,20 @@ impl<A: RenderAsset, SRAK: SetRenderAssetKey> Plugin
     }
 }
 
+/// A trait to set a [`RenderAssetKey`] for an [`Entity`] in a [`Resource`].
+///
+/// This enables [`UpdatePendingRenderAssetKeyPlugin`] to be generic over a
+/// [`Resource`] that contains a [`RenderAssetKey`] that may not be ready at
+/// extraction time.
 pub trait SetRenderAssetKey: Resource {
     fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey);
 }
 
+/// A map of [`AssetId`] to a collection of [`Entity`] for entities that did
+/// not have a [`RenderAssetKey`] in their [`RenderAssets`] [`Resource`] at
+/// extraction time.
+///
+/// This is used and maintained by [`UpdatePendingRenderAssetKeyPlugin`].
 #[derive(Resource, Deref, DerefMut)]
 pub struct PendingRenderAssets<A: RenderAsset>(HashMap<AssetId<A::SourceAsset>, Vec<Entity>>);
 
@@ -186,6 +204,11 @@ impl<A: RenderAsset> Default for PendingRenderAssets<A> {
     }
 }
 
+/// This system processes [`PendingRenderAssets`] to check whether [`AssetId`]'s
+/// assets have been prepared, and so they have a corresponding [`RenderAssetKey`]
+/// that can be assigned to the corresponding collections of [`Entity`].
+///
+/// This system is used by [`UpdatePendingRenderAssetKeyPlugin`]
 pub fn update_pending_render_assets<A: RenderAsset, SRAK: SetRenderAssetKey>(
     render_assets: Res<RenderAssets<A>>,
     mut pending_render_assets: ResMut<PendingRenderAssets<A>>,

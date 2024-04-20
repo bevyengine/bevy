@@ -176,6 +176,11 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 }
 
 new_key_type! {
+    /// A [`SlotMap`] key for lookups into [`RenderAssets`] instead of [`AssetId`].
+    ///
+    /// This is a generational index using two [`u32`]s which is more compact
+    /// than [`AssetId`] and brings significant performance benefits due to
+    /// better cache hit rates in hot loops.
     pub struct RenderAssetKey;
 }
 
