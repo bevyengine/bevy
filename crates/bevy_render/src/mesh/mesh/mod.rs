@@ -1402,14 +1402,14 @@ bitflags! {
     /// to coexist in the same field without any shifts.
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
-        const MORPH_TARGETS = 1 << 31;
+        const MORPH_TARGETS = 1 << u64::BITS - 1;
     }
 }
 
 impl BaseMeshPipelineKey {
     pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u64 = 0b111;
     pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u64 =
-        63 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones() as u64;
+        (u64::BITS - 1 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones()) as u64;
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u64)
