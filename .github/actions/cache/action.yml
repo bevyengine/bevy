@@ -89,7 +89,7 @@ runs:
     # ...or restore an existing cache.
     - name: Restore cache
       # We do not use the cache when in the merge queue.
-      if: ${{ inputs.action == 'restore' && github.event_name == 'merge_group' }}
+      if: ${{ inputs.action == 'restore' && github.event_name != 'merge_group' }}
       uses: actions/cache/restore@v4
       with:
         path: |
