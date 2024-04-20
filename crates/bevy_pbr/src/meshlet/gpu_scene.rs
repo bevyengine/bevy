@@ -3,7 +3,7 @@ use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
-use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
@@ -14,6 +14,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    render_asset::RenderAssetKey,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -163,9 +164,8 @@ pub fn queue_material_meshlet_meshes<M: Material>(
     let gpu_scene = gpu_scene.deref_mut();
 
     for (i, (instance, _, _)) in gpu_scene.instances.iter().enumerate() {
-        if let Some(material_asset_id) = render_material_instances.get(instance) {
-            let material_asset_id = material_asset_id.untyped();
-            if let Some(material_id) = gpu_scene.material_id_lookup.get(&material_asset_id) {
+        if let Some(material_asset_key) = render_material_instances.get(instance) {
+            if let Some(material_id) = gpu_scene.material_id_lookup.get(material_asset_key) {
                 gpu_scene.material_ids_present_in_scene.insert(*material_id);
                 gpu_scene.instance_material_ids.get_mut()[i] = *material_id;
             }
@@ -617,7 +617,7 @@ pub struct MeshletGpuScene {
     scene_meshlet_count: u32,
     scene_triangle_count: u64,
     next_material_id: u32,
-    material_id_lookup: HashMap<UntypedAssetId, u32>,
+    material_id_lookup: HashMap<RenderAssetKey, u32>,
     material_ids_present_in_scene: HashSet<u32>,
     /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
     instances: Vec<(Entity, RenderLayers, bool)>,
@@ -899,10 +899,10 @@ impl MeshletGpuScene {
     }
 
     /// Get the depth value for use with the material depth texture for a given [`Material`] asset.
-    pub fn get_material_id(&mut self, material_id: UntypedAssetId) -> u32 {
+    pub fn get_material_id(&mut self, material_key: RenderAssetKey) -> u32 {
         *self
             .material_id_lookup
-            .entry(material_id)
+            .entry(material_key)
             .or_insert_with(|| {
                 self.next_material_id += 1;
                 self.next_material_id

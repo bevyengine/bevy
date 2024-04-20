@@ -139,8 +139,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(*material_id) else {
+        for &material_key in render_material_instances.values() {
+            let Some(material) = render_materials.get_with_key(material_key) else {
                 continue;
             };
 
@@ -199,7 +199,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 }),
             };
 
-            let material_id = gpu_scene.get_material_id(material_id.untyped());
+            let material_id = gpu_scene.get_material_id(material_key);
 
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
@@ -264,8 +264,8 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
-            let Some(material) = render_materials.get(*material_id) else {
+        for &material_key in render_material_instances.values() {
+            let Some(material) = render_materials.get_with_key(material_key) else {
                 continue;
             };
 
@@ -351,7 +351,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 }),
             };
 
-            let material_id = gpu_scene.get_material_id(material_id.untyped());
+            let material_id = gpu_scene.get_material_id(material_key);
 
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
