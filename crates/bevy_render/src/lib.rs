@@ -58,7 +58,9 @@ pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
+use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::mesh::GpuMesh;
@@ -334,6 +336,9 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
         ));
 
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());        
+
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
@@ -375,7 +380,14 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
+                .insert_resource(adapter_info)
+                .add_systems(
+                    Render,
+                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
+                        bpf.reset();
+                    })
+                    .in_set(RenderSet::Cleanup),
+                );                
         }
     }
 }
