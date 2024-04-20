@@ -1402,7 +1402,7 @@ bitflags! {
     /// to coexist in the same field without any shifts.
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
-        const MORPH_TARGETS = 1 << u64::BITS - 1;
+        const MORPH_TARGETS = 1 << (u64::BITS - 1);
     }
 }
 
