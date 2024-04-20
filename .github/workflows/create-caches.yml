@@ -69,15 +69,42 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
+        if: ${{ matrix.target == 'default' }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
+      
+      - name: Install Rust (WASM)
+        if: ${{ matrix.target == 'wasm' }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+
+      - name: Install Rust (WASM Atomics)
+        if: ${{ matrix.target == 'wasm-atomics' }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+          components: rust-src
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
 
-      - name: Build workspace
+      - name: Check workspace
+        if: ${{ matrix.target == 'default' }}
         run: cargo check --workspace
+
+      - name: Check workspace
+        if: ${{ matrix.target == 'wasm' }}
+        run: cargo check --workspace --target wasm32-unknown-unknown
+
+      - name: Check workspace
+        if: ${{ matrix.target == 'wasm-atomics' }}
+        run: cargo check --workspace --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+        env:
+          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
       - name: Save cache
         uses: ./.github/actions/cache
@@ -108,8 +135,10 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
 
-      - name: Build workspace
-        run: cargo doc -p bevy --no-deps
+      - name: Document workspace
+        run: |
+          cargo doc --workspace --all-features --no-deps --document-private-items
+          cargo test --workspace --doc
 
       - name: Save cache
         uses: ./.github/actions/cache

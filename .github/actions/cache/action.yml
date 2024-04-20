@@ -54,7 +54,7 @@ runs:
     - name: Calculate restore key
       id: restore-key
       shell: bash
-      run: echo key=${{ inputs.kind }}-${{ inputs.toolchain }}-${{ runner.os }}-${{ inputs.target }}
+      run: echo key=${{ inputs.kind }}-${{ inputs.toolchain }}-${{ runner.os }}-${{ inputs.target }} >> $GITHUB_OUTPUT
 
     # But wait, I thought we were calculating the cache key in the previous step? What are we doing here?
     #
@@ -68,7 +68,7 @@ runs:
     - name: Calculate cache key
       id: cache-key
       shell: bash
-      run: echo key=${{ steps.restore-key.outputs.key }}-${{ steps.date.outputs.date }}
+      run: echo key=${{ steps.restore-key.outputs.key }}-${{ steps.date.outputs.date }} >> $GITHUB_OUTPUT
 
     # Either save a new cache...
     - name: Save cache
@@ -88,7 +88,8 @@ runs:
 
     # ...or restore an existing cache.
     - name: Restore cache
-      if: ${{ inputs.action == 'restore' }}
+      # We do not use the cache when in the merge queue.
+      if: ${{ inputs.action == 'restore' && github.event_name == 'merge_group' }}
       uses: actions/cache/restore@v4
       with:
         path: |
