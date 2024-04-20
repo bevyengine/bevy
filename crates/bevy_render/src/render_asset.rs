@@ -383,7 +383,7 @@ pub fn prepare_assets<A: RenderAsset>(
         }
     }
 
-    if bpf.exhausted() {
+    if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
         debug!(
             "{} write budget exhausted with {} assets remaining (wrote {})",
             std::any::type_name::<A>(),
