@@ -1,0 +1,100 @@
+name: Create Caches
+
+on:
+  schedule:
+    # Run at 0:00 daily. (Basically as early as possible.)
+    - cron: 0 0 * * *
+  workflow_dispatch:
+  # TODO: Remove this. It is for testing purposes only.
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        toolchain: [stable]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Build workspace
+        run: cargo build --workspace
+
+      - name: Save cache
+        uses: ./.github/actions/cache
+        with:
+          kind: build
+          toolchain: ${{ matrix.toolchain }}
+          action: save
+
+  check:
+    name: Check
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+            target: default
+          - os: macos-latest
+            toolchain: nightly
+            target: default
+          - os: ubuntu-latest
+            toolchain: stable
+            target: wasm
+          - os: ubuntu-latest
+            toolchain: nightly
+            target: wasm-atomics
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Build workspace
+        run: cargo check --workspace
+
+      - name: Save cache
+        uses: ./.github/actions/cache
+        with:
+          kind: check
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          action: save
+
+  doc:
+    name: Doc
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        toolchain: [nightly]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Build workspace
+        run: cargo doc -p bevy --no-deps
+
+      - name: Save cache
+        uses: ./.github/actions/cache
+        with:
+          kind: doc
+          toolchain: ${{ matrix.toolchain }}
+          action: save
