@@ -57,6 +57,36 @@ jobs:
           - os: macos-latest
             toolchain: nightly
             target: default
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+
+      - name: Check workspace
+        if: ${{ matrix.target == 'default' }}
+        run: cargo check --workspace
+
+      - name: Save cache
+        uses: ./.github/actions/cache
+        with:
+          kind: check
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          action: save
+
+  check-wasm:
+    name: Check WASM
+    strategy:
+      matrix:
+        include:
           - os: ubuntu-latest
             toolchain: stable
             target: wasm
@@ -68,12 +98,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        if: ${{ matrix.target == 'default' }}
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-      
       - name: Install Rust (WASM)
         if: ${{ matrix.target == 'wasm' }}
         uses: dtolnay/rust-toolchain@master
@@ -89,20 +113,13 @@ jobs:
           target: wasm32-unknown-unknown
           components: rust-src
 
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
-
-      - name: Check workspace
-        if: ${{ matrix.target == 'default' }}
-        run: cargo check --workspace
-
       - name: Check workspace
         if: ${{ matrix.target == 'wasm' }}
-        run: cargo check --workspace --target wasm32-unknown-unknown
+        run: cargo check --target wasm32-unknown-unknown
 
       - name: Check workspace
         if: ${{ matrix.target == 'wasm-atomics' }}
-        run: cargo check --workspace --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+        run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
           RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
 
