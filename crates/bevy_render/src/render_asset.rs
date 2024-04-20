@@ -415,7 +415,7 @@ impl RenderAssetBytesPerFrame {
         }
     }
 
-    /// Reset the available bytes. Called once per frame by the RenderPlugin.
+    /// Reset the available bytes. Called once per frame by the [`crate::RenderPlugin`].
     pub fn reset(&mut self) {
         self.available = self.max_bytes.unwrap_or(usize::MAX);
     }
