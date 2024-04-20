@@ -1,0 +1,102 @@
+name: Cache
+description: Save and restore the cache, to speed up build times!
+inputs:
+  kind:
+    description: >
+      The type of cache to use. This will affect what files are cached and the overall size.
+      Possible options: `build`, `check`, and `doc`.
+    required: true
+  toolchain:
+    description: >
+      The Rust toolchain to use. Stable and nightly caches are incompatible with each other.
+      Possible options: `stable` and `nightly`.
+    required: false
+    default: stable
+  target:
+    description: >
+      The target to use. `default` refers to the current platform.
+      Possible options: `default`, `wasm`, and `wasm-atomics`.
+    required: false
+    default: default
+  action:
+    description: >
+      Whether to save or restore a cache. You likely want `restore` for most occassions.
+      Possible options: `save` and `restore`.
+    required: false
+    default: restore
+runs:
+  using: composite
+  steps:
+    # The cache key includes the current date, so that each day we get a new cache. This is to ensure that
+    # dependencies are up-to-date that the incremental compiler does not need to do much more work.
+    - name: Retrieve current date
+      id: date
+      shell: bash
+      run: echo date=$(date +'%Y-%m-%d') >> $GITHUB_OUTPUT
+
+    # The cache key is the identifier that differentiates multiple caches. We include lots of data in the key
+    # to optimize what we are caching and prevent issues.
+    #
+    # The cache `kind` specifies what "level" of cache we want. Different commands such as `cargo check` and
+    # `cargo build` generate different amounts of data. We specify these levels so our workflows do not end up
+    # downloading unused data.
+    #
+    # The cache `toolchain` specifies whether we are using stable or nightly Rust. You usually cannot use a
+    # nightly cache on stable Rust, which is why we need two separate ones.
+    #
+    # The cache `os` specifies which of the three operating systems we are using: Ubuntu, Windows, or MacOS.
+    # The cached files can be platform-dependent (especially with `cargo build`), which is why we need to
+    # differentiate between OS's.
+    #
+    # The cache `target` specifies which target we are building for. By default it is the target of the current
+    # platform, but for some cases like WASM we need to differentiate between them. Targets usually store files
+    # in subfolders such as `target/wasm32-unknown-unknown`, so using the default is pointless.
+    - name: Calculate restore key
+      id: restore-key
+      shell: bash
+      run: echo key=${{ inputs.kind }}-${{ inputs.toolchain }}-${{ runner.os }}-${{ inputs.target }}
+
+    # But wait, I thought we were calculating the cache key in the previous step? What are we doing here?
+    #
+    # `actions/cache` supports a feature known as restore keys, which are *fallback* keys in case the requested
+    # key does not exist. Our preferred cache key includes the date, but sometimes these daily jobs may fail.
+    # Instead of leaving all jobs for the day cache-less, we use a restore key to fallback to a previous day's
+    # cache.
+    #
+    # In this case, we calculate the restore key first then append on the date afterwords, so we have access to
+    # both.
+    - name: Calculate cache key
+      id: cache-key
+      shell: bash
+      run: echo key=${{ steps.restore-key.outputs.key }}-${{ steps.date.outputs.date }}
+
+    # Either save a new cache...
+    - name: Save cache
+      if: ${{ inputs.action == 'save' }}
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          # Cache the incremental build information. This is arguably the most important part.
+          target/
+          # Cache all of the downloaded dependencies.
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          # Cache all of the installed binaries.
+          ~/.cargo/bin/
+        key: ${{ steps.cache-key.outputs.key }}
+
+    # ...or restore an existing cache.
+    - name: Restore cache
+      if: ${{ inputs.action == 'restore' }}
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          # Please keep this in sync with the previous step. :)
+          target/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          ~/.cargo/bin/
+        key: ${{ steps.cache-key.outputs.key }}
+        restore-keys: ${{ steps.restore-key.outputs.key }}
