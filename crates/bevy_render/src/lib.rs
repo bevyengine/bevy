@@ -337,7 +337,7 @@ impl Plugin for RenderPlugin {
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
-            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());        
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -387,7 +387,7 @@ impl Plugin for RenderPlugin {
                         bpf.reset();
                     })
                     .in_set(RenderSet::Cleanup),
-                );                
+                );
         }
     }
 }

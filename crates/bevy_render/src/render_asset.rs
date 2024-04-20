@@ -370,7 +370,7 @@ pub fn prepare_assets<A: RenderAsset>(
         } else {
             0
         };
-        
+
         match A::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
