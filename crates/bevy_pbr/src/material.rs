@@ -506,7 +506,10 @@ impl<M: Material> Default for RenderMaterialInstances<M> {
 impl<M: Material> SetRenderAssetKey for RenderMaterialInstances<M> {
     #[inline]
     fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
-        self.get_mut(&entity).map(|asset_key| *asset_key = key);
+        let Some(asset_key) = self.get_mut(&entity) else {
+            return;
+        };
+        *asset_key = key;
     }
 }
 

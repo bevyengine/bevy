@@ -527,10 +527,10 @@ impl SetRenderAssetKey for RenderMeshInstances {
     fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
         match *self {
             RenderMeshInstances::CpuBuilding(ref mut instances) => {
-                instances.set_mesh_asset_key(entity, key)
+                instances.set_mesh_asset_key(entity, key);
             }
             RenderMeshInstances::GpuBuilding(ref mut instances) => {
-                instances.set_mesh_asset_key(entity, key)
+                instances.set_mesh_asset_key(entity, key);
             }
         }
     }
@@ -552,9 +552,10 @@ impl RenderMeshInstancesTable for RenderMeshInstancesCpu {
     }
 
     fn set_mesh_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
-        self.get_mut(&entity).map(|instance| {
-            instance.shared.mesh_asset_key = key;
-        });
+        let Some(instance) = self.get_mut(&entity) else {
+            return;
+        };
+        instance.shared.mesh_asset_key = key;
     }
 
     fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
@@ -572,9 +573,10 @@ impl RenderMeshInstancesTable for RenderMeshInstancesGpu {
     }
 
     fn set_mesh_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
-        self.get_mut(&entity).map(|instance| {
-            instance.shared.mesh_asset_key = key;
-        });
+        let Some(instance) = self.get_mut(&entity) else {
+            return;
+        };
+        instance.shared.mesh_asset_key = key;
     }
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
@@ -701,7 +703,7 @@ pub fn extract_meshes_for_cpu_building(
             pending_mesh_assets
                 .entry(asset_id)
                 .or_default()
-                .extend(entities.drain(..));
+                .append(&mut entities);
         }
     }
 }
@@ -711,6 +713,7 @@ pub fn extract_meshes_for_cpu_building(
 ///
 /// This is the variant of the system that runs when we're using GPU
 /// [`MeshUniform`] building.
+#[allow(clippy::too_many_arguments)]
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     mut batched_instance_buffers: ResMut<
@@ -800,7 +803,7 @@ pub fn extract_meshes_for_gpu_building(
             pending_mesh_assets
                 .entry(asset_id)
                 .or_default()
-                .extend(entities.drain(..));
+                .append(&mut entities);
         }
     }
 }

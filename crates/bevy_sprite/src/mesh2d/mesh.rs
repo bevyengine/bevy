@@ -215,8 +215,10 @@ pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 impl SetRenderAssetKey for RenderMesh2dInstances {
     #[inline]
     fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
-        self.get_mut(&entity)
-            .map(|instance| instance.mesh_asset_key = key);
+        let Some(instance) = self.get_mut(&entity) else {
+            return;
+        };
+        instance.mesh_asset_key = key;
     }
 }
 
@@ -280,7 +282,7 @@ pub fn extract_mesh2d(
             pending_mesh_assets
                 .entry(asset_id)
                 .or_default()
-                .extend(entities.drain(..));
+                .append(&mut entities);
         }
     }
 }

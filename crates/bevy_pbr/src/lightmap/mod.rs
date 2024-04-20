@@ -125,9 +125,10 @@ pub struct RenderLightmaps {
 impl SetRenderAssetKey for RenderLightmaps {
     #[inline]
     fn set_asset_key(&mut self, entity: Entity, key: RenderAssetKey) {
-        self.render_lightmaps
-            .get_mut(&entity)
-            .map(|render_lightmap| render_lightmap.image = key);
+        let Some(render_lightmap) = self.render_lightmaps.get_mut(&entity) else {
+            return;
+        };
+        render_lightmap.image = key;
     }
 }
 

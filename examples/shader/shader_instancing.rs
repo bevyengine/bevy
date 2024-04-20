@@ -130,7 +130,7 @@ fn queue_custom(
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity) else {
                 continue;
             };
-            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = meshes.get_with_key(mesh_instance.mesh_asset_key) else {
                 continue;
             };
             let key =
@@ -249,7 +249,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         else {
             return RenderCommandResult::Failure;
         };
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes
+            .into_inner()
+            .get_with_key(mesh_instance.mesh_asset_key)
+        else {
             return RenderCommandResult::Failure;
         };
         let Some(instance_buffer) = instance_buffer else {

@@ -315,6 +315,7 @@ impl Plugin for ColoredMesh2dPlugin {
 pub fn extract_colored_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
+    meshes: Res<RenderAssets<GpuMesh>>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
@@ -327,6 +328,11 @@ pub fn extract_colored_mesh2d(
         if !view_visibility.get() {
             continue;
         }
+        // NOTE: This approach results in a 1-frame delay in the entity showing up while the asset
+        // is loaded, but this code is used for simplicity of the example
+        let Some(mesh_asset_key) = meshes.get_key(handle.0.id()) else {
+            continue;
+        };
 
         let transforms = Mesh2dTransforms {
             transform: (&transform.affine()).into(),
@@ -337,7 +343,7 @@ pub fn extract_colored_mesh2d(
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
-                mesh_asset_id: handle.0.id(),
+                mesh_asset_key,
                 transforms,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
@@ -377,11 +383,9 @@ pub fn queue_colored_mesh2d(
         // Queue all entities visible to that view
         for visible_entity in visible_entities.iter::<WithMesh2d>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
-                let mesh2d_handle = mesh_instance.mesh_asset_id;
-                let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(mesh2d_handle) {
+                if let Some(mesh) = render_meshes.get_with_key(mesh_instance.mesh_asset_key) {
                     mesh2d_key |=
                         Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
                 }
@@ -389,7 +393,7 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_transforms.transform.translation.z;
+                let mesh_z = mesh_instance.transforms.transform.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,
