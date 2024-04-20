@@ -1,4 +1,5 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+#[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
@@ -44,7 +45,8 @@ use gltf::{
     Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
-use smallvec::{smallvec, SmallVec};
+#[cfg(feature = "bevy_animation")]
+use smallvec::SmallVec;
 use std::io::Error;
 use std::{
     collections::VecDeque,
@@ -1032,7 +1034,7 @@ fn load_node(
         // This is an animation root. Make a new animation context.
         animation_context = Some(AnimationContext {
             root: node.id(),
-            path: smallvec![],
+            path: SmallVec::new(),
         });
     }
 

@@ -38,8 +38,10 @@ pub mod circles;
 pub mod config;
 pub mod gizmos;
 pub mod grid;
-pub mod light;
 pub mod primitives;
+
+#[cfg(feature = "bevy_pbr")]
+pub mod light;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
@@ -56,10 +58,12 @@ pub mod prelude {
             GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
-        light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         AppGizmoBuilder,
     };
+
+    #[cfg(feature = "bevy_pbr")]
+    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use aabb::AabbGizmoPlugin;
@@ -79,9 +83,7 @@ use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_asset::{
-        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
-    },
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -99,6 +101,7 @@ use config::{
     GizmoMeshConfig,
 };
 use gizmos::{GizmoStorage, Swap};
+#[cfg(feature = "bevy_pbr")]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
@@ -130,12 +133,14 @@ impl Plugin for GizmoPlugin {
             .register_type::<GizmoConfigStore>()
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .init_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin)
-            .add_plugins(LightGizmoPlugin);
+            .add_plugins(AabbGizmoPlugin);
+
+        #[cfg(feature = "bevy_pbr")]
+        app.add_plugins(LightGizmoPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -458,26 +463,22 @@ struct GpuLineGizmo {
     joints: GizmoLineJoint,
 }
 
-impl RenderAsset for LineGizmo {
-    type PreparedAsset = GpuLineGizmo;
+impl RenderAsset for GpuLineGizmo {
+    type SourceAsset = LineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
-    }
-
     fn prepare_asset(
-        self,
+        gizmo: Self::SourceAsset,
         render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
-        let position_buffer_data = cast_slice(&self.positions);
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let position_buffer_data = cast_slice(&gizmo.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),
             contents: position_buffer_data,
         });
 
-        let color_buffer_data = cast_slice(&self.colors);
+        let color_buffer_data = cast_slice(&gizmo.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
@@ -487,9 +488,9 @@ impl RenderAsset for LineGizmo {
         Ok(GpuLineGizmo {
             position_buffer,
             color_buffer,
-            vertex_count: self.positions.len() as u32,
-            strip: self.strip,
-            joints: self.joints,
+            vertex_count: gizmo.positions.len() as u32,
+            strip: gizmo.strip,
+            joints: gizmo.joints,
         })
     }
 }
@@ -549,7 +550,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type Param = SRes<RenderAssets<LineGizmo>>;
+    type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<Handle<LineGizmo>>;
 
@@ -595,7 +596,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 struct DrawLineJointGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
-    type Param = SRes<RenderAssets<LineGizmo>>;
+    type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<Handle<LineGizmo>>;
 

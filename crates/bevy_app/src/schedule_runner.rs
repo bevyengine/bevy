@@ -141,13 +141,10 @@ impl Plugin for ScheduleRunnerPlugin {
                         let g = f.clone();
 
                         let c = move || {
-                            let mut app = Rc::get_mut(&mut rc).unwrap();
-                            let delay = tick(&mut app, wait);
-                            match delay {
-                                Ok(delay) => {
-                                    set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap))
-                                }
-                                Err(_) => {}
+                            let app = Rc::get_mut(&mut rc).unwrap();
+                            let delay = tick(app, wait);
+                            if let Ok(delay) = delay {
+                                set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap));
                             }
                         };
                         *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));

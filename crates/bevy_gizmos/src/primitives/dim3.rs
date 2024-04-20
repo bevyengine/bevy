@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Torus,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
@@ -29,7 +29,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
         primitive: P,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
 
@@ -47,7 +47,7 @@ where
         primitive: Dir3,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.arrow(position, position + (rotation * *primitive), color);
     }
@@ -101,14 +101,14 @@ where
         primitive: Sphere,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         SphereBuilder {
             gizmos: self,
             radius: primitive.radius,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -154,7 +154,7 @@ where
 
 // plane 3d
 
-/// Builder for configuring the drawing options of [`Sphere`].
+/// Builder for configuring the drawing options of [`Plane3d`].
 pub struct Plane3dBuilder<'a, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -165,11 +165,11 @@ where
     // direction of the normal orthogonal to the plane
     normal: Dir3,
 
-    // Rotation of the sphere around the origin in 3D space
+    // Rotation of the plane around the origin in 3D space
     rotation: Quat,
-    // Center position of the sphere in 3D space
+    // Center position of the plane in 3D space
     position: Vec3,
-    // Color of the sphere
+    // Color of the plane
     color: Color,
 
     // Number of axis to hint the plane
@@ -216,14 +216,14 @@ where
         primitive: Plane3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
             normal: primitive.normal,
             rotation,
             position,
-            color,
+            color: color.into(),
             axis_count: 4,
             segment_count: 3,
             segment_length: 0.25,
@@ -291,12 +291,13 @@ where
         primitive: Line3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let color = color.into();
         let direction = rotation * *primitive.direction;
         self.arrow(position, position + direction, color);
 
@@ -322,7 +323,7 @@ where
         primitive: Segment3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -350,7 +351,7 @@ where
         primitive: Polyline3d<N>,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -379,7 +380,7 @@ where
         primitive: BoxedPolyline3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -410,7 +411,7 @@ where
         primitive: Cuboid,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
@@ -445,6 +446,7 @@ where
         // lines connecting upper and lower rectangles of the cuboid
         let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
 
+        let color = color.into();
         upper
             .chain(lower)
             .chain(connections)
@@ -506,7 +508,7 @@ where
         primitive: Cylinder,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
@@ -514,7 +516,7 @@ where
             half_height: primitive.half_height,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -619,7 +621,7 @@ where
         primitive: Capsule3d,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
@@ -627,7 +629,7 @@ where
             half_length: primitive.half_length,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -750,7 +752,7 @@ where
         primitive: Cone,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
@@ -758,7 +760,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color,
+            color: color.into(),
             base_segments: DEFAULT_NUMBER_SEGMENTS,
             height_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -864,7 +866,7 @@ where
         primitive: ConicalFrustum,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
             gizmos: self,
@@ -873,7 +875,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color,
+            color: color.into(),
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -992,7 +994,7 @@ where
         primitive: Torus,
         position: Vec3,
         rotation: Quat,
-        color: Color,
+        color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,
@@ -1000,7 +1002,7 @@ where
             major_radius: primitive.major_radius,
             position,
             rotation,
-            color,
+            color: color.into(),
             minor_segments: DEFAULT_NUMBER_SEGMENTS,
             major_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -1074,5 +1076,34 @@ where
                     .short_arc_3d_between(center, from, to, *color)
                     .segments(*minor_segments);
             });
+    }
+}
+
+// tetrahedron
+
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: Tetrahedron,
+        position: Vec3,
+        rotation: Quat,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c, d] = primitive
+            .vertices
+            .map(rotate_then_translate_3d(rotation, position));
+
+        let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
+
+        let color = color.into();
+        for (a, b) in lines.into_iter() {
+            self.line(a, b, color);
+        }
     }
 }

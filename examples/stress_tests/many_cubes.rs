@@ -388,6 +388,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 assets.add(
                     Plane3d {
                         normal: Dir3::NEG_Z,
+                        half_size: Vec2::splat(0.5),
                     }
                     .mesh()
                     .size(radius, radius),

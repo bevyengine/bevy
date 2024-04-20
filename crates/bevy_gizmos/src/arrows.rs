@@ -21,6 +21,7 @@ where
     start: Vec3,
     end: Vec3,
     color: Color,
+    double_ended: bool,
     tip_length: f32,
 }
 
@@ -49,6 +50,13 @@ where
         self.tip_length = length;
         self
     }
+
+    /// Adds another tip to the arrow, appended in the start point.
+    /// the default is only one tip at the end point.
+    pub fn with_double_end(mut self) -> Self {
+        self.double_ended = true;
+        self
+    }
 }
 
 impl<Config, Clear> Drop for ArrowBuilder<'_, '_, '_, Config, Clear>
@@ -65,8 +73,8 @@ where
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
         // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
-        let pointing = (self.end - self.start).normalize();
-        let rotation = Quat::from_rotation_arc(Vec3::X, pointing);
+        let pointing_end = (self.end - self.start).normalize();
+        let rotation_end = Quat::from_rotation_arc(Vec3::X, pointing_end);
         let tips = [
             Vec3::new(-1., 1., 0.),
             Vec3::new(-1., 0., 1.),
@@ -76,10 +84,20 @@ where
         // - extend the vectors so their length is `tip_length`
         // - rotate the world so +x is facing in the same direction as the arrow
         // - translate over to the tip of the arrow
-        let tips = tips.map(|v| rotation * (v.normalize() * self.tip_length) + self.end);
-        for v in tips {
+        let tips_end = tips.map(|v| rotation_end * (v.normalize() * self.tip_length) + self.end);
+        for v in tips_end {
             // then actually draw the tips
             self.gizmos.line(self.end, v, self.color);
+        }
+        if self.double_ended {
+            let pointing_start = (self.start - self.end).normalize();
+            let rotation_start = Quat::from_rotation_arc(Vec3::X, pointing_start);
+            let tips_start =
+                tips.map(|v| rotation_start * (v.normalize() * self.tip_length) + self.start);
+            for v in tips_start {
+                // draw the start points tips
+                self.gizmos.line(self.start, v, self.color);
+            }
         }
     }
 }
@@ -116,6 +134,7 @@ where
             start,
             end,
             color: color.into(),
+            double_ended: false,
             tip_length: length / 10.,
         }
     }

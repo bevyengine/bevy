@@ -1249,7 +1249,7 @@ impl From<GamepadAxisChangedEvent> for GamepadEvent {
     }
 }
 
-/// Splits the [`GamepadEvent`] event stream into it's component events.
+/// Splits the [`GamepadEvent`] event stream into its component events.
 pub fn gamepad_event_system(
     mut gamepad_events: EventReader<GamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,

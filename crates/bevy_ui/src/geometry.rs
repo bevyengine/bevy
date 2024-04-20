@@ -189,7 +189,7 @@ impl Val {
     /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
     ///
-    /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
+    /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
     pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(parent_size * value / 100.0),
