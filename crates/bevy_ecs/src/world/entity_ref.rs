@@ -469,6 +469,12 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    fn from(value: &'w mut EntityMut<'_>) -> Self {
+        value.reborrow()
+    }
+}
+
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
     fn from(value: EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
@@ -1148,6 +1154,27 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe { self.remove_bundle(remove_bundle) };
+        self
+    }
+
+    /// Removes a dynamic [`Component`] from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_component_info(components, component_id);
+
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
         self
     }
 
@@ -2765,6 +2792,22 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[test]
+    fn entity_mut_remove_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn(TestComponent(42));
+        entity.remove_by_id(test_component_id);
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![] as Vec<&TestComponent>);
+
+        // remove non-existent component does not panic
+        world.spawn_empty().remove_by_id(test_component_id);
     }
 
     #[derive(Component)]

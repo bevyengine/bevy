@@ -1,4 +1,4 @@
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
@@ -8,7 +8,7 @@ use crate::io::{
 
 use std::{
     fs::{read_dir, File},
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     path::{Path, PathBuf},
     pin::Pin,
     task::Poll,
@@ -27,6 +27,18 @@ impl AsyncRead for FileReader {
         let this = self.get_mut();
         let read = this.0.read(buf);
         Poll::Ready(read)
+    }
+}
+
+impl AsyncSeek for FileReader {
+    fn poll_seek(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        pos: std::io::SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let this = self.get_mut();
+        let seek = this.0.seek(pos);
+        Poll::Ready(seek)
     }
 }
 

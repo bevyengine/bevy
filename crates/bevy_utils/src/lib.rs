@@ -16,7 +16,6 @@ pub mod prelude {
 }
 
 pub mod futures;
-pub mod label;
 mod short_names;
 pub use short_names::get_short_name;
 pub mod synccell;
@@ -24,8 +23,6 @@ pub mod syncunsafecell;
 
 mod cow_arc;
 mod default;
-mod float_ord;
-pub mod intern;
 mod once;
 mod parallel_queue;
 
@@ -33,7 +30,6 @@ pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use cow_arc::*;
 pub use default::default;
-pub use float_ord::*;
 pub use hashbrown;
 pub use parallel_queue::*;
 pub use tracing;

@@ -177,7 +177,7 @@ pub(crate) fn compute_slices_on_asset_event(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }
@@ -213,7 +213,7 @@ pub(crate) fn compute_slices_on_image_change(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }

@@ -106,15 +106,27 @@ impl Ellipse {
         }
     }
 
+    #[inline(always)]
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    ///
+    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
+    pub fn eccentricity(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt() / a
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_major(self) -> f32 {
+    pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_minor(self) -> f32 {
+    pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
 
@@ -839,6 +851,14 @@ mod tests {
     fn ellipse_math() {
         let ellipse = Ellipse::new(3.0, 1.0);
         assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+
+        assert_eq!(ellipse.eccentricity(), 0.94280905, "incorrect eccentricity");
+
+        let line = Ellipse::new(1., 0.);
+        assert_eq!(line.eccentricity(), 1., "incorrect line eccentricity");
+
+        let circle = Ellipse::new(2., 2.);
+        assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
     }
 
     #[test]

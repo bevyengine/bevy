@@ -71,7 +71,7 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
     pub hash: AssetHash,
-    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
+    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every `process_dependency`
     pub full_hash: AssetHash,
     /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,

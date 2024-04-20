@@ -62,7 +62,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     if let Some(frame_time) = config.frame_time {
-        app.world
+        app.world_mut()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
                 frame_time,
             )));

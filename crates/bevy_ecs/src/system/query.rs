@@ -813,6 +813,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter` resource.
@@ -931,6 +933,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1044,6 +1048,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Safety
     ///
@@ -1248,6 +1254,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns `true` if the given [`Entity`] matches the query.
     ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
     /// # Example
     ///
     /// ```
@@ -1333,12 +1341,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Besides removing parameters from the query, you can also
     /// make limited changes to the types of parameters.
     ///
-    /// * Can always add/remove `Entity`
+    /// * Can always add/remove [`Entity`]
+    /// * Can always add/remove [`EntityLocation`]
+    /// * Can always add/remove [`&Archetype`]
     /// * `Ref<T>` <-> `&T`
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///    
+    ///  
+    /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`&Archetype`]: crate::archetype::Archetype
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
@@ -1354,7 +1366,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> QueryLens<'_, NewD, NewF> {
         // SAFETY:
         // - We have exclusive access to the query
-        // - `self` has correctly captured it's access
+        // - `self` has correctly captured its access
         // - Access is checked to be a subset of the query's access when the state is created.
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewD, NewF>(world);

@@ -1,3 +1,4 @@
+use crate::io::SliceReader;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
@@ -343,12 +344,13 @@ impl<'a> ProcessContext<'a> {
         let server = &self.processor.server;
         let loader_name = std::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
+        let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
             .load_with_meta_loader_and_reader(
                 self.path,
                 Box::new(meta),
                 &*loader,
-                &mut self.asset_bytes,
+                &mut reader,
                 false,
                 true,
             )

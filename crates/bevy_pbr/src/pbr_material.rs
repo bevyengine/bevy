@@ -1,10 +1,11 @@
 use bevy_asset::Asset;
 use bevy_color::Alpha;
-use bevy_math::{Affine2, Mat3, Vec4};
+use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
+use bitflags::bitflags;
 
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;
@@ -482,8 +483,68 @@ pub struct StandardMaterial {
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
     pub deferred_lighting_pass_id: u8,
 
-    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
+    /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Affine2,
+}
+
+impl StandardMaterial {
+    /// Horizontal flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with horizontally flipped texture coords
+    pub const FLIP_HORIZONTAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::new(-1.0, 0.0), Vec2::Y),
+        translation: Vec2::X,
+    };
+
+    /// Vertical flipping transform
+    ///
+    /// Multiplying this with another Affine2 returns transformation with vertically flipped texture coords
+    pub const FLIP_VERTICAL: Affine2 = Affine2 {
+        matrix2: Mat2::from_cols(Vec2::X, Vec2::new(0.0, -1.0)),
+        translation: Vec2::Y,
+    };
+
+    /// Flipping X 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped X coords
+    pub const FLIP_X: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::new(-1.0, 0.0, 0.0), Vec3::Y, Vec3::Z),
+        translation: Vec3::X,
+    };
+
+    /// Flipping Y 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Y coords
+    pub const FLIP_Y: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::new(0.0, -1.0, 0.0), Vec3::Z),
+        translation: Vec3::Y,
+    };
+
+    /// Flipping Z 3D transform
+    ///
+    /// Multiplying this with another Affine3 returns transformation with flipped Z coords
+    pub const FLIP_Z: Affine3 = Affine3 {
+        matrix3: Mat3::from_cols(Vec3::X, Vec3::Y, Vec3::new(0.0, 0.0, -1.0)),
+        translation: Vec3::Z,
+    };
+
+    /// Flip the texture coordinates of the material.
+    pub fn flip(&mut self, horizontal: bool, vertical: bool) {
+        if horizontal {
+            // Multiplication of `Affine2` is order dependent, which is why
+            // we do not use the `*=` operator.
+            self.uv_transform = Self::FLIP_HORIZONTAL * self.uv_transform;
+        }
+        if vertical {
+            self.uv_transform = Self::FLIP_VERTICAL * self.uv_transform;
+        }
+    }
+
+    /// Consumes the material and returns a material with flipped texture coordinates
+    pub fn flipped(mut self, horizontal: bool, vertical: bool) -> Self {
+        self.flip(horizontal, vertical);
+        self
+    }
 }
 
 impl Default for StandardMaterial {
@@ -587,6 +648,7 @@ bitflags::bitflags! {
         const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;                          //
         const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;                          //   Right now only values 0–5 are used, which still gives
         const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← us "room" for two more modes without adding more bits
+        const ALPHA_MODE_ALPHA_TO_COVERAGE = 6 << Self::ALPHA_MODE_SHIFT_BITS;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -608,7 +670,7 @@ pub struct StandardMaterialUniform {
     pub emissive: Vec4,
     /// Color white light takes after travelling through the attenuation distance underneath the material surface
     pub attenuation_color: Vec4,
-    /// The transform applied to the UVs corresponding to ATTRIBUTE_UV_0 on the mesh before sampling. Default is identity.
+    /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
@@ -650,7 +712,10 @@ pub struct StandardMaterialUniform {
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
+    fn as_bind_group_shader_type(
+        &self,
+        images: &RenderAssets<GpuImage>,
+    ) -> StandardMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -719,6 +784,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::Premultiplied => flags |= StandardMaterialFlags::ALPHA_MODE_PREMULTIPLIED,
             AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
+            AlphaMode::AlphaToCoverage => {
+                flags |= StandardMaterialFlags::ALPHA_MODE_ALPHA_TO_COVERAGE;
+            }
         };
 
         if self.attenuation_distance.is_finite() {
@@ -751,30 +819,56 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
     }
 }
 
-/// The pipeline key for [`StandardMaterial`].
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct StandardMaterialKey {
-    normal_map: bool,
-    cull_mode: Option<Face>,
-    depth_bias: i32,
-    relief_mapping: bool,
-    diffuse_transmission: bool,
-    specular_transmission: bool,
+bitflags! {
+    /// The pipeline key for `StandardMaterial`, packed into 64 bits.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct StandardMaterialKey: u64 {
+        const CULL_FRONT            = 0x01;
+        const CULL_BACK             = 0x02;
+        const NORMAL_MAP            = 0x04;
+        const RELIEF_MAPPING        = 0x08;
+        const DIFFUSE_TRANSMISSION  = 0x10;
+        const SPECULAR_TRANSMISSION = 0x20;
+        const DEPTH_BIAS            = 0xffffffff_00000000;
+    }
 }
+
+const STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT: u64 = 32;
 
 impl From<&StandardMaterial> for StandardMaterialKey {
     fn from(material: &StandardMaterial) -> Self {
-        StandardMaterialKey {
-            normal_map: material.normal_map_texture.is_some(),
-            cull_mode: material.cull_mode,
-            depth_bias: material.depth_bias as i32,
-            relief_mapping: matches!(
+        let mut key = StandardMaterialKey::empty();
+        key.set(
+            StandardMaterialKey::CULL_FRONT,
+            material.cull_mode == Some(Face::Front),
+        );
+        key.set(
+            StandardMaterialKey::CULL_BACK,
+            material.cull_mode == Some(Face::Back),
+        );
+        key.set(
+            StandardMaterialKey::NORMAL_MAP,
+            material.normal_map_texture.is_some(),
+        );
+        key.set(
+            StandardMaterialKey::RELIEF_MAPPING,
+            matches!(
                 material.parallax_mapping_method,
                 ParallaxMappingMethod::Relief { .. }
             ),
-            diffuse_transmission: material.diffuse_transmission > 0.0,
-            specular_transmission: material.specular_transmission > 0.0,
-        }
+        );
+        key.set(
+            StandardMaterialKey::DIFFUSE_TRANSMISSION,
+            material.diffuse_transmission > 0.0,
+        );
+        key.set(
+            StandardMaterialKey::SPECULAR_TRANSMISSION,
+            material.specular_transmission > 0.0,
+        );
+        key.insert(StandardMaterialKey::from_bits_retain(
+            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+        ));
+        key
     }
 }
 
@@ -847,32 +941,58 @@ impl Material for StandardMaterial {
         if let Some(fragment) = descriptor.fragment.as_mut() {
             let shader_defs = &mut fragment.shader_defs;
 
-            if key.bind_group_data.normal_map {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::NORMAL_MAP)
+            {
                 shader_defs.push("STANDARD_MATERIAL_NORMAL_MAP".into());
             }
-            if key.bind_group_data.relief_mapping {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::RELIEF_MAPPING)
+            {
                 shader_defs.push("RELIEF_MAPPING".into());
             }
 
-            if key.bind_group_data.diffuse_transmission {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::DIFFUSE_TRANSMISSION)
+            {
                 shader_defs.push("STANDARD_MATERIAL_DIFFUSE_TRANSMISSION".into());
             }
 
-            if key.bind_group_data.specular_transmission {
+            if key
+                .bind_group_data
+                .contains(StandardMaterialKey::SPECULAR_TRANSMISSION)
+            {
                 shader_defs.push("STANDARD_MATERIAL_SPECULAR_TRANSMISSION".into());
             }
 
-            if key.bind_group_data.diffuse_transmission || key.bind_group_data.specular_transmission
-            {
+            if key.bind_group_data.intersects(
+                StandardMaterialKey::DIFFUSE_TRANSMISSION
+                    | StandardMaterialKey::SPECULAR_TRANSMISSION,
+            ) {
                 shader_defs.push("STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION".into());
             }
         }
-        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
+
+        descriptor.primitive.cull_mode = if key
+            .bind_group_data
+            .contains(StandardMaterialKey::CULL_FRONT)
+        {
+            Some(Face::Front)
+        } else if key.bind_group_data.contains(StandardMaterialKey::CULL_BACK) {
+            Some(Face::Back)
+        } else {
+            None
+        };
+
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
-            depth_stencil.bias.constant = key.bind_group_data.depth_bias;
+            depth_stencil.bias.constant =
+                (key.bind_group_data.bits() >> STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT) as i32;
         }
         Ok(())
     }

@@ -35,7 +35,7 @@ pub(crate) struct AssetInfo {
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in get_or_create_path_handle for context.
+    /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
 }
 
@@ -212,8 +212,7 @@ impl AssetInfos {
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && (info.load_state == LoadState::NotLoaded
-                            || info.load_state == LoadState::Failed))
+                        && matches!(info.load_state, LoadState::NotLoaded | LoadState::Failed(_)))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -412,7 +411,7 @@ impl AssetInfos {
                         // If dependency is loaded, reduce our count by one
                         false
                     }
-                    LoadState::Failed => {
+                    LoadState::Failed(_) => {
                         failed_deps.insert(*dep_id);
                         false
                     }
@@ -582,12 +581,12 @@ impl AssetInfos {
         }
     }
 
-    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId) {
+    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId, error: AssetLoadError) {
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
             let info = self
                 .get_mut(failed_id)
                 .expect("Asset info should always exist at this point");
-            info.load_state = LoadState::Failed;
+            info.load_state = LoadState::Failed(Box::new(error));
             info.dep_load_state = DependencyLoadState::Failed;
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
             (
