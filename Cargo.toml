@@ -380,6 +380,7 @@ wasm = true
 [[example]]
 name = "2d_viewport_to_world"
 path = "examples/2d/2d_viewport_to_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
@@ -489,6 +490,7 @@ wasm = true
 [[example]]
 name = "sprite_tile"
 path = "examples/2d/sprite_tile.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_tile]
 name = "Sprite Tile"
@@ -499,6 +501,7 @@ wasm = true
 [[example]]
 name = "sprite_slice"
 path = "examples/2d/sprite_slice.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_slice]
 name = "Sprite Slice"
@@ -542,6 +545,7 @@ wasm = true
 [[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pixel_grid_snap]
 name = "Pixel Grid Snapping"
@@ -729,6 +733,7 @@ wasm = true
 [[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
@@ -904,6 +909,7 @@ wasm = true
 [[example]]
 name = "transmission"
 path = "examples/3d/transmission.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transmission]
 name = "Transmission"
@@ -1156,6 +1162,7 @@ wasm = true
 [[example]]
 name = "log_layers"
 path = "examples/app/log_layers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers]
 name = "Log layers"
@@ -1166,6 +1173,7 @@ wasm = false
 [[example]]
 name = "log_layers_ecs"
 path = "examples/app/log_layers_ecs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers_ecs]
 name = "Advanced log layers"
@@ -1434,6 +1442,7 @@ wasm = true
 [[example]]
 name = "pitch"
 path = "examples/audio/pitch.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pitch]
 name = "Pitch"
@@ -1606,6 +1615,7 @@ wasm = true
 [[example]]
 name = "one_shot_systems"
 path = "examples/ecs/one_shot_systems.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.one_shot_systems]
 name = "One Shot Systems"
@@ -1717,6 +1727,7 @@ wasm = false
 [[example]]
 name = "time"
 path = "examples/time/time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.time]
 name = "Time handling"
@@ -1727,6 +1738,7 @@ wasm = false
 [[example]]
 name = "virtual_time"
 path = "examples/time/virtual_time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.virtual_time]
 name = "Virtual time"
@@ -2083,6 +2095,7 @@ wasm = true
 [[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material]
 name = "Extended Material"
