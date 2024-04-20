@@ -68,7 +68,7 @@ use bevy_ecs::schedule::State;
 /// `ButtonInput<GamepadButton>` is independent of window focus.
 ///
 /// ## Examples
-/// 
+///
 /// Reading and checking against the current set of pressed buttons:
 /// ```
 /// use bevy::{input::common_conditions::input_just_pressed, prelude::*};
