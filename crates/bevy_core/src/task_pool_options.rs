@@ -1,9 +1,10 @@
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
+use std::{fmt::Debug, sync::Arc};
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TaskPoolThreadAssignmentPolicy {
     /// Force using at least this many threads
     pub min_threads: usize,
@@ -12,6 +13,20 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
+    /// Callback that is invoked once for every created thread as it starts
+    pub on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    /// Callback that is invoked once for every created thread as it terminates
+    pub on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+}
+
+impl Debug for TaskPoolThreadAssignmentPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TaskPoolThreadAssignmentPolicy")
+            .field("min_threads", &self.min_threads)
+            .field("max_threads", &self.max_threads)
+            .field("percent", &self.percent)
+            .finish()
+    }
 }
 
 impl TaskPoolThreadAssignmentPolicy {
@@ -61,6 +76,8 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
+                on_thread_spawn: None,
+                on_thread_destroy: None,
             },
 
             // Use 25% of cores for async compute, at least 1, no more than 4
@@ -68,6 +85,8 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
+                on_thread_spawn: None,
+                on_thread_destroy: None,
             },
 
             // Use all remaining cores for compute (at least 1)
@@ -75,6 +94,8 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: usize::MAX,
                 percent: 1.0, // This 1.0 here means "whatever is left over"
+                on_thread_spawn: None,
+                on_thread_destroy: None,
             },
         }
     }
@@ -109,6 +130,8 @@ impl TaskPoolOptions {
 
             IoTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
+                    .on_thread_spawn_raw(self.io.on_thread_spawn.clone())
+                    .on_thread_destroy_raw(self.io.on_thread_destroy.clone())
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string())
                     .build()
@@ -126,6 +149,8 @@ impl TaskPoolOptions {
 
             AsyncComputeTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
+                    .on_thread_spawn_raw(self.async_compute.on_thread_spawn.clone())
+                    .on_thread_destroy_raw(self.async_compute.on_thread_destroy.clone())
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string())
                     .build()
@@ -143,6 +168,8 @@ impl TaskPoolOptions {
 
             ComputeTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
+                    .on_thread_spawn_raw(self.compute.on_thread_spawn.clone())
+                    .on_thread_destroy_raw(self.compute.on_thread_destroy.clone())
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string())
                     .build()

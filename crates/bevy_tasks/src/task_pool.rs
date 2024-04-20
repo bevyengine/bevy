@@ -79,6 +79,14 @@ impl TaskPoolBuilder {
         self
     }
 
+    /// Sets a callback that is invoked once for every created thread as it starts.
+    /// 
+    /// This function is similar to `on_thread_spawn`, but take `Option<Arc<...>>` directly.
+    pub fn on_thread_spawn_raw(mut self, f: Option<Arc<dyn Fn() + Send + Sync + 'static>>) -> Self {
+        self.on_thread_spawn = f;
+        self
+    }
+
     /// Sets a callback that is invoked once for every created thread as it terminates.
     ///
     /// This is called on the thread itself and has access to all thread-local storage.
@@ -87,6 +95,15 @@ impl TaskPoolBuilder {
         self.on_thread_destroy = Some(Arc::new(f));
         self
     }
+
+    /// Sets a callback that is invoked once for every created thread as it terminates.
+    /// 
+    /// This function is similar to `on_thread_destroy`, but take `Option<Arc<...>>` directly.
+    pub fn on_thread_destroy_raw(mut self, f: Option<Arc<dyn Fn() + Send + Sync + 'static>>) -> Self {
+        self.on_thread_destroy = f;
+        self
+    }
+
 
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
