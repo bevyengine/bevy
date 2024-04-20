@@ -67,6 +67,68 @@ use bevy_ecs::schedule::State;
 ///
 /// `ButtonInput<GamepadButton>` is independent of window focus.
 ///
+/// ## Examples
+/// 
+/// Reading and checking against the current set of pressed buttons:
+/// ```
+/// use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
+///         )
+///         .add_systems(
+///             Update,
+///             something_used.run_if(
+///                 input_just_pressed(KeyCode::KeyE)
+///                     .or_else(input_just_pressed(KeyCode::KeyE))
+///                     .or_else(input_just_pressed(GamepadButton::new(
+///                         Gamepad::new(0),
+///                         GamepadButtonType::West,
+///                     ))),
+///             ),
+///         )
+///         .run();
+/// }
+///
+/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
+///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
+///     println!("Mouse: {:?}", mouse.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
+///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
+///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
+///         && keyboard.pressed(KeyCode::KeyL)
+///     {
+///         println!("In Windows this opens linked-in.");
+///     } else {
+///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
+///     }
+/// }
+///
+/// fn something_used() {
+///     println!("Generic use-ish button pressed.");
+/// }
+///
+/// ```
+///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:
