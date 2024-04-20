@@ -295,7 +295,7 @@ impl<T: Default> Time<T> {
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f32`] seconds.
     ///
-    /// **Note:** This is a monotonically increasing value. It's precision will degrade over time.
+    /// **Note:** This is a monotonically increasing value. Its precision will degrade over time.
     /// If you need an `f32` but that precision loss is unacceptable,
     /// use [`elapsed_seconds_wrapped`](#method.elapsed_seconds_wrapped).
     #[inline]
