@@ -8,10 +8,16 @@ on:
   # TODO: Remove this. It is for testing purposes only.
   pull_request:
 
+# Prevent this workflow from being run more than once at a time.
+concurrency:
+  group: ${{ github.workflow }}
+
 jobs:
   build:
     name: Build
     strategy:
+      # Don't cancel everything if one configuration happens to fail.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         toolchain: [stable]
@@ -24,6 +30,9 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
+
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
 
       - name: Build workspace
         run: cargo build --workspace
@@ -38,6 +47,8 @@ jobs:
   check:
     name: Check
     strategy:
+      # Don't cancel everything if one configuration happens to fail.
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -62,6 +73,9 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
 
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+
       - name: Build workspace
         run: cargo check --workspace
 
@@ -76,6 +90,8 @@ jobs:
   doc:
     name: Doc
     strategy:
+      # Don't cancel everything if one configuration happens to fail.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         toolchain: [nightly]
@@ -88,6 +104,9 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
+
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
 
       - name: Build workspace
         run: cargo doc -p bevy --no-deps
