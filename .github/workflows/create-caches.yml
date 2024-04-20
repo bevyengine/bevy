@@ -134,6 +134,9 @@ jobs:
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
 
       - name: Document workspace
         run: |
