@@ -35,7 +35,8 @@ jobs:
         uses: ./.github/actions/install-linux-deps
 
       - name: Build workspace
-        run: cargo build --workspace
+        # Exclude bevy_dylib because it causes a linker error on Windows due to exporting more than 65k objects.
+        run: cargo build --workspace --exclude bevy_dylib
 
       - name: Save cache
         uses: ./.github/actions/cache
