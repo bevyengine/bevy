@@ -12,7 +12,10 @@ use notify_debouncer_full::{
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
 /// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.

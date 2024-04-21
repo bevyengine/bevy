@@ -5,6 +5,7 @@ use crate::io::{
 };
 use bevy_utils::tracing::warn;
 use bevy_utils::{Duration, HashMap};
+use concurrent_queue::ConcurrentQueue;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
 use parking_lot::RwLock;
 use std::{
