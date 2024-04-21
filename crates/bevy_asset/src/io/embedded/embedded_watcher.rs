@@ -83,7 +83,7 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
                 }
             }
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.push(event).unwrap();
         }
     }
 }
