@@ -219,6 +219,17 @@ impl ThinColumn {
         self.data.drop(cap, len);
     }
 
+    /// Drops the last component in the [`ThinColumn`].
+    ///
+    /// # Safety
+    /// - `last_element_index` is indeed the index of the last element
+    /// - the data stored in `self` will never be used again
+    pub unsafe fn drop_last_component(&mut self, last_element_index: usize) {
+        std::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
+        std::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
+        self.data.drop_last_element(last_element_index);
+    }
+
     /// Get a slice to the data stored in this [`ThinColumn`].
     ///
     /// # Safety

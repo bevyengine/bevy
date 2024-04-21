@@ -183,6 +183,23 @@ impl BlobArray {
         }
     }
 
+    /// Drops the last element in this [`BlobArray`].
+    ///
+    /// # Safety
+    //
+    pub unsafe fn drop_last_element(&mut self, last_element_index: usize) {
+        if let Some(drop) = self.drop {
+            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+            // accidentally drop elements twice in the event of a drop impl panicking.
+            self.drop = None;
+            // SAFETY:
+            let item = self.get_unchecked_mut(last_element_index).promote();
+            // SAFETY:
+            unsafe { drop(item) };
+            self.drop = Some(drop);
+        }
+    }
+
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {

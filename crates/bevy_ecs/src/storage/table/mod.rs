@@ -234,6 +234,8 @@ impl Table {
         debug_assert!(row.as_usize() < self.len());
         let last_element_index = self.len() - 1;
         if row.as_usize() != last_element_index {
+            // Instead of checking this condition on every `swap_remove` call, we
+            // check it here and use `swap_remove_nonoverlapping`.
             for col in self.columns.values_mut() {
                 // SAFETY:
                 // - `row` < `len`
@@ -243,6 +245,12 @@ impl Table {
                 unsafe {
                     col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row);
                 };
+            }
+        } else {
+            // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
+            // at `row`, but we still need to drop it.
+            for col in self.columns.values_mut() {
+                col.drop_last_component(last_element_index);
             }
         }
         let is_last = row.as_usize() == last_element_index;
