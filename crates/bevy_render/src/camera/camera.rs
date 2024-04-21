@@ -6,11 +6,11 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    texture::GpuImage,
+    texture::{GpuImage, ViewTargetFormat},
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
-    Extract,
+    Extract, SupportedViewTargetFormats,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -203,9 +203,9 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
-    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
-    /// This allows rendering with a wider range of lighting values.
-    pub hdr: bool,
+    /// Defines what [`ViewTargetFormat`] this camera should use for it's intermediate texture. If you want to render
+    /// effects like bloom you'll want to use a [unclamped](ViewTargetFormat::is_unclamped) format.
+    pub target_format: ViewTargetFormat, // BEFORE_MERGE: Bikeshed the name
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     #[reflect(ignore)]
@@ -228,7 +228,7 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            hdr: false,
+            target_format: Default::default(),
             msaa_writeback: true,
             clear_color: Default::default(),
         }
@@ -498,6 +498,12 @@ impl Default for CameraOutputMode {
             color_attachment_load_op: LoadOp::Clear(Default::default()),
         }
     }
+}
+
+pub enum IntermediateTextureFormat {
+    Preferred,
+    PreferredUncapped,
+    Manual(ViewTargetFormat),
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
@@ -836,6 +842,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    target_formats: Res<SupportedViewTargetFormats>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -877,6 +884,23 @@ pub fn extract_cameras(
 
             let mut commands = commands.get_or_spawn(entity);
 
+            let target_format = if target_formats.is_supported(camera.target_format) {
+                camera.target_format
+            } else {
+                let target_format = if camera.target_format.is_unclamped() {
+                    ViewTargetFormat::UNCLAMPED_DEFAULT
+                } else {
+                    ViewTargetFormat::DEFAULT
+                };
+
+                warn!(
+                    "camera is using unsupported camera target format ({:?}), switching to ({:?})",
+                    camera.target_format, target_format
+                );
+
+                target_format
+            };
+
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
@@ -898,7 +922,7 @@ pub fn extract_cameras(
                     projection: camera.projection_matrix(),
                     transform: *transform,
                     view_projection: None,
-                    hdr: camera.hdr,
+                    target_format,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,
