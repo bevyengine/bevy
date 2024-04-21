@@ -32,7 +32,7 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image},
+    texture::{GpuImage, Image},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -440,11 +440,7 @@ pub fn prepare_post_processing_pipelines(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.target_format.into(),
             },
         );
 

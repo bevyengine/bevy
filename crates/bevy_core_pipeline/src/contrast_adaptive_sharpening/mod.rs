@@ -16,8 +16,8 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, ViewTarget},
+    texture::ViewTargetFormat,
+    view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
 
@@ -200,7 +200,7 @@ impl FromWorld for CasPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CasPipelineKey {
-    texture_format: TextureFormat,
+    texture_format: ViewTargetFormat,
     denoise: bool,
 }
 
@@ -221,7 +221,7 @@ impl SpecializedRenderPipeline for CasPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.texture_format.into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -247,11 +247,7 @@ fn prepare_cas_pipelines(
             &sharpening_pipeline,
             CasPipelineKey {
                 denoise: cas_settings.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.target_format,
             },
         );
 

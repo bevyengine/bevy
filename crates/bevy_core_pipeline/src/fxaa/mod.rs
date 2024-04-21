@@ -10,15 +10,14 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraphApp,
-    render_graph::ViewNodeRunner,
+    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, ViewTarget},
+    texture::ViewTargetFormat,
+    view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::default;
@@ -166,7 +165,7 @@ pub struct CameraFxaaPipeline {
 pub struct FxaaPipelineKey {
     edge_threshold: Sensitivity,
     edge_threshold_min: Sensitivity,
-    texture_format: TextureFormat,
+    texture_format: ViewTargetFormat,
 }
 
 impl SpecializedRenderPipeline for FxaaPipeline {
@@ -185,7 +184,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
                 ],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.texture_format.into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -215,11 +214,7 @@ pub fn prepare_fxaa_pipelines(
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.target_format,
             },
         );
 

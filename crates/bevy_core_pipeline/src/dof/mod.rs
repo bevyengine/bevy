@@ -40,10 +40,10 @@ use bevy_render::{
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{CachedTexture, TextureCache, ViewTargetFormat},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
@@ -172,8 +172,8 @@ pub struct DepthOfFieldUniform {
 pub struct DepthOfFieldPipelineKey {
     /// Whether we're doing Gaussian or bokeh blur.
     pass: DofPass,
-    /// Whether we're using HDR.
-    hdr: bool,
+    /// What format our target is using
+    target_format: ViewTargetFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
 }
@@ -627,7 +627,7 @@ pub fn prepare_auxiliary_depth_of_field_textures(
             mip_level_count: 1,
             sample_count: view_target.main_texture().sample_count(),
             dimension: TextureDimension::D2,
-            format: view_target.main_texture_format(),
+            format: view_target.main_texture_format().into(),
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
@@ -661,7 +661,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match dof_settings.mode {
@@ -673,7 +673,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -682,7 +682,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format: view.target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -698,7 +698,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -707,7 +707,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },
@@ -725,11 +725,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         // Build up our pipeline layout.
         let (mut layout, mut shader_defs) = (vec![], vec![]);
         let mut targets = vec![Some(ColorTargetState {
-            format: if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            },
+            format: key.target_format.into(),
             blend: None,
             write_mask: ColorWrites::ALL,
         })];

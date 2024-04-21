@@ -19,8 +19,8 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, GpuImage, Image},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    texture::{GpuImage, Image, ViewTargetFormat},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
@@ -177,7 +177,7 @@ impl SkyboxPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 struct SkyboxPipelineKey {
-    hdr: bool,
+    target_texture_format: ViewTargetFormat,
     samples: u32,
     depth_format: TextureFormat,
 }
@@ -223,11 +223,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_texture_format.into(),
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
@@ -252,7 +248,7 @@ fn prepare_skybox_pipelines(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                hdr: view.hdr,
+                target_texture_format: view.target_format,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },

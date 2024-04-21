@@ -67,7 +67,7 @@ use bevy_render::{
         VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, GpuImage, Image, TextureCache},
+    texture::{CachedTexture, GpuImage, Image, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -637,11 +637,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    texture_format: if view.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    texture_format: view.target_format.into(),
                     preset: settings.preset,
                 },
             );

@@ -52,7 +52,7 @@ impl ViewNode for TonemappingNode {
             return Ok(());
         }
 
-        if !target.is_hdr() {
+        if !target.is_unclamped() {
             return Ok(());
         }
 
