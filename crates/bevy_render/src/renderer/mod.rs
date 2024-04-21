@@ -107,7 +107,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let time_sender = world.resource::<TimeEventQueue>();
     // ignore disconnected errors, the main world probably just got dropped during shutdown
     if let Err(bevy_time::PushError::Full(_)) = time_sender.0.push(Instant::now()) {
-        panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+        panic!("The TimeEventQueue should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
     }
 }
 
