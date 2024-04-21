@@ -468,9 +468,9 @@ unsafe fn initialize_render_app(app: &mut App) {
         extract(main_world, render_world);
     });
 
-    let (sender, receiver) = bevy_time::create_time_channels();
-    render_app.insert_resource(sender);
-    app.insert_resource(receiver);
+    let event_queue = bevy_time::create_time_event_queue();
+    render_app.insert_resource(event_queue.clone());
+    app.insert_resource(event_queue);
     app.insert_sub_app(RenderApp, render_app);
 }
 

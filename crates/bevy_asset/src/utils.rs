@@ -22,6 +22,10 @@ impl<T> EventQueue<T> {
             .unwrap_or_else(|_| panic!("Failed to send value."));
     }
 
+    pub fn try_recv(&self) -> Result<T, concurrent_queue::PopError> {
+        self.0.pop()
+    }
+
     pub fn try_iter(&self) -> concurrent_queue::TryIter<T> {
         self.0.try_iter()
     }

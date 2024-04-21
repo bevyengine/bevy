@@ -85,20 +85,15 @@ pub enum TimeUpdateStrategy {
     ManualDuration(Duration),
 }
 
-/// Channel resource used to receive time from the render world.
-#[derive(Resource)]
-pub struct TimeReceiver(pub Arc<ConcurrentQueue<Instant>>);
-
-/// Channel resource used to send time from the render world.
-#[derive(Resource)]
-pub struct TimeSender(pub Arc<ConcurrentQueue<Instant>>);
+/// Queue resource used to receive time from the render world.
+#[derive(Resource, Clone)]
+pub struct TimeEventQueue(pub Arc<ConcurrentQueue<Instant>>);
 
 /// Creates channels used for sending time between the render world and the main world.
-pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
+pub fn create_time_event_queue() -> TimeEventQueue {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
-    let queue = Arc::new(ConcurrentQueue::bounded(2));
-    (TimeSender(queue.clone()), TimeReceiver(queue))
+    TimeEventQueue(Arc::new(ConcurrentQueue::bounded(2)))
 }
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is
@@ -108,12 +103,12 @@ fn time_system(
     mut virtual_time: ResMut<Time<Virtual>>,
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
-    time_recv: Option<Res<TimeReceiver>>,
+    time_event_queue: Option<Res<TimeEventQueue>>,
     mut has_received_time: Local<bool>,
 ) {
-    let new_time = if let Some(time_recv) = time_recv {
+    let new_time = if let Some(time_event_queue) = time_event_queue {
         // TODO: Figure out how to handle this when using pipelined rendering.
-        if let Ok(new_time) = time_recv.0.pop() {
+        if let Ok(new_time) = time_event_queue.0.pop() {
             *has_received_time = true;
             new_time
         } else {

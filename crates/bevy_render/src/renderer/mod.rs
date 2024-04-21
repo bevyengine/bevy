@@ -16,7 +16,7 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_time::TimeSender;
+use bevy_time::TimeEventQueue;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
@@ -104,7 +104,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     crate::view::screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
-    let time_sender = world.resource::<TimeSender>();
+    let time_sender = world.resource::<TimeEventQueue>();
     // ignore disconnected errors, the main world probably just got dropped during shutdown
     if let Err(bevy_time::PushError::Full(_)) = time_sender.0.push(Instant::now()) {
         panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
