@@ -22,8 +22,7 @@ use bevy_render::{
         AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
     },
     render_resource::*,
-    texture::BevyDefault,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, Msaa, RenderLayers},
     Render, RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
@@ -98,11 +97,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.view_target_format().into();
 
         let shader_defs = vec![
             #[cfg(feature = "webgl")]
@@ -178,11 +173,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.mesh_key.view_target_format().into();
 
         let shader_defs = vec![
             #[cfg(feature = "webgl")]
@@ -267,7 +258,7 @@ fn queue_line_gizmos_2d(
 
     for (view, mut transparent_phase, render_layers) in &mut views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_view_target_format(view.target_format);
 
         for (entity, handle, config) in &line_gizmos {
             let render_layers = render_layers.copied().unwrap_or_default();
@@ -323,7 +314,7 @@ fn queue_line_joint_gizmos_2d(
 
     for (view, mut transparent_phase, render_layers) in &mut views {
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_view_target_format(view.target_format);
 
         for (entity, handle, config) in &line_gizmos {
             let render_layers = render_layers.copied().unwrap_or_default();
