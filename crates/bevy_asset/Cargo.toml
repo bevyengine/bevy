@@ -31,6 +31,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 async-broadcast = "0.5"
 async-fs = "2.0"
 async-lock = "3.0"
+async-channel = "2.2"
 concurrent-queue = "2.4"
 downcast-rs = "1.2"
 futures-io = "0.3"

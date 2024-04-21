@@ -1,6 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
+use async_channel::{Sender, Receiver};
 use bevy_utils::HashMap;
-use concurrent_queue::ConcurrentQueue;
 use parking_lot::RwLock;
 use std::{path::Path, sync::Arc};
 
@@ -10,7 +10,7 @@ use std::{path::Path, sync::Arc};
 /// This is built primarily for unit tests.
 pub struct GatedReader<R: AssetReader> {
     reader: R,
-    gates: Arc<RwLock<HashMap<Box<Path>, ConcurrentQueue<()>>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
 }
 
 impl<R: AssetReader + Clone> Clone for GatedReader<R> {
@@ -24,7 +24,7 @@ impl<R: AssetReader + Clone> Clone for GatedReader<R> {
 
 /// Opens path "gates" for a [`GatedReader`].
 pub struct GateOpener {
-    gates: Arc<RwLock<HashMap<Box<Path>, ConcurrentQueue<()>>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
 }
 
 impl GateOpener {
@@ -34,8 +34,9 @@ impl GateOpener {
         let mut gates = self.gates.write();
         let gates = gates
             .entry_ref(path.as_ref())
-            .or_insert_with(ConcurrentQueue::unbounded);
-        gates.push(()).unwrap();
+            .or_insert_with(async_channel::unbounded);
+        // Should never fail as these channels are always initialized as unbounded.
+        gates.0.try_send(()).unwrap();
     }
 }
 
@@ -56,13 +57,15 @@ impl<R: AssetReader> GatedReader<R> {
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        {
+        let receiver = {
             let mut gates = self.gates.write();
             let gates = gates
                 .entry_ref(path.as_ref())
-                .or_insert_with(ConcurrentQueue::unbounded);
-            gates.pop().unwrap();
-        }
+                .or_insert_with(async_channel::unbounded);
+            gates.1.clone()
+        };
+        // Should never fail as these channels are always initialized as unbounded and never closed.
+        receiver.recv().await.unwrap();
         let result = self.reader.read(path).await?;
         Ok(result)
     }
