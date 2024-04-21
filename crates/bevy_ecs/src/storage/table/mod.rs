@@ -405,68 +405,60 @@ impl Table {
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
-    ///
-    /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_added_ticks_slice_for(
+    pub fn get_added_ticks_slice_for(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
-            .map(|col| col.added_ticks.as_slice(self.len()))
+            // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
+            .map(|col| unsafe { col.added_ticks.as_slice(self.len()) })
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
-    ///
-    /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_changed_ticks_slice_for(
+    pub fn get_changed_ticks_slice_for(
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
-            .map(|col| col.changed_ticks.as_slice(self.len()))
+            // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
+            .map(|col| unsafe { col.changed_ticks.as_slice(self.len()) })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
-    ///
-    /// # Safety
-    /// - `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_column_changed_tick(
+    pub fn get_changed_tick(
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> &UnsafeCell<Tick> {
-        self.get_column(component_id)
-            .debug_checked_unwrap()
-            .changed_ticks
-            .get_unchecked(row.as_usize())
+    ) -> Option<&UnsafeCell<Tick>> {
+        (row.as_usize() < self.len()).then_some(
+            // SAFETY: `row.as_usize()` < `len`
+            unsafe {
+                self.get_column(component_id)?
+                    .changed_ticks
+                    .get_unchecked(row.as_usize())
+            },
+        )
     }
 
-    /// Get the specific [`add tick`](Tick) of the component matching `component_id` in `row`.
-    ///
-    /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_column_added_tick(
+    /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
+    pub fn get_added_tick(
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> &UnsafeCell<Tick> {
-        self.get_column(component_id)
-            .debug_checked_unwrap()
-            .added_ticks
-            .get_unchecked(row.as_usize())
+    ) -> Option<&UnsafeCell<Tick>> {
+        (row.as_usize() < self.len()).then_some(
+            // SAFETY: `row.as_usize()` < `len`
+            unsafe {
+                self.get_column(component_id)?
+                    .added_ticks
+                    .get_unchecked(row.as_usize())
+            },
+        )
     }
-
     /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
     ///
     /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
+    /// - `row.as_usize()` < `self.len()`
     pub unsafe fn get_ticks_unchecked(
         &self,
         component_id: ComponentId,

@@ -327,21 +327,20 @@ impl BlobArray {
     /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
     #[must_use = "The returned pointer should be used to drop the removed element"]
-    pub unsafe fn swap_remove_and_forget_unchecked(
+    pub unsafe fn swap_remove_unchecked(
         &mut self,
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
         if index_to_remove != index_to_keep {
-            return self
-                .swap_remove_and_forget_unchecked_nonoverlapping(index_to_remove, index_to_keep);
+            return self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         }
         // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
         // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
-    /// The same as [`Self::swap_remove_and_forget_unchecked`] but the two elements must non-overlapping.
+    /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
     /// The caller must ensure that:
@@ -353,7 +352,7 @@ impl BlobArray {
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
     /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
-    pub unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
+    pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
         index_to_remove: usize,
         index_to_keep: usize,
@@ -392,7 +391,7 @@ impl BlobArray {
         index_to_keep: usize,
     ) {
         let drop = self.drop;
-        let value = self.swap_remove_and_forget_unchecked(index_to_remove, index_to_keep);
+        let value = self.swap_remove_unchecked(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
             drop(value);
         }
@@ -416,8 +415,7 @@ impl BlobArray {
         index_to_keep: usize,
     ) {
         let drop = self.drop;
-        let value =
-            self.swap_remove_and_forget_unchecked_nonoverlapping(index_to_remove, index_to_keep);
+        let value = self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
             drop(value);
         }

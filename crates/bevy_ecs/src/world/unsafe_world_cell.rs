@@ -10,6 +10,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
+    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::{Res, Resource},
@@ -960,8 +961,12 @@ unsafe fn get_component_and_ticks(
             Some((
                 table.get_component(component_id, location.table_row)?,
                 TickCells {
-                    added: table.get_column_added_tick(component_id, location.table_row),
-                    changed: table.get_column_changed_tick(component_id, location.table_row),
+                    added: table
+                        .get_added_tick(component_id, location.table_row)
+                        .debug_checked_unwrap(),
+                    changed: table
+                        .get_changed_tick(component_id, location.table_row)
+                        .debug_checked_unwrap(),
                 },
             ))
         }

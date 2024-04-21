@@ -192,7 +192,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `last_element_index` = `len - 1`
     /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     #[inline]
-    pub unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
+    pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
         index: usize,
         last_element_index: usize,
@@ -211,13 +211,9 @@ impl<T> ThinArrayPtr<T> {
     /// - `last_element_index` = `len - 1`
     /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     #[inline]
-    pub unsafe fn swap_remove_and_forget_unchecked(
-        &mut self,
-        index: usize,
-        last_element_index: usize,
-    ) -> T {
+    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, last_element_index: usize) -> T {
         if index != last_element_index {
-            return self.swap_remove_and_forget_unchecked_nonoverlapping(index, last_element_index);
+            return self.swap_remove_unchecked_nonoverlapping(index, last_element_index);
         }
         ptr::read(self.data.as_ptr().add(index))
     }
@@ -234,7 +230,7 @@ impl<T> ThinArrayPtr<T> {
         index: usize,
         last_element_index: usize,
     ) {
-        let val = &mut self.swap_remove_and_forget_unchecked(index, last_element_index);
+        let val = &mut self.swap_remove_unchecked(index, last_element_index);
         std::ptr::drop_in_place(val as *mut T);
     }
 
@@ -244,11 +240,7 @@ impl<T> ThinArrayPtr<T> {
     /// - ensure that `current_len` is indeed the len of the array
     #[inline]
     unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
-        if current_len == 0 {
-            None
-        } else {
-            Some(self.data.as_ptr().add(current_len - 1))
-        }
+        (current_len == 0).then_some(self.data.as_ptr().add(current_len - 1))
     }
 
     /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.

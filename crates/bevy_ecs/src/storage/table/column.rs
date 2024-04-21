@@ -40,14 +40,10 @@ impl ThinColumn {
     ) {
         self.data
             .swap_remove_and_drop_unchecked_nonoverlapping(row.as_usize(), last_element_index);
-        let added = &mut self
-            .added_ticks
-            .swap_remove_and_forget_unchecked_nonoverlapping(row.as_usize(), last_element_index);
-        let changed = &mut self
-            .changed_ticks
-            .swap_remove_and_forget_unchecked_nonoverlapping(row.as_usize(), last_element_index);
-        std::ptr::drop_in_place(added as *mut UnsafeCell<Tick>);
-        std::ptr::drop_in_place(changed as *mut UnsafeCell<Tick>);
+        self.added_ticks
+            .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+        self.changed_ticks
+            .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
     }
 
     /// Swap-remove and drop the removed element.
@@ -82,11 +78,11 @@ impl ThinColumn {
     ) {
         let _ = self
             .data
-            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
-            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
         self.changed_ticks
-            .swap_remove_and_forget_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
@@ -161,18 +157,18 @@ impl ThinColumn {
         // Init the data
         let src_val = other
             .data
-            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
         self.data.initialize_unchecked(dst_row.as_usize(), src_val);
         // Init added_ticks
         let added_tick = other
             .added_ticks
-            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
         self.added_ticks
             .initialize_unchecked(dst_row.as_usize(), added_tick);
         // Init changed_ticks
         let changed_tick = other
             .changed_ticks
-            .swap_remove_and_forget_unchecked(src_row.as_usize(), other_last_element_index);
+            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
         self.changed_ticks
             .initialize_unchecked(dst_row.as_usize(), changed_tick);
     }
