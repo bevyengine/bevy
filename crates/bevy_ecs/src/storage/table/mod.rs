@@ -238,10 +238,10 @@ impl Table {
                 // SAFETY:
                 // - `row` < `len`
                 // - `last_element_index` = `len` - 1
-                // - `row` != last_elment_index
+                // - `row` != `last_element_index`
                 // - the `len` is kept within `self.entities`, it will update accordingly.
                 unsafe {
-                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row)
+                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row);
                 };
             }
         }
@@ -410,7 +410,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
-            // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
+            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
             .map(|col| unsafe { col.get_added_ticks_slice(self.len()) })
     }
 
@@ -420,7 +420,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
-            // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
+            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
             .map(|col| unsafe { col.get_changed_ticks_slice(self.len()) })
     }
 

@@ -31,7 +31,7 @@ impl ThinColumn {
         }
     }
 
-    /// Swap-remove and drop the removed element, but the component at `row` must not be the last elment.
+    /// Swap-remove and drop the removed element, but the component at `row` must not be the last element.
     ///
     /// # Safety
     /// - `row.as_usize()` < `len`
