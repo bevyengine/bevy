@@ -178,7 +178,7 @@ impl TypeInfo {
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
 /// For example, [`i32`] cannot be broken down any further, so it is represented by a [`ValueInfo`].
-/// And while [`String`] itself is a struct, it's fields are private, so we don't really treat
+/// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {

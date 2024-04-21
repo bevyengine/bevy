@@ -4,7 +4,7 @@ use crate::{
     bounding::{Bounded2d, BoundingCircle},
     primitives::{
         BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
-        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d,
+        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
     Dir3, Mat3, Quat, Vec2, Vec3,
 };
@@ -300,6 +300,59 @@ impl Bounded3d for Torus {
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
         BoundingSphere::new(translation, self.outer_radius())
+    }
+}
+
+impl Bounded3d for Triangle3d {
+    /// Get the bounding box of the triangle.
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let [a, b, c] = self.vertices;
+
+        let a = rotation * a;
+        let b = rotation * b;
+        let c = rotation * c;
+
+        let min = a.min(b).min(c);
+        let max = a.max(b).max(c);
+
+        let bounding_center = (max + min) / 2.0 + translation;
+        let half_extents = (max - min) / 2.0;
+
+        Aabb3d::new(bounding_center, half_extents)
+    }
+
+    /// Get the bounding sphere of the triangle.
+    ///
+    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
+    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
+    /// that contains the largest side of the triangle.
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        if self.is_degenerate() {
+            let (p1, p2) = self.largest_side();
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            return segment.bounding_sphere(translation, rotation);
+        }
+
+        let [a, b, c] = self.vertices;
+
+        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
+            Some((b, c))
+        } else if (c - b).dot(a - b) <= 0.0 {
+            Some((c, a))
+        } else if (a - c).dot(b - c) <= 0.0 {
+            Some((a, b))
+        } else {
+            None
+        };
+
+        if let Some((p1, p2)) = side_opposite_to_non_acute {
+            let (segment, _) = Segment3d::from_points(p1, p2);
+            segment.bounding_sphere(translation, rotation)
+        } else {
+            let circumcenter = self.circumcenter();
+            let radius = circumcenter.distance(a);
+            BoundingSphere::new(circumcenter + translation, radius)
+        }
     }
 }
 

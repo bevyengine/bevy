@@ -1,10 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{
-    bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Mat3, Quat, Vec2, Vec3,
-};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -767,7 +764,7 @@ impl Triangle3d {
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
     ///
-    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `f32::EPSILON`.
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
     pub fn is_degenerate(&self) -> bool {
@@ -835,59 +832,6 @@ impl Triangle3d {
         // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
         a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
             / (2.0 * n.length_squared()))
-    }
-}
-
-impl Bounded3d for Triangle3d {
-    /// Get the bounding box of the triangle.
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let [a, b, c] = self.vertices;
-
-        let a = rotation * a;
-        let b = rotation * b;
-        let c = rotation * c;
-
-        let min = a.min(b).min(c);
-        let max = a.max(b).max(c);
-
-        let bounding_center = (max + min) / 2.0 + translation;
-        let half_extents = (max - min) / 2.0;
-
-        Aabb3d::new(bounding_center, half_extents)
-    }
-
-    /// Get the bounding sphere of the triangle.
-    ///
-    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
-    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
-    /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        if self.is_degenerate() {
-            let (p1, p2) = self.largest_side();
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation, rotation);
-        }
-
-        let [a, b, c] = self.vertices;
-
-        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
-            Some((b, c))
-        } else if (c - b).dot(a - b) <= 0.0 {
-            Some((c, a))
-        } else if (a - c).dot(b - c) <= 0.0 {
-            Some((a, b))
-        } else {
-            None
-        };
-
-        if let Some((p1, p2)) = side_opposite_to_non_acute {
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            segment.bounding_sphere(translation, rotation)
-        } else {
-            let circumcenter = self.circumcenter();
-            let radius = circumcenter.distance(a);
-            BoundingSphere::new(circumcenter + translation, radius)
-        }
     }
 }
 
@@ -976,6 +920,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
+    use crate::Quat;
     use approx::assert_relative_eq;
 
     #[test]
@@ -1173,5 +1118,32 @@ mod tests {
             "incorrect signed volume"
         );
         assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
+    }
+
+    #[test]
+    fn triangle_math() {
+        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
+        let triangle = Triangle3d::new(a, b, c);
+
+        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
+        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
+        assert_eq!(
+            triangle.circumcenter(),
+            Vec3::new(-1., 1.75, 0.75),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            triangle.normal(),
+            Ok(Dir3::new_unchecked(Vec3::new(
+                -0.04134491,
+                -0.4134491,
+                0.90958804
+            ))),
+            "incorrect normal"
+        );
+
+        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
+        assert!(degenerate.is_degenerate(), "did not find degenerate");
     }
 }
