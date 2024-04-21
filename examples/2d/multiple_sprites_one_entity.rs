@@ -28,7 +28,7 @@ fn main() {
 }
 
 #[derive(Component)]
-struct Parent;
+struct ParentSprite;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
@@ -36,10 +36,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the entity is composed of four tiles arranged in a square
     commands
         .spawn((
-            Parent,
-            Transform::default(), // the parent entity only needs a Transform component, for positioning
-            InheritedVisibility::default(), // required by bevy_hierarchy::valid_parent_check_plugin
-            GlobalTransform::default(), // required by bevy_hierarchy::valid_parent_check_plugin
+            ParentSprite,
+            SpatialBundle::default(), // the parent entity only needs a Transform component, for positioning
         ))
         .with_children(|parent| {
             const SIZE: f32 = 16.0; // tiles are 16x16...
@@ -90,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn translate<const X: i8, const Y: i8>(mut parent: Query<&mut Transform, With<Parent>>) {
+fn translate<const X: i8, const Y: i8>(mut parent: Query<&mut Transform, With<ParentSprite>>) {
     let mut parent = parent.single_mut();
     parent.translation.x += X as f32;
     parent.translation.y += Y as f32;
