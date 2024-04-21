@@ -516,7 +516,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.multiple_sprites_one_entity]
 name = "Multiple Sprites, One Entity"
-description = "//! Constructs a large entity composed of multiple sprites"
+description = "Constructs a large entity composed of multiple sprites"
 category = "2D Rendering"
 wasm = true
 
