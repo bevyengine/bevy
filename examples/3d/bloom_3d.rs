@@ -7,6 +7,7 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     prelude::*,
+    render::texture::ViewTargetFormat,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -29,7 +30,8 @@ fn setup_scene(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
+                // 1. A unclamped texture format is needed to support bloom
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended

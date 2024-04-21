@@ -26,7 +26,8 @@ fn setup(
     commands.spawn((
         Camera2dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
+                // 1. A unclamped texture format is needed to support bloom
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended

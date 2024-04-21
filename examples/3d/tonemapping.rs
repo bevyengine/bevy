@@ -6,7 +6,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
         render_resource::{AsBindGroup, ShaderRef},
+        texture::{ImageSampler, ImageSamplerDescriptor, ViewTargetFormat},
+        view::ColorGrading,
         view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     utils::HashMap,
@@ -60,7 +64,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                // Tonemapping works best with unclamped formats
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             transform: camera_transform.0,

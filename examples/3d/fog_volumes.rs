@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(-0.75, 1.0, 2.0)
                 .looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
             camera: Camera {
-                hdr: true,
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             ..default()
