@@ -240,7 +240,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             value: None,
             generation: 0,
         });
-        while let Ok(recycled) = self.allocator.recycled.pop() {
+        for recycled in self.allocator.recycled.try_iter() {
             let entry = &mut self.storage[recycled.index as usize];
             *entry = Entry::Some {
                 value: None,
@@ -540,7 +540,7 @@ impl<A: Asset> Assets<A> {
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
         let mut not_ready = Vec::new();
-        while let Ok(drop_event) = assets.handle_provider.drop_queue.pop() {
+        while let Ok(drop_event) = assets.handle_provider.drop_queue.try_recv() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {
@@ -566,7 +566,7 @@ impl<A: Asset> Assets<A> {
         // TODO: this is _extremely_ inefficient find a better fix
         // This will also loop failed assets indefinitely. Is that ok?
         for event in not_ready {
-            assets.handle_provider.drop_queue.push(event).unwrap();
+            assets.handle_provider.drop_queue.send(event);
         }
     }
 

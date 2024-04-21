@@ -690,7 +690,7 @@ impl AssetInfos {
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
-            while let Ok(drop_event) = provider.drop_queue.pop() {
+            for drop_event in provider.drop_queue.try_iter() {
                 let id = drop_event.id;
                 if drop_event.asset_server_managed {
                     Self::process_handle_drop_internal(

@@ -1,11 +1,11 @@
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
+    utils::{EventQueue, EventReceiver, EventSender},
 };
 use bevy_ecs::system::Resource;
 use bevy_utils::tracing::{error, warn};
 use bevy_utils::{CowArc, Duration, HashMap};
-use concurrent_queue::ConcurrentQueue;
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 
@@ -118,9 +118,7 @@ pub struct AssetSourceBuilder {
     pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
-            dyn FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
-                + Send
-                + Sync,
+            dyn FnMut(EventSender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>> + Send + Sync,
         >,
     >,
     pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
@@ -128,9 +126,7 @@ pub struct AssetSourceBuilder {
         Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
-            dyn FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
-                + Send
-                + Sync,
+            dyn FnMut(EventSender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>> + Send + Sync,
         >,
     >,
     pub watch_warning: Option<&'static str>,
@@ -162,12 +158,11 @@ impl AssetSourceBuilder {
         };
 
         if watch {
-            let receiver = Arc::new(ConcurrentQueue::unbounded());
-            let sender = receiver.clone();
-            match self.watcher.as_mut().and_then(|w| w(sender.clone())) {
+            let queue = EventQueue::new();
+            match self.watcher.as_mut().and_then(|w| w(queue.sender())) {
                 Some(w) => {
                     source.watcher = Some(w);
-                    source.event_receiver = Some(receiver);
+                    source.event_receiver = Some(queue.receiver());
                 }
                 None => {
                     if let Some(warning) = self.watch_warning {
@@ -178,12 +173,15 @@ impl AssetSourceBuilder {
         }
 
         if watch_processed {
-            let receiver = Arc::new(ConcurrentQueue::unbounded());
-            let sender = receiver.clone();
-            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
+            let queue = EventQueue::new();
+            match self
+                .processed_watcher
+                .as_mut()
+                .and_then(|w| w(queue.sender()))
+            {
                 Some(w) => {
                     source.processed_watcher = Some(w);
-                    source.processed_event_receiver = Some(receiver);
+                    source.processed_event_receiver = Some(queue.receiver());
                 }
                 None => {
                     if let Some(warning) = self.processed_watch_warning {
@@ -216,7 +214,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(EventSender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -246,7 +244,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(EventSender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -367,8 +365,8 @@ pub struct AssetSource {
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
-    event_receiver: Option<Arc<ConcurrentQueue<AssetSourceEvent>>>,
-    processed_event_receiver: Option<Arc<ConcurrentQueue<AssetSourceEvent>>>,
+    event_receiver: Option<EventReceiver<AssetSourceEvent>>,
+    processed_event_receiver: Option<EventReceiver<AssetSourceEvent>>,
 }
 
 impl AssetSource {
@@ -419,14 +417,14 @@ impl AssetSource {
 
     /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<&Arc<ConcurrentQueue<AssetSourceEvent>>> {
-        self.event_receiver.as_ref()
+    pub fn event_receiver(&self) -> Option<EventReceiver<AssetSourceEvent>> {
+        self.event_receiver.as_ref().cloned()
     }
 
     /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn processed_event_receiver(&self) -> Option<&Arc<ConcurrentQueue<AssetSourceEvent>>> {
-        self.processed_event_receiver.as_ref()
+    pub fn processed_event_receiver(&self) -> Option<EventReceiver<AssetSourceEvent>> {
+        self.processed_event_receiver.as_ref().cloned()
     }
 
     /// Returns true if the assets in this source should be processed.
@@ -485,9 +483,9 @@ impl AssetSource {
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
-    ) -> impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>> + Send + Sync
+    ) -> impl FnMut(EventSender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>> + Send + Sync
     {
-        move |sender: Arc<ConcurrentQueue<AssetSourceEvent>>| {
+        move |sender: EventSender<AssetSourceEvent>| {
             #[cfg(all(
                 feature = "file_watcher",
                 not(target_arch = "wasm32"),

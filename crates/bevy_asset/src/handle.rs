@@ -1,11 +1,11 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
-    UntypedAssetId,
+    meta::MetaTransform,
+    utils::{EventQueue, EventSender},
+    Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId, UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::get_short_name;
-use concurrent_queue::ConcurrentQueue;
 use std::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -19,7 +19,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AssetHandleProvider {
     pub(crate) allocator: Arc<AssetIndexAllocator>,
-    pub(crate) drop_queue: Arc<ConcurrentQueue<DropEvent>>,
+    pub(crate) drop_queue: EventQueue<DropEvent>,
     pub(crate) type_id: TypeId,
 }
 
@@ -34,7 +34,7 @@ impl AssetHandleProvider {
         Self {
             type_id,
             allocator,
-            drop_queue: Arc::new(ConcurrentQueue::unbounded()),
+            drop_queue: EventQueue::new(),
         }
     }
 
@@ -54,7 +54,7 @@ impl AssetHandleProvider {
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             id: id.untyped(self.type_id),
-            drop: self.drop_queue.clone(),
+            drop: self.drop_queue.sender(),
             meta_transform,
             path,
             asset_server_managed,
@@ -88,12 +88,12 @@ pub struct StrongHandle {
     /// 1. configuration tied to the lifetime of a specific asset load
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
-    pub(crate) drop: Arc<ConcurrentQueue<DropEvent>>,
+    pub(crate) drop: EventSender<DropEvent>,
 }
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        let _ = self.drop.push(DropEvent {
+        self.drop.send(DropEvent {
             id: self.id.internal(),
             asset_server_managed: self.asset_server_managed,
         });
