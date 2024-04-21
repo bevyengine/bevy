@@ -55,7 +55,7 @@ impl<T> Clone for EventSender<T> {
     }
 }
 
-/// A strictly non-blocking reciever for a multi-producer multi-consumer channel.
+/// A strictly non-blocking receiver for a multi-producer multi-consumer channel.
 #[derive(Debug)]
 pub struct EventReceiver<T>(Arc<ConcurrentQueue<T>>);
 
