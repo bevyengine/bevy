@@ -5,8 +5,8 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ViewTarget, ViewUniform},
+    texture::ViewTargetFormat,
+    view::ViewUniform,
 };
 
 #[derive(Resource)]
@@ -47,7 +47,7 @@ impl FromWorld for UiPipeline {
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
-    pub hdr: bool,
+    pub target_format: ViewTargetFormat,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -87,11 +87,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format.into(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
