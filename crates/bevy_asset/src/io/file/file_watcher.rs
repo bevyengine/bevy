@@ -2,6 +2,7 @@ use crate::io::{AssetSourceEvent, AssetWatcher};
 use crate::path::normalize_path;
 use bevy_utils::tracing::error;
 use bevy_utils::Duration;
+use concurrent_queue::ConcurrentQueue;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -11,7 +12,6 @@ use notify_debouncer_full::{
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };
-use concurrent_queue::ConcurrentQueue;
 use std::path::{Path, PathBuf};
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
