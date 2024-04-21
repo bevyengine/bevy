@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::{color::palettes::css::ORANGE, prelude::*};
+use bevy::{color::palettes::css::ORANGE, prelude::*, render::texture::ViewTargetFormat};
 use rand::random;
 
 fn main() {
@@ -193,7 +193,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Switch view texture\nSpacebar — Toggle Unlit\nC — Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -321,7 +321,11 @@ fn example_control_system(
     let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if camera.target_format.is_unclamped() {
+            camera.target_format = ViewTargetFormat::DEFAULT;
+        } else {
+            camera.target_format = ViewTargetFormat::UNCLAMPED_DEFAULT;
+        }
     }
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
@@ -347,8 +351,8 @@ fn example_control_system(
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(
-        "  HDR: {}\nAlpha: {:.2}",
-        if camera.hdr { "ON " } else { "OFF" },
+        "  Unclamped: {}\nAlpha: {:.2}",
+        camera.target_format.is_unclamped(),
         state.alpha
     );
 }

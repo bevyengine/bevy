@@ -7,7 +7,7 @@ use bevy::{
         ScreenSpaceAmbientOcclusionSettings,
     },
     prelude::*,
-    render::camera::TemporalJitter,
+    render::{camera::TemporalJitter, texture::ViewTargetFormat},
 };
 use std::f32::consts::PI;
 
@@ -32,7 +32,8 @@ fn setup(
     commands
         .spawn(Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                // Use a unclamped target format for a better look
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),

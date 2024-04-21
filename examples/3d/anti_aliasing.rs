@@ -15,7 +15,7 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
+        texture::{ImageSampler, ImageSamplerDescriptor, ViewTargetFormat},
     },
 };
 
@@ -312,7 +312,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                // Use a unclamped target format for a better look
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
