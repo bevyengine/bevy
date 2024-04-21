@@ -31,10 +31,10 @@ use bevy_render::{
         FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::BevyDefault as _,
+    texture::ViewTargetFormat,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -181,7 +181,7 @@ pub struct ViewScreenSpaceReflectionsUniformOffset(u32);
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
-    is_hdr: bool,
+    target_format: ViewTargetFormat,
     has_environment_maps: bool,
 }
 
@@ -447,8 +447,8 @@ pub fn prepare_ssr_pipelines(
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key,
-                is_hdr: extracted_view.hdr,
                 has_environment_maps,
+                target_format: extracted_view.target_format,
             },
         );
 
@@ -536,11 +536,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.is_hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format.into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

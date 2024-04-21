@@ -32,11 +32,11 @@ use bevy_render::{
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
         MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
         RenderPassDescriptor, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault as _, GpuImage, Image},
+    texture::{GpuImage, Image, ViewTargetFormat},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
@@ -71,6 +71,71 @@ bitflags! {
         const HDR = 0x1;
         /// The volumetric fog has a 3D voxel density texture.
         const DENSITY_TEXTURE = 0x2;
+        const LAST_FLAG = Self::DENSITY_TEXTURE.bits();
+
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+    }
+}
+
+impl VolumetricFogPipelineKeyFlags {
+    const VIEW_TARGET_FORMAT_MASK_BITS: u8 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u8 = Self::LAST_FLAG.bits() + 1;
+
+    pub fn from_view_target_format(format: ViewTargetFormat) -> Self {
+        match format {
+            ViewTargetFormat::R8Unorm => Self::VIEW_TARGET_FORMAT_R8UNORM,
+            ViewTargetFormat::Rg8Unorm => Self::VIEW_TARGET_FORMAT_RG8UNORM,
+            ViewTargetFormat::Rgba8Unorm => Self::VIEW_TARGET_FORMAT_RGBA8UNORM,
+            ViewTargetFormat::Rgba8UnormSrgb => Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB,
+            ViewTargetFormat::Bgra8Unorm => Self::VIEW_TARGET_FORMAT_BGRA8UNORM,
+            ViewTargetFormat::Bgra8UnormSrgb => Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB,
+            ViewTargetFormat::R16Float => Self::VIEW_TARGET_FORMAT_R16FLOAT,
+            ViewTargetFormat::Rg16Float => Self::VIEW_TARGET_FORMAT_RG16FLOAT,
+            ViewTargetFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
+            ViewTargetFormat::Rb11b10Float => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
+            ViewTargetFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
+        }
+    }
+
+    pub fn view_target_format(&self) -> ViewTargetFormat {
+        let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::VIEW_TARGET_FORMAT_R8UNORM {
+            ViewTargetFormat::R8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG8UNORM {
+            ViewTargetFormat::Rg8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORM {
+            ViewTargetFormat::Rgba8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB {
+            ViewTargetFormat::Rgba8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORM {
+            ViewTargetFormat::Bgra8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB {
+            ViewTargetFormat::Bgra8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_R16FLOAT {
+            ViewTargetFormat::R16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG16FLOAT {
+            ViewTargetFormat::Rg16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA16FLOAT {
+            ViewTargetFormat::Rgba16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RB11B10FLOAT {
+            ViewTargetFormat::Rb11b10Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
+            ViewTargetFormat::Rgb10a2Unorm
+        } else {
+            unreachable!()
+        }
     }
 }
 
@@ -561,11 +626,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.flags.contains(VolumetricFogPipelineKeyFlags::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.flags.view_target_format().into(),
                     // Blend on top of what's already in the framebuffer. Doing
                     // the alpha blending with the hardware blender allows us to
                     // avoid having to use intermediate render targets.
@@ -634,8 +695,8 @@ pub fn prepare_volumetric_fog_pipelines(
             deferred_prepass,
         );
 
-        let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
-        textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
+        let textureless_flags =
+            VolumetricFogPipelineKeyFlags::from_view_target_format(view.target_format);
 
         // Specialize the pipeline.
         let textureless_pipeline_key = VolumetricFogPipelineKey {
