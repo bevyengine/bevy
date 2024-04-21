@@ -16,6 +16,7 @@ use bevy_render::batching::no_gpu_preprocessing::{
     BatchedInstanceBuffer,
 };
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::texture::ViewTargetFormat;
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -24,12 +25,8 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
-    view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
-    },
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -372,9 +369,8 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -386,17 +382,35 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
 impl Mesh2dPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const VIEW_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -404,11 +418,51 @@ impl Mesh2dPipelineKey {
         Self::from_bits_retain(msaa_bits)
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            Mesh2dPipelineKey::HDR
+    #[inline]
+    pub fn from_view_target_format(format: ViewTargetFormat) -> Self {
+        match format {
+            ViewTargetFormat::R8Unorm => Self::VIEW_TARGET_FORMAT_R8UNORM,
+            ViewTargetFormat::Rg8Unorm => Self::VIEW_TARGET_FORMAT_RG8UNORM,
+            ViewTargetFormat::Rgba8Unorm => Self::VIEW_TARGET_FORMAT_RGBA8UNORM,
+            ViewTargetFormat::Rgba8UnormSrgb => Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB,
+            ViewTargetFormat::Bgra8Unorm => Self::VIEW_TARGET_FORMAT_BGRA8UNORM,
+            ViewTargetFormat::Bgra8UnormSrgb => Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB,
+            ViewTargetFormat::R16Float => Self::VIEW_TARGET_FORMAT_R16FLOAT,
+            ViewTargetFormat::Rg16Float => Self::VIEW_TARGET_FORMAT_RG16FLOAT,
+            ViewTargetFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
+            ViewTargetFormat::Rb11b10Float => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
+            ViewTargetFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
+        }
+    }
+
+    #[inline]
+    pub fn view_target_format(&self) -> ViewTargetFormat {
+        let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::VIEW_TARGET_FORMAT_R8UNORM {
+            ViewTargetFormat::R8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG8UNORM {
+            ViewTargetFormat::Rg8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORM {
+            ViewTargetFormat::Rgba8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB {
+            ViewTargetFormat::Rgba8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORM {
+            ViewTargetFormat::Bgra8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB {
+            ViewTargetFormat::Bgra8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_R16FLOAT {
+            ViewTargetFormat::R16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG16FLOAT {
+            ViewTargetFormat::Rg16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA16FLOAT {
+            ViewTargetFormat::Rgba16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RB11B10FLOAT {
+            ViewTargetFormat::Rb11b10Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
+            ViewTargetFormat::Rgb10a2Unorm
         } else {
-            Mesh2dPipelineKey::NONE
+            unreachable!()
         }
     }
 
@@ -513,10 +567,19 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.view_target_format().into();
+
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
