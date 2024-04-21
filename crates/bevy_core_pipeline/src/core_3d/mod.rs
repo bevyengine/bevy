@@ -66,8 +66,8 @@ use bevy_render::{
         Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    texture::{ColorAttachment, Image, TextureCache},
+    view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
@@ -664,11 +664,7 @@ pub fn prepare_core_3d_transmission_textures(
                     height: physical_target_size.y,
                 };
 
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
+                let format = view.target_format.into();
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),

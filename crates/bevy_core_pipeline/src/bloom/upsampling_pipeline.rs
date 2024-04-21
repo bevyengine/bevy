@@ -1,6 +1,6 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
-    BLOOM_TEXTURE_FORMAT,
+    downsampling_pipeline::BloomUniforms, settings::ExtractedBloomSettings, BloomCompositeMode,
+    BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
@@ -14,8 +14,9 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    view::ViewTarget,
+    texture::ViewTargetFormat,
 };
+use bevy_utils::tracing::warn;
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -31,7 +32,8 @@ pub struct BloomUpsamplingPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
-    final_pipeline: bool,
+    // Some(_) if it's the final pipeline
+    final_pipeline: Option<ViewTargetFormat>,
 }
 
 impl FromWorld for BloomUpsamplingPipeline {
@@ -61,11 +63,10 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let texture_format = if key.final_pipeline {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            BLOOM_TEXTURE_FORMAT
-        };
+        let texture_format = key
+            .final_pipeline
+            .map(TextureFormat::from)
+            .unwrap_or(BLOOM_TEXTURE_FORMAT);
 
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
@@ -133,15 +134,20 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomSettings)>,
+    views: Query<(Entity, &ExtractedBloomSettings)>,
 ) {
     for (entity, settings) in &views {
+        #[cfg(debug_assertions)]
+        if !settings.view_target_format.is_unclamped() {
+            warn!("Applying bloom to a clamped view target format! This is a bug. Bloom may not work.");
+        }
+
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
-                final_pipeline: false,
+                final_pipeline: None,
             },
         );
 
@@ -150,7 +156,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: settings.composite_mode,
-                final_pipeline: true,
+                final_pipeline: Some(settings.view_target_format),
             },
         );
 

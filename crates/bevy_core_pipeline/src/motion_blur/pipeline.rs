@@ -16,11 +16,11 @@ use bevy_render::{
         ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderDefVal,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        TextureSampleType,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, Msaa, ViewTarget},
+    texture::ViewTargetFormat,
+    view::{ExtractedView, Msaa},
 };
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
@@ -94,7 +94,7 @@ impl FromWorld for MotionBlurPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct MotionBlurPipelineKey {
-    hdr: bool,
+    target_format: ViewTargetFormat,
     samples: u32,
 }
 
@@ -128,11 +128,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format.into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -161,7 +157,7 @@ pub(crate) fn prepare_motion_blur_pipelines(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: msaa.samples(),
             },
         );

@@ -10,7 +10,9 @@ use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
+use bevy_render::texture::{
+    CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType, ViewTargetFormat,
+};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
@@ -202,6 +204,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             }
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
             Tonemapping::AgX => {
+                // BEFORE_MERGE: Can we cfg out the enum variant if it needs a feature to work
                 #[cfg(not(feature = "tonemapping_luts"))]
                 error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
@@ -241,7 +244,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format: ViewTargetFormat::UNCLAMPED_DEFAULT.into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

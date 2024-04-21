@@ -27,10 +27,10 @@ use bevy_render::{
         Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureDimension, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{CachedTexture, TextureCache, ViewTargetFormat},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
@@ -289,7 +289,7 @@ impl FromWorld for TaaPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TaaPipelineKey {
-    hdr: bool,
+    view_target_format: ViewTargetFormat,
     reset: bool,
 }
 
@@ -299,12 +299,11 @@ impl SpecializedRenderPipeline for TaaPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
 
-        let format = if key.hdr {
+        if key.view_target_format.is_unclamped() {
             shader_defs.push("TONEMAP".into());
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
         };
+
+        let format = key.view_target_format.into();
 
         if key.reset {
             shader_defs.push("RESET".into());
@@ -415,11 +414,7 @@ fn prepare_taa_history_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                format: view.target_format.into(),
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             };
@@ -459,7 +454,7 @@ fn prepare_taa_pipelines(
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
-            hdr: view.hdr,
+            view_target_format: view.target_format,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
