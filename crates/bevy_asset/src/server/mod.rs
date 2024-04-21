@@ -345,7 +345,7 @@ impl AssetServer {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
-                    drop(acquires)
+                    drop(acquires);
                 })
                 .detach();
         }
