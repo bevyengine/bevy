@@ -74,8 +74,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         has_irradiance_volumes,
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -121,7 +121,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             }
         }
 
-        if !view.hdr {
+        // If the target format is clamped the tonemapping pipeline doesn't run and we have to tonemap ourselves
+        if !view.target_format.is_unclamped() {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -250,8 +251,8 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

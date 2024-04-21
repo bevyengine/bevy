@@ -30,8 +30,8 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
-    view::{prepare_view_targets, GpuCulling, ViewTarget, ViewUniformOffset, ViewVisibility},
+    texture::{DefaultImageSampler, ImageSampler, TextureFormatPixelInfo, ViewTargetFormat},
+    view::{prepare_view_targets, GpuCulling, ViewUniformOffset, ViewVisibility},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -1287,22 +1287,21 @@ bitflags::bitflags! {
         const MORPH_TARGETS                     = BaseMeshPipelineKey::MORPH_TARGETS.bits();
 
         // Flag bits
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const DEPTH_PREPASS                     = 1 << 3;
-        const NORMAL_PREPASS                    = 1 << 4;
-        const DEFERRED_PREPASS                  = 1 << 5;
-        const MOTION_VECTOR_PREPASS             = 1 << 6;
-        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const DEPTH_PREPASS                     = 1 << 2;
+        const NORMAL_PREPASS                    = 1 << 3;
+        const DEFERRED_PREPASS                  = 1 << 4;
+        const MOTION_VECTOR_PREPASS             = 1 << 5;
+        const MAY_DISCARD                       = 1 << 6; // Guards shader codepaths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
-        const ENVIRONMENT_MAP                   = 1 << 8;
-        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
-        const DEPTH_CLAMP_ORTHO                 = 1 << 10;
-        const TEMPORAL_JITTER                   = 1 << 11;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
-        const LIGHTMAPPED                       = 1 << 13;
-        const IRRADIANCE_VOLUME                 = 1 << 14;
+        const ENVIRONMENT_MAP                   = 1 << 7;
+        const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 8;
+        const DEPTH_CLAMP_ORTHO                 = 1 << 9;
+        const TEMPORAL_JITTER                   = 1 << 10;
+        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const LIGHTMAPPED                       = 1 << 12;
+        const IRRADIANCE_VOLUME                 = 1 << 13;
         const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
 
         // Bitfields
@@ -1336,13 +1335,26 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
+            Self::VIEW_TARGET_FORMAT_RESERVED_BITS.bits();
     }
 }
 
@@ -1370,17 +1382,60 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const VIEW_TARGET_FORMAT_MASK_BITS: u64 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
+    pub fn from_view_target_format(format: ViewTargetFormat) -> Self {
+        match format {
+            ViewTargetFormat::R8Unorm => Self::VIEW_TARGET_FORMAT_R8UNORM,
+            ViewTargetFormat::Rg8Unorm => Self::VIEW_TARGET_FORMAT_RG8UNORM,
+            ViewTargetFormat::Rgba8Unorm => Self::VIEW_TARGET_FORMAT_RGBA8UNORM,
+            ViewTargetFormat::Rgba8UnormSrgb => Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB,
+            ViewTargetFormat::Bgra8Unorm => Self::VIEW_TARGET_FORMAT_BGRA8UNORM,
+            ViewTargetFormat::Bgra8UnormSrgb => Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB,
+            ViewTargetFormat::R16Float => Self::VIEW_TARGET_FORMAT_R16FLOAT,
+            ViewTargetFormat::Rg16Float => Self::VIEW_TARGET_FORMAT_RG16FLOAT,
+            ViewTargetFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
+            ViewTargetFormat::Rb11b10Float => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
+            ViewTargetFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
+        }
+    }
+
+    pub fn view_target_format(&self) -> ViewTargetFormat {
+        let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::VIEW_TARGET_FORMAT_R8UNORM {
+            ViewTargetFormat::R8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG8UNORM {
+            ViewTargetFormat::Rg8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORM {
+            ViewTargetFormat::Rgba8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB {
+            ViewTargetFormat::Rgba8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORM {
+            ViewTargetFormat::Bgra8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB {
+            ViewTargetFormat::Bgra8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_R16FLOAT {
+            ViewTargetFormat::R16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG16FLOAT {
+            ViewTargetFormat::Rg16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA16FLOAT {
+            ViewTargetFormat::Rgba16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RB11B10FLOAT {
+            ViewTargetFormat::Rb11b10Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
+            ViewTargetFormat::Rgb10a2Unorm
         } else {
-            MeshPipelineKey::NONE
+            unreachable!()
         }
     }
 
@@ -1701,11 +1756,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_target_format().into();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this

@@ -581,7 +581,7 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -630,7 +630,8 @@ pub fn queue_material_meshes<M: Material>(
             }
         }
 
-        if !view.hdr {
+        // If the target format is clamped the tonemapping pipeline doesn't run and we have to tonemap ourselves
+        if !view.target_format.is_unclamped() {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);

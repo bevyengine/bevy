@@ -22,7 +22,6 @@ use bevy_render::{
     render_resource::binding_types::uniform_buffer,
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -334,11 +333,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.view_target_format().into(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -430,7 +425,7 @@ pub fn prepare_deferred_lighting_pipelines(
         has_irradiance_volumes,
     ) in &views
     {
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -447,7 +442,8 @@ pub fn prepare_deferred_lighting_pipelines(
         // Always true, since we're in the deferred lighting pipeline
         view_key |= MeshPipelineKey::DEFERRED_PREPASS;
 
-        if !view.hdr {
+        // If the target format is clamped the tonemapping pipeline doesn't run and we have to tonemap ourselves
+        if !view.target_format.is_unclamped() {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {
