@@ -11,6 +11,7 @@ use notify_debouncer_full::{
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };
+use concurrent_queue::ConcurrentQueue;
 use std::path::{Path, PathBuf};
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
@@ -25,7 +26,7 @@ pub struct FileWatcher {
 impl FileWatcher {
     pub fn new(
         root: PathBuf,
-        sender: Sender<AssetSourceEvent>,
+        sender: Arc<ConcurrentQueue<AssetSourceEvent>>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
         let root = normalize_path(super::get_base_path().join(root).as_path());
@@ -243,7 +244,7 @@ pub(crate) fn new_asset_event_debouncer(
 }
 
 pub(crate) struct FileEventHandler {
-    sender: Sender<AssetSourceEvent>,
+    sender: Arc<ConcurrentQueue<AssetSourceEvent>>,
     root: PathBuf,
     last_event: Option<AssetSourceEvent>,
 }
@@ -259,7 +260,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.push(event).unwrap();
         }
     }
 }
