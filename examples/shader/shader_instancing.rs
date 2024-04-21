@@ -124,7 +124,7 @@ fn queue_custom(
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
 
     for (view, mut transparent_phase) in &mut views {
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
+        let view_key = msaa_key | MeshPipelineKey::from_view_target_format(view.target_format);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity) else {
