@@ -401,7 +401,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
         self.get_column(component_id)
-            .map(|col| col.data.get_sub_slice(self.len()))
+            .map(|col| col.get_data_slice_for(self.len()))
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
@@ -411,7 +411,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
-            .map(|col| unsafe { col.added_ticks.as_slice(self.len()) })
+            .map(|col| unsafe { col.get_added_ticks_slice(self.len()) })
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
@@ -421,7 +421,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guarenteed to be the len of the ticks array
-            .map(|col| unsafe { col.changed_ticks.as_slice(self.len()) })
+            .map(|col| unsafe { col.get_changed_ticks_slice(self.len()) })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.

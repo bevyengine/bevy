@@ -1,5 +1,10 @@
+use bevy_ptr::PtrMut;
+
 use super::*;
-use crate::storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr};
+use crate::{
+    component::TickCells,
+    storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
+};
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
@@ -213,6 +218,31 @@ impl ThinColumn {
         self.changed_ticks.drop(cap, len);
         self.data.drop(cap, len);
     }
+
+    /// Get a slice to the data stored in this [`ThinColumn`].
+    ///
+    /// # Safety
+    /// - `T` must match the type of data that's stored in this [`ThinColumn`]
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub unsafe fn get_data_slice_for<T>(&self, len: usize) -> &[UnsafeCell<T>] {
+        self.data.get_sub_slice(len)
+    }
+
+    /// Get a slice to the added [`ticks`](Tick) in this [`ThinColumn`].
+    ///
+    /// # Safety
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub unsafe fn get_added_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
+        self.added_ticks.as_slice(len)
+    }
+
+    /// Get a slice to the changed [`ticks`](Tick) in this [`ThinColumn`].
+    ///
+    /// # Safety
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub unsafe fn get_changed_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
+        self.changed_ticks.as_slice(len)
+    }
 }
 
 /// A type-erased contiguous container for data of a homogeneous type.
@@ -245,7 +275,6 @@ impl Column {
     }
 
     /// Fetches the [`Layout`] for the underlying type.
-    #[allow(dead_code)]
     #[inline]
     pub fn item_layout(&self) -> Layout {
         self.data.layout()
@@ -273,7 +302,6 @@ impl Column {
     }
 
     /// Checks if the column is empty. Returns `true` if there are no elements, `false` otherwise.
-    #[allow(dead_code)]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
@@ -329,20 +357,11 @@ impl Column {
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
     }
 
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn reserve_exact(&mut self, additional: usize) {
-        self.data.reserve_exact(additional);
-        self.added_ticks.reserve_exact(additional);
-        self.changed_ticks.reserve_exact(additional);
-    }
-
     /// Fetches the data pointer to the first element of the [`Column`].
     ///
     /// The pointer is type erased, so using this function to fetch anything
     /// other than the first element will require computing the offset using
     /// [`Column::item_layout`].
-    #[allow(dead_code)]
     #[inline]
     pub fn get_data_ptr(&self) -> Ptr<'_> {
         self.data.get_ptr()
@@ -356,12 +375,63 @@ impl Column {
     ///
     /// # Safety
     /// The type `T` must be the type of the items in this column.
-    #[allow(dead_code)]
     pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
         self.data.get_slice()
     }
 
-    /// Fetches a read-only reference to the data at `row`. This method does not do any bounds checking.
+    /// Fetches the slice to the [`Column`]'s "added" change detection ticks.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    #[inline]
+    pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+        &self.added_ticks
+    }
+
+    /// Fetches the slice to the [`Column`]'s "changed" change detection ticks.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    #[inline]
+    pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+        &self.changed_ticks
+    }
+
+    /// Fetches a reference to the data and change detection ticks at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    #[inline]
+    pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>, TickCells<'_>)> {
+        (row.as_usize() < self.data.len())
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through a read-only reference to the column.
+            .then(|| unsafe {
+                (
+                    self.data.get_unchecked(row.as_usize()),
+                    TickCells {
+                        added: self.added_ticks.get_unchecked(row.as_usize()),
+                        changed: self.changed_ticks.get_unchecked(row.as_usize()),
+                    },
+                )
+            })
+    }
+
+    /// Fetches a read-only reference to the data at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    #[inline]
+    pub fn get_data(&self, row: TableRow) -> Option<Ptr<'_>> {
+        (row.as_usize() < self.data.len()).then(|| {
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through a read-only reference to the column.
+            unsafe { self.data.get_unchecked(row.as_usize()) }
+        })
+    }
+
+    /// Fetches a read-only reference to the data at `row`. Unlike [`Column::get`] this does not
+    /// do any bounds checking.
     ///
     /// # Safety
     /// - `row` must be within the range `[0, self.len())`.
@@ -372,7 +442,57 @@ impl Column {
         self.data.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "added" change detection tick for the value at `row`. This method does not do any bounds checking.
+    /// Fetches a mutable reference to the data at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    #[inline]
+    pub fn get_data_mut(&mut self, row: TableRow) -> Option<PtrMut<'_>> {
+        (row.as_usize() < self.data.len()).then(|| {
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through an exclusive reference to the column.
+            unsafe { self.data.get_unchecked_mut(row.as_usize()) }
+        })
+    }
+
+    /// Fetches the "added" change detection tick for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    #[inline]
+    pub fn get_added_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
+        self.added_ticks.get(row.as_usize())
+    }
+
+    /// Fetches the "changed" change detection tick for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    #[inline]
+    pub fn get_changed_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
+        self.changed_ticks.get(row.as_usize())
+    }
+
+    /// Fetches the change detection ticks for the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    #[inline]
+    pub fn get_ticks(&self, row: TableRow) -> Option<ComponentTicks> {
+        if row.as_usize() < self.data.len() {
+            // SAFETY: The size of the column has already been checked.
+            Some(unsafe { self.get_ticks_unchecked(row) })
+        } else {
+            None
+        }
+    }
+
+    /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
+    /// this function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -382,7 +502,8 @@ impl Column {
         self.added_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "changed" change detection tick for the value at `row`. This method does not do any bounds checking.
+    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
+    /// this function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -392,7 +513,8 @@ impl Column {
         self.changed_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the change detection ticks for the value at `row`. This method does not do any bounds checking.
+    /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
+    /// this function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
