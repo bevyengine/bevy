@@ -166,21 +166,26 @@ where
 {
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
+  
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GizmosFetchState {
             state: GizmosState::<Config, Clear>::init_state(world, system_meta),
         }
     }
-    fn new_archetype(
+
+    unsafe fn new_archetype(
         state: &mut Self::State,
         archetype: &bevy_ecs::archetype::Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        unsafe { GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta) };
     }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
+
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
