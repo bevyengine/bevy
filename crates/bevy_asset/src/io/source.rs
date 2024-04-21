@@ -417,14 +417,14 @@ impl AssetSource {
 
     /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<EventReceiver<AssetSourceEvent>> {
-        self.event_receiver.as_ref().cloned()
+    pub(crate) fn event_receiver(&self) -> Option<&EventReceiver<AssetSourceEvent>> {
+        self.event_receiver.as_ref()
     }
 
     /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn processed_event_receiver(&self) -> Option<EventReceiver<AssetSourceEvent>> {
-        self.processed_event_receiver.as_ref().cloned()
+    pub(crate) fn processed_event_receiver(&self) -> Option<&EventReceiver<AssetSourceEvent>> {
+        self.processed_event_receiver.as_ref()
     }
 
     /// Returns true if the assets in this source should be processed.

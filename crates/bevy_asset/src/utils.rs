@@ -57,13 +57,9 @@ impl<T> Clone for EventSender<T> {
 
 /// A strictly non-blocking receiver for a multi-producer multi-consumer channel.
 #[derive(Debug)]
-pub struct EventReceiver<T>(Arc<ConcurrentQueue<T>>);
+pub(crate) struct EventReceiver<T>(Arc<ConcurrentQueue<T>>);
 
 impl<T: Send> EventReceiver<T> {
-    pub fn try_recv(&self) -> Result<T, concurrent_queue::PopError> {
-        self.0.pop()
-    }
-
     pub fn try_iter(&self) -> concurrent_queue::TryIter<T> {
         self.0.try_iter()
     }
