@@ -284,12 +284,12 @@ impl AssetServer {
     ///
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_acquire<'a, A: Asset, H: 'static>(
+    pub fn load_acquire<'a, A: Asset, H: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        handle: H,
+        acquires: H,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, handle)
+        self.load_with_meta_transform(path, None, acquires)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -304,11 +304,27 @@ impl AssetServer {
         self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
     }
 
-    pub(crate) fn load_with_meta_transform<'a, A: Asset, H: 'static>(
+    /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a handle like a semaphore guard.
+    /// The handle is dropped when either the asset is loaded or loading has failed.
+    ///
+    /// The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_acquire_with_settings<'a, A: Asset, S: Settings, H: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        acquires: H,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), acquires)
+    }
+
+    fn load_with_meta_transform<'a, A: Asset, H: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
-        handle: H,
+        acquires: H,
     ) -> Handle<A> {
         let path = path.into().into_owned();
         let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
@@ -325,7 +341,7 @@ impl AssetServer {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
-                    drop(handle)
+                    drop(acquires)
                 })
                 .detach();
         }
