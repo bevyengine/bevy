@@ -108,14 +108,14 @@ use bevy_ecs::schedule::State;
 ///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
 ///         && keyboard.pressed(KeyCode::KeyL)
 ///     {
-///         println!("In Windows this opens linked-in.");
+///         println!("On Windows this opens LinkedIn.");
 ///     } else {
 ///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
 ///     }
 /// }
 /// ```
 ///
-/// Generic handling of a form of use-key:
+/// Accepting input from multiple devices:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
@@ -128,7 +128,6 @@ use bevy_ecs::schedule::State;
 ///             Update,
 ///             something_used.run_if(
 ///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(KeyCode::KeyE))
 ///                     .or_else(input_just_pressed(GamepadButton::new(
 ///                         Gamepad::new(0),
 ///                         GamepadButtonType::West,
