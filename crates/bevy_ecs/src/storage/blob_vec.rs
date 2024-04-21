@@ -158,7 +158,7 @@ impl BlobVec {
             // - the layout of the ptr was `array_layout(self.item_layout, self.capacity)`
             // - `item_layout.size() > 0` and `new_capacity > 0`, so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-            // since the item size is always a multiple of its align, the rounding cannot happen
+            // since the item size is always a multiple of its alignment, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
             unsafe {
                 std::alloc::realloc(

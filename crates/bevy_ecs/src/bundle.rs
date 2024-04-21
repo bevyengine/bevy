@@ -178,7 +178,7 @@ pub trait DynamicBundle {
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
+// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
@@ -992,10 +992,10 @@ impl Bundles {
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
-                // SAFETY: T::component_id ensures its:
-                // - info was created
+                // SAFETY: T::component_id ensures:
+                // - its info was created
                 // - appropriate storage for it has been initialized.
-                // - was created in the same order as the components in T
+                // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id

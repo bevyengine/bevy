@@ -128,7 +128,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # Arguments
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
     /// value should be in the range (-2 * PI..=2 * PI)
-    /// - `radius`: distance between the arc and it's center point
+    /// - `radius`: distance between the arc and its center point
     /// - `position`: position of the arcs center point
     /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
     /// plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
