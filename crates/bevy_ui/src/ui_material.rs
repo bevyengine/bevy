@@ -1,7 +1,10 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+use bevy_render::{
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+    texture::ViewTargetFormat,
+};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -109,7 +112,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
-    pub hdr: bool,
+    pub target_format: ViewTargetFormat,
     pub bind_group_data: M::Data,
 }
 
@@ -120,7 +123,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -130,7 +133,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hdr: self.hdr,
+            target_format: self.target_format,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -141,7 +144,7 @@ where
     M::Data: Hash,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.hdr.hash(state);
+        self.target_format.hash(state);
         self.bind_group_data.hash(state);
     }
 }
