@@ -1,5 +1,5 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use async_channel::{Sender, Receiver};
+use async_channel::{Receiver, Sender};
 use bevy_utils::HashMap;
 use parking_lot::RwLock;
 use std::{path::Path, sync::Arc};
