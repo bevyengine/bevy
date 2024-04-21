@@ -46,7 +46,7 @@ pub mod prelude {
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{Image, ImagePlugin, ViewTargetFormat},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
