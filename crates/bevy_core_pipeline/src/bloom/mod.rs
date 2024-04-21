@@ -34,6 +34,8 @@ use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
+use self::settings::ExtractedBloomSettings;
+
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
@@ -104,7 +106,7 @@ impl ViewNode for BloomNode {
         &'static BloomTexture,
         &'static BloomBindGroups,
         &'static DynamicUniformIndex<BloomUniforms>,
-        &'static BloomSettings,
+        &'static ExtractedBloomSettings,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
@@ -328,7 +330,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera), With<ExtractedBloomSettings>>,
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {
@@ -458,7 +460,7 @@ fn prepare_bloom_bind_groups(
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
 /// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-fn compute_blend_factor(bloom_settings: &BloomSettings, mip: f32, max_mip: f32) -> f32 {
+fn compute_blend_factor(bloom_settings: &ExtractedBloomSettings, mip: f32, max_mip: f32) -> f32 {
     let mut lf_boost = (1.0
         - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))
         * bloom_settings.low_frequency_boost;

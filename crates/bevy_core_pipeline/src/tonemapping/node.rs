@@ -48,7 +48,7 @@ impl ViewNode for TonemappingNode {
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();
 
-        if !target.is_hdr() {
+        if !target.is_unclamped() {
             return Ok(());
         }
 

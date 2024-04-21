@@ -16,8 +16,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
 
@@ -247,11 +246,7 @@ fn prepare_cas_pipelines(
             &sharpening_pipeline,
             CASPipelineKey {
                 denoise: cas_settings.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.target_format.into(),
             },
         );
 

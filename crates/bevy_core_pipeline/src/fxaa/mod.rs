@@ -17,8 +17,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::default;
@@ -215,11 +214,7 @@ pub fn prepare_fxaa_pipelines(
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.target_format.into(),
             },
         );
 
