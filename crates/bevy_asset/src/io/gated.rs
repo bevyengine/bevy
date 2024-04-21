@@ -1,6 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use bevy_utils::HashMap;
-use crossbeam_channel::{Receiver, Sender};
+use concurrent_queue::ConcurrentQueue;
 use parking_lot::RwLock;
 use std::{path::Path, sync::Arc};
 
@@ -10,7 +10,7 @@ use std::{path::Path, sync::Arc};
 /// This is built primarily for unit tests.
 pub struct GatedReader<R: AssetReader> {
     reader: R,
-    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, ConcurrentQueue<()>>>>,
 }
 
 impl<R: AssetReader + Clone> Clone for GatedReader<R> {
@@ -24,7 +24,7 @@ impl<R: AssetReader + Clone> Clone for GatedReader<R> {
 
 /// Opens path "gates" for a [`GatedReader`].
 pub struct GateOpener {
-    gates: Arc<RwLock<HashMap<Box<Path>, (Sender<()>, Receiver<()>)>>>,
+    gates: Arc<RwLock<HashMap<Box<Path>, ConcurrentQueue<()>>>>,
 }
 
 impl GateOpener {
@@ -34,8 +34,8 @@ impl GateOpener {
         let mut gates = self.gates.write();
         let gates = gates
             .entry_ref(path.as_ref())
-            .or_insert_with(crossbeam_channel::unbounded);
-        gates.0.send(()).unwrap();
+            .or_insert_with(ConcurrentQueue::unbounded);
+        gates.push(()).unwrap();
     }
 }
 
@@ -56,14 +56,13 @@ impl<R: AssetReader> GatedReader<R> {
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        let receiver = {
+        {
             let mut gates = self.gates.write();
             let gates = gates
                 .entry_ref(path.as_ref())
-                .or_insert_with(crossbeam_channel::unbounded);
-            gates.1.clone()
-        };
-        receiver.recv().unwrap();
+                .or_insert_with(ConcurrentQueue::unbounded);
+            gates.pop().unwrap();
+        }
         let result = self.reader.read(path).await?;
         Ok(result)
     }

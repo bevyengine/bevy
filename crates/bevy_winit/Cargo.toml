@@ -48,8 +48,6 @@ winit = { version = "0.29", default-features = false, features = [
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
-crossbeam-channel = "0.5"
-
 
 [lints]
 workspace = true

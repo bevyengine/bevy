@@ -5,6 +5,7 @@ use crate::{
 use bevy_ecs::system::Resource;
 use bevy_utils::tracing::{error, warn};
 use bevy_utils::{CowArc, Duration, HashMap};
+use concurrent_queue::ConcurrentQueue;
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 
@@ -117,7 +118,7 @@ pub struct AssetSourceBuilder {
     pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
@@ -127,7 +128,7 @@ pub struct AssetSourceBuilder {
         Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
@@ -161,8 +162,9 @@ impl AssetSourceBuilder {
         };
 
         if watch {
-            let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w| w(sender)) {
+            let receiver = Arc::new(ConcurrentQueue::unbounded());
+            let sender = receiver.clone();
+            match self.watcher.as_mut().and_then(|w| w(sender.clone())) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
@@ -176,7 +178,8 @@ impl AssetSourceBuilder {
         }
 
         if watch_processed {
-            let (sender, receiver) = crossbeam_channel::unbounded();
+            let receiver = Arc::new(ConcurrentQueue::unbounded());
+            let sender = receiver.clone();
             match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
@@ -213,7 +216,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -243,7 +246,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -364,8 +367,8 @@ pub struct AssetSource {
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
-    event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
-    processed_event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
+    event_receiver: Option<Arc<ConcurrentQueue<AssetSourceEvent>>>,
+    processed_event_receiver: Option<Arc<ConcurrentQueue<AssetSourceEvent>>>,
 }
 
 impl AssetSource {
@@ -416,15 +419,13 @@ impl AssetSource {
 
     /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn event_receiver(&self) -> Option<&Arc<ConcurrentQueue<AssetSourceEvent>>> {
         self.event_receiver.as_ref()
     }
 
     /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn processed_event_receiver(
-        &self,
-    ) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn processed_event_receiver(&self) -> Option<&Arc<ConcurrentQueue<AssetSourceEvent>>> {
         self.processed_event_receiver.as_ref()
     }
 
@@ -484,10 +485,9 @@ impl AssetSource {
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
-    ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
-           + Send
-           + Sync {
-        move |sender: crossbeam_channel::Sender<AssetSourceEvent>| {
+    ) -> impl FnMut(Arc<ConcurrentQueue<AssetSourceEvent>>) -> Option<Box<dyn AssetWatcher>> + Send + Sync
+    {
+        move |sender: Arc<ConcurrentQueue<AssetSourceEvent>>| {
             #[cfg(all(
                 feature = "file_watcher",
                 not(target_arch = "wasm32"),

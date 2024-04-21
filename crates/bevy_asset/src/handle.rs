@@ -5,7 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::get_short_name;
-use crossbeam_channel::{Receiver, Sender};
+use concurrent_queue::ConcurrentQueue;
 use std::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -19,8 +19,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AssetHandleProvider {
     pub(crate) allocator: Arc<AssetIndexAllocator>,
-    pub(crate) drop_sender: Sender<DropEvent>,
-    pub(crate) drop_receiver: Receiver<DropEvent>,
+    pub(crate) drop_queue: Arc<ConcurrentQueue<DropEvent>>,
     pub(crate) type_id: TypeId,
 }
 
@@ -32,12 +31,10 @@ pub(crate) struct DropEvent {
 
 impl AssetHandleProvider {
     pub(crate) fn new(type_id: TypeId, allocator: Arc<AssetIndexAllocator>) -> Self {
-        let (drop_sender, drop_receiver) = crossbeam_channel::unbounded();
         Self {
             type_id,
             allocator,
-            drop_sender,
-            drop_receiver,
+            drop_queue: Arc::new(ConcurrentQueue::unbounded()),
         }
     }
 
@@ -57,7 +54,7 @@ impl AssetHandleProvider {
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             id: id.untyped(self.type_id),
-            drop_sender: self.drop_sender.clone(),
+            drop: self.drop_queue.clone(),
             meta_transform,
             path,
             asset_server_managed,
@@ -91,12 +88,12 @@ pub struct StrongHandle {
     /// 1. configuration tied to the lifetime of a specific asset load
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
-    pub(crate) drop_sender: Sender<DropEvent>,
+    pub(crate) drop: Arc<ConcurrentQueue<DropEvent>>,
 }
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        let _ = self.drop_sender.send(DropEvent {
+        let _ = self.drop.push(DropEvent {
             id: self.id.internal(),
             asset_server_managed: self.asset_server_managed,
         });
@@ -109,7 +106,7 @@ impl std::fmt::Debug for StrongHandle {
             .field("id", &self.id)
             .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
-            .field("drop_sender", &self.drop_sender)
+            .field("drop_sender", &self.drop)
             .finish()
     }
 }
