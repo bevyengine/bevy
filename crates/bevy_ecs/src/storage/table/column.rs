@@ -37,7 +37,7 @@ impl ThinColumn {
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
     /// - `last_element_index` != `row.as_usize()`
-    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
         last_element_index: usize,
@@ -56,7 +56,7 @@ impl ThinColumn {
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
-    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -70,12 +70,12 @@ impl ThinColumn {
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
     }
 
-    /// Swap-remove and forget the removed element (caller's responsibility to drop)
+    /// Swap-remove and forget the removed element.
     ///
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
-    /// - _update the `len`_ to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -91,10 +91,10 @@ impl ThinColumn {
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
-    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     ///
     /// # Safety
     /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
+    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
@@ -111,7 +111,7 @@ impl ThinColumn {
 
     /// Writes component data to the column at the given row.
     /// Assumes the slot is uninitialized, drop is not called.
-    /// To overwrite existing initialized value, use `replace` instead.
+    /// To overwrite existing initialized value, use [`Self::replace`] instead.
     ///
     /// # Safety
     /// - `row.as_usize()` < `len`
@@ -178,6 +178,8 @@ impl ThinColumn {
             .initialize_unchecked(dst_row.as_usize(), changed_tick);
     }
 
+    /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
+    ///
     /// # Safety
     /// `len` is the actual length of this column
     #[inline]
@@ -198,8 +200,11 @@ impl ThinColumn {
         }
     }
 
+    /// Clear all the components from this column.
+    ///
     /// # Safety
-    /// `len` must match the actual length of the column
+    /// - `len` must match the actual length of the column
+    /// The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
@@ -219,11 +224,11 @@ impl ThinColumn {
         self.data.drop(cap, len);
     }
 
-    /// Drops the last component in the [`ThinColumn`].
+    /// Drops the last component in this column.
     ///
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element
-    /// - the data stored in `self` will never be used again
+    /// - the data stored in `last_element_index` will never be used unless properly initialized again.
     pub unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         std::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         std::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));

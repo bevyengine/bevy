@@ -174,6 +174,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
+    /// - This [`BlobArray`] mustn't be used after calling this method.
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         if cap != 0 && !self.is_zst() {
             self.clear_elements(len);
@@ -186,7 +187,9 @@ impl BlobArray {
     /// Drops the last element in this [`BlobArray`].
     ///
     /// # Safety
-    //
+    // - `last_element_index` must correspond to the last element in the array.
+    // - After this method is called, the last element must not be used
+    // unless [`Self::initialize_unchecked`] is called to set the value of the last element.
     pub unsafe fn drop_last_element(&mut self, last_element_index: usize) {
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
