@@ -173,6 +173,7 @@ impl Ellipse {
         ];
 
         // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
+        // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
         // We only use the terms up to `i == 20` for this approximation
         let h = ((a - b) / (a + b)).powi(2);
 
