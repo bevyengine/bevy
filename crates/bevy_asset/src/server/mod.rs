@@ -317,7 +317,11 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         acquires: H,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), acquires)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            acquires,
+        )
     }
 
     fn load_with_meta_transform<'a, A: Asset, H: Send + Sync + 'static>(
