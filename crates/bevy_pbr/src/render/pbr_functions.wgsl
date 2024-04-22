@@ -241,7 +241,25 @@ fn apply_pbr_lighting(
                 && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
         }
-        let transmitted_light_contrib = lighting::point_light(diffuse_transmissive_lobe_world_position.xyz, light_id, 1.0, 1.0, -in.N, -in.V, vec3<f32>(0.0), vec3<f32>(0.0), vec2<f32>(0.1), 0.0, 0.0, diffuse_transmissive_color);
+        let transmitted_light_contrib = lighting::point_light(
+            diffuse_transmissive_lobe_world_position.xyz,
+            light_id,
+            1.0,
+            1.0,
+            -in.N,
+            -in.V,
+            vec3<f32>(0.0),
+            vec3<f32>(0.0),
+            vec2<f32>(0.1),
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+            0.0,
+            vec3<f32>(0.0),
+            vec3<f32>(0.0),
+            0.0,
+            0.0,
+#endif
+            diffuse_transmissive_color
+        );
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
