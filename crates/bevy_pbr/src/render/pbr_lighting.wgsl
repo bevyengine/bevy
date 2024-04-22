@@ -40,8 +40,49 @@
 //
 // The above integration needs to be approximated.
 
-// Calculations for both diffuse and specular lights.
+// Input to a lighting function (`point_light`, `spot_light`,
+// `directional_light`).
 struct LightingInput {
+    // The diffuse color of the material.
+    diffuse_color: vec3<f32>,
+
+    // The normal vector ⋅ the view vector.
+    NdotV: f32,
+    // The world-space position.
+    P: vec3<f32>,
+    // The normal vector.
+    N: vec3<f32>,
+    // The view vector.
+    V: vec3<f32>,
+    // The reflected vector.
+    R: vec3<f32>,
+
+    // The perceptual roughness of the material.
+    perceptual_roughness: f32,
+    // The roughness of the material.
+    roughness: f32,
+    // Specular reflectance at the normal incidence angle.
+    Fo: vec3<f32>,
+    f_ab: vec2<f32>,
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    // The normal vector ⋅ the view vector for the clearcoat layer.
+    clearcoat_NdotV: f32,
+    // The normal vector for the clearcoat layer.
+    clearcoat_N: vec3<f32>,
+    // The reflected vector for the clearcoat layer.
+    clearcoat_R: vec3<f32>,
+    // The strength of the clearcoat layer.
+    clearcoat: f32,
+    // The perceptual roughness of the clearcoat layer.
+    clearcoat_perceptual_roughness: f32,
+    // The roughness of the clearcoat layer.
+    clearcoat_roughness: f32,
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+}
+
+// Values derived from the `LightingInput` for both diffuse and specular lights.
+struct DerivedLightingInput {
     // The half-vector between L, the incident light vector, and V, the view
     // vector.
     H: vec3<f32>,
@@ -51,14 +92,6 @@ struct LightingInput {
     NdotH: f32,
     // The incident light vector ⋅ the half-vector.
     LdotH: f32,
-}
-
-// Calculations for specular lights.
-struct SpecularInput {
-    // Calculations common to both diffuse and specular lights.
-    lighting_input: LightingInput,
-    // The calculated intensity of the specular light.
-    intensity: f32,
 }
 
 // distanceAttenuation is simply the square falloff of light intensity
@@ -135,8 +168,8 @@ fn fresnel(f0: vec3<f32>, LoH: f32) -> vec3<f32> {
 // https://google.github.io/filament/Filament.html#materialsystem/specularbrdf
 
 // N, V, and L must all be normalized.
-fn calculate_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> LightingInput {
-    var input: LightingInput;
+fn derive_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> DerivedLightingInput {
+    var input: DerivedLightingInput;
     var H: vec3<f32> = normalize(L + V);
     input.H = H;
     input.NdotL = saturate(dot(N, L));
@@ -145,16 +178,15 @@ fn calculate_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> Lightin
     return input;
 }
 
-fn specular_input_for_point_light(
+// Returns L in the `xyz` components and the specular intensity in the `w` component.
+fn compute_specular_values_for_point_light(
     N: vec3<f32>,
     V: vec3<f32>,
     R: vec3<f32>,
     light_to_frag: vec3<f32>,
     light_position_radius: f32,
     roughness: f32
-) -> SpecularInput {
-    var input: SpecularInput;
-
+) -> vec4<f32> {
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
     let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
@@ -163,11 +195,10 @@ fn specular_input_for_point_light(
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
     let a = roughness;
     let normalizationFactor = a / saturate(a + (light_position_radius * 0.5 * LspecLengthInverse));
-    input.intensity = normalizationFactor * normalizationFactor;
+    let intensity = normalizationFactor * normalizationFactor;
 
     let L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
-    input.lighting_input = calculate_lighting_input(N, V, L);
-    return input;
+    return vec4(L, intensity);
 }
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
@@ -175,19 +206,22 @@ fn specular_input_for_point_light(
 fn specular(
     f0: vec3<f32>,
     roughness: f32,
-    h: vec3<f32>,
+    derived_input: ptr<function, DerivedLightingInput>,
+    specular_intensity: f32,
     NoV: f32,
-    NoL: f32,
-    NoH: f32,
-    LoH: f32,
-    specularIntensity: f32,
     f_ab: vec2<f32>
 ) -> vec3<f32> {
+    // Unpack.
+    let h = (*derived_input).H;
+    let NoL = (*derived_input).NdotL;
+    let NoH = (*derived_input).NdotH;
+    let LoH = (*derived_input).LdotH;
+
     let D = D_GGX(roughness, NoH, h);
     let V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     let F = fresnel(f0, LoH);
 
-    var Fr = (specularIntensity * D * V) * F;
+    var Fr = (specular_intensity * D * V) * F;
 
     // Multiscattering approximation: https://google.github.io/filament/Filament.html#listing_energycompensationimpl
     Fr *= 1.0 + f0 * (1.0 / f_ab.x - 1.0);
@@ -203,11 +237,14 @@ fn specular(
 fn specular_clearcoat(
     clearcoat: f32,
     roughness: f32,
-    H: vec3<f32>,
-    NdotH: f32,
-    LdotH: f32,
+    derived_input: ptr<function, DerivedLightingInput>,
     specular_intensity: f32,
 ) -> vec2<f32> {
+    // Unpack.
+    let H = (*derived_input).H;
+    let NdotH = (*derived_input).NdotH;
+    let LdotH = (*derived_input).LdotH;
+
     // Calculate distribution.
     let Dc = D_GGX(roughness, NdotH, H);
     // Calculate visibility.
@@ -269,33 +306,26 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
-fn point_light(
-    world_position: vec3<f32>,
-    light_id: u32,
-    roughness: f32,
-    NdotV: f32,
-    N: vec3<f32>,
-    V: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
-    f_ab: vec2<f32>,
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    clearcoat_NdotV: f32,
-    clearcoat_N: vec3<f32>,
-    clearcoat_R: vec3<f32>,
-    clearcoat: f32,
-    clearcoat_roughness: f32,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-    diffuseColor: vec3<f32>
-) -> vec3<f32> {
+fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+    // Unpack.
+    let diffuse_color = (*input).diffuse_color; 
+    let NdotV = (*input).NdotV;
+    let P = (*input).P;
+    let N = (*input).N;
+    let V = (*input).V;
+    let R = (*input).R;
+    let roughness = (*input).roughness;
+    let F0 = (*input).Fo;
+    let f_ab = (*input).f_ab;
+
     let light = &view_bindings::point_lights.data[light_id];
-    let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
+    let light_to_frag = (*light).position_radius.xyz - P;
     let distance_square = dot(light_to_frag, light_to_frag);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
     // Bottom layer
 
-    let specular_input = specular_input_for_point_light(
+    let specular_L_intensity = compute_specular_values_for_point_light(
         N,
         V,
         R,
@@ -303,42 +333,38 @@ fn point_light(
         (*light).position_radius.w,
         roughness
     );
+    var specular_derived_input = derive_lighting_input(N, V, specular_L_intensity.xyz);
 
-    let specular_light = specular(
-        F0,
-        roughness,
-        specular_input.lighting_input.H,
-        NdotV,
-        specular_input.lighting_input.NdotL,
-        specular_input.lighting_input.NdotH,
-        specular_input.lighting_input.LdotH,
-        specular_input.intensity,
-        f_ab
-    );
+    let specular_intensity = specular_L_intensity.w;
+    let specular_light =
+        specular(F0, roughness, &specular_derived_input, specular_intensity, NdotV, f_ab);
 
     // Clearcoat
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
+    let clearcoat_N = (*input).clearcoat_N;
+
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
-    let clearcoat_input = specular_input_for_point_light(
+    let clearcoat_specular_L_intensity = compute_specular_values_for_point_light(
         clearcoat_N,
         V,
-        clearcoat_R,
+        (*input).clearcoat_R,
         light_to_frag,
         (*light).position_radius.w,
-        clearcoat_roughness
+        (*input).clearcoat_roughness
     );
+    var clearcoat_specular_derived_input =
+        derive_lighting_input(clearcoat_N, V, clearcoat_specular_L_intensity.xyz);
 
     // Calculate the specular light.
+    let clearcoat_specular_intensity = clearcoat_specular_L_intensity.w;
     let Fc_Frc = specular_clearcoat(
-        clearcoat,
-        clearcoat_roughness,
-        clearcoat_input.lighting_input.H,
-        clearcoat_input.lighting_input.NdotH,
-        clearcoat_input.lighting_input.LdotH,
-        clearcoat_input.intensity
+        (*input).clearcoat,
+        (*input).clearcoat_roughness,
+        &clearcoat_specular_derived_input,
+        clearcoat_specular_intensity
     );
     let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
     let Frc = Fc_Frc.g;             // Clearcoat light.
@@ -347,8 +373,9 @@ fn point_light(
     // Diffuse.
     // Comes after specular since its N⋅L is used in the lighting equation.
     let L = normalize(light_to_frag);
-    let diffuse_input = calculate_lighting_input(N, V, L);
-    let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, diffuse_input.NdotL, diffuse_input.LdotH);
+    let diffuse_input = derive_lighting_input(N, V, L);
+    let diffuse = diffuse_color *
+        Fd_Burley(roughness, NdotV, diffuse_input.NdotL, diffuse_input.LdotH);
 
     // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
     // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
@@ -377,45 +404,12 @@ fn point_light(
         (rangeAttenuation * diffuse_input.NdotL);
 }
 
-fn spot_light(
-    world_position: vec3<f32>,
-    light_id: u32,
-    roughness: f32,
-    NdotV: f32,
-    N: vec3<f32>,
-    V: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
-    f_ab: vec2<f32>,
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    clearcoat_NdotV: f32,
-    clearcoat_N: vec3<f32>,
-    clearcoat_R: vec3<f32>,
-    clearcoat: f32,
-    clearcoat_roughness: f32,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-    diffuseColor: vec3<f32>
-) -> vec3<f32> {
+fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(
-        world_position,
-        light_id,
-        roughness,
-        NdotV,
-        N,
-        V,
-        R,
-        F0,
-        f_ab,
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-        clearcoat_NdotV,
-        clearcoat_N,
-        clearcoat_R,
-        clearcoat,
-        clearcoat_roughness,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-        diffuseColor
-    );
+    let point_light = point_light(light_id, input);
+
+    // Unpack.
+    let P = (*input).P;
 
     let light = &view_bindings::point_lights.data[light_id];
 
@@ -425,7 +419,7 @@ fn spot_light(
     if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
         spot_dir.y = -spot_dir.y;
     }
-    let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
+    let light_to_frag = (*light).position_radius.xyz - P.xyz;
 
     // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
     // spot_scale and spot_offset have been precomputed
@@ -437,54 +431,38 @@ fn spot_light(
     return point_light * spot_attenuation;
 }
 
-fn directional_light(
-    light_id: u32,
-    roughness: f32,
-    NdotV: f32,
-    normal: vec3<f32>,
-    view: vec3<f32>,
-    F0: vec3<f32>,
-    f_ab: vec2<f32>,
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    clearcoat_NdotV: f32,
-    clearcoat_N: vec3<f32>,
-    clearcoat: f32,
-    clearcoat_roughness: f32,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-    diffuseColor: vec3<f32>
-) -> vec3<f32> {
+fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+    // Unpack.
+    let diffuse_color = (*input).diffuse_color;
+    let NdotV = (*input).NdotV;
+    let N = (*input).N;
+    let V = (*input).V;
+    let R = (*input).R;
+    let roughness = (*input).roughness;
+    let F0 = (*input).Fo;
+    let f_ab = (*input).f_ab;
+
     let light = &view_bindings::lights.directional_lights[light_id];
 
     let incident_light = (*light).direction_to_light.xyz;
-    let input = calculate_lighting_input(normal, view, incident_light);
+    var derived_input = derive_lighting_input(N, V, incident_light);
 
-    let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, input.NdotL, input.LdotH);
-    let specular_light = specular(
-        F0,
-        roughness,
-        input.H,
-        NdotV,
-        input.NdotL,
-        input.NdotH,
-        input.LdotH,
-        1.0,
-        f_ab
-    );
+    let diffuse = diffuse_color *
+        Fd_Burley(roughness, NdotV, derived_input.NdotL, derived_input.LdotH);
+
+    let specular_light = specular(F0, roughness, &derived_input, 1.0, NdotV, f_ab);
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
+    let clearcoat_N = (*input).clearcoat_N;
+    let clearcoat = (*input).clearcoat;
+    let clearcoat_roughness = (*input).clearcoat_roughness;
+
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
-    let clearcoat_input = calculate_lighting_input(clearcoat_N, view, incident_light);
+    var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, incident_light);
 
-    let Fc_Frc = specular_clearcoat(
-        clearcoat,
-        clearcoat_roughness,
-        clearcoat_input.H,
-        clearcoat_input.NdotH,
-        clearcoat_input.LdotH,
-        1.0
-    );
+    let Fc_Frc = specular_clearcoat(clearcoat, clearcoat_roughness, &derived_clearcoat_input, 1.0);
     let inv_Fc = 1.0 - Fc_Frc.r;
     let Frc = Fc_Frc.g;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
@@ -494,10 +472,10 @@ fn directional_light(
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color = (diffuse + specular_light * inv_Fc) * inv_Fc * input.NdotL +
-        Frc * clearcoat_input.NdotL;
+    color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL +
+        Frc * derived_clearcoat_input.NdotL;
 #else   // STANDARD_MATERIAL_CLEARCOAT
-    color = (diffuse + specular_light) * input.NdotL;
+    color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     return color * (*light).color.rgb;

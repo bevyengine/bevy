@@ -3,7 +3,7 @@
 #import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::lighting::F_Schlick_vec
+#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput}
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -111,24 +111,27 @@ fn compute_radiances(
 #endif  // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn environment_map_light(
-    perceptual_roughness: f32,
-    roughness: f32,
-    diffuse_color: vec3<f32>,
-    NdotV: f32,
-    f_ab: vec2<f32>,
-    N: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    clearcoat_NdotV: f32,
-    clearcoat_N: vec3<f32>,
-    clearcoat_R: vec3<f32>,
-    clearcoat: f32,
-    clearcoat_perceptual_roughness: f32,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-    world_position: vec3<f32>,
+    input: ptr<function, LightingInput>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
+    // Unpack.
+    let perceptual_roughness = (*input).perceptual_roughness;
+    let roughness = (*input).roughness;
+    let diffuse_color = (*input).diffuse_color;
+    let NdotV = (*input).NdotV;
+    let f_ab = (*input).f_ab;
+    let N = (*input).N;
+    let R = (*input).R;
+    let F0 = (*input).Fo;
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    let clearcoat_NdotV = (*input).clearcoat_NdotV;
+    let clearcoat_N = (*input).clearcoat_N;
+    let clearcoat_R = (*input).clearcoat_R;
+    let clearcoat = (*input).clearcoat;
+    let clearcoat_perceptual_roughness = (*input).clearcoat_perceptual_roughness;
+#endif
+    let world_position = (*input).P;
+
     var out: EnvironmentMapLight;
 
     let radiances = compute_radiances(
