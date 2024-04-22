@@ -752,7 +752,7 @@ pub mod common_conditions {
         move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => *current_state == state,
             None => {
-                warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
+                warn_once!("No state matching the type for {} exists - did you forget to `init_state` when initializing the app?", {
                         let debug_state = format!("{state:?}");
                         let result = debug_state
                             .split("::")
