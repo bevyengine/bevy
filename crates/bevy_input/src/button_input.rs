@@ -41,9 +41,9 @@ use bevy_ecs::schedule::State;
 ///
 /// | **[`ButtonInput`] operations**          | **Computational complexity** |
 /// |-----------------------------------|------------------------------------|
-/// | [`ButtonInput::any_just_pressed`]       | *O*(m*n)                     |
-/// | [`ButtonInput::any_just_released`]      | *O*(m*n)                     |
-/// | [`ButtonInput::any_pressed`]            | *O*(m*n)                     |
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m)~                      |
+/// | [`ButtonInput::any_just_released`]      | *O*(m)~                      |
+/// | [`ButtonInput::any_pressed`]            | *O*(m)~                      |
 /// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
 /// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
 /// | [`ButtonInput::get_pressed`]            | *O*(n)                       |

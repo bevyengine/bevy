@@ -33,7 +33,6 @@ pub mod prelude {
 }
 
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::TransformSystem;
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -122,13 +121,7 @@ impl Plugin for SpritePlugin {
                         check_visibility::<WithMesh2d>,
                         check_visibility::<WithSprite>,
                     )
-                        .in_set(VisibilitySystems::CheckVisibility)
-                        .after(VisibilitySystems::CalculateBounds)
-                        .after(VisibilitySystems::UpdateOrthographicFrusta)
-                        .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                        .after(VisibilitySystems::UpdateProjectionFrusta)
-                        .after(VisibilitySystems::VisibilityPropagate)
-                        .after(TransformSystem::TransformPropagate),
+                        .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 
