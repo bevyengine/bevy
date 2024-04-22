@@ -60,17 +60,47 @@ impl Default for UiSurface {
 impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
     /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
+    pub fn upsert_node(
+        &mut self,
+        layout_context: &LayoutContext,
+        entity: Entity,
+        style: &Style,
+        mut new_node_context: Option<NodeMeasure>,
+    ) {
         let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
+
+        let mut added = false;
+        let taffy_node_id = *self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
+            if let Some(measure) = new_node_context.take() {
+                taffy
+                    .new_leaf_with_context(
+                        convert::from_style(layout_context, style, true),
+                        measure,
+                    )
+                    .unwrap()
+            } else {
+                taffy
+                    .new_leaf(convert::from_style(layout_context, style, false))
+                    .unwrap()
+            }
         });
 
         if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
+            let has_measure = if new_node_context.is_some() {
+                taffy
+                    .set_node_context(taffy_node_id, new_node_context)
+                    .unwrap();
+                true
+            } else {
+                taffy.get_node_context(taffy_node_id).is_some()
+            };
+
+            taffy
+                .set_style(
+                    taffy_node_id,
+                    convert::from_style(layout_context, style, has_measure),
+                )
                 .unwrap();
         }
     }

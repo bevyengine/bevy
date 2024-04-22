@@ -63,7 +63,11 @@ impl UiRect {
     }
 }
 
-pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
+pub fn from_style(
+    context: &LayoutContext,
+    style: &Style,
+    ignore_padding_and_border: bool,
+) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
         overflow: taffy::Point {
@@ -89,12 +93,24 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         margin: style
             .margin
             .map_to_taffy_rect(|m| m.into_length_percentage_auto(context)),
-        padding: style
-            .padding
-            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
-        border: style
-            .border
-            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
+        // Ignore padding for leaf nodes as it isn't implemented in the rendering engine.
+        // TODO: Implement rendering of padding for leaf nodes
+        padding: if ignore_padding_and_border {
+            taffy::Rect::zero()
+        } else {
+            style
+                .padding
+                .map_to_taffy_rect(|m| m.into_length_percentage(context))
+        },
+        // Ignore border for leaf nodes as it isn't implemented in the rendering engine.
+        // TODO: Implement rendering of border for leaf nodes
+        border: if ignore_padding_and_border {
+            taffy::Rect::zero()
+        } else {
+            style
+                .border
+                .map_to_taffy_rect(|m| m.into_length_percentage(context))
+        },
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
         flex_basis: style.flex_basis.into_dimension(context),
@@ -505,7 +521,7 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
-        let taffy_style = from_style(&viewport_values, &bevy_style);
+        let taffy_style = from_style(&viewport_values, &bevy_style, false);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
         assert_eq!(

@@ -81,8 +81,15 @@ pub fn ui_layout_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>, Option<&TargetCamera>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
+    mut style_query: Query<
+        (
+            Entity,
+            Ref<Style>,
+            Option<&mut ContentSize>,
+            Option<&TargetCamera>,
+        ),
+        With<Node>,
+    >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
@@ -151,8 +158,13 @@ pub fn ui_layout_system(
         }
     }
 
-    // Resize all nodes
-    for (entity, style, target_camera) in style_query.iter() {
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_components.removed_content_sizes.read() {
+        ui_surface.try_remove_node_context(entity);
+    }
+
+    // Sync Style and ContentSize to Taffy for all nodes
+    for (entity, style, content_size, target_camera) in style_query.iter_mut() {
         if let Some(camera) =
             camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
         {
@@ -160,28 +172,23 @@ pub fn ui_layout_system(
                 || !scale_factor_events.is_empty()
                 || ui_scale.is_changed()
                 || style.is_changed()
+                || content_size
+                    .as_ref()
+                    .map(|c| c.measure.is_some())
+                    .unwrap_or(false)
             {
                 let layout_context = LayoutContext::new(
                     camera.scale_factor,
                     [camera.size.x as f32, camera.size.y as f32].into(),
                 );
-                ui_surface.upsert_node(entity, &style, &layout_context);
+                let measure = content_size.and_then(|mut c| c.measure.take());
+                ui_surface.upsert_node(&layout_context, entity, &style, measure);
             }
         } else {
             ui_surface.upsert_node(entity, &Style::default(), &LayoutContext::default());
         }
     }
     scale_factor_events.clear();
-
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_components.removed_content_sizes.read() {
-        ui_surface.try_remove_node_context(entity);
-    }
-    for (entity, mut content_size) in &mut measure_query {
-        if let Some(measure) = content_size.measure.take() {
-            ui_surface.update_node_context(entity, measure);
-        }
-    }
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_components.removed_nodes.read());
