@@ -293,7 +293,7 @@ pub(crate) fn changed_windows(
 
         #[cfg(target_arch = "wasm32")]
         if window.canvas != cache.window.canvas {
-            window.canvas = cache.window.canvas.clone();
+            window.canvas.clone_from(&cache.window.canvas);
             warn!(
                 "Bevy currently doesn't support modifying the window canvas after initialization."
             );

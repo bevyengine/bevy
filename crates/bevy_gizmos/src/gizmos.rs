@@ -55,21 +55,26 @@ pub struct GizmosFetchState<T: GizmoConfigGroup> {
 unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
     type State = GizmosFetchState<T>;
     type Item<'w, 's> = Gizmos<'w, 's, T>;
+
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GizmosFetchState {
             state: GizmosState::<T>::init_state(world, system_meta),
         }
     }
-    fn new_archetype(
+
+    unsafe fn new_archetype(
         state: &mut Self::State,
         archetype: &bevy_ecs::archetype::Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        GizmosState::<T>::new_archetype(&mut state.state, archetype, system_meta);
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        unsafe { GizmosState::<T>::new_archetype(&mut state.state, archetype, system_meta) };
     }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         GizmosState::<T>::apply(&mut state.state, system_meta, world);
     }
+
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,

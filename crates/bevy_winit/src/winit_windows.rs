@@ -191,7 +191,7 @@ impl WinitWindows {
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
                 let canvas = document
-                    .query_selector(&selector)
+                    .query_selector(selector)
                     .expect("Cannot query for canvas element.");
                 if let Some(canvas) = canvas {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
