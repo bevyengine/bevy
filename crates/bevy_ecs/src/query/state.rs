@@ -17,8 +17,8 @@ use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QuerySingleError, ROQueryItem,
+    NopWorldQuery, PointQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter,
+    QueryManyIter, QuerySingleError, ROQueryItem,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -893,6 +893,63 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    #[inline]
+    pub fn as_point_query<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> PointQuery<'w, 's, D::ReadOnly, F> {
+        self.update_archetypes(world);
+        let last_run = world.last_change_tick();
+        let this_run = world.read_change_tick();
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly().as_point_query_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    #[inline]
+    pub fn as_point_query_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> PointQuery<'w, 's, D, F> {
+        self.update_archetypes(world);
+        let last_run = world.last_change_tick();
+        let this_run = world.change_tick();
+        // SAFETY: query has unique world access
+        unsafe {
+            self.as_point_query_unchecked_manual(world.as_unsafe_world_cell(), last_run, this_run)
+        }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient when dealing with many entities of the same archetype.
+    ///
+    /// This is always guaranteed to run in `O(1)` time.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
+    #[inline]
+    pub(crate) unsafe fn as_point_query_unchecked_manual<'w, 's>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> PointQuery<'w, 's, D, F> {
+        PointQuery::new(world, self, last_run, this_run)
     }
 
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and

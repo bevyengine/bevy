@@ -2,9 +2,9 @@ use crate::{
     component::Tick,
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData,
+        BatchingStrategy, PointQuery, QueryCombinationIter, QueryData, QueryEntityError,
+        QueryFilter, QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState,
+        ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -813,6 +813,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// This way is simple but somewhat less efficient, use [`as_point_query`](Self::as_point_query) could be more efficient if you're doing repeated fetches over a large set of entities.
+    ///
     /// This is always guaranteed to run in `O(1)` time.
     ///
     /// # Example
@@ -853,6 +855,114 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 self.last_run,
                 self.this_run,
             )
+        }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct SelectedCharacters { entity: Vec<Entity> }
+    /// # #[derive(Component)]
+    /// # struct Character { name: String }
+    /// #
+    /// fn print_selected_character_name_system(
+    ///        query: Query<&Character>,
+    ///        selection: Res<SelectedCharacters>
+    /// )
+    /// {
+    ///     let mut getter = query.as_point_query();
+    ///     for &entity in selection.entity.iter() {
+    ///        if let Ok(selected_character) = query.get(entity) {
+    ///             println!("{}", selected_character.name);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`as_point_queryr_mut`](Self::as_point_queryr_mut) is used for mutable query.
+    #[inline]
+    pub fn as_point_query(&self) -> PointQuery<'w, 's, D::ReadOnly, F> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.as_readonly().as_point_query_unchecked_manual(
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get_mut`] when dealing with many entities of the same archetype.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PoisonedCharacter { character_ids: Vec<Entity> }
+    /// # #[derive(Component)]
+    /// # struct Health(u32);
+    /// #
+    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    ///     let mut getter = query.as_point_query_mut();
+    ///     
+    ///     for &entity in poisoned.character_ids.iter() {
+    ///         if let Ok(mut health) = getter.get(entity) {
+    ///             health.0 -=1;
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(poison_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`as_point_query`](Self::as_point_query) is used for read-only query.
+    #[inline]
+    pub fn as_point_query_mut(&mut self) -> PointQuery<'w, 's, D, F> {
+        // SAFETY:
+        // - `&self` ensures there is no mutable access to any components accessible to this query.
+        // - `self.world` matches `self.state`.
+        unsafe {
+            self.state
+                .as_point_query_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
+    }
+
+    /// Return a [`PointQuery`] to get the query item for the given [`Entity`].
+    ///
+    /// It caches the last fetch, which could potentially be more efficient than using [`Query::get`] when dealing with many entities of the same archetype.
+    ///
+    /// # Safety
+    ///
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`as_point_query`](Self::as_point_query) is used for read-only query.
+    #[inline]
+    pub unsafe fn as_point_query_unchecked(&self) -> PointQuery<'w, 's, D, F> {
+        // SAFETY:
+        // - `&self` ensures there is no mutable access to any components accessible to this query.
+        // - `self.world` matches `self.state`.
+        unsafe {
+            self.state
+                .as_point_query_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -932,6 +1042,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// This way is simple but somewhat less efficient, use [`as_point_query_mut`](Self::as_point_query_mut) could be more efficient if you're doing repeated fetches over a large set of entities.
     ///
     /// This is always guaranteed to run in `O(1)` time.
     ///
