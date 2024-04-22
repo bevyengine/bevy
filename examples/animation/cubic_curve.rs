@@ -2,12 +2,12 @@
 
 use bevy::{
     color::palettes::css::{ORANGE, SILVER, WHITE},
-    math::vec3,
+    math::{cubic_splines::NoGuarantees, vec3},
     prelude::*,
 };
 
 #[derive(Component)]
-struct Curve(CubicCurve<Vec3>);
+struct Curve(CubicCurve<NoGuarantees, Vec3>);
 
 fn main() {
     App::new()
