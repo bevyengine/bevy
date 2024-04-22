@@ -1,6 +1,5 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::clone;
 use std::{fmt::Debug, iter::once, marker::PhantomData};
 
 use crate::{Vec2, VectorSpace};
