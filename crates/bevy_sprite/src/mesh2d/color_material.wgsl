@@ -12,7 +12,11 @@ struct ColorMaterial {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
 };
-const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
+const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32              = 1u;
+const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
+const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
+const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
+const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
 
 @group(2) @binding(0) var<uniform> material: ColorMaterial;
 @group(2) @binding(1) var texture: texture_2d<f32>;
