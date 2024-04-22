@@ -180,7 +180,7 @@ where
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
         unsafe {
-            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta)
+            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
         };
     }
 
