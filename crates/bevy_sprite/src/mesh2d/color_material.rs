@@ -57,7 +57,7 @@ impl Default for ColorMaterial {
         ColorMaterial {
             color: Color::WHITE,
             texture: None,
-            // TODO should probably default to AlphaMask?
+            // TODO should probably default to AlphaMask once supported?
             alpha_mode: AlphaMode2d::Blend,
         }
     }
@@ -90,22 +90,10 @@ impl From<Handle<Image>> for ColorMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
-        const TEXTURE                    = 1 << 0;
-        // Bitmask reserving bits for the [`AlphaMode2d`]
-        // Values are just sequential values bitshifted into
-        // the bitmask, and can range from 0 to 3.
-        const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS;
-        const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;
-        const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;
-        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const TEXTURE       = 1 << 0;
+        const NONE          = 0;
+        const UNINITIALIZED = 0xFFFF;
     }
-}
-
-impl ColorMaterialFlags {
-    const ALPHA_MODE_MASK_BITS: u32 = 0b11;
-    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 /// The GPU representation of the uniform data of a [`ColorMaterial`].
@@ -120,13 +108,6 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         let mut flags = ColorMaterialFlags::NONE;
         if self.texture.is_some() {
             flags |= ColorMaterialFlags::TEXTURE;
-        }
-
-        if self.alpha_mode == AlphaMode2d::Blend {
-            flags |= ColorMaterialFlags::ALPHA_MODE_BLEND;
-        } else {
-            // TODO alpha mask 2d
-            flags |= ColorMaterialFlags::ALPHA_MODE_OPAQUE;
         }
 
         ColorMaterialUniform {

@@ -19,7 +19,6 @@ impl ViewNode for MainOpaquePass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static SortedRenderPhase<Opaque2d>,
-        // &'static SortedRenderPhase<AlphaMask2d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -28,13 +27,7 @@ impl ViewNode for MainOpaquePass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (
-            camera,
-            opaque_phase,
-            // alpha_mask_phase,
-            target,
-            depth,
-        ): QueryItem<'w, Self::ViewQuery>,
+        (camera, opaque_phase, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let diagnostics = render_context.diagnostic_recorder();
