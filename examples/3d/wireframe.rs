@@ -54,13 +54,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::from(BLUE)),
-        ..default()
-    });
-
     // Red cube: Never renders a wireframe
     commands.spawn((
         PbrBundle {
@@ -92,6 +85,20 @@ fn setup(
         WireframeColor { color: LIME.into() },
     ));
 
+    // plane
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+            material: materials.add(Color::from(BLUE)),
+            ..default()
+        },
+        // You can insert this component without the `Wireframe` component
+        // to override the color of the global wireframe for this mesh
+        WireframeColor {
+            color: BLACK.into(),
+        },
+    ));
+
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(2.0, 4.0, 2.0),
@@ -119,7 +126,7 @@ fn setup(
 fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
-    mut wireframe_colors: Query<&mut WireframeColor>,
+    mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
     mut text: Query<&mut Text>,
 ) {
     text.single_mut().sections[0].value = format!(

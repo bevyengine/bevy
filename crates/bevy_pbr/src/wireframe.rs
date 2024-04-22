@@ -64,6 +64,10 @@ pub struct Wireframe;
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///
 /// This overrides the [`WireframeConfig::default_color`].
+//
+// TODO: consider caching materials based on this color.
+// This could blow up in size if people use random colored wireframes for each mesh.
+// It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct WireframeColor {
@@ -155,19 +159,12 @@ fn apply_wireframe_material(
         }
     }
 
-    let mut wireframes_to_spawn = vec![];
-    for (e, wireframe_color) in &wireframes {
-        let material = if let Some(wireframe_color) = wireframe_color {
-            materials.add(WireframeMaterial {
-                color: wireframe_color.color.into(),
-            })
-        } else {
-            // If there's no color specified we can use the global material since it's already set to use the default_color
-            global_material.handle.clone()
-        };
-        wireframes_to_spawn.push((e, material));
+    let mut material_to_spawn = vec![];
+    for (e, maybe_color) in &wireframes {
+        let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+        material_to_spawn.push((e, material));
     }
-    commands.insert_or_spawn_batch(wireframes_to_spawn);
+    commands.insert_or_spawn_batch(material_to_spawn);
 }
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
@@ -176,22 +173,43 @@ type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWirefr
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
-    meshes_without_material: Query<Entity, (WireframeFilter, Without<Handle<WireframeMaterial>>)>,
+    meshes_without_material: Query<
+        (Entity, Option<&WireframeColor>),
+        (WireframeFilter, Without<Handle<WireframeMaterial>>),
+    >,
     meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
     global_material: Res<GlobalWireframeMaterial>,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for e in &meshes_without_material {
+        for (e, maybe_color) in &meshes_without_material {
+            let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, global_material.handle.clone()));
+            material_to_spawn.push((e, material));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands.entity(e).remove::<Handle<WireframeMaterial>>();
         }
+    }
+}
+
+/// Gets an handle to a wireframe material with a fallback on the default material
+fn get_wireframe_material(
+    maybe_color: Option<&WireframeColor>,
+    wireframe_materials: &mut Assets<WireframeMaterial>,
+    global_material: &GlobalWireframeMaterial,
+) -> Handle<WireframeMaterial> {
+    if let Some(wireframe_color) = maybe_color {
+        wireframe_materials.add(WireframeMaterial {
+            color: wireframe_color.color.into(),
+        })
+    } else {
+        // If there's no color specified we can use the global material since it's already set to use the default_color
+        global_material.handle.clone()
     }
 }
 
@@ -213,7 +231,9 @@ impl Material for WireframeMaterial {
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
+            depth_stencil.bias.slope_scale = 1.0;
+        }
         Ok(())
     }
 }
