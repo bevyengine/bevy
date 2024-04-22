@@ -70,7 +70,7 @@ fn setup(
 }
 
 /// Generates a sphere.
-fn create_sphere_mesh(mut meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
+fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
     // We're going to use normal maps, so make sure we've generated tangents, or
     // else the normal maps won't show up.
 
@@ -213,7 +213,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
-            text: light_mode.create_help_text(&asset_server),
+            text: light_mode.create_help_text(asset_server),
             ..TextBundle::default()
         }
         .with_style(Style {
