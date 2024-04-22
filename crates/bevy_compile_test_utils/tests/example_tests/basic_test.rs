@@ -1,4 +1,4 @@
-// Compiler wanring also need to be annotated. Here we don't
+// Compiler warnings also need to be annotated. We don't
 // want to annotate all the unused variables so let's instruct
 // the compiler to ignore them.
 #![allow(unused_variables)]

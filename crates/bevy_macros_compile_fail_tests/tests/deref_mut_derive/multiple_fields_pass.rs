@@ -4,7 +4,7 @@ use bevy_derive::DerefMut;
 use std::ops::Deref;
 
 #[derive(DerefMut)]
-// The first field is never read but we want it there to check if the derive skips it.
+// The first field is never read, but we want it there to check that the derive skips it.
 struct TupleStruct(#[allow(dead_code)] usize, #[deref] String);
 
 impl Deref for TupleStruct {

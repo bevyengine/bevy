@@ -6,7 +6,6 @@ use bevy_derive::DerefMut;
 
 #[derive(DerefMut)]
 //~^ ERROR: trait bound
-
 struct TupleStruct(usize, #[deref] String);
 //~^ ERROR: trait bound
 

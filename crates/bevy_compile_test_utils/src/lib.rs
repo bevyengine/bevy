@@ -14,13 +14,13 @@ use ui_test::{
     Args, Config, OutputConflictHandling,
 };
 
-/// Use this instead of hand roling configs.
+/// Use this instead of hand rolling configs.
 ///
 /// `root_dir` is the directory your tests are contained in. Needs to be a path from crate root.
 fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
     let mut config = Config {
         dependencies_crate_manifest_path: Some("Cargo.toml".into()),
-        bless_command: Some("`cargo test` with the BLESS environment variable set".to_string()),
+        bless_command: Some("`cargo test` with the BLESS environment variable set to any non empty value".to_string()),
         output_conflict_handling: if env::var_os("BLESS").is_some() {
             OutputConflictHandling::Bless
         } else {
@@ -43,10 +43,9 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
     config.stderr_filter(r"\/home\/[\pL\pN_@#\-\. ]+", "$HOME");
     // Paths in .stderr seem to always be normalized to use /. Handle both anyway.
     config.stderr_filter(
-        r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+",
+        r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+", // NOTE: [\pL\pN_@#\-\. ] is a poor attempt at handling usernames
         "$HOME",
     );
-    //                                                     ~~~~~~~~~~~~~~~~~ -> An attempt at handling usernames
 
     config
 }
