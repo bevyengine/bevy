@@ -166,7 +166,7 @@ where
 {
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
-  
+
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GizmosFetchState {
             state: GizmosState::<Config, Clear>::init_state(world, system_meta),
@@ -179,7 +179,9 @@ where
         system_meta: &mut SystemMeta,
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe { GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta) };
+        unsafe {
+            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta)
+        };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
