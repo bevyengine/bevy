@@ -15,6 +15,14 @@
     utils::E,
 }
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else ifdef PREPASS_PIPELINE
+#import bevy_pbr::prepass_io::VertexOutput
+#else
+#import bevy_pbr::forward_io::VertexOutput
+#endif
+
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
@@ -46,6 +54,23 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
 #endif
 
     return color;
+}
+
+// Samples a texture using the appropriate biasing metric for the type of mesh
+// in use (mesh vs. meshlet).
+fn sample_texture(
+    texture: texture_2d<f32>,
+    samp: sampler,
+    uv: vec2<f32>,
+    ddx_uv: vec2<f32>,
+    ddy_uv: vec2<f32>,
+    mip_bias: f32
+) -> vec4<f32> {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    return textureSampleGrad(texture, samp, uv, ddx_uv, ddy_uv);
+#else
+    return textureSampleBias(texture, samp, uv, mip_bias);
+#endif
 }
 
 fn prepare_world_normal(
