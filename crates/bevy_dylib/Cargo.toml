@@ -1,6 +1,6 @@
 [package]
 name = "bevy_dylib"
-version = "0.13.0"
+version = "0.13.2"
 edition = "2021"
 description = "Force the Bevy Engine to be dynamically linked for faster linking"
 homepage = "https://bevyengine.org"
@@ -12,7 +12,7 @@ keywords = ["bevy"]
 crate-type = ["dylib"]
 
 [dependencies]
-bevy_internal = { path = "../bevy_internal", version = "0.13.0", default-features = false }
+bevy_internal = { path = "../bevy_internal", version = "0.13.2", default-features = false }
 
 [lints]
 workspace = true

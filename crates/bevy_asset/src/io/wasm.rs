@@ -5,9 +5,24 @@ use bevy_log::error;
 use bevy_utils::BoxedFuture;
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
+
+/// Represents the global object in the JavaScript context
+#[wasm_bindgen]
+extern "C" {
+    /// The [Global](https://developer.mozilla.org/en-US/docs/Glossary/Global_object) object.
+    type Global;
+
+    /// The [window](https://developer.mozilla.org/en-US/docs/Web/API/Window) global object.
+    #[wasm_bindgen(method, getter, js_name = Window)]
+    fn window(this: &Global) -> JsValue;
+
+    /// The [WorkerGlobalScope](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope) global object.
+    #[wasm_bindgen(method, getter, js_name = WorkerGlobalScope)]
+    fn worker(this: &Global) -> JsValue;
+}
 
 /// Reader implementation for loading assets via HTTP in WASM.
 pub struct HttpWasmAssetReader {
@@ -38,8 +53,22 @@ fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Err
 
 impl HttpWasmAssetReader {
     async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        let window = web_sys::window().unwrap();
-        let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
+        // The JS global scope includes a self-reference via a specialising name, which can be used to determine the type of global context available.
+        let global: Global = js_sys::global().unchecked_into();
+        let promise = if !global.window().is_undefined() {
+            let window: web_sys::Window = global.unchecked_into();
+            window.fetch_with_str(path.to_str().unwrap())
+        } else if !global.worker().is_undefined() {
+            let worker: web_sys::WorkerGlobalScope = global.unchecked_into();
+            worker.fetch_with_str(path.to_str().unwrap())
+        } else {
+            let error = std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Unsupported JavaScript global context",
+            );
+            return Err(AssetReaderError::Io(error.into()));
+        };
+        let resp_value = JsFuture::from(promise)
             .await
             .map_err(js_value_to_err("fetch path"))?;
         let resp = resp_value

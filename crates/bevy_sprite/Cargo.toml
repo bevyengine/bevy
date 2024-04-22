@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sprite"
-version = "0.13.0"
+version = "0.13.2"
 edition = "2021"
 description = "Provides sprite functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -14,19 +14,19 @@ webgpu = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.13.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.13.0" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.13.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.13.0" }
-bevy_log = { path = "../bevy_log", version = "0.13.0" }
-bevy_math = { path = "../bevy_math", version = "0.13.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.13.0", features = [
+bevy_app = { path = "../bevy_app", version = "0.13.2" }
+bevy_asset = { path = "../bevy_asset", version = "0.13.2" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.13.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.13.2" }
+bevy_log = { path = "../bevy_log", version = "0.13.2" }
+bevy_math = { path = "../bevy_math", version = "0.13.2" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.13.2", features = [
   "bevy",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.13.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.13.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.13.0" }
+bevy_render = { path = "../bevy_render", version = "0.13.2" }
+bevy_transform = { path = "../bevy_transform", version = "0.13.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.13.2" }
+bevy_derive = { path = "../bevy_derive", version = "0.13.2" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }

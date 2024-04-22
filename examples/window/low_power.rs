@@ -20,8 +20,10 @@ fn main() {
         // You can also customize update behavior with the fields of [`WinitConfig`]
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
-            unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                wait: Duration::from_millis(10),
+            unfocused_mode: bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_millis(100),
+                react_to_window_events: true,
+                react_to_device_events: false,
             },
         })
         .insert_resource(ExampleMode::Game)

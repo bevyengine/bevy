@@ -31,7 +31,7 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<F: QueryFilter + 'static>(
+pub fn create_windows<F: QueryFilter + 'static>(
     event_loop: &EventLoopWindowTarget<crate::UserEvent>,
     (
         mut commands,

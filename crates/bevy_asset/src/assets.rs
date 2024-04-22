@@ -503,10 +503,8 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
-            assets.queued_events.push(AssetEvent::Unused { id });
-
             if drop_event.asset_server_managed {
-                let untyped_id = drop_event.id.untyped(TypeId::of::<A>());
+                let untyped_id = id.untyped();
                 if let Some(info) = infos.get(untyped_id) {
                     if info.load_state == LoadState::Loading
                         || info.load_state == LoadState::NotLoaded
@@ -515,12 +513,16 @@ impl<A: Asset> Assets<A> {
                         continue;
                     }
                 }
-                if infos.process_handle_drop(untyped_id) {
-                    assets.remove_dropped(id);
+
+                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
+                if !infos.process_handle_drop(untyped_id) {
+                    // a new handle has been created, or the asset doesn't exist
+                    continue;
                 }
-            } else {
-                assets.remove_dropped(id);
             }
+
+            assets.queued_events.push(AssetEvent::Unused { id });
+            assets.remove_dropped(id);
         }
 
         // TODO: this is _extremely_ inefficient find a better fix
