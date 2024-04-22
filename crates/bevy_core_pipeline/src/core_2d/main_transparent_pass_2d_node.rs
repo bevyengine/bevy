@@ -3,67 +3,50 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::SortedRenderPhase,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-pub struct MainPass2dNode {
-    query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static SortedRenderPhase<Transparent2d>,
-            &'static ViewTarget,
-        ),
-        With<ExtractedView>,
-    >,
-}
+#[derive(Default)]
+pub struct MainTransparentPass2dNode {}
 
-impl FromWorld for MainPass2dNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: world.query_filtered(),
-        }
-    }
-}
+impl ViewNode for MainTransparentPass2dNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static SortedRenderPhase<Transparent2d>,
+        &'static ViewTarget,
+    );
 
-impl Node for MainPass2dNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        (camera, transparent_phase, target): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        let Ok((camera, transparent_phase, target)) = self.query.get_manual(world, view_entity)
-        else {
-            // no target
-            return Ok(());
-        };
 
-        {
+        if !transparent_phase.items.is_empty() {
             #[cfg(feature = "trace")]
-            let _main_pass_2d = info_span!("main_pass_2d").entered();
+            let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
 
             let diagnostics = render_context.diagnostic_recorder();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_pass_2d"),
+                label: Some("main_transparent_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment())],
+                // TODO 2d depth buffer
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
 
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_pass_2d");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
