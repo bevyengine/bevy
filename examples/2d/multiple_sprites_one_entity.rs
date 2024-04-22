@@ -35,10 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // the entity is composed of four tiles arranged in a square
     commands
-        .spawn((
-            ParentSprite,
-            SpatialBundle::default(),
-        ))
+        .spawn((ParentSprite, SpatialBundle::default()))
         .with_children(|parent| {
             const SIZE: f32 = 16.0; // tiles are 16x16...
             const SCALE: f32 = 5.0; // ...scale up to 80x80
