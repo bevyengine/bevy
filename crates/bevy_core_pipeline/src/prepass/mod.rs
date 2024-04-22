@@ -30,6 +30,7 @@ pub mod node;
 use std::ops::Range;
 
 use bevy_asset::AssetId;
+use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -60,6 +61,10 @@ pub struct MotionVectorPrepass;
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
 pub struct DeferredPrepass;
+
+/// TODO: Docs
+#[derive(Resource, Default, Deref)]
+pub struct AnimatedMeshMotionVectors(pub bool);
 
 /// Textures that are written to by the prepass.
 ///

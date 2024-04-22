@@ -1,6 +1,6 @@
 use std::{iter, mem};
 
-use bevy_derive::{Deref, DerefMut};
+use bevy_core_pipeline::prepass::AnimatedMeshMotionVectors;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -18,18 +18,23 @@ pub struct MorphIndex {
     pub(super) index: u32,
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(EntityHashMap<MorphIndex>);
+#[derive(Default, Resource)]
+pub struct MorphIndices {
+    pub indices: EntityHashMap<MorphIndex>,
+    pub previous_indices: EntityHashMap<MorphIndex>,
+}
 
 #[derive(Resource)]
 pub struct MorphUniform {
     pub buffer: BufferVec<f32>,
+    pub previous_buffer: Option<BufferVec<f32>>,
 }
 
 impl Default for MorphUniform {
     fn default() -> Self {
         Self {
             buffer: BufferVec::new(BufferUsages::UNIFORM),
+            previous_buffer: None,
         }
     }
 }
@@ -83,9 +88,26 @@ pub fn extract_morphs(
     mut morph_indices: ResMut<MorphIndices>,
     mut uniform: ResMut<MorphUniform>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    motion_vector_support: Res<AnimatedMeshMotionVectors>,
 ) {
-    morph_indices.clear();
-    uniform.buffer.clear();
+    if **motion_vector_support {
+        let t = &mut uniform.previous_buffer;
+        if let Some(buffer) = t {
+            buffer.clear();
+        }
+
+        uniform.previous_buffer = Some(uniform.buffer);
+        uniform.buffer = t.unwrap_or(BufferVec::new(BufferUsages::UNIFORM));
+
+        mem::swap(
+            &mut morph_indices.indices,
+            &mut morph_indices.previous_indices,
+        );
+    } else {
+        uniform.buffer.clear();
+    }
+
+    morph_indices.indices.clear();
 
     for (entity, view_visibility, morph_weights) in &query {
         if !view_visibility.get() {
@@ -98,7 +120,7 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        morph_indices.insert(entity, MorphIndex { index });
+        morph_indices.indices.insert(entity, MorphIndex { index });
     }
 }
 

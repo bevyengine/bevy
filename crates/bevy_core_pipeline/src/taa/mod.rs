@@ -2,7 +2,7 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    prepass::{AnimatedMeshMotionVectors, DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -54,6 +54,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
+            .insert_resource(AnimatedMeshMotionVectors(true))
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,

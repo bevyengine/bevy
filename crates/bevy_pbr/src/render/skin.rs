@@ -1,5 +1,7 @@
+use std::mem;
+
 use bevy_asset::Assets;
-use bevy_derive::{Deref, DerefMut};
+use bevy_core_pipeline::prepass::AnimatedMeshMotionVectors;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
@@ -30,19 +32,24 @@ impl SkinIndex {
     }
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<SkinIndex>);
+#[derive(Default, Resource)]
+pub struct SkinIndices {
+    pub indices: EntityHashMap<SkinIndex>,
+    pub previous_indices: EntityHashMap<SkinIndex>,
+}
 
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
     pub buffer: BufferVec<Mat4>,
+    pub previous_buffer: Option<BufferVec<Mat4>>,
 }
 
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
             buffer: BufferVec::new(BufferUsages::UNIFORM),
+            previous_buffer: None,
         }
     }
 }
@@ -93,9 +100,27 @@ pub fn extract_skins(
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
+    motion_vector_support: Res<AnimatedMeshMotionVectors>,
 ) {
-    uniform.buffer.clear();
-    skin_indices.clear();
+    if **motion_vector_support {
+        let t = &mut uniform.previous_buffer;
+        if let Some(buffer) = t {
+            buffer.clear();
+        }
+
+        uniform.previous_buffer = Some(uniform.buffer);
+        uniform.buffer = t.unwrap_or(BufferVec::new(BufferUsages::UNIFORM));
+
+        mem::swap(
+            &mut skin_indices.indices,
+            &mut skin_indices.previous_indices,
+        );
+    } else {
+        uniform.buffer.clear();
+    }
+
+    skin_indices.indices.clear();
+
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
@@ -130,7 +155,7 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.insert(entity, SkinIndex::new(start));
+        skin_indices.indices.insert(entity, SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings

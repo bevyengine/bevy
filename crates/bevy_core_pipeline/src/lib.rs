@@ -54,13 +54,16 @@ use crate::{
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     msaa_writeback::MsaaWritebackPlugin,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        AnimatedMeshMotionVectors, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
+        NormalPrepass,
+    },
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
-use bevy_render::prelude::Shader;
+use bevy_render::{prelude::Shader, RenderApp};
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -90,5 +93,11 @@ impl Plugin for CorePipelinePlugin {
                 FxaaPlugin,
                 CASPlugin,
             ));
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<AnimatedMeshMotionVectors>();
+        }
     }
 }

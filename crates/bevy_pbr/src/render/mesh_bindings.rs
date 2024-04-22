@@ -116,19 +116,34 @@ pub struct MeshLayouts {
     ///
     /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
     pub morphed_skinned: BindGroupLayout,
+
+    /// TODO
+    pub skinned_motion_vectors: Option<BindGroupLayout>,
+
+    /// TODO
+    pub morphed_motion_vectors: Option<BindGroupLayout>,
+
+    /// TODO
+    pub morphed_skinned_motion_vectors: Option<BindGroupLayout>,
 }
 
 impl MeshLayouts {
     /// Prepare the layouts used by the default bevy [`Mesh`].
     ///
     /// [`Mesh`]: bevy_render::prelude::Mesh
-    pub fn new(render_device: &RenderDevice) -> Self {
+    pub fn new(render_device: &RenderDevice, motion_vector_support: bool) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),
             lightmapped: Self::lightmapped_layout(render_device),
             skinned: Self::skinned_layout(render_device),
             morphed: Self::morphed_layout(render_device),
             morphed_skinned: Self::morphed_skinned_layout(render_device),
+            skinned_motion_vectors: motion_vector_support
+                .then(|| Self::skinned_motion_vectors_layout(render_device)),
+            morphed_motion_vectors: motion_vector_support
+                .then(|| Self::morphed_motion_vectors_layout(render_device)),
+            morphed_skinned_motion_vectors: motion_vector_support
+                .then(|| Self::morphed_skinned_motion_vectors_layout(render_device)),
         }
     }
 
@@ -140,6 +155,19 @@ impl MeshLayouts {
             &BindGroupLayoutEntries::single(
                 ShaderStages::empty(),
                 layout_entry::model(render_device),
+            ),
+        )
+    }
+    fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "lightmapped_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (4, layout_entry::lightmaps_texture_view()),
+                    (5, layout_entry::lightmaps_sampler()),
+                ),
             ),
         )
     }
@@ -182,15 +210,45 @@ impl MeshLayouts {
             ),
         )
     }
-    fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
+    fn skinned_motion_vectors_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
-            "lightmapped_mesh_layout",
+            "skinned_motion_vectors_mesh_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
-                    (4, layout_entry::lightmaps_texture_view()),
-                    (5, layout_entry::lightmaps_sampler()),
+                    (1, layout_entry::skinning()),
+                    (6, layout_entry::skinning()),
+                ),
+            ),
+        )
+    }
+    fn morphed_motion_vectors_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "morphed_motion_vectors_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                    (7, layout_entry::weights()),
+                ),
+            ),
+        )
+    }
+    fn morphed_skinned_motion_vectors_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "morphed_skinned_motion_vectors_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    (1, layout_entry::skinning()),
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                    (6, layout_entry::skinning()),
+                    (7, layout_entry::weights()),
                 ),
             ),
         )
@@ -266,6 +324,65 @@ impl MeshLayouts {
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
+            ],
+        )
+    }
+    pub fn skinned_motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        skin: &Buffer,
+        previous_skin: &Buffer,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "skinned_motion_vectors_mesh_bind_group",
+            self.skinned_motion_vectors.as_ref().unwrap(),
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(1, skin),
+                entry::skinning(6, previous_skin),
+            ],
+        )
+    }
+    pub fn morphed_motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        weights: &Buffer,
+        targets: &TextureView,
+        previous_weights: &Buffer,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "morphed_motion_vectors_mesh_bind_group",
+            self.morphed_motion_vectors.as_ref().unwrap(),
+            &[
+                entry::model(0, model.clone()),
+                entry::weights(2, weights),
+                entry::targets(3, targets),
+                entry::weights(7, previous_weights),
+            ],
+        )
+    }
+    pub fn morphed_skinned_motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        skin: &Buffer,
+        weights: &Buffer,
+        targets: &TextureView,
+        previous_skin: &Buffer,
+        previous_weights: &Buffer,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "morphed_skinned_motion_vectors_mesh_bind_group",
+            self.morphed_skinned_motion_vectors.as_ref().unwrap(),
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(1, skin),
+                entry::weights(2, weights),
+                entry::targets(3, targets),
+                entry::skinning(6, previous_skin),
+                entry::weights(7, previous_weights),
             ],
         )
     }
