@@ -183,8 +183,6 @@ struct WinitAppRunnerState {
     redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
-    /// The time the last update started.
-    last_update: Instant,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 }
@@ -206,7 +204,6 @@ impl Default for WinitAppRunnerState {
             device_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
-            last_update: Instant::now(),
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
@@ -403,7 +400,7 @@ fn handle_winit_event(
 
             let (config, windows) = focused_windows_state.get(&app.world);
             let focused = windows.iter().any(|(_, window)| window.focused);
-            let next_update_mode = config.update_mode(focused);
+            let mut next_update_mode = config.update_mode(focused);
 
             // Trigger next redraw if we're changing the update mode
             if next_update_mode != runner_state.update_mode {
@@ -422,7 +419,11 @@ fn handle_winit_event(
                         || runner_state.window_event_received
                         || runner_state.device_event_received
                 }
-                UpdateMode::Reactive { react_to_window_events, react_to_device_events, .. } => {
+                UpdateMode::Reactive {
+                    react_to_window_events,
+                    react_to_device_events,
+                    ..
+                } => {
                     runner_state.wait_elapsed
                         || runner_state.redraw_requested
                         || (runner_state.window_event_received && react_to_window_events)
@@ -495,6 +496,8 @@ fn handle_winit_event(
                 }
             }
 
+            let last_update_started = Instant::now();
+
             if should_update {
                 if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
                     let (_, winit_windows, _, _) =
@@ -502,9 +505,14 @@ fn handle_winit_event(
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
                     }
-                } else if runner_state.wait_elapsed {
+                } else {
                     // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(runner_state, app);
+
+                    // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+                    let (config, windows) = focused_windows_state.get(&app.world);
+                    let focused = windows.iter().any(|(_, window)| window.focused);
+                    next_update_mode = config.update_mode(focused);
                 }
             }
 
@@ -540,15 +548,8 @@ fn handle_winit_event(
                     }
                 }
                 UpdateMode::Reactive { wait, .. } => {
-                    if let Some(next) = runner_state.last_update.checked_add(wait) {
-                        runner_state.last_update = Instant::now();
-
-                        if let ControlFlow::WaitUntil(current) = event_loop.control_flow() {
-                            if runner_state.wait_elapsed && current != next {
-                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                            }
-
-                        } else {
+                    if let Some(next) = last_update_started.checked_add(wait) {
+                        if runner_state.wait_elapsed {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
                     }
@@ -558,9 +559,9 @@ fn handle_winit_event(
         Event::NewEvents(cause) => {
             runner_state.wait_elapsed = match cause {
                 StartCause::WaitCancelled {
-                    requested_resume: Some(resume),
+                    requested_resume: Some(_),
                     ..
-                } => resume >= Instant::now(),
+                } => false,
                 _ => true,
             };
         }
