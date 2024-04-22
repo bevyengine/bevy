@@ -25,7 +25,7 @@ pub struct InfiniteIntervalError;
 
 impl Interval {
     /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
-    /// but cannot be empty; invalid parameters will result in an error.
+    /// but cannot be empty and neither endpoint can be NaN; invalid parameters will result in an error.
     pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
         if start >= end || start.is_nan() || end.is_nan() {
             Err(InvalidIntervalError)
