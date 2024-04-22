@@ -2891,14 +2891,13 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = []
+required-features = ["pbr_multi_layer_material_textures"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
 description = "Demonstrates the clearcoat PBR feature"
 category = "3D Rendering"
 wasm = false
-required-features = ["pbr_multi_layer_material_textures"]
 
 [profile.wasm-release]
 inherits = "release"

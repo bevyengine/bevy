@@ -3,6 +3,7 @@
     mesh_view_bindings::view,
     pbr_types::{STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new},
     pbr_functions as fns,
+    pbr_bindings,
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
@@ -37,19 +38,21 @@ fn fragment(
 
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
+    pbr_input.N = normalize(pbr_input.world_normal);
+
+#ifdef VERTEX_TANGENTS
+    let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
         double_sided,
         is_front,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARD_MATERIAL_NORMAL_MAP
         mesh.world_tangent,
-#endif
-#endif
-        mesh.uv,
+        Nt,
         view.mip_bias,
     );
+#endif
+
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
     return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);
