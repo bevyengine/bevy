@@ -215,45 +215,45 @@ fn apply_pbr_lighting(
 
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
-    lighting_input.diffuse_color = diffuse_color;
-    lighting_input.NdotV = NdotV;
+    lighting_input.base.NdotV = NdotV;
+    lighting_input.base.N = in.N;
+    lighting_input.base.R = R;
+    lighting_input.base.perceptual_roughness = perceptual_roughness;
+    lighting_input.base.roughness = roughness;
     lighting_input.P = in.world_position.xyz;
-    lighting_input.N = in.N;
     lighting_input.V = in.V;
-    lighting_input.R = R;
-    lighting_input.perceptual_roughness = perceptual_roughness;
-    lighting_input.roughness = roughness;
+    lighting_input.diffuse_color = diffuse_color;
     lighting_input.Fo = F0;
     lighting_input.f_ab = f_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    lighting_input.clearcoat_NdotV = clearcoat_NdotV;
-    lighting_input.clearcoat_N = clearcoat_N;
-    lighting_input.clearcoat_R = clearcoat_R;
-    lighting_input.clearcoat = clearcoat;
-    lighting_input.clearcoat_perceptual_roughness = clearcoat_perceptual_roughness;
-    lighting_input.clearcoat_roughness = clearcoat_roughness;
+    lighting_input.clearcoat.NdotV = clearcoat_NdotV;
+    lighting_input.clearcoat.N = clearcoat_N;
+    lighting_input.clearcoat.R = clearcoat_R;
+    lighting_input.clearcoat.perceptual_roughness = clearcoat_perceptual_roughness;
+    lighting_input.clearcoat.roughness = clearcoat_roughness;
+    lighting_input.clearcoat_strength = clearcoat;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // And do the same for transmissive if we need to.
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    var transmissive_light_input: lighting::LightingInput;
-    transmissive_light_input.diffuse_color = diffuse_transmissive_color;
-    transmissive_light_input.NdotV = 1.0;
-    transmissive_light_input.P = diffuse_transmissive_lobe_world_position.xyz;
-    transmissive_light_input.N = -in.N;
-    transmissive_light_input.V = -in.V;
-    transmissive_light_input.R = vec3(0.0);
-    transmissive_light_input.perceptual_roughness = 1.0;
-    transmissive_light_input.roughness = 1.0;
-    transmissive_light_input.Fo = vec3(0.0);
-    transmissive_light_input.f_ab = vec2(0.0);
+    var transmissive_lighting_input: lighting::LightingInput;
+    transmissive_lighting_input.base.NdotV = 1.0;
+    transmissive_lighting_input.base.N = -in.N;
+    transmissive_lighting_input.base.R = vec3(0.0);
+    transmissive_lighting_input.base.perceptual_roughness = 1.0;
+    transmissive_lighting_input.base.roughness = 1.0;
+    transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
+    transmissive_lighting_input.V = -in.V;
+    transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
+    transmissive_lighting_input.Fo = vec3(0.0);
+    transmissive_lighting_input.f_ab = vec2(0.0);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    transmissive_light_input.clearcoat_NdotV = 0.0;
-    transmissive_light_input.clearcoat_N = vec3(0.0);
-    transmissive_light_input.clearcoat_R = vec3(0.0);
-    transmissive_light_input.clearcoat = 0.0;
-    transmissive_light_input.clearcoat_perceptual_roughness = 0.0;
-    transmissive_light_input.clearcoat_roughness = 0.0;
+    transmissive_lighting_input.clearcoat.NdotV = 0.0;
+    transmissive_lighting_input.clearcoat.N = vec3(0.0);
+    transmissive_lighting_input.clearcoat.R = vec3(0.0);
+    transmissive_lighting_input.clearcoat.perceptual_roughness = 0.0;
+    transmissive_lighting_input.clearcoat.roughness = 0.0;
+    transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
@@ -294,7 +294,8 @@ fn apply_pbr_lighting(
             transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
         }
 
-        let transmitted_light_contrib = lighting::point_light(light_id, &transmissive_light_input);
+        let transmitted_light_contrib =
+            lighting::point_light(light_id, &transmissive_lighting_input);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -328,7 +329,8 @@ fn apply_pbr_lighting(
             transmitted_shadow = shadows::fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
         }
 
-        let transmitted_light_contrib = lighting::spot_light(light_id, &transmissive_light_input);
+        let transmitted_light_contrib =
+            lighting::spot_light(light_id, &transmissive_lighting_input);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -372,7 +374,8 @@ fn apply_pbr_lighting(
             transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
         }
 
-        let transmitted_light_contrib = lighting::directional_light(i, &transmissive_light_input);
+        let transmitted_light_contrib =
+            lighting::directional_light(i, &transmissive_lighting_input);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }

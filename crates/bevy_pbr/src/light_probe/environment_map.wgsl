@@ -115,21 +115,21 @@ fn environment_map_light(
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
     // Unpack.
-    let perceptual_roughness = (*input).perceptual_roughness;
-    let roughness = (*input).roughness;
+    let perceptual_roughness = (*input).base.perceptual_roughness;
+    let roughness = (*input).base.roughness;
     let diffuse_color = (*input).diffuse_color;
-    let NdotV = (*input).NdotV;
+    let NdotV = (*input).base.NdotV;
     let f_ab = (*input).f_ab;
-    let N = (*input).N;
-    let R = (*input).R;
+    let N = (*input).base.N;
+    let R = (*input).base.R;
     let F0 = (*input).Fo;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    let clearcoat_NdotV = (*input).clearcoat_NdotV;
-    let clearcoat_N = (*input).clearcoat_N;
-    let clearcoat_R = (*input).clearcoat_R;
-    let clearcoat = (*input).clearcoat;
-    let clearcoat_perceptual_roughness = (*input).clearcoat_perceptual_roughness;
-#endif
+    let clearcoat_NdotV = (*input).clearcoat.NdotV;
+    let clearcoat_N = (*input).clearcoat.N;
+    let clearcoat_R = (*input).clearcoat.R;
+    let clearcoat = (*input).clearcoat_strength;
+    let clearcoat_perceptual_roughness = (*input).clearcoat.perceptual_roughness;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
