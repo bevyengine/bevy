@@ -71,7 +71,8 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    runs-on: macos-latest
+    # Explicity use MacOS 14 to take advantage of M1 chip.
+    runs-on: macos-14
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -229,7 +230,8 @@ jobs:
 
 
   run-examples-macos-metal:
-    runs-on: macos-latest
+    # Explicity use MacOS 14 to take advantage of M1 chip.
+    runs-on: macos-14
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
