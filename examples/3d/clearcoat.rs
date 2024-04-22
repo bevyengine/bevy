@@ -21,7 +21,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::Skybox,
+    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     math::vec3,
     pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
@@ -31,6 +31,9 @@ use bevy::{
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
 
+/// The speed at which the spheres rotate, in radians per second.
+const SPHERE_ROTATION_SPEED: f32 = 0.8;
+
 /// Which type of light we're using: a point light or a directional light.
 #[derive(Clone, Copy, PartialEq, Resource, Default)]
 enum LightMode {
@@ -39,6 +42,10 @@ enum LightMode {
     Directional,
 }
 
+/// Tags the example spheres.
+#[derive(Component)]
+struct ExampleSphere;
+
 /// Entry point.
 pub fn main() {
     App::new()
@@ -46,6 +53,7 @@ pub fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light)
+        .add_systems(Update, animate_spheres)
         .add_systems(Update, (handle_input, update_help_text).chain())
         .run();
 }
@@ -59,7 +67,7 @@ fn setup(
     light_mode: Res<LightMode>,
 ) {
     let sphere = create_sphere_mesh(&mut meshes);
-    spawn_car_paint_sphere(&mut commands, &mut materials, &sphere);
+    spawn_car_paint_sphere(&mut commands, &mut materials, &asset_server, &sphere);
     spawn_coated_glass_bubble_sphere(&mut commands, &mut materials, &sphere);
     spawn_golf_ball(&mut commands, &asset_server);
     spawn_scratched_gold_ball(&mut commands, &mut materials, &asset_server, &sphere);
@@ -85,21 +93,28 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
 fn spawn_car_paint_sphere(
     commands: &mut Commands,
     materials: &mut Assets<StandardMaterial>,
+    asset_server: &AssetServer,
     sphere: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere.clone(),
-        material: materials.add(StandardMaterial {
-            clearcoat: 1.0,
-            clearcoat_perceptual_roughness: 0.1,
-            metallic: 0.9,
-            perceptual_roughness: 0.5,
-            base_color: BLUE.into(),
+    commands
+        .spawn(PbrBundle {
+            mesh: sphere.clone(),
+            material: materials.add(StandardMaterial {
+                clearcoat: 1.0,
+                clearcoat_perceptual_roughness: 0.1,
+                normal_map_texture: Some(asset_server.load_with_settings(
+                    "textures/BlueNoise-Normal.png",
+                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                )),
+                metallic: 0.9,
+                perceptual_roughness: 0.5,
+                base_color: BLUE.into(),
+                ..default()
+            }),
+            transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
-        }),
-        transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-        ..default()
-    });
+        })
+        .insert(ExampleSphere);
 }
 
 /// Spawn a semitransparent object with a clearcoat layer.
@@ -108,20 +123,22 @@ fn spawn_coated_glass_bubble_sphere(
     materials: &mut Assets<StandardMaterial>,
     sphere: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere.clone(),
-        material: materials.add(StandardMaterial {
-            clearcoat: 1.0,
-            clearcoat_perceptual_roughness: 0.1,
-            metallic: 0.5,
-            perceptual_roughness: 0.1,
-            base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
-            alpha_mode: AlphaMode::Blend,
+    commands
+        .spawn(PbrBundle {
+            mesh: sphere.clone(),
+            material: materials.add(StandardMaterial {
+                clearcoat: 1.0,
+                clearcoat_perceptual_roughness: 0.1,
+                metallic: 0.5,
+                perceptual_roughness: 0.1,
+                base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+            transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
-        }),
-        transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-        ..default()
-    });
+        })
+        .insert(ExampleSphere);
 }
 
 /// Spawns an object with both a clearcoat normal map (a scratched varnish) and
@@ -130,11 +147,13 @@ fn spawn_coated_glass_bubble_sphere(
 /// This object is in glTF format, using the `KHR_materials_clearcoat`
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/GolfBall/GolfBall.glb#Scene0"),
-        transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-        ..default()
-    });
+    commands
+        .spawn(SceneBundle {
+            scene: asset_server.load("models/GolfBall/GolfBall.glb#Scene0"),
+            transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+            ..default()
+        })
+        .insert(ExampleSphere);
 }
 
 /// Spawns an object with only a clearcoat normal map (a scratch pattern) and no
@@ -145,23 +164,25 @@ fn spawn_scratched_gold_ball(
     asset_server: &AssetServer,
     sphere: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere.clone(),
-        material: materials.add(StandardMaterial {
-            clearcoat: 1.0,
-            clearcoat_perceptual_roughness: 0.3,
-            clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                "textures/ScratchedGold-Normal.png",
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            )),
-            metallic: 0.9,
-            perceptual_roughness: 0.1,
-            base_color: GOLD.into(),
+    commands
+        .spawn(PbrBundle {
+            mesh: sphere.clone(),
+            material: materials.add(StandardMaterial {
+                clearcoat: 1.0,
+                clearcoat_perceptual_roughness: 0.3,
+                clearcoat_normal_texture: Some(asset_server.load_with_settings(
+                    "textures/ScratchedGold-Normal.png",
+                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                )),
+                metallic: 0.9,
+                perceptual_roughness: 0.1,
+                base_color: GOLD.into(),
+                ..default()
+            }),
+            transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
-        }),
-        transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-        ..default()
-    });
+        })
+        .insert(ExampleSphere);
 }
 
 /// Spawns a light.
@@ -196,6 +217,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 10.0),
+            tonemapping: AcesFitted,
             ..default()
         })
         .insert(Skybox {
@@ -238,6 +260,14 @@ fn animate_light(
             f32::cos(now * 0.6),
         ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
+    }
+}
+
+/// Rotates the spheres.
+fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
+    let now = time.elapsed_seconds();
+    for mut transform in spheres.iter_mut() {
+        transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);
     }
 }
 
