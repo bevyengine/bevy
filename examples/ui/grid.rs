@@ -124,7 +124,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Align content towards the center in the horizontal axis
                         justify_items: JustifyItems::Center,
                         // Add 10px padding
-                        // padding: UiRect::all(Val::Px(10.)),
+                        padding: UiRect::all(Val::Px(10.)),
                         // Add an fr track to take up all the available space at the bottom of the column so that the text nodes
                         // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
@@ -143,10 +143,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 24.0,
                             ..default()
                         },
-                    ).with_style(Style {
-                    padding: UiRect::all(Val::Px(10.)),
-                    ..Default::default()
-                }));
+                    ));
                     builder.spawn(TextBundle::from_section(
                         "A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely.",
                         TextStyle {
@@ -154,10 +151,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 16.0,
                             ..default()
                         },
-                    ).with_style(Style {
-                    padding: UiRect::all(Val::Px(10.)),
-                    ..Default::default()
-                }));
+                    ));
                     builder.spawn(NodeBundle::default());
                 });
 
