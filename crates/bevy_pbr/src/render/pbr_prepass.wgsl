@@ -52,11 +52,25 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
+        // Unpack `ddx_uv` and `ddy_uv` so that we can call `sample_texture`.
+        // If this isn't a meshlet shader, just come up with placeholders.
 #ifdef MESHLET_MESH_MATERIAL_PASS
-        let Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, in.uv, in.ddx_uv, in.ddy_uv).rgb;
+        let ddx_uv = in.ddx_uv;
+        let ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-        let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, in.uv, view.mip_bias).rgb;
+        let ddx_uv = vec2<f32>(0.0);
+        let ddy_uv = vec2<f32>(0.0);
 #endif  // MESHLET_MESH_MATERIAL_PASS
+
+        let Nt = pbr_functions::sample_texture(
+            pbr_bindings::normal_map_texture,
+            pbr_bindings::normal_map_sampler,
+            uv,
+            ddx_uv,
+            ddy_uv,
+            view.mip_bias
+        ).rgb;
+
         normal = pbr_functions::apply_normal_mapping(
             material.flags,
             world_normal,
