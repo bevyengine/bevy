@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             ParentSprite,
-            SpatialBundle::default(), // the parent entity only needs a Transform component, for positioning
+            SpatialBundle::default(),
         ))
         .with_children(|parent| {
             const SIZE: f32 = 16.0; // tiles are 16x16...
