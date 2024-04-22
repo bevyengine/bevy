@@ -1,5 +1,6 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
+use std::clone;
 use std::{fmt::Debug, iter::once, marker::PhantomData};
 
 use crate::{Vec2, VectorSpace};
@@ -1408,7 +1409,7 @@ mod tests {
 }
 
 /// A trait for marker types which express the level of the curves they can provide.
-pub trait Smoothness {}
+pub trait Smoothness: Clone + Copy {}
 
 /// Marker type for curves with no global continuity guarantees.
 #[derive(Clone, Copy, Debug)]
@@ -1521,12 +1522,6 @@ where
     inner: CubicCurve<L, P>,
 }
 
-impl<L: Smoothness, P: VectorSpace> From<CubicCurve<L, P>> for CubicCurveWrapper<L, P> {
-    fn from(value: CubicCurve<L, P>) -> Self {
-        Self { inner: value }
-    }
-}
-
 impl<P: VectorSpace> Curve<C0Data<P>> for CubicCurveWrapper<C0, P> {
     fn domain(&self) -> Interval {
         let len = self.inner.segments.len() as f32;
@@ -1569,27 +1564,45 @@ impl<P: VectorSpace> Curve<C2Data<P>> for CubicCurveWrapper<C2, P> {
     }
 }
 
-impl<P: VectorSpace> ToC0Curve<P> for CubicCurve<C0, P> {
+impl<L, P> ToC0Curve<P> for CubicCurve<L, P>
+where
+    L: AtLeastC0,
+    P: VectorSpace,
+{
     type CurveType = CubicCurveWrapper<C0, P>;
 
     fn to_curve_c0(&self) -> Self::CurveType {
-        self.clone().into()
+        CubicCurveWrapper {
+            inner: self.clone().transmute_smoothness(),
+        }
     }
 }
 
-impl<P: VectorSpace> ToC1Curve<P> for CubicCurve<C1, P> {
+impl<L, P> ToC1Curve<P> for CubicCurve<L, P>
+where
+    L: AtLeastC1,
+    P: VectorSpace,
+{
     type CurveType = CubicCurveWrapper<C1, P>;
 
     fn to_curve_c1(&self) -> Self::CurveType {
-        self.clone().into()
+        CubicCurveWrapper {
+            inner: self.clone().transmute_smoothness(),
+        }
     }
 }
 
-impl<P: VectorSpace> ToC2Curve<P> for CubicCurve<C2, P> {
+impl<L, P> ToC2Curve<P> for CubicCurve<L, P>
+where
+    L: AtLeastC2,
+    P: VectorSpace,
+{
     type CurveType = CubicCurveWrapper<C2, P>;
 
     fn to_curve_c2(&self) -> Self::CurveType {
-        self.clone().into()
+        CubicCurveWrapper {
+            inner: self.clone().transmute_smoothness(),
+        }
     }
 }
 
