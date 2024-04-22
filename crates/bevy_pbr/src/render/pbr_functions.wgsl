@@ -206,7 +206,7 @@ fn apply_pbr_lighting(
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
     let F0 = lighting::F0(in.material.reflectance, metallic, output_color.rgb);
-    let f_ab = lighting::F_AB(perceptual_roughness, NdotV);
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
@@ -224,7 +224,7 @@ fn apply_pbr_lighting(
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
     lighting_input.Fo = F0;
-    lighting_input.f_ab = f_ab;
+    lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.clearcoat.NdotV = clearcoat_NdotV;
     lighting_input.clearcoat.N = clearcoat_N;
@@ -246,7 +246,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.Fo = vec3(0.0);
-    transmissive_lighting_input.f_ab = vec2(0.0);
+    transmissive_lighting_input.F_ab = vec2(0.0);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.clearcoat.NdotV = 0.0;
     transmissive_lighting_input.clearcoat.N = vec3(0.0);
@@ -286,7 +286,7 @@ fn apply_pbr_lighting(
         // roughness = 1.0;
         // NdotV = 1.0;
         // R = vec3<f32>(0.0) // doesn't really matter
-        // f_ab = vec2<f32>(0.1)
+        // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
@@ -321,7 +321,7 @@ fn apply_pbr_lighting(
         // roughness = 1.0;
         // NdotV = 1.0;
         // R = vec3<f32>(0.0) // doesn't really matter
-        // f_ab = vec2<f32>(0.1)
+        // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
@@ -366,7 +366,7 @@ fn apply_pbr_lighting(
         // roughness = 1.0;
         // NdotV = 1.0;
         // R = vec3<f32>(0.0) // doesn't really matter
-        // f_ab = vec2<f32>(0.1)
+        // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
@@ -464,9 +464,9 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.roughness = roughness;
     transmissive_environment_light_input.Fo = vec3<f32>(1.0);
-    transmissive_environment_light_input.f_ab = f_ab;
+    transmissive_environment_light_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    // No clearcoat. (The rest of the clearcoat-related arguments have no meaning.)
+    // No clearcoat. (The rest of the clearcoat-related fields have no meaning.)
     transmissive_environment_light_input.clearcoat = 0.0;
     transmissive_environment_light_input.clearcoat_NdotV = 0.0;
     transmissive_environment_light_input.clearcoat_N = in.N;
