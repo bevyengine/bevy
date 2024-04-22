@@ -193,8 +193,6 @@ struct WinitAppRunnerState {
     redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
-    /// The time the last update started.
-    last_update: Instant,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 }
@@ -216,7 +214,6 @@ impl Default for WinitAppRunnerState {
             device_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
-            last_update: Instant::now(),
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
         }
@@ -467,6 +464,10 @@ fn handle_winit_event(
                 }
             }
 
+            // This is recorded before running app.update(), to run the next cycle after a correct timeout.
+            // If the cycle takes more than the wait timeout, it will be re-executed immediately.
+            let begin_frame_time = Instant::now();
+
             if should_update {
                 if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
                     let winit_windows = app.world().non_send_resource::<WinitWindows>();
@@ -474,7 +475,7 @@ fn handle_winit_event(
                         window.request_redraw();
                     }
                     runner_state.redraw_requested = false;
-                } else if runner_state.wait_elapsed {
+                } else {
                     // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(runner_state, app, winit_events);
                 }
@@ -514,14 +515,9 @@ fn handle_winit_event(
                     }
                 }
                 UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                    if let Some(next) = runner_state.last_update.checked_add(wait) {
-                        runner_state.last_update = Instant::now();
-
-                        if let ControlFlow::WaitUntil(current) = event_loop.control_flow() {
-                            if runner_state.wait_elapsed && current != next {
-                                event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                            }
-                        } else {
+                    // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
+                    if let Some(next) = begin_frame_time.checked_add(wait) {
+                        if runner_state.wait_elapsed {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                         }
                     }
@@ -533,7 +529,11 @@ fn handle_winit_event(
                 StartCause::WaitCancelled {
                     requested_resume: Some(resume),
                     ..
-                } => resume >= Instant::now(),
+                } => {
+                    // If the resume time is not after now, it means that at least the wait timeout
+                    // has elapsed.
+                    resume <= Instant::now()
+                }
                 _ => true,
             };
         }
