@@ -42,7 +42,7 @@ impl StaticTaskPool {
 
     /// Checks if the threads for the task pool have been started.
     pub fn is_initialized(&self) -> bool {
-        !self.threads.lock().unwrap().is_empty()
+        self.thread_num() > 0
     }
 
     /// Initializes the task pool with the configuration in
