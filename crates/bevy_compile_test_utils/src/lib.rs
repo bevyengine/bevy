@@ -4,9 +4,7 @@ use std::{
 };
 
 // Re-export ui_test so all the tests use the same version.
-pub mod ui_test {
-    pub use ui_test::*;
-}
+pub use ui_test;
 
 use ui_test::{
     default_file_filter, default_per_file_config, run_tests_generic,
