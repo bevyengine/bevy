@@ -120,6 +120,8 @@ impl Ellipse {
 
     #[inline(always)]
     /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
+    ///
+    /// The focal length of an ellipse is related to its eccentricity by `eccentricity = focal_length / semi_major`
     pub fn focal_length(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -929,16 +931,16 @@ mod tests {
     #[test]
     fn ellipse_perimeter() {
         let circle = Ellipse::new(1., 1.);
-        assert_eq!(circle.perimeter(), 6.2831855, "incorrect perimeter");
+        assert_relative_eq!(circle.perimeter(), 6.2831855);
 
         let line = Ellipse::new(75_000., 0.5);
-        assert_eq!(line.perimeter(), 300_000., "incorrect perimeter");
+        assert_relative_eq!(line.perimeter(), 300_000.);
 
         let ellipse = Ellipse::new(0.5, 2.);
-        assert_eq!(ellipse.perimeter(), 8.578423, "incorrect perimeter");
+        assert_relative_eq!(ellipse.perimeter(), 8.578423);
 
         let ellipse = Ellipse::new(5., 3.);
-        assert_eq!(ellipse.perimeter(), 25.526999, "incorrect perimeter");
+        assert_relative_eq!(ellipse.perimeter(), 25.526999);
     }
 
     #[test]
