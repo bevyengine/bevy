@@ -453,16 +453,18 @@ pub fn check_visibility<QF>(
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        visible_aabb_query.par_iter_mut().for_each(|query_item| {
-            let (
-                entity,
-                inherited_visibility,
-                mut view_visibility,
-                maybe_entity_mask,
-                maybe_model_aabb,
-                transform,
-                no_frustum_culling,
-            ) = query_item;
+        visible_aabb_query.par_iter_mut().for_each_init(
+            || thread_queues.borrow_local_mut(),
+            |queue, query_item| {
+                let (
+                    entity,
+                    inherited_visibility,
+                    mut view_visibility,
+                    maybe_entity_mask,
+                    maybe_model_aabb,
+                    transform,
+                    no_frustum_culling,
+                ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
                 // ViewVisibility has already been reset in `reset_view_visibility`.
