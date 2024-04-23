@@ -271,7 +271,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
             },
-            // Sprites are alwyas alpha blended so they never need to write to depth.
+            // Sprites are always alpha blended so they never need to write to depth.
             // They just need to read it in case an opaque mesh2d
             // that wrote to depth is present.
             depth_stencil: Some(DepthStencilState {
