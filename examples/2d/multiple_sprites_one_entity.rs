@@ -76,6 +76,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
         });
+
+    // create a minimal UI explaining how to interact with the example
+    commands.spawn(TextBundle {
+        text: Text::from_section(
+            "Use the arrow keys to move the block around the window",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        ),
+        style: Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        ..default()
+    });
 }
 
 fn translate<const X: i8, const Y: i8>(mut parent: Query<&mut Transform, With<ParentSprite>>) {
