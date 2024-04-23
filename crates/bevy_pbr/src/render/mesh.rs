@@ -677,8 +677,10 @@ pub fn extract_meshes_for_gpu_building(
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
 
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -721,18 +723,16 @@ pub fn extract_meshes_for_gpu_building(
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
             let affine3: Affine3 = (&transform.affine()).into();
 
-            render_mesh_instance_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    shared,
-                    MeshInputUniform {
-                        flags: mesh_flags.bits(),
-                        lightmap_uv_rect,
-                        transform: affine3.to_transpose(),
-                        previous_input_index,
-                    },
-                ));
-            });
+            queue.push((
+                entity,
+                shared,
+                MeshInputUniform {
+                    flags: mesh_flags.bits(),
+                    lightmap_uv_rect,
+                    transform: affine3.to_transpose(),
+                    previous_input_index,
+                },
+            ));
         },
     );
 
