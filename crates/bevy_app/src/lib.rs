@@ -28,7 +28,7 @@ pub use sub_app::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::App,
+        app::{App, AppExit},
         main_schedule::{
             First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
             PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, StateTransition,

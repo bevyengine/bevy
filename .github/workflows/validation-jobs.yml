@@ -7,13 +7,13 @@ on:
     branches:
       - main
 
-
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 env:
   CARGO_TERM_COLOR: always
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
@@ -299,14 +299,15 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Apply patches
         run: |
+          CODE=0
           for patch in tools/example-showcase/*.patch; do
-            git apply --ignore-whitespace $patch
+            # Try applying the patch, logging an error if it fails.
+            git apply --ignore-whitespace $patch || { echo "::error::$patch failed to apply."; CODE=1; }
           done
+          exit $CODE
       - name: Build with patches
         run: cargo build
