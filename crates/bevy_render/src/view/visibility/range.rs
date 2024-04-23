@@ -18,7 +18,7 @@ use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{prelude::default, EntityHashMap, HashMap};
-use nonmax::NonMaxU32;
+use nonmax::NonMaxU16;
 use wgpu::BufferUsages;
 
 use crate::{
@@ -185,7 +185,7 @@ pub struct RenderVisibilityRanges {
     ///
     /// This map allows us to deduplicate identical visibility ranges, which
     /// saves GPU memory.
-    range_to_index: HashMap<VisibilityRange, NonMaxU32>,
+    range_to_index: HashMap<VisibilityRange, NonMaxU16>,
 
     /// The GPU buffer that stores [`VisibilityRange`]s.
     ///
@@ -201,7 +201,7 @@ pub struct RenderVisibilityRanges {
 /// Per-entity information related to [`VisibilityRange`]s.
 struct RenderVisibilityEntityInfo {
     /// The index of the range within the GPU buffer.
-    buffer_index: NonMaxU32,
+    buffer_index: NonMaxU16,
     /// True if the range is abrupt: i.e. has no crossfade.
     is_abrupt: bool,
 }
@@ -237,12 +237,12 @@ impl RenderVisibilityRanges {
             .range_to_index
             .entry(visibility_range.clone())
             .or_insert_with(|| {
-                NonMaxU32::try_from(self.buffer.push(vec4(
+                NonMaxU16::try_from(self.buffer.push(vec4(
                     visibility_range.start_margin.start,
                     visibility_range.start_margin.end,
                     visibility_range.end_margin.start,
                     visibility_range.end_margin.end,
-                )) as u32)
+                )) as u16)
                 .unwrap_or_default()
             });
 
@@ -260,7 +260,7 @@ impl RenderVisibilityRanges {
     ///
     /// If the entity has no visible range, returns `None`.
     #[inline]
-    pub fn lod_index_for_entity(&self, entity: Entity) -> Option<NonMaxU32> {
+    pub fn lod_index_for_entity(&self, entity: Entity) -> Option<NonMaxU16> {
         self.entities.get(&entity).map(|info| info.buffer_index)
     }
 

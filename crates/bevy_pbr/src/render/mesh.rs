@@ -39,7 +39,7 @@ use bevy_utils::{tracing::error, Entry, HashMap, Parallel};
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
-use nonmax::NonMaxU32;
+use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
 use crate::render::{
@@ -338,7 +338,7 @@ bitflags::bitflags! {
 impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
-        lod_index: Option<NonMaxU32>,
+        lod_index: Option<NonMaxU16>,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
     ) -> MeshFlags {
@@ -355,10 +355,11 @@ impl MeshFlags {
         }
 
         let lod_index_bits = match lod_index {
-            Some(lod_index) if u32::from(lod_index) < u16::MAX as u32 => u32::from(lod_index),
-            _ => u16::MAX as u32,
+            None => u16::MAX,
+            Some(lod_index) => u16::from(lod_index),
         };
-        mesh_flags |= MeshFlags::from_bits_retain(lod_index_bits << MeshFlags::LOD_INDEX_SHIFT);
+        mesh_flags |=
+            MeshFlags::from_bits_retain((lod_index_bits as u32) << MeshFlags::LOD_INDEX_SHIFT);
 
         mesh_flags
     }

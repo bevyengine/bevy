@@ -98,18 +98,14 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
     let lod_range = visibility_ranges[visibility_buffer_index];
     let camera_distance = length(view.world_position.xyz - world_position.xyz);
 
-    if (camera_distance < lod_range.x) {
-        return -16;
-    }
-    if (camera_distance < lod_range.y) {
-        return -16 + i32(round((camera_distance - lod_range.x) / (lod_range.y - lod_range.x) * 16.0));
-    }
-    if (camera_distance < lod_range.z) {
-        return 0;
-    }
-    if (camera_distance < lod_range.w) {
-        return i32(round((camera_distance - lod_range.z) / (lod_range.w - lod_range.z) * 16.0));
-    }
-    return 16;
+    // This encodes the following mapping:
+    //
+    //     `lod_range.`          x        y        z        w           camera distance
+    //                   ←───────┼────────┼────────┼────────┼────────→
+    //        LOD level  -16    -16       0        0        16      16  LOD level
+    let offset = select(-16, 0, camera_distance >= lod_range.z);
+    let bounds = select(lod_range.xy, lod_range.zw, camera_distance >= lod_range.z);
+    let level = i32(round((camera_distance - bounds.x) / (bounds.y - bounds.x) * 16.0));
+    return offset + clamp(level, 0, 16);
 }
 #endif
