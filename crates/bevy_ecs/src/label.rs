@@ -176,11 +176,9 @@ macro_rules! define_label {
             fn ref_eq(&self, other: &Self) -> bool {
                 use ::std::ptr;
 
-                if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
-                    ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
-                } else {
-                    false
-                }
+                // Test that both the type id and pointer address are equivalent.
+                self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id()
+                    && ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
             }
 
             fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
