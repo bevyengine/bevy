@@ -835,10 +835,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
-            if skins.previous_buffer.is_some() {
+            if skins.previous_buffer.is_some() && motion_vector_prepass.is_some() {
                 mesh_key |= MeshPipelineKey::ANIMATED_SKIN_MOTION_VECTORS;
             }
-            if morphs.previous_buffer.is_some() {
+            if morphs.previous_buffer.is_some() && motion_vector_prepass.is_some() {
                 mesh_key |= MeshPipelineKey::ANIMATED_MORPH_MOTION_VECTORS;
             }
 
