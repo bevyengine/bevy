@@ -1,48 +1,34 @@
-use super::TaskPool;
-use std::{ops::Deref, sync::OnceLock};
+use crate::{StaticTaskPool, TaskPoolBuilder, TaskPoolInitializationError};
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
-        static $static: OnceLock<$type> = OnceLock::new();
+        static $static: $type = $type(StaticTaskPool::new());
 
         $(#[$attr])*
         #[derive(Debug)]
-        pub struct $type(TaskPool);
+        pub struct $type(StaticTaskPool);
 
         impl $type {
-            #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance, or initializes it with `f`.")]
-            pub fn get_or_init(f: impl FnOnce() -> TaskPool) -> &'static Self {
-                $static.get_or_init(|| Self(f()))
-            }
-
-            #[doc = concat!(" Attempts to get the global [`", stringify!($type), "`] instance, \
-                or returns `None` if it is not initialized.")]
-            pub fn try_get() -> Option<&'static Self> {
-                $static.get()
-            }
-
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance.")]
-            #[doc = ""]
-            #[doc = " # Panics"]
-            #[doc = " Panics if the global instance has not been initialized yet."]
-            pub fn get() -> &'static Self {
-                $static.get().expect(
-                    concat!(
-                        "The ",
-                        stringify!($type),
-                        " has not been initialized yet. Please call ",
-                        stringify!($type),
-                        "::get_or_init beforehand."
-                    )
-                )
+            pub fn get() -> &'static StaticTaskPool {
+                &$static.0
             }
-        }
 
-        impl Deref for $type {
-            type Target = TaskPool;
+            /// Gets the global instance, or initializes it with the provided builder if
+            /// it hasn't already been initialized.
+            pub fn get_or_init(builder: TaskPoolBuilder) -> &'static StaticTaskPool {
+                let pool = &$static.0;
+                match pool.init(builder) {
+                    Ok(()) => pool,
+                    Err(TaskPoolInitializationError::AlreadyInitialized) => pool,
+                    Err(err) => panic!("Error while initializing task pool: {}", err),
+                }
+            }
 
-            fn deref(&self) -> &Self::Target {
-                &self.0
+            /// Gets the global instance, or initializes it with the default configuration if
+            /// it hasn't already been initialized.
+            pub fn get_or_default() -> &'static StaticTaskPool {
+                Self::get_or_init(Default::default())
             }
         }
     };
@@ -83,23 +69,18 @@ taskpool! {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn tick_global_task_pools_on_main_thread() {
     COMPUTE_TASK_POOL
-        .get()
-        .unwrap()
+        .0
         .with_local_executor(|compute_local_executor| {
             ASYNC_COMPUTE_TASK_POOL
-                .get()
-                .unwrap()
+                .0
                 .with_local_executor(|async_local_executor| {
-                    IO_TASK_POOL
-                        .get()
-                        .unwrap()
-                        .with_local_executor(|io_local_executor| {
-                            for _ in 0..100 {
-                                compute_local_executor.try_tick();
-                                async_local_executor.try_tick();
-                                io_local_executor.try_tick();
-                            }
-                        });
+                    IO_TASK_POOL.0.with_local_executor(|io_local_executor| {
+                        for _ in 0..100 {
+                            compute_local_executor.try_tick();
+                            async_local_executor.try_tick();
+                            io_local_executor.try_tick();
+                        }
+                    });
                 });
         });
 }

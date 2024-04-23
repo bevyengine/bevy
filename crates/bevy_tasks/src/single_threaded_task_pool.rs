@@ -1,9 +1,18 @@
+use crate::TaskPoolInitializationError;
 use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
 }
+
+/// A [`TaskPool`] optimized for use in static variables.
+pub type StaticTaskPool = TaskPool;
+
+/// A [`StaticTaskPool`] scope for running one or more non-`'static` futures.
+///
+/// For more information, see [`TaskPool::scope`].
+pub type StaticScope<'scope, 'env, T> = Scope<'scope, 'env, T>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -25,8 +34,8 @@ impl<'a> ThreadExecutor<'a> {
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {}
     }
 
     /// No op on the single threaded task pool
@@ -45,7 +54,7 @@ impl TaskPoolBuilder {
     }
 
     /// Creates a new [`TaskPool`]
-    pub fn build(self) -> TaskPool {
+    pub const fn build(self) -> TaskPool {
         TaskPool::new_internal()
     }
 }
@@ -62,13 +71,26 @@ impl TaskPool {
     }
 
     /// Create a `TaskPool` with the default configuration.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         TaskPoolBuilder::new().build()
     }
 
     #[allow(unused_variables)]
-    fn new_internal() -> Self {
+    const fn new_internal() -> Self {
         Self {}
+    }
+
+    /// Checks if the threads in the task pool have been started or not. This always returns
+    /// true in single threaded builds.
+    pub fn is_initialized(&self) -> bool {
+        true
+    }
+
+    /// Initializes the task pool with the provided builder. This always is a no-op
+    /// true in single threaded builds.
+    #[allow(unused_variables)]
+    pub fn init(&self, builder: TaskPoolBuilder) -> Result<(), TaskPoolInitializationError> {
+        Ok(())
     }
 
     /// Return the number of threads owned by the task pool

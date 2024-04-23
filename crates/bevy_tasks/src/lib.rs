@@ -12,14 +12,20 @@ mod task;
 pub use task::Task;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+mod static_task_pool;
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 mod task_pool;
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+pub use static_task_pool::{StaticScope, StaticTaskPool};
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+pub use single_threaded_task_pool::{
+    FakeTask, Scope, StaticScope, StaticTaskPool, TaskPool, TaskPoolBuilder, ThreadExecutor,
+};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
@@ -41,6 +47,7 @@ mod iter;
 pub use iter::ParallelIterator;
 
 pub use futures_lite;
+use thiserror::Error;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -54,6 +61,20 @@ pub mod prelude {
 }
 
 use std::num::NonZeroUsize;
+
+/// Potential errors when initializing a [`StaticTaskPool`].
+#[derive(Error, Debug)]
+pub enum TaskPoolInitializationError {
+    /// The task pool was already initialized and cannot be changed after initialization.
+    #[error("The task pool is already initialized.")]
+    AlreadyInitialized,
+    /// The task pool would have been initialized with zero threads.
+    #[error("The task pool would have been initialized with zero threads.")]
+    ZeroThreads,
+    /// Initialization failed to spawn a thread.
+    #[error("Failed to spawn thread: {0:?}")]
+    ThreadSpawnError(#[from] std::io::Error),
+}
 
 /// Gets the logical CPU core count available to the current process.
 ///

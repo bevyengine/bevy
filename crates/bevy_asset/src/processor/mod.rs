@@ -442,7 +442,7 @@ impl AssetProcessor {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,
-        scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
+        scope: &'scope bevy_tasks::StaticScope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
     ) -> Result<(), AssetReaderError> {

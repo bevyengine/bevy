@@ -26,7 +26,7 @@ fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
 
 impl<'w> Benchmark<'w> {
     pub fn new(fragment: u16) -> Self {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        ComputeTaskPool::get_or_default();
 
         let mut world = World::new();
 

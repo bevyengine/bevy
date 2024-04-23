@@ -74,7 +74,7 @@ mod tests {
         system::Resource,
         world::{EntityRef, Mut, World},
     };
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_tasks::ComputeTaskPool;
     use std::num::NonZeroU32;
     use std::{
         any::TypeId,
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn par_for_each_dense() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        ComputeTaskPool::get_or_default();
         let mut world = World::new();
         let e1 = world.spawn(A(1)).id();
         let e2 = world.spawn(A(2)).id();
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        ComputeTaskPool::get_or_default();
         let mut world = World::new();
         let e1 = world.spawn(SparseStored(1)).id();
         let e2 = world.spawn(SparseStored(2)).id();

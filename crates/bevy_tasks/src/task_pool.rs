@@ -33,15 +33,15 @@ impl Drop for CallOnDrop {
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
-    num_threads: Option<usize>,
+    pub(crate) num_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
-    stack_size: Option<usize>,
+    pub(crate) stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
     /// be named `<thread_name> (<thread_index>)`, i.e. `"MyThreadPool (2)"`.
-    thread_name: Option<String>,
+    pub(crate) thread_name: Option<String>,
 
-    on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
-    on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    pub(crate) on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    pub(crate) on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
 }
 
 impl TaskPoolBuilder {
@@ -116,8 +116,8 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
-        static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
+        pub(crate) static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
+        pub(crate) static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
     /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock

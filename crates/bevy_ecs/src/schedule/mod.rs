@@ -100,12 +100,12 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
-            use bevy_tasks::{ComputeTaskPool, TaskPool};
+            use bevy_tasks::ComputeTaskPool;
             use std::sync::{Arc, Barrier};
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
-            let thread_count = ComputeTaskPool::get_or_init(TaskPool::default).thread_num();
+            let thread_count = ComputeTaskPool::get_or_default().thread_num();
 
             let barrier = Arc::new(Barrier::new(thread_count));
 
