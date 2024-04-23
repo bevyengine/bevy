@@ -331,7 +331,7 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
 
 fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     // Unpack.
-    let diffuse_color = (*input).diffuse_color; 
+    let diffuse_color = (*input).diffuse_color;
     let P = (*input).P;
     let N = (*input).base.N;
     let V = (*input).V;

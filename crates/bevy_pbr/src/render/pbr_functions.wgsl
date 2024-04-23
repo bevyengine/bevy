@@ -464,7 +464,7 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.roughness = roughness;
     transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
-    transmissive_environment_light_input.F_ab = F_ab;
+    transmissive_environment_light_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // No clearcoat. (The rest of the clearcoat-related fields have no meaning.)
     transmissive_environment_light_input.clearcoat = 0.0;
