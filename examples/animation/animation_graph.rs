@@ -20,7 +20,7 @@ use argh::FromArgs;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::asset::io::file::FileAssetReader;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::IoTaskPool;
+use bevy::tasks::ComputeTaskPool;
 #[cfg(not(target_arch = "wasm32"))]
 use ron::ser::PrettyConfig;
 
@@ -180,8 +180,8 @@ fn setup_assets_programmatically(
     if _save {
         let animation_graph = animation_graph.clone();
 
-        IoTaskPool::get()
-            .spawn(async move {
+        ComputeTaskPool::get()
+            .spawn_blocking(move || {
                 let mut animation_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
                     Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),

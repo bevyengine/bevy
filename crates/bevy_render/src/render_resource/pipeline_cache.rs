@@ -13,7 +13,6 @@ use bevy_utils::{
 use naga::valid::Capabilities;
 use std::{
     borrow::Cow,
-    future::Future,
     hash::Hash,
     mem,
     ops::Deref,
@@ -702,7 +701,7 @@ impl PipelineCache {
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
         create_pipeline_task(
-            async move {
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -801,7 +800,7 @@ impl PipelineCache {
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
         create_pipeline_task(
-            async move {
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -957,14 +956,16 @@ impl PipelineCache {
     feature = "multi-threaded"
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl FnOnce() -> Result<Pipeline, PipelineCacheError> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+        return CachedPipelineState::Creating(
+            bevy_tasks::ComputeTaskPool::get().spawn_blocking(task),
+        );
     }
 
-    match futures_lite::future::block_on(task) {
+    match task() {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
@@ -976,10 +977,10 @@ fn create_pipeline_task(
     not(feature = "multi-threaded")
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl FnOnce() -> Result<Pipeline, PipelineCacheError> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
-    match futures_lite::future::block_on(task) {
+    match task() {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }

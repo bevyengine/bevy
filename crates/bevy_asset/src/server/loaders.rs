@@ -3,7 +3,7 @@ use crate::{
     path::AssetPath,
 };
 use async_broadcast::RecvError;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::tracing::{error, warn};
 #[cfg(feature = "trace")]
 use bevy_utils::{
@@ -85,7 +85,7 @@ impl AssetLoaders {
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
-                    IoTaskPool::get()
+                    ComputeTaskPool::get()
                         .spawn(async move {
                             let _ = sender.broadcast(loader).await;
                         })

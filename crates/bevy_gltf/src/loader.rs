@@ -34,7 +34,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::{error, info_span, warn};
 use bevy_utils::{HashMap, HashSet};
@@ -354,7 +354,7 @@ async fn load_gltf<'a, 'b, 'c>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        IoTaskPool::get()
+        ComputeTaskPool::get()
             .scope(|scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let parent_path = load_context.path().parent().unwrap();

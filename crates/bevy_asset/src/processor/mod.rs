@@ -18,7 +18,7 @@ use crate::{
     MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::tracing::{debug, error, trace, warn};
 #[cfg(feature = "trace")]
 use bevy_utils::{
@@ -175,7 +175,7 @@ impl AssetProcessor {
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
-        IoTaskPool::get().scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.initialize().await.unwrap();
                 for source in self.sources().iter_processed() {
@@ -325,7 +325,7 @@ impl AssetProcessor {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-        IoTaskPool::get().scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.process_assets_internal(scope, source, path)
                     .await
@@ -465,7 +465,7 @@ impl AssetProcessor {
         loop {
             let mut check_reprocess_queue =
                 std::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
-            IoTaskPool::get().scope(|scope| {
+            ComputeTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
                     let source = self.get_source(path.source()).unwrap();
