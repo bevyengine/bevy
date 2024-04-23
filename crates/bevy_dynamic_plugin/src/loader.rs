@@ -9,7 +9,10 @@ use bevy_app::{App, CreatePlugin, Plugin};
 
 /// Errors that can occur when loading a dynamic plugin
 #[derive(Debug, Error)]
-#[deprecated(since = "0.14.0", note = "The current dynamic plugin system is unsound and will be removed in 0.15.")]
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub enum DynamicPluginLoadError {
     /// An error occurred when loading a dynamic library.
     #[error("cannot load library for dynamic plugin: {0}")]
@@ -32,7 +35,10 @@ pub enum DynamicPluginLoadError {
 /// foreign code, initialization routines may be run (as well as termination routines when the
 /// program exits). The caller of this function is responsible for ensuring these routines are
 /// sound. For more information, please see the safety section of [`libloading::Library::new`].
-#[deprecated(since = "0.14.0", note = "The current dynamic plugin system is unsound and will be removed in 0.15.")]
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     path: P,
 ) -> Result<(Library, Box<dyn Plugin>), DynamicPluginLoadError> {
@@ -54,7 +60,10 @@ pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
 }
 
 /// An extension trait for [`App`] that allows loading dynamic plugins.
-#[deprecated(since = "0.14.0", note = "The current dynamic plugin system is unsound and will be removed in 0.15.")]
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub trait DynamicPluginExt {
     /// Dynamically links a plugin at the given path, registering the plugin.
     ///

@@ -19,10 +19,13 @@ use proc_macro::TokenStream;
 use quote::format_ident;
 
 /// Generates a dynamic plugin entry point function for the given `Plugin` type.
-/// 
+///
 /// This is deprecated since 0.14. The current dynamic plugin system is unsound and will be removed in 0.15.
 #[proc_macro_derive(DynamicPlugin)]
-#[deprecated(since = "0.14.0", note = "The current dynamic plugin system is unsound and will be removed in 0.15.")]
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     app_plugin::derive_dynamic_plugin(input)
 }
