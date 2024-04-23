@@ -1752,7 +1752,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let morph_index = morph_indices.indices.get(entity);
         // TODO: Previous indices may be none if this entity was created this frame,
         // but there are other valid previous frame animated meshes, so we still
-        // have to set the dynamic offset for these
+        // have to set the dynamic offset since we're using the motion vector version
+        // of the bind group
         let previous_skin_index = skin_indices.previous_indices.get(entity);
         let previous_morph_index = morph_indices.previous_indices.get(entity);
 
