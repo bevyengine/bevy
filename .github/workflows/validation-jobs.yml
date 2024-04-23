@@ -32,6 +32,7 @@ jobs:
             target
           key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
