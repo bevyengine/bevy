@@ -143,7 +143,7 @@ fn setup(
         text: Text::from_section(
             "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
             TextStyle {
-                font_size: 40.0,
+                font_size: 20.0,
                 ..default()
             },
         ),
