@@ -1394,19 +1394,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    pub(crate) unsafe fn par_for_each_unchecked_manual<
-        'w,
-        FN: Fn(D::Item<'w>) + Send + Sync + Clone,
-    >(
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
         &self,
+        init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         batch_size: usize,
         func: FN,
         last_run: Tick,
         this_run: Tick,
-    ) {
+    ) where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        INIT: Fn() -> T + Sync + Send + Clone,
+    {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1423,19 +1424,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
                 let queue = std::mem::take(queue);
                 let mut func = func.clone();
+                let init_accum = init_accum.clone();
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
                     let _span = self.par_iter_span.enter();
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                    let mut accum = init_accum();
                     for storage_id in queue {
                         if D::IS_DENSE && F::IS_DENSE {
                             let id = storage_id.table_id;
                             let table = &world.storages().tables.get(id).debug_checked_unwrap();
-                            iter.for_each_in_table_range(&mut func, table, 0..table.entity_count());
+                            accum = iter.fold_over_table_range(
+                                accum,
+                                &mut func,
+                                table,
+                                0..table.entity_count(),
+                            );
                         } else {
                             let id = storage_id.archetype_id;
                             let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            iter.for_each_in_archetype_range(
+                            accum = iter.fold_over_archetype_range(
+                                accum,
                                 &mut func,
                                 archetype,
                                 0..archetype.len(),
@@ -1449,21 +1458,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let submit_single = |count, storage_id: StorageId| {
                 for offset in (0..count).step_by(batch_size) {
                     let mut func = func.clone();
+                    let init_accum = init_accum.clone();
                     let len = batch_size.min(count - offset);
                     let batch = offset..offset + len;
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
+                        let accum = init_accum();
                         if D::IS_DENSE && F::IS_DENSE {
                             let id = storage_id.table_id;
                             let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_table_range(&mut func, table, batch);
+                                .fold_over_table_range(accum, &mut func, table, batch);
                         } else {
                             let id = storage_id.archetype_id;
                             let archetype = world.archetypes().get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_archetype_range(&mut func, archetype, batch);
+                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
                         }
                     });
                 }

@@ -595,8 +595,10 @@ pub fn extract_meshes_for_cpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -621,23 +623,19 @@ pub fn extract_meshes_for_cpu_building(
                 no_automatic_batching,
             );
 
-            render_mesh_instance_queues.scope(|queue| {
-                let transform = transform.affine();
-                queue.push((
-                    entity,
-                    RenderMeshInstanceCpu {
-                        transforms: MeshTransforms {
-                            transform: (&transform).into(),
-                            previous_transform: (&previous_transform
-                                .map(|t| t.0)
-                                .unwrap_or(transform))
-                                .into(),
-                            flags: mesh_flags.bits(),
-                        },
-                        shared,
+            let transform = transform.affine();
+            queue.push((
+                entity,
+                RenderMeshInstanceCpu {
+                    transforms: MeshTransforms {
+                        transform: (&transform).into(),
+                        previous_transform: (&previous_transform.map(|t| t.0).unwrap_or(transform))
+                            .into(),
+                        flags: mesh_flags.bits(),
                     },
-                ));
-            });
+                    shared,
+                },
+            ));
         },
     );
 
@@ -683,8 +681,10 @@ pub fn extract_meshes_for_gpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -713,17 +713,15 @@ pub fn extract_meshes_for_gpu_building(
             let lightmap_uv_rect =
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
-            render_mesh_instance_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    RenderMeshInstanceGpuBuilder {
-                        shared,
-                        transform: (&transform.affine()).into(),
-                        lightmap_uv_rect,
-                        mesh_flags,
-                    },
-                ));
-            });
+            queue.push((
+                entity,
+                RenderMeshInstanceGpuBuilder {
+                    shared,
+                    transform: (&transform.affine()).into(),
+                    lightmap_uv_rect,
+                    mesh_flags,
+                },
+            ));
         },
     );
 
