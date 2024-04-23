@@ -1,4 +1,7 @@
-use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
+use super::{
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletMesh},
+    persistent_buffer::PersistentGpuBuffer,
+};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
@@ -352,7 +355,7 @@ pub fn prepare_meshlet_per_frame_resources(
             });
 
         let depth_size = Extent3d {
-            // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
+            // Round down to the nearest power of 2 to ensure depth is conservative
             width: previous_power_of_2(view.viewport.z),
             height: previous_power_of_2(view.viewport.w),
             depth_or_array_layers: 1,
@@ -611,7 +614,7 @@ pub struct MeshletGpuScene {
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
-    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
+    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64)>,
 
     scene_meshlet_count: u32,
@@ -840,7 +843,7 @@ impl MeshletGpuScene {
             );
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+                .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
 
             (
                 [
@@ -850,7 +853,7 @@ impl MeshletGpuScene {
                     meshlets_slice,
                     meshlet_bounding_spheres_slice,
                 ],
-                meshlet_mesh.total_meshlet_triangles,
+                meshlet_mesh.worst_case_meshlet_triangles,
             )
         };
 
