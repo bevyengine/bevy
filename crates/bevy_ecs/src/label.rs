@@ -185,7 +185,12 @@ macro_rules! define_label {
 
             fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
                 use ::std::{hash::Hash, ptr};
+
+                // Hash the type id...
                 self.as_dyn_eq().type_id().hash(state);
+
+                // ...and the pointer address.
+                // Cast to a unit `()` first to discard any pointer metadata.
                 ptr::from_ref::<Self>(self).cast::<()>().hash(state);
             }
         }
