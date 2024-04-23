@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader,
-    prepass::{DeferredPrepass, DepthPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -308,6 +308,8 @@ pub fn prepare_ssr_pipelines(
             Entity,
             &ExtractedView,
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<NormalPrepass>,
+            Has<MotionVectorPrepass>,
         ),
         (
             With<ScreenSpaceReflectionsSettings>,
@@ -316,12 +318,27 @@ pub fn prepare_ssr_pipelines(
         ),
     >,
 ) {
-    for (entity, extracted_view, has_environment_maps) in &views {
+    for (
+        entity,
+        extracted_view,
+        has_environment_maps,
+        has_normal_prepass,
+        has_motion_vector_prepass,
+    ) in &views
+    {
         // SSR is only supported in the deferred pipeline, which has no MSAA
         // support. Thus we can assume MSAA is off.
-        let mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
+        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
             | MeshPipelineViewLayoutKey::DEPTH_PREPASS
             | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+        mesh_pipeline_view_key.set(
+            MeshPipelineViewLayoutKey::NORMAL_PREPASS,
+            has_normal_prepass,
+        );
+        mesh_pipeline_view_key.set(
+            MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
+            has_motion_vector_prepass,
+        );
 
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
