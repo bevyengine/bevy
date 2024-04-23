@@ -1,8 +1,10 @@
 use crate::{
-    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -11,8 +13,14 @@ use bevy_ecs::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::{
+    fmt::Debug,
+    process::{ExitCode, Termination},
+};
+use std::{
+    num::NonZeroU8,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
 use thiserror::Error;
 
 bevy_ecs::define_label!(
@@ -89,7 +97,12 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
         app.add_plugins(MainSchedulePlugin);
-
+        app.add_systems(
+            First,
+            event_update_system
+                .in_set(bevy_ecs::event::EventUpdates)
+                .run_if(bevy_ecs::event::event_update_condition),
+        );
         app.add_event::<AppExit>();
 
         app
@@ -144,7 +157,7 @@ impl App {
     /// # Panics
     ///
     /// Panics if not all plugins have been built.
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> AppExit {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
         if self.is_building_plugins() {
@@ -153,7 +166,7 @@ impl App {
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         let app = std::mem::replace(self, App::empty());
-        (runner)(app);
+        (runner)(app)
     }
 
     /// Sets the function that will be called when the app is run.
@@ -170,17 +183,20 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// fn my_runner(mut app: App) {
+    /// fn my_runner(mut app: App) -> AppExit {
     ///     loop {
     ///         println!("In main loop");
     ///         app.update();
+    ///         if let Some(exit) = app.should_exit() {
+    ///             return exit;
+    ///         }
     ///     }
     /// }
     ///
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, f: impl FnOnce(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
         self.runner = Box::new(f);
         self
     }
@@ -369,8 +385,6 @@ impl App {
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
-    ///
-    /// [`event_update_system`]: bevy_ecs::event::event_update_system
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Event,
@@ -844,11 +858,34 @@ impl App {
         self.main_mut().ignore_ambiguity(schedule, a, b);
         self
     }
+
+    /// Attempts to determine if an [`AppExit`] was raised since the last update.
+    ///
+    /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
+    /// This should be called after every [`update()`](App::update) otherwise you risk
+    /// dropping possible [`AppExit`] events.
+    pub fn should_exit(&self) -> Option<AppExit> {
+        let mut reader = ManualEventReader::default();
+
+        let events = self.world().get_resource::<Events<AppExit>>()?;
+        let mut events = reader.read(events);
+
+        if events.len() != 0 {
+            return Some(
+                events
+                    .find(|exit| exit.is_error())
+                    .cloned()
+                    .unwrap_or(AppExit::Success),
+            );
+        }
+
+        None
+    }
 }
 
-type RunnerFn = Box<dyn FnOnce(App)>;
+type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
-fn run_once(mut app: App) {
+fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
         #[cfg(not(target_arch = "wasm32"))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
@@ -857,27 +894,99 @@ fn run_once(mut app: App) {
     app.cleanup();
 
     app.update();
+
+    let mut exit_code_reader = ManualEventReader::default();
+    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
+        if exit_code_reader
+            .read(app_exit_events)
+            .any(AppExit::is_error)
+        {
+            return AppExit::error();
+        }
+    }
+
+    AppExit::Success
 }
 
-/// An event that indicates the [`App`] should exit. If one or more of these are present at the
-/// end of an update, the [runner](App::set_runner) will end and ([maybe](App::run)) return
-/// control to the caller.
+/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
 /// for this event run before the current update ends.
-#[derive(Event, Debug, Clone, Default)]
-pub struct AppExit;
+///
+/// # Portability
+/// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
+/// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
+/// we only allow error codes between 1 and [255](u8::MAX).
+#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
+pub enum AppExit {
+    /// [`App`] exited without any problems.
+    #[default]
+    Success,
+    /// The [`App`] experienced an unhandleable error.
+    /// Holds the exit code we expect our app to return.
+    Error(NonZeroU8),
+}
+
+impl AppExit {
+    /// Creates a [`AppExit::Error`] with a error code of 1.
+    #[must_use]
+    pub const fn error() -> Self {
+        Self::Error(NonZeroU8::MIN)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Success`].
+    #[must_use]
+    pub const fn is_success(&self) -> bool {
+        matches!(self, AppExit::Success)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Error`].
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, AppExit::Error(_))
+    }
+
+    /// Creates a [`AppExit`] from a code.
+    ///
+    /// When `code` is 0 a [`AppExit::Success`] is constructed otherwise a
+    /// [`AppExit::Error`] is constructed.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Self {
+        match NonZeroU8::new(code) {
+            Some(code) => Self::Error(code),
+            None => Self::Success,
+        }
+    }
+}
+
+impl From<u8> for AppExit {
+    #[must_use]
+    fn from(value: u8) -> Self {
+        Self::from_code(value)
+    }
+}
+
+impl Termination for AppExit {
+    fn report(self) -> std::process::ExitCode {
+        match self {
+            AppExit::Success => ExitCode::SUCCESS,
+            // We leave logging an error to our users
+            AppExit::Error(value) => ExitCode::from(value.get()),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use std::{marker::PhantomData, mem};
 
     use bevy_ecs::{
         schedule::{OnEnter, States},
         system::Commands,
     };
 
-    use crate::{App, Plugin};
+    use crate::{App, AppExit, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1084,13 +1193,15 @@ mod tests {
         #[derive(Resource)]
         struct MyState {}
 
-        fn my_runner(mut app: App) {
+        fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
             app.world_mut().insert_resource(my_state);
 
             for _ in 0..5 {
                 app.update();
             }
+
+            AppExit::Success
         }
 
         fn my_system(_: Res<MyState>) {
@@ -1102,5 +1213,12 @@ mod tests {
             .set_runner(my_runner)
             .add_systems(PreUpdate, my_system)
             .run();
+    }
+
+    #[test]
+    fn app_exit_size() {
+        // There wont be many of them so the size isn't a issue but
+        // it's nice they're so small let's keep it that way.
+        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
     }
 }

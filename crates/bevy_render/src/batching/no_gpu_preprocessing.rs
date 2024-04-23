@@ -43,6 +43,19 @@ where
     }
 }
 
+/// A system that clears out the [`BatchedInstanceBuffer`] for the frame.
+///
+/// This needs to run before the CPU batched instance buffers are used.
+pub fn clear_batched_cpu_instance_buffers<GBD>(
+    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GBD::BufferData>>>,
+) where
+    GBD: GetBatchData,
+{
+    if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
+        cpu_batched_instance_buffer.clear();
+    }
+}
+
 /// Batch the items in a sorted render phase, when GPU instance buffer building
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.

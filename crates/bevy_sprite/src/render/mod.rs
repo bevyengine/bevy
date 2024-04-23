@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, WithMesh2d, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -296,7 +296,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
-    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
 }
@@ -490,7 +490,7 @@ pub fn queue_sprites(
         view_entities.clear();
         view_entities.extend(
             visible_entities
-                .iter::<WithMesh2d>()
+                .iter::<WithSprite>()
                 .map(|e| e.index() as usize),
         );
 

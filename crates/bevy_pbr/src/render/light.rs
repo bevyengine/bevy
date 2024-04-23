@@ -1689,7 +1689,8 @@ pub fn queue_shadows<M: Material>(
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => MeshPipelineKey::MAY_DISCARD,
+                    | AlphaMode::Add
+                    | AlphaMode::AlphaToCoverage => MeshPipelineKey::MAY_DISCARD,
                     _ => MeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
@@ -1848,8 +1849,7 @@ impl Node for ShadowPassNode {
                 let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
-                    let _shadow_pass_span = info_span!("shadow_pass").entered();
-
+                    let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
                     let mut command_encoder =
                         render_device.create_command_encoder(&CommandEncoderDescriptor {
                             label: Some("shadow_pass_command_encoder"),

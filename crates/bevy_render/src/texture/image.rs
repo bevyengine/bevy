@@ -279,7 +279,7 @@ pub struct ImageSamplerDescriptor {
     pub compare: Option<ImageCompareFunction>,
     /// Must be at least 1. If this is not 1, all filter modes must be linear.
     pub anisotropy_clamp: u16,
-    /// Border color to use when `address_mode`` is [`ImageAddressMode::ClampToBorder`].
+    /// Border color to use when `address_mode` is [`ImageAddressMode::ClampToBorder`].
     pub border_color: Option<ImageSamplerBorderColor>,
 }
 

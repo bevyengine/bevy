@@ -278,7 +278,7 @@ pub struct WindowOccluded {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
-    /// Window that had it's scale factor changed.
+    /// Window that had its scale factor changed.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
@@ -293,7 +293,7 @@ pub struct WindowScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
-    /// Window that had it's scale factor changed by the backend.
+    /// Window that had its scale factor changed by the backend.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
