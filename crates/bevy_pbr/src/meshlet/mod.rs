@@ -56,7 +56,7 @@ use self::{
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
     core_3d::{
@@ -68,6 +68,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
+    prelude::With,
     query::Has,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
@@ -75,7 +76,10 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
-    view::{prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility},
+    view::{
+        check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
+        Visibility, VisibilitySystems,
+    },
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -160,7 +164,11 @@ impl Plugin for MeshletPlugin {
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshSaverLoad)
-            .insert_resource(Msaa::Off);
+            .insert_resource(Msaa::Off)
+            .add_systems(
+                PostUpdate,
+                check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -247,6 +255,10 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
         }
     }
 }
+
+/// A convenient alias for `With<Handle<MeshletMesh>>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
 
 fn configure_meshlet_views(
     mut views_3d: Query<(

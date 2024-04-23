@@ -284,12 +284,15 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This method only accesses world metadata.
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+        assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
+            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+            unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
         }
     }
 
@@ -527,7 +530,8 @@ where
 
         for archetype in &archetypes[old_generation..] {
             let param_state = self.param_state.as_mut().unwrap();
-            F::Param::new_archetype(param_state, archetype, &mut self.system_meta);
+            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+            unsafe { F::Param::new_archetype(param_state, archetype, &mut self.system_meta) };
         }
     }
 

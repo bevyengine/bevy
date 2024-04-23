@@ -23,7 +23,7 @@ use bevy_render::{
     view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -78,6 +78,10 @@ pub struct Text2dBundle {
     pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
+    /// Marks that this is a [`SpriteSource`].
+    ///
+    /// This is needed for visibility computation to work properly.
+    pub sprite_source: SpriteSource,
 }
 
 /// This system extracts the sprites from the 2D text components and adds them to the

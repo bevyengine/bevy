@@ -30,10 +30,10 @@ pub struct RenderGraphContext<'a> {
     inputs: &'a [SlotValue],
     outputs: &'a mut [Option<SlotValue>],
     run_sub_graphs: Vec<RunSubGraph>,
-    /// The view_entity associated with the render graph being executed
-    /// This is optional because you aren't required to have a view_entity for a node.
+    /// The `view_entity` associated with the render graph being executed
+    /// This is optional because you aren't required to have a `view_entity` for a node.
     /// For example, compute shader nodes don't have one.
-    /// It should always be set when the RenderGraph is running on a View.
+    /// It should always be set when the [`RenderGraph`] is running on a View.
     view_entity: Option<Entity>,
 }
 

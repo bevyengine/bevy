@@ -1,11 +1,11 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    texture::GpuImage,
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
@@ -482,7 +482,7 @@ pub enum CameraOutputMode {
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
     /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
     /// them to be lost. Only use this if you know what you are doing!
-    /// In camera setups with multiple active cameras rendering to the same RenderTarget, the Skip mode can be used to remove
+    /// In camera setups with multiple active cameras rendering to the same [`RenderTarget`], the Skip mode can be used to remove
     /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
     Skip,
 }
@@ -581,7 +581,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
@@ -601,7 +601,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {

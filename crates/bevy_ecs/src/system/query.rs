@@ -1,10 +1,10 @@
 use crate::{
+    batching::BatchingStrategy,
     component::Tick,
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData,
+        QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
+        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1366,7 +1366,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> QueryLens<'_, NewD, NewF> {
         // SAFETY:
         // - We have exclusive access to the query
-        // - `self` has correctly captured it's access
+        // - `self` has correctly captured its access
         // - Access is checked to be a subset of the query's access when the state is created.
         let world = unsafe { self.world.world() };
         let state = self.state.transmute_filtered::<NewD, NewF>(world);

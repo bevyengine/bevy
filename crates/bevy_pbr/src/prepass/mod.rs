@@ -1,8 +1,8 @@
 mod prepass_bindings;
 
-use bevy_render::batching::{batch_and_prepare_binned_render_phase, sort_binned_render_phase};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::render_resource::binding_types::uniform_buffer;
+use bevy_render::view::WithMesh;
 pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
@@ -145,7 +145,11 @@ where
                         update_mesh_previous_global_transforms,
                         update_previous_view_data,
                     ),
-                );
+                )
+                .add_plugins((
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                ));
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -157,18 +161,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
-                    (
-                        (
-                            sort_binned_render_phase::<Opaque3dPrepass>,
-                            sort_binned_render_phase::<AlphaMask3dPrepass>
-                        ).in_set(RenderSet::PhaseSort),
-                        (
-                            prepare_previous_view_uniforms,
-                            batch_and_prepare_binned_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                            batch_and_prepare_binned_render_phase::<AlphaMask3dPrepass,
-                                MeshPipeline>,
-                        ).in_set(RenderSet::PrepareResources),
-                    )
+                    prepare_previous_view_uniforms.in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -181,7 +174,7 @@ where
                 Render,
                 queue_prepass_material_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .after(prepare_materials::<M>)
+                    .after(prepare_assets::<PreparedMaterial<M>>)
                     // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
                     .ambiguous_with(queue_material_meshes::<StandardMaterial>),
             );
@@ -714,9 +707,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderMaterials<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     mut views: Query<
@@ -782,14 +775,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
-            let Some(material) = render_materials.get(material_asset_id) else {
+            let Some(material) = render_materials.get(*material_asset_id) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -800,8 +794,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
-                AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
+                AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
+                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, &msaa);
+                }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
@@ -855,8 +850,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            match alpha_mode {
-                AlphaMode::Opaque => {
+            match mesh_key
+                .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
+            {
+                MeshPipelineKey::BLEND_OPAQUE | MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE => {
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBinKey {
@@ -881,7 +878,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     }
                 }
-                AlphaMode::Mask(_) => {
+                // Alpha mask
+                MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
@@ -908,10 +906,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     }
                 }
-                AlphaMode::Blend
-                | AlphaMode::Premultiplied
-                | AlphaMode::Add
-                | AlphaMode::Multiply => {}
+                _ => {}
             }
         }
     }

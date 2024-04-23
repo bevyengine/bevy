@@ -10,7 +10,7 @@ use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
 use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
@@ -149,7 +149,7 @@ pub enum Tonemapping {
     AgX,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
-    /// Is sort of between Reinhard and ReinhardLuminance. Conceptually similar to reinhard-jodie.
+    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
     /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
     /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
@@ -319,7 +319,7 @@ pub enum DebandDither {
 }
 
 pub fn get_lut_bindings<'a>(
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,

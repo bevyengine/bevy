@@ -25,7 +25,7 @@ impl<T: Send> Parallel<T> {
 impl<T: Default + Send> Parallel<T> {
     /// Retrieves the thread-local value for the current thread and runs `f` on it.
     ///
-    /// If there is no thread-local value, it will be initialized to it's default.
+    /// If there is no thread-local value, it will be initialized to its default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut cell = self.locals.get_or_default().borrow_mut();
         let ret = f(cell.deref_mut());
