@@ -87,7 +87,8 @@ fn cull_meshlets(
 #endif
 
     let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
-    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5; // Halve the view-space AABB size as the depth pyramid is half the view size
+    // Halve the view-space AABB size as the depth pyramid is half the view size
+    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
     let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
     let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
     let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
