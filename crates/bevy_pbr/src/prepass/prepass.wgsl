@@ -96,10 +96,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
+#ifdef ANIMATED_MESH_MOTION_VECTORS
+    // TODO: Account for previous skin, morph, or skin+morph
+#else
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
         mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
         vec4<f32>(vertex.position, 1.0)
     );
+#endif // ANIMATED_MESH_MOTION_VECTORS
 #endif // MOTION_VECTOR_PREPASS
 
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
@@ -136,6 +140,9 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     // range -2,2, so this needs to be scaled by 0.5. And the V direction goes
     // down where clip space y goes up, so y needs to be flipped.
     out.motion_vector = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
+#ifdef ANIMATED_MESH_MOTION_VECTORS
+    out.motion_vector *= prepass_bindings::motion_vectors_mask;
+#endif // ANIMATED_MESH_MOTION_VECTORS
 #endif // MOTION_VECTOR_PREPASS
 
 #ifdef DEFERRED_PREPASS
