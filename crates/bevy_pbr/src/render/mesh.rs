@@ -740,13 +740,13 @@ pub fn extract_meshes_for_gpu_building(
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
-        for ((e, s), u) in queue.drain(..) {
+        for ((entity, shared), mesh_uniform) in queue.drain(..) {
             let buffer_index = current_input_buffer.push(u);
-            let translation = Vec3::new(u.transform[0].w, u.transform[1].w, u.transform[2].w);
+            let translation = mesh_uniform.transform.row(3).xyz();
             render_mesh_instances.insert_unique_unchecked(
-                e,
+                entity,
                 RenderMeshInstanceGpu {
-                    shared: s,
+                    shared,
                     translation,
                     current_uniform_index: NonMaxU32::new(buffer_index as u32).unwrap_or_default(),
                 },
