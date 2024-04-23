@@ -260,14 +260,25 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
+        app.configure_sets(
+            PostUpdate,
+            (
+                CalculateBounds,
+                UpdateOrthographicFrusta,
+                UpdatePerspectiveFrusta,
+                UpdateProjectionFrusta,
+                VisibilityPropagate,
+            )
+                .before(CheckVisibility)
+                .after(TransformSystem::TransformPropagate),
+        )
+        .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
                 update_frusta::<OrthographicProjection>
                     .in_set(UpdateOrthographicFrusta)
                     .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
                     // We assume that no camera will have more than one projection component,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
@@ -276,24 +287,15 @@ impl Plugin for VisibilityPlugin {
                 update_frusta::<PerspectiveProjection>
                     .in_set(UpdatePerspectiveFrusta)
                     .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
                     // We assume that no camera will have more than one projection component,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(update_frusta::<Projection>),
                 update_frusta::<Projection>
                     .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(camera_system::<Projection>),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<WithMesh>
-                    .in_set(CheckVisibility)
-                    .after(CalculateBounds)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
+                check_visibility::<WithMesh>.in_set(CheckVisibility),
             ),
         );
     }
