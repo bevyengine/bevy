@@ -73,7 +73,7 @@ struct LightingInput {
     // Specular reflectance at the normal incidence angle.
     //
     // This should be read F₀, but due to Naga limitations we can't name it that.
-    Fo: vec3<f32>,
+    F0_: vec3<f32>,
     // Constants for the BRDF approximation.
     //
     // See `EnvBRDFApprox` in
@@ -220,7 +220,7 @@ fn specular(
     // Unpack.
     let roughness = (*input).base.roughness;
     let NdotV = (*input).base.NdotV;
-    let F0 = (*input).Fo;
+    let F0 = (*input).F0_;
     let F_ab = (*input).F_ab;
     let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;

@@ -125,7 +125,7 @@ fn environment_map_light(
     let diffuse_color = (*input).diffuse_color;
     let NdotV = (*input).base.NdotV;
     let F_ab = (*input).F_ab;
-    let F0 = (*input).Fo;
+    let F0 = (*input).F0_;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     let clearcoat_NdotV = (*input).clearcoat.NdotV;
     let clearcoat_strength = (*input).clearcoat_strength;

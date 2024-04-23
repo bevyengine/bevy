@@ -223,7 +223,7 @@ fn apply_pbr_lighting(
     lighting_input.P = in.world_position.xyz;
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
-    lighting_input.Fo = F0;
+    lighting_input.F0_ = F0;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.clearcoat.NdotV = clearcoat_NdotV;
@@ -245,7 +245,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
-    transmissive_lighting_input.Fo = vec3(0.0);
+    transmissive_lighting_input.F0_ = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.0);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.clearcoat.NdotV = 0.0;
@@ -463,7 +463,7 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.R = T;
     transmissive_environment_light_input.perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.roughness = roughness;
-    transmissive_environment_light_input.Fo = vec3<f32>(1.0);
+    transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
     transmissive_environment_light_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // No clearcoat. (The rest of the clearcoat-related fields have no meaning.)

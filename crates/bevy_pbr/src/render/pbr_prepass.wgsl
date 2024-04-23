@@ -65,7 +65,7 @@ fn fragment(
         let Nt = pbr_functions::sample_texture(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
-            uv,
+            in.uv,
             ddx_uv,
             ddy_uv,
             view.mip_bias
