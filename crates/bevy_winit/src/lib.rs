@@ -201,7 +201,6 @@ struct WinitAppRunnerState {
 
 impl WinitAppRunnerState {
     fn reset_on_update(&mut self) {
-        self.redraw_requested = false;
         self.window_event_received = false;
         self.device_event_received = false;
     }
@@ -382,32 +381,16 @@ fn handle_winit_event(
 
             let (config, windows) = focused_windows_state.get(app.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
-            let next_update_mode = config.update_mode(focused);
+            let mut update_mode = config.update_mode(focused);
 
-            // Trigger next redraw if we're changing the update mode
-            if next_update_mode != runner_state.update_mode {
-                runner_state.redraw_requested = true;
-                runner_state.update_mode = next_update_mode;
-            }
-
-            // Trigger next redraw if mode is continuous and waiting
-            if next_update_mode == UpdateMode::Continuous {
-                if let ControlFlow::Wait = event_loop.control_flow() {
-                    runner_state.redraw_requested = true;
-                }
-            }
-
-            let mut should_update = match next_update_mode {
+            let mut should_update = match update_mode {
                 UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
                     runner_state.wait_elapsed
-                        || runner_state.redraw_requested
                         || runner_state.window_event_received
                         || runner_state.device_event_received
                 }
                 UpdateMode::ReactiveLowPower { .. } => {
-                    runner_state.wait_elapsed
-                        || runner_state.redraw_requested
-                        || runner_state.window_event_received
+                    runner_state.wait_elapsed || runner_state.window_event_received
                 }
             };
 
@@ -436,7 +419,7 @@ fn handle_winit_event(
                 }
             }
 
-            // Trigger one last update to enter the active state
+            // Trigger the update to enter the active state
             if runner_state.active == ActiveState::WillResume {
                 runner_state.active = ActiveState::Active;
                 should_update = true;
@@ -485,19 +468,17 @@ fn handle_winit_event(
             let begin_frame_time = Instant::now();
 
             if should_update {
-                if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
-                    let winit_windows = app.world().non_send_resource::<WinitWindows>();
-                    for window in winit_windows.windows.values() {
-                        window.request_redraw();
-                    }
-                    runner_state.redraw_requested = false;
-                } else {
-                    // Not redrawing, but the timeout elapsed.
-                    run_app_update_if_should(runner_state, app, winit_events);
-                }
+                // Not redrawing, but the timeout elapsed.
+                run_app_update(runner_state, app, winit_events);
+
+                // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+                let (config, windows) = focused_windows_state.get(&app.world());
+                let focused = windows.iter().any(|(_, window)| window.focused);
+
+                update_mode = config.update_mode(focused);
             }
 
-            match next_update_mode {
+            match update_mode {
                 UpdateMode::Continuous => {
                     // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
                     // we cannot use the visibility to drive rendering on these platforms
@@ -515,19 +496,21 @@ fn handle_winit_event(
                                 w.is_visible().unwrap_or(false)
                             });
 
-                            match event_loop.control_flow() {
-                                ControlFlow::Poll if visible => {
-                                    event_loop.set_control_flow(ControlFlow::Wait)
-                                }
-                                ControlFlow::Wait if !visible => {
-                                    event_loop.set_control_flow(ControlFlow::Poll)
-                                }
-                                _ => {}
+                            if visible {
+                                event_loop.set_control_flow(ControlFlow::Wait)
+                            }
+                            else {
+                                event_loop.set_control_flow(ControlFlow::Poll)
                             }
                         }
                         else {
                             event_loop.set_control_flow(ControlFlow::Wait);
                         }
+                    }
+
+                    // Trigger next redraw to refresh the screen immediately if waiting
+                    if let ControlFlow::Wait = event_loop.control_flow() {
+                        runner_state.redraw_requested = true;
                     }
                 }
                 UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
@@ -538,6 +521,20 @@ fn handle_winit_event(
                         }
                     }
                 }
+            }
+
+            // Trigger next redraw if we're changing the update mode
+            if update_mode != runner_state.update_mode {
+                runner_state.redraw_requested = true;
+                runner_state.update_mode = update_mode;
+            }
+
+            if runner_state.redraw_requested && runner_state.active != ActiveState::Suspended {
+                let winit_windows = app.world().non_send_resource::<WinitWindows>();
+                for window in winit_windows.windows.values() {
+                    window.request_redraw();
+                }
+                runner_state.redraw_requested = false;
             }
         }
         Event::NewEvents(cause) => {
@@ -755,7 +752,7 @@ fn handle_winit_event(
                     winit_events.send(WindowDestroyed { window });
                 }
                 WindowEvent::RedrawRequested => {
-                    run_app_update_if_should(runner_state, app, winit_events);
+                    run_app_update(runner_state, app, winit_events);
                 }
                 _ => {}
             }
@@ -812,7 +809,7 @@ fn handle_winit_event(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn run_app_update_if_should(
+fn run_app_update(
     runner_state: &mut WinitAppRunnerState,
     app: &mut App,
     winit_events: &mut Vec<WinitEvent>,
