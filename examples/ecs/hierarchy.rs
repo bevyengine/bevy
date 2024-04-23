@@ -1,4 +1,7 @@
 //! Creates a hierarchy of parents and children entities.
+//!
+//! See also the `multiple_sprites_one_entity` example, which uses a similar technique to stitch
+//! together multiple sprites into a single, large sprite.
 
 use std::f32::consts::*;
 

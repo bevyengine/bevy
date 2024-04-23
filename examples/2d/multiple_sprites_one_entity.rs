@@ -1,4 +1,6 @@
 //! Constructs a large entity composed of multiple sprites
+//!
+//! See also the `hierarchy` example, which also nests child and parent entities.
 
 use bevy::input::common_conditions::input_pressed;
 use bevy::prelude::*;
