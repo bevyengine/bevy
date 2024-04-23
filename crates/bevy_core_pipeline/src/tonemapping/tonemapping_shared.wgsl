@@ -1,6 +1,7 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
 #import bevy_render::view::ColorGrading
+#import bevy_pbr::utils::{PI_2, hsv_to_rgb, rgb_to_hsv};
 
 // hack !! not sure what to do with this
 #ifdef TONEMAPPING_PASS
@@ -10,6 +11,15 @@
     @group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
     @group(0) @binding(19) var dt_lut_sampler: sampler;
 #endif
+
+// Half the size of the crossfade region between shadows and midtones and
+// between midtones and highlights. This value, 0.1, corresponds to 10% of the
+// gamut on either side of the cutoff point.
+const LEVEL_MARGIN: f32 = 0.1;
+
+// The inverse reciprocal of twice the above, used when scaling the midtone
+// region.
+const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
@@ -273,22 +283,92 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     return (dither - 0.5) / 255.0;
 }
 
-fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
+// Performs the "sectional" color grading: i.e. the color grading that applies
+// individually to shadows, midtones, and highlights.
+fn sectional_color_grading(
+    in: vec3<f32>,
+    color_grading: ptr<function, ColorGrading>,
+) -> vec3<f32> {
+    var color = in;
+
+    // Determine whether the color is a shadow, midtone, or highlight. Colors
+    // close to the edges are considered a mix of both, to avoid sharp
+    // discontinuities. The formulas are taken from Blender's compositor.
+
+    let level = (color.r + color.g + color.b) / 3.0;
+
+    // Determine whether this color is a shadow, midtone, or highlight. If close
+    // to the cutoff points, blend between the two to avoid sharp color
+    // discontinuities.
+    var levels = vec3(0.0);
+    let midtone_range = (*color_grading).midtone_range;
+    if (level < midtone_range.x - LEVEL_MARGIN) {
+        levels.x = 1.0;
+    } else if (level < midtone_range.x + LEVEL_MARGIN) {
+        levels.y = ((level - midtone_range.x) * LEVEL_MARGIN_DIV) + 0.5;
+        levels.z = 1.0 - levels.y;
+    } else if (level < midtone_range.y - LEVEL_MARGIN) {
+        levels.y = 1.0;
+    } else if (level < midtone_range.y + LEVEL_MARGIN) {
+        levels.z = ((level - midtone_range.y) * LEVEL_MARGIN_DIV) + 0.5;
+        levels.y = 1.0 - levels.z;
+    } else {
+        levels.z = 1.0;
+    }
+
+    // Calculate contrast/saturation/gamma/gain/lift.
+    let contrast = dot(levels, (*color_grading).contrast);
+    let saturation = dot(levels, (*color_grading).saturation);
+    let gamma = dot(levels, (*color_grading).gamma);
+    let gain = dot(levels, (*color_grading).gain);
+    let lift = dot(levels, (*color_grading).lift);
+
+    // Adjust saturation and contrast.
+    let luma = tonemapping_luminance(color);
+    color = luma + saturation * (color - luma);
+    color = 0.5 + (color - 0.5) * contrast;
+
+    // The [ASC CDL] formula for color correction. Given *i*, an input color, we
+    // have:
+    //
+    //     out = (i × s + o)ⁿ
+    //
+    // Following the normal photographic naming convention, *gain* is the *s*
+    // factor, *lift* is the *o* term, and the inverse of *gamma* is the *n*
+    // exponent.
+    //
+    // [ASC CDL]: https://en.wikipedia.org/wiki/ASC_CDL#Combined_Function
+    color = powsafe(color * gain + lift, 1.0 / gamma);
+
+    // Account for exposure.
+    color = color * powsafe(vec3(2.0), (*color_grading).exposure);
+    return max(color, vec3(0.0));
+}
+
+fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
+    var color_grading = in_color_grading;   // So we can take pointers to it.
 
-    // Possible future grading:
+    // Rotate hue if needed, by converting to and from HSV. Remember that hue is
+    // an angle, so it needs to be modulo 2π.
+#ifdef HUE_ROTATE
+    var hsv = rgb_to_hsv(color);
+    hsv.r = (hsv.r + color_grading.hue) % PI_2;
+    color = hsv_to_rgb(hsv);
+#endif
 
-    // highlight gain gamma: 0..
-    // let luma = powsafe(vec3(tonemapping_luminance(color)), 1.0); 
+    // Perform white balance correction. Conveniently, this is a linear
+    // transform. The matrix was pre-calculated from the temperature and tint
+    // values on the CPU.
+#ifdef WHITE_BALANCE
+    color = max(color_grading.balance * color, vec3(0.0));
+#endif
 
-    // highlight gain: 0.. 
-    // color += color * luma.xxx * 1.0; 
-
-    // Linear pre tonemapping grading
-    color = saturation(color, color_grading.pre_saturation);
-    color = powsafe(color, color_grading.gamma);
-    color = color * powsafe(vec3(2.0), color_grading.exposure);
-    color = max(color, vec3(0.0));
+    // Perform the "sectional" color grading: i.e. the color grading that
+    // applies individually to shadows, midtones, and highlights.
+#ifdef SECTIONAL_COLOR_GRADING
+    color = sectional_color_grading(color, &color_grading);
+#endif
 
     // tone_mapping
 #ifdef TONEMAP_METHOD_NONE
