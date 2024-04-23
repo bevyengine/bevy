@@ -3,12 +3,15 @@
     meshlet_bounding_spheres,
     meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
-    meshlet_occlusion,
+    meshlet_second_pass_candidates,
     depth_pyramid,
     view,
     previous_view,
     should_cull_instance,
     meshlet_is_second_pass_candidate,
+    meshlets,
+    draw_indirect_args,
+    draw_triangle_buffer,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -18,10 +21,10 @@
 ///    the instance, frustum, and LOD tests in the first pass, but were not visible last frame according to the occlusion culling.
 
 @compute
-@workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 instanced meshlet per thread
+@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
 fn cull_meshlets(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>, @builtin(local_invocation_id) local_invocation_id: vec3<u32>) {
     // Calculate the cluster ID for this thread
-    let cluster_id = local_invocation_id.x + 64u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
+    let cluster_id = local_invocation_id.x + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
     if cluster_id >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
@@ -79,9 +82,8 @@ fn cull_meshlets(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(num_wo
     let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #endif
 
-    // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
     let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
-    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
+    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5; // Halve the view-space AABB size as the depth pyramid is half the view size
     let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
     let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
     let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
@@ -106,24 +108,21 @@ fn cull_meshlets(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(num_wo
         meshlet_visible = sphere_depth >= occluder_depth;
     }
 
-    // Write whether or not the cluster passed the occlusion culling test
+    // Write if the cluster should be occlusion tested in the second pass
 #ifdef MESHLET_FIRST_CULLING_PASS
-    var occlusion_bits = 1u << (u32(!meshlet_visible));
-#else
-    var occlusion_bits = u32(meshlet_visible);
+    let second_pass_candidate = u32(!meshlet_visible) << cluster_id % 32u;
+    atomicOr(&meshlet_second_pass_candidates[cluster_id / 32u], second_pass_candidate);
 #endif
-    occlusion_bits <<= (cluster_id % 16u) * 2u;
-    atomicOr(&meshlet_occlusion[cluster_id / 16u], occlusion_bits);
-}
 
-// https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
-fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
-    let d2 = dot(cp, cp);
-    let r2 = r * r;
-    let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
-    let view_size = f32(max(view.viewport.z, view.viewport.w));
-    let sphere_diameter_pixels = sphere_diameter_uv * view_size;
-    return sphere_diameter_pixels < 1.0;
+    // Append a list of this cluster's triangles to draw if not culled
+    if meshlet_visible {
+        let meshlet_triangle_count = meshlets[meshlet_id].triangle_count;
+        let buffer_start = atomicAdd(&draw_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
+        let cluster_id_packed = cluster_id << 8u;
+        for (var triangle_id = 0u; triangle_id < meshlet_triangle_count; triangle_id++) {
+            draw_triangle_buffer[buffer_start + triangle_id] = cluster_id_packed | triangle_id;
+        }
+    }
 }
 
 // https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403

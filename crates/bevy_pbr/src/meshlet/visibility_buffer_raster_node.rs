@@ -74,7 +74,6 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         let Some((
             culling_first_pipeline,
             culling_second_pipeline,
-            write_index_buffer_pipeline,
             downsample_depth_pipeline,
             visibility_buffer_raster_pipeline,
             visibility_buffer_raster_depth_only_pipeline,
@@ -85,37 +84,26 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
-        let culling_workgroups = (meshlet_view_resources.scene_meshlet_count.div_ceil(64) as f32)
-            .cbrt()
-            .ceil() as u32;
-        let write_index_buffer_workgroups = (meshlet_view_resources.scene_meshlet_count as f32)
+        let culling_workgroups = (meshlet_view_resources.scene_meshlet_count.div_ceil(128) as f32)
             .cbrt()
             .ceil() as u32;
 
         render_context
             .command_encoder()
-            .push_debug_group("meshlet_visibility_buffer_raster_pass");
+            .push_debug_group("meshlet_visibility_buffer_raster");
         render_context.command_encoder().clear_buffer(
-            &meshlet_view_resources.occlusion_buffer,
+            &meshlet_view_resources.second_pass_candidates_buffer,
             0,
             None,
         );
         cull_pass(
-            "meshlet_culling_first_pass",
+            "culling_first",
             render_context,
             &meshlet_view_bind_groups.culling_first,
             view_offset,
             previous_view_offset,
             culling_first_pipeline,
             culling_workgroups,
-        );
-        write_index_buffer_pass(
-            true,
-            "meshlet_write_index_buffer_first_pass",
-            render_context,
-            &meshlet_view_bind_groups.write_index_buffer_first,
-            write_index_buffer_pipeline,
-            write_index_buffer_workgroups,
         );
         raster_pass(
             true,
@@ -135,21 +123,13 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             downsample_depth_pipeline,
         );
         cull_pass(
-            "meshlet_culling_second_pass",
+            "culling_second",
             render_context,
             &meshlet_view_bind_groups.culling_second,
             view_offset,
             previous_view_offset,
             culling_second_pipeline,
             culling_workgroups,
-        );
-        write_index_buffer_pass(
-            false,
-            "meshlet_write_index_buffer_second_pass",
-            render_context,
-            &meshlet_view_bind_groups.write_index_buffer_second,
-            write_index_buffer_pipeline,
-            write_index_buffer_workgroups,
         );
         raster_pass(
             false,
@@ -162,18 +142,18 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_raster_pipeline,
             Some(camera),
         );
-        downsample_depth(
-            render_context,
-            meshlet_view_resources,
-            meshlet_view_bind_groups,
-            downsample_depth_pipeline,
-        );
         copy_material_depth_pass(
             render_context,
             meshlet_view_resources,
             meshlet_view_bind_groups,
             copy_material_depth_pipeline,
             camera,
+        );
+        downsample_depth(
+            render_context,
+            meshlet_view_resources,
+            meshlet_view_bind_groups,
+            downsample_depth_pipeline,
         );
         render_context.command_encoder().pop_debug_group();
 
@@ -196,30 +176,22 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             };
 
             render_context.command_encoder().push_debug_group(&format!(
-                "meshlet_visibility_buffer_raster_pass: {}",
+                "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
             render_context.command_encoder().clear_buffer(
-                &meshlet_view_resources.occlusion_buffer,
+                &meshlet_view_resources.second_pass_candidates_buffer,
                 0,
                 None,
             );
             cull_pass(
-                "meshlet_culling_first_pass",
+                "culling_first",
                 render_context,
                 &meshlet_view_bind_groups.culling_first,
                 view_offset,
                 previous_view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
-            );
-            write_index_buffer_pass(
-                true,
-                "meshlet_write_index_buffer_first_pass",
-                render_context,
-                &meshlet_view_bind_groups.write_index_buffer_first,
-                write_index_buffer_pipeline,
-                write_index_buffer_workgroups,
             );
             raster_pass(
                 true,
@@ -239,21 +211,13 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_pipeline,
             );
             cull_pass(
-                "meshlet_culling_second_pass",
+                "culling_second",
                 render_context,
                 &meshlet_view_bind_groups.culling_second,
                 view_offset,
                 previous_view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
-            );
-            write_index_buffer_pass(
-                false,
-                "meshlet_write_index_buffer_second_pass",
-                render_context,
-                &meshlet_view_bind_groups.write_index_buffer_second,
-                write_index_buffer_pipeline,
-                write_index_buffer_workgroups,
             );
             raster_pass(
                 false,
@@ -302,29 +266,6 @@ fn cull_pass(
     cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
 }
 
-fn write_index_buffer_pass(
-    first_pass: bool,
-    label: &'static str,
-    render_context: &mut RenderContext,
-    write_index_buffer_bind_group: &BindGroup,
-    write_index_buffer_pipeline: &ComputePipeline,
-    write_index_buffer_workgroups: u32,
-) {
-    let command_encoder = render_context.command_encoder();
-    let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some(label),
-        timestamp_writes: None,
-    });
-    cull_pass.set_bind_group(0, write_index_buffer_bind_group, &[]);
-    cull_pass.set_pipeline(write_index_buffer_pipeline);
-    cull_pass.set_push_constants(0, &if first_pass { 1u32 } else { 3u32 }.to_le_bytes());
-    cull_pass.dispatch_workgroups(
-        write_index_buffer_workgroups,
-        write_index_buffer_workgroups,
-        write_index_buffer_workgroups,
-    );
-}
-
 #[allow(clippy::too_many_arguments)]
 fn raster_pass(
     first_pass: bool,
@@ -369,9 +310,9 @@ fn raster_pass(
 
     let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some(if first_pass {
-            "meshlet_visibility_buffer_raster_first_pass"
+            "raster_first"
         } else {
-            "meshlet_visibility_buffer_raster_second_pass"
+            "raster_second"
         }),
         color_attachments: if color_attachments_filled[0].is_none() {
             &[]
@@ -407,7 +348,7 @@ fn downsample_depth(
 
     for i in 0..meshlet_view_resources.depth_pyramid_mips.len() {
         let downsample_pass = RenderPassDescriptor {
-            label: Some("meshlet_downsample_depth_pass"),
+            label: Some("downsample_depth"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: &meshlet_view_resources.depth_pyramid_mips[i],
                 resolve_target: None,
@@ -442,7 +383,7 @@ fn copy_material_depth_pass(
         meshlet_view_bind_groups.copy_material_depth.as_ref(),
     ) {
         let mut copy_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_copy_material_depth_pass"),
+            label: Some("copy_material_depth"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &material_depth.default_view,

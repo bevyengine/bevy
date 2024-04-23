@@ -57,10 +57,13 @@ struct DrawIndirectArgs {
 @group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 2 bits per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(6) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
-@group(0) @binding(7) var<uniform> view: View;
-@group(0) @binding(8) var<uniform> previous_view: PreviousViewUniforms;
+@group(0) @binding(5) var<storage, read_write> meshlet_second_pass_candidates: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(6) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
+@group(0) @binding(7) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(8) var<storage, read_write> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
+@group(0) @binding(10) var<uniform> view: View;
+@group(0) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;
@@ -70,24 +73,9 @@ fn should_cull_instance(instance_id: u32) -> bool {
 
 fn meshlet_is_second_pass_candidate(cluster_id: u32) -> bool {
     // TODO: Does this read need to be an atomicLoad?
-    let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
-    let bit_offset = (cluster_id % 16u) * 2u;
-    return extractBits(packed_occlusion, bit_offset, 2u) == 2u;
-}
-#endif
-
-#ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 2 bits per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
-@group(0) @binding(3) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
-@group(0) @binding(4) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
-var<push_constant> draw_mask: u32; // What state the cluster's occlusion_bits must be in to get drawn
-
-fn meshlet_should_draw(cluster_id: u32) -> bool {
-    let packed_occlusion = meshlet_occlusion[cluster_id / 16u];
-    let bit_offset = (cluster_id % 16u) * 2u;
-    return extractBits(packed_occlusion, bit_offset, 1u) == draw_mask;
+    let packed_candidates = meshlet_second_pass_candidates[cluster_id / 32u];
+    let bit_offset = cluster_id % 32u;
+    return bool(extractBits(packed_candidates, bit_offset, 1u));
 }
 #endif
 
@@ -100,7 +88,7 @@ fn meshlet_should_draw(cluster_id: u32) -> bool {
 @group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
-@group(0) @binding(8) var<storage, read> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(8) var<storage, read> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(9) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
