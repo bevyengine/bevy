@@ -124,8 +124,6 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes and morph targets.
-/// There will probably be ghosting artifacts if used with them.
 /// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
