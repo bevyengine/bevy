@@ -8,12 +8,9 @@ mod seal {
     pub struct Token;
 }
 
-use std::{any::TypeId, marker::PhantomData};
-
 use crate::{
-    render_graph::InternedRenderLabel,
     render_resource::{
-        BindGroup, Buffer, ComputePipeline, PipelineCache, RenderPipeline, Sampler, Texture,
+        BindGroupLayout, Buffer, ComputePipeline, PipelineCache, RenderPipeline, Sampler, Texture,
         TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
@@ -24,17 +21,12 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{EntityRef, Ref, World},
 };
-use resource::bind_group::{AsRenderBindGroup, RenderBindGroup};
 
-use resource::{
-    bind_group::RenderBindGroups, DependencySet, IntoRenderResource, RenderHandle, RenderResource,
-    RenderResourceInit, RenderStore, RetainedRenderResource, RetainedRenderStore,
-    SimpleRenderStore,
-};
+use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, SimpleRenderStore};
 
 use resource::CachedRenderStore;
 
-use self::resource::{IntoRenderData, RenderData, RenderResourceMeta};
+use self::resource::{DependencySet, RenderRef, RenderResourceId, ResourceTracker};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -49,13 +41,9 @@ use self::resource::{IntoRenderData, RenderData, RenderResourceMeta};
 #[derive(Resource, Default)]
 pub struct RenderGraph {
     // TODO: maybe use a Vec for resource_descriptors, and replace next_id with resource_descriptors.len()
-    next_id: u16, //resource_descriptors: HashMap<RenderGraphResourceId, TextureDescriptor<'static>>,
-    // nodes: Vec<RenderGraphNode>,
-    //
-    // bind_group_layouts: HashMap<Box<[BindGroupLayoutEntry]>, BindGroupLayout>,
-    // resources: HashMap<RenderGraphResourceId, Texture>,
-    // pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
-    bind_groups: RenderBindGroups,
+    resources: ResourceTracker,
+    bind_group_layouts: CachedRenderStore<BindGroupLayout>,
+    // bind_groups: RenderBindGroups,
     textures: SimpleRenderStore<Texture>,
     views: SimpleRenderStore<TextureView>,
     samplers: CachedRenderStore<Sampler>,
@@ -63,6 +51,8 @@ pub struct RenderGraph {
     render_pipelines: CachedRenderStore<RenderPipeline>,
     compute_pipelines: CachedRenderStore<ComputePipeline>,
 }
+
+type RenderResourceGeneration = u16;
 
 impl RenderGraph {
     pub(crate) fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
@@ -75,6 +65,19 @@ impl RenderGraph {
         // self.nodes.clear();
         //
         // TODO: Remove unused resources
+    }
+
+    fn new_resource_id(&mut self) -> RenderResourceId {
+        self.resources.new_resource()
+    }
+
+    fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
+        self.resources[id]
+    }
+
+    fn write_resource<R: RenderResource>(&mut self, resource: RenderHandle<R>) -> &mut Self {
+        self.resources.write(resource.id());
+        self
     }
 }
 
@@ -101,42 +104,41 @@ impl<'a> RenderGraphBuilder<'a> {
         &mut self,
         resource: R,
     ) -> RenderHandle<R::Resource> {
-        let next_id: u16 = self.graph.next_id;
+        let id = self.graph.new_resource_id();
         <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token).insert(
-            next_id,
+            id,
             resource.into_render_resource(self.world, self.render_device),
             self.world,
             self.render_device,
         );
-        self.graph.next_id += 1;
-        RenderHandle::new(next_id)
+        RenderHandle::new(id)
     }
 
-    pub fn import_resource<R: RenderResource>(
-        &mut self,
-        descriptor: Option<R::Descriptor>,
-        resource: R::Data,
-    ) -> RenderHandle<R> {
-        let next_id: u16 = self.graph.next_id;
-        R::get_store_mut(self.graph, seal::Token).insert(
-            next_id,
-            RenderResourceInit::Eager(RenderResourceMeta {
-                descriptor,
-                resource,
-            }),
-            self.world,
-            self.render_device,
-        );
-        self.graph.next_id += 1;
-        RenderHandle::new(next_id)
-    }
+    // pub fn import_resource<R: RenderResource>(
+    //     &mut self,
+    //     descriptor: Option<R::Descriptor>,
+    //     resource: R::Data,
+    // ) -> RenderHandle<R> {
+    //     let next_id: u16 = self.graph.next_id;
+    //     R::get_store_mut(self.graph, seal::Token).insert(
+    //         next_id,
+    //         RenderResourceInit::Eager(RenderResourceMeta {
+    //             descriptor,
+    //             resource,
+    //         }),
+    //         self.world,
+    //         self.render_device,
+    //     );
+    //     self.graph.next_id += 1;
+    //     RenderHandle::new(next_id)
+    // }
 
     pub fn get_descriptor_of<R: RenderResource>(
         &self,
         resource: RenderHandle<R>,
     ) -> Option<&R::Descriptor> {
         R::get_store(self.graph, seal::Token)
-            .get(self.world, resource.index())
+            .get(self.world, resource.id())
             .and_then(|meta| meta.descriptor.as_ref())
     }
 
@@ -145,49 +147,50 @@ impl<'a> RenderGraphBuilder<'a> {
             .expect("No descriptor found for resource")
     }
 
-    pub fn retain<R: RetainedRenderResource>(
+    // pub fn new_resource_view<R: IntoRenderResourceView>(&mut self, )
+
+    // pub fn retain<R: RetainedRenderResource>(
+    //     &mut self,
+    //     label: InternedRenderLabel,
+    //     resource: RenderHandle<R>,
+    // ) where
+    //     R::Store: RetainedRenderStore<R>,
+    // {
+    //     R::get_store_mut(self.graph, seal::Token).retain(resource.index(), label);
+    // }
+    //
+    // pub fn get_retained<R: RetainedRenderResource>(
+    //     &mut self,
+    //     label: InternedRenderLabel,
+    // ) -> Option<RenderHandle<R>>
+    // where
+    //     R::Store: RetainedRenderStore<R>,
+    // {
+    //     let next_id: u16 = self.graph.next_id;
+    //     let store = R::get_store_mut(self.graph, seal::Token);
+    //     let res = store.get_retained(label)?;
+    //     store.insert(
+    //         next_id,
+    //         RenderResourceInit::Eager(res),
+    //         self.world,
+    //         self.render_device,
+    //     );
+    //     self.graph.next_id += 1;
+    //     Some(RenderHandle::new(next_id))
+    // }
+
+    // pub fn new_bind_group<M, D: RenderData<M>, B: AsBindGroup>(
+    //     &mut self,
+    //     dependencies: impl IntoRenderData<M, Data = D>,
+    //     node: impl FnOnce(NodeContext<'_, M, D>, &RenderDevice) -> B + Send + Sync + 'static,
+    // ) -> RenderBindGroup {
+    //     todo!()
+    // }
+
+    pub fn add_node(
         &mut self,
-        label: InternedRenderLabel,
-        resource: RenderHandle<R>,
-    ) where
-        R::Store: RetainedRenderStore<R>,
-    {
-        R::get_store_mut(self.graph, seal::Token).retain(resource.index(), label);
-    }
-
-    pub fn get_retained<R: RetainedRenderResource>(
-        &mut self,
-        label: InternedRenderLabel,
-    ) -> Option<RenderHandle<R>>
-    where
-        R::Store: RetainedRenderStore<R>,
-    {
-        let next_id: u16 = self.graph.next_id;
-        let store = R::get_store_mut(self.graph, seal::Token);
-        let res = store.get_retained(label)?;
-        store.insert(
-            next_id,
-            RenderResourceInit::Eager(res),
-            self.world,
-            self.render_device,
-        );
-        self.graph.next_id += 1;
-        Some(RenderHandle::new(next_id))
-    }
-
-    pub fn new_bind_group<B: AsRenderBindGroup>(&mut self, desc: B) -> RenderBindGroup {
-        todo!()
-    }
-
-    pub fn add_node<
-        'n,
-        M,
-        D: RenderData<M>,
-        F: FnOnce(NodeContext<'_, M, D>, &RenderDevice, &RenderQueue) + 'static,
-    >(
-        &'n mut self,
-        dependencies: impl IntoRenderData<M, Data = D>,
-        node: F,
+        dependencies: DependencySet,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'static,
     ) -> &mut Self {
         todo!();
         self
@@ -236,21 +239,19 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 }
 
-pub struct NodeContext<'a, M, D: RenderData<M>> {
-    graph: &'a mut RenderGraph,
+pub struct NodeContext<'a> {
+    graph: &'a RenderGraph,
     world: &'a World,
     view_entity: EntityRef<'a>,
-    input: D::Handle,
 }
 
-impl<'a, M, D: RenderData<M>> NodeContext<'a, M, D> {
-    pub fn input(&mut self) -> D::Item<'_> {
-        D::get_from_graph(&self.input, self.graph, self.world)
-            .expect("Could not access input for node. NodeContext::input() is not guaranteed to succeed when called more than once")
+impl<'a> NodeContext<'a> {
+    pub fn get<R: RenderResource>(&self, resource: RenderRef<R>) -> &'a R {
+        todo!()
     }
 }
 
-impl<'a, M, D: RenderData<M>> NodeContext<'a, M, D> {
+impl<'a> NodeContext<'a> {
     pub fn world_resource<R: Resource>(&'a self) -> &'a R {
         self.world.resource()
     }

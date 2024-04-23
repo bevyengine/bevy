@@ -1,34 +1,67 @@
-use std::{marker::PhantomData, sync::Arc};
-
-use bevy_ecs::world::World;
-use bevy_utils::{all_tuples, HashMap, HashSet};
-use bitflags::iter::IterNames;
-use std::hash::Hash;
-use wgpu::CommandEncoder;
-
-use crate::{
-    render_graph::InternedRenderLabel,
-    render_resource::{BindGroup, Texture},
-    renderer::RenderDevice,
+use std::{
+    borrow::Borrow,
+    marker::PhantomData,
+    ops::Index,
+    sync::{Arc, Weak},
 };
 
-use bind_group::RenderBindGroup;
+use bevy_ecs::world::World;
+use bevy_utils::{HashMap, HashSet};
+use std::hash::Hash;
 
-use self::bind_group::UnsafeRenderBindGroup;
+use crate::{render_graph::InternedRenderLabel, renderer::RenderDevice};
 
-use super::{seal, RenderGraph};
+use super::{seal, NodeContext, RenderGraph, RenderResourceGeneration};
 
 pub mod bind_group;
 pub mod buffer;
 pub mod pipeline;
 pub mod texture;
 
+#[derive(Default)]
+pub struct ResourceTracker {
+    next_id: u32, //todo: slotmap instead for better handling of resource clearing upon frame end
+    generations: Vec<RenderResourceGeneration>,
+}
+
+impl ResourceTracker {
+    pub(super) fn clear(&mut self) {
+        self.next_id = 0;
+        self.generations.clear();
+    }
+
+    pub(super) fn new_resource(&mut self) -> RenderResourceId {
+        if self.next_id == u32::MAX {
+            panic!(
+                "No more than {:?} render resources can exist at once across all render graphs",
+                u32::MAX
+            );
+        }
+        let id = self.next_id;
+        self.next_id += 1;
+        self.generations.push(0u16);
+        RenderResourceId { id }
+    }
+
+    pub(super) fn write(&mut self, id: RenderResourceId) {
+        self.generations[id.id as usize] += 1;
+    }
+}
+
+impl Index<RenderResourceId> for ResourceTracker {
+    type Output = RenderResourceGeneration;
+
+    fn index(&self, id: RenderResourceId) -> &Self::Output {
+        &self.generations[id.id as usize]
+    }
+}
+
 pub trait RenderResource: seal::Super {
     type Descriptor: Send + Sync + 'static;
     type Data: Send + Sync + 'static;
     type Store: RenderStore<Self>;
 
-    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store; //todo: proper generic resource table & make sure external users can't call this function
+    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store;
     fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
@@ -40,41 +73,43 @@ pub trait RenderResource: seal::Super {
     ) -> Self::Data;
 }
 
-pub trait RenderStore<R: RenderResource>: Send + Sync + 'static {
+pub trait RenderStore<R: RenderResource>: seal::Super {
     fn insert(
         &mut self,
-        key: u16,
+        key: RenderResourceId,
         data: RenderResourceInit<R>,
         world: &World,
         render_device: &RenderDevice,
     );
 
-    fn get<'a>(&'a self, world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>>;
-
-    fn get_mut<'a>(
-        &'a mut self,
+    fn get<'a>(
+        &'a self,
         world: &'a World,
-        key: u16,
-    ) -> Option<&'a mut RenderResourceMeta<R>>;
-
-    fn take<'a>(&'a mut self, world: &'a World, key: u16) -> Option<RenderResourceMeta<R>>;
+        key: RenderResourceId,
+    ) -> Option<&'a RenderResourceMeta<R>>;
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice);
+    fn init_dependent_resources(
+        &mut self,
+        graph: &RenderGraph,
+        world: &World,
+        device: &RenderDevice,
+    );
 }
 
-pub trait RetainedRenderStore<R: RenderResource>: RenderStore<R> {
-    fn retain(&mut self, key: u16, label: InternedRenderLabel);
-
-    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>>;
-}
+// pub trait RetainedRenderStore<R: RenderResource>: WriteRenderStore<R> {
+//     fn retain(&mut self, key: u16, label: InternedRenderLabel);
+//
+//     fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>>;
+// }
 
 pub trait WriteRenderResource: RenderResource {}
 
-pub trait RetainedRenderResource: WriteRenderResource
-where
-    <Self as RenderResource>::Store: RetainedRenderStore<Self>,
-{
-}
+// pub trait RetainedRenderResource: WriteRenderResource
+// where
+//     <Self as RenderResource>::Store: RetainedRenderStore<Self>,
+// {
+// }
 
 #[derive(Clone)]
 pub struct RenderResourceMeta<R: RenderResource> {
@@ -85,23 +120,29 @@ pub struct RenderResourceMeta<R: RenderResource> {
 type DeferredResourceInit<R> =
     Box<dyn FnOnce(&mut World, &RenderDevice) -> RenderResourceMeta<R> + Send + Sync + 'static>;
 
+type UnsafeDependentResourceInit<R> =
+    Box<dyn FnOnce(NodeContext, &RenderDevice) -> RenderResourceMeta<R> + Send + Sync + 'static>;
+
 pub enum RenderResourceInit<R: RenderResource> {
     FromDescriptor(R::Descriptor),
     Eager(RenderResourceMeta<R>),
     Deferred(DeferredResourceInit<R>),
+    UnsafeDependentResource(DependencySet, UnsafeDependentResourceInit<R>, seal::Token),
 }
 
 pub struct SimpleRenderStore<R: RenderResource> {
-    resources: HashMap<u16, RenderResourceMeta<R>>,
-    queued_resources: HashMap<u16, DeferredResourceInit<R>>,
-    resources_to_retain: HashMap<u16, InternedRenderLabel>,
-    retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
+    resources: HashMap<RenderResourceId, RenderResourceMeta<R>>,
+    queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
+    // resources_to_retain: HashMap<RenderResourceId, InternedRenderLabel>,
+    // retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
 }
+
+impl<R: RenderResource> seal::Super for SimpleRenderStore<R> {}
 
 impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
     fn insert(
         &mut self,
-        key: u16,
+        id: RenderResourceId,
         data: RenderResourceInit<R>,
         world: &World,
         render_device: &RenderDevice,
@@ -110,7 +151,7 @@ impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
             RenderResourceInit::FromDescriptor(descriptor) => {
                 let resource = R::from_descriptor(&descriptor, world, render_device);
                 self.resources.insert(
-                    key,
+                    id,
                     RenderResourceMeta {
                         descriptor: Some(descriptor),
                         resource,
@@ -118,28 +159,21 @@ impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
                 );
             }
             RenderResourceInit::Eager(meta) => {
-                self.resources.insert(key, meta);
+                self.resources.insert(id, meta);
             }
             RenderResourceInit::Deferred(init) => {
-                self.queued_resources.insert(key, init);
+                self.queued_resources.insert(id, init);
             }
+            RenderResourceInit::UnsafeDependentResource(_, _, _) => todo!(),
         }
     }
 
-    fn get<'a>(&'a self, _world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>> {
-        self.resources.get(&key)
-    }
-
-    fn get_mut<'a>(
-        &'a mut self,
-        world: &'a World,
-        key: u16,
-    ) -> Option<&'a mut RenderResourceMeta<R>> {
-        self.resources.get_mut(&key)
-    }
-
-    fn take<'a>(&'a mut self, world: &'a World, key: u16) -> Option<RenderResourceMeta<R>> {
-        self.resources.remove(&key)
+    fn get<'a>(
+        &'a self,
+        _world: &'a World,
+        id: RenderResourceId,
+    ) -> Option<&'a RenderResourceMeta<R>> {
+        self.resources.get(&id)
     }
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
@@ -147,16 +181,61 @@ impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
             self.resources.insert(key, (init)(world, device));
         }
     }
+
+    fn init_dependent_resources(
+        &mut self,
+        graph: &RenderGraph,
+        world: &World,
+        device: &RenderDevice,
+    ) {
+        todo!()
+    }
 }
 
+// impl<R: RenderResource> WriteRenderStore<R> for SimpleRenderStore<R> {
+// fn get_mut<'a>(
+//     &'a mut self,
+//     world: &'a World,
+//     key: u16,
+// ) -> Option<&'a mut RenderResourceMeta<R>> {
+//     self.resources.get_mut(&key)
+// }
+//
+// fn take<'a>(&'a mut self, world: &'a World, key: u16) -> Option<RenderResourceMeta<R>> {
+//     self.resources.remove(&key)
+// }
+//}
+
+// impl<R: RenderResource> RetainedRenderStore<R> for SimpleRenderStore<R> {
+//     fn retain(&mut self, key: u16, label: InternedRenderLabel) {
+//         self.resources_to_retain.insert(key, label);
+//     }
+//
+//     fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>> {
+//         self.retained_resources.remove(&label)
+//     }
+// }
+
+impl<R: RenderResource> Default for SimpleRenderStore<R> {
+    fn default() -> Self {
+        Self {
+            resources: Default::default(),
+            queued_resources: Default::default(),
+            // retained_resources: Default::default(),
+            // resources_to_retain: Default::default(),
+        }
+    }
+}
 pub struct CachedRenderStore<R: RenderResource>
 where
     R::Descriptor: Clone + Hash + Eq,
 {
-    resources: HashMap<u16, Arc<RenderResourceMeta<R>>>,
-    queued_resources: HashMap<u16, DeferredResourceInit<R>>,
+    resources: HashMap<RenderResourceId, Arc<RenderResourceMeta<R>>>,
+    queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
     cached_resources: HashMap<R::Descriptor, Arc<RenderResourceMeta<R>>>,
 }
+
+impl<R: RenderResource> seal::Super for CachedRenderStore<R> where R::Descriptor: Clone + Hash + Eq {}
 
 impl<R: RenderResource> RenderStore<R> for CachedRenderStore<R>
 where
@@ -164,7 +243,7 @@ where
 {
     fn insert(
         &mut self,
-        key: u16,
+        id: RenderResourceId,
         data: RenderResourceInit<R>,
         world: &World,
         render_device: &RenderDevice,
@@ -181,7 +260,7 @@ where
                             resource: sampler,
                         })
                     });
-                self.resources.insert(key, sampler.clone());
+                self.resources.insert(id, sampler.clone());
             }
             RenderResourceInit::Eager(meta) => {
                 if let Some(descriptor) = meta.descriptor.clone() {
@@ -189,31 +268,24 @@ where
                     self.cached_resources
                         .entry(descriptor)
                         .or_insert(meta.clone());
-                    self.resources.insert(key, meta);
+                    self.resources.insert(id, meta);
                 } else {
-                    self.resources.insert(key, Arc::new(meta));
+                    self.resources.insert(id, Arc::new(meta));
                 };
             }
             RenderResourceInit::Deferred(init) => {
-                self.queued_resources.insert(key, init);
+                self.queued_resources.insert(id, init);
             }
+            RenderResourceInit::UnsafeDependentResource(res, token) => todo!(),
         }
     }
 
-    fn get<'a>(&'a self, world: &'a World, key: u16) -> Option<&'a RenderResourceMeta<R>> {
-        self.resources.get(&key).map(|meta| &**meta)
-    }
-
-    fn get_mut<'a>(
-        &'a mut self,
+    fn get<'a>(
+        &'a self,
         world: &'a World,
-        key: u16,
-    ) -> Option<&'a mut RenderResourceMeta<R>> {
-        self.resources.get_mut(&key).map(|meta| &mut **meta)
-    }
-
-    fn take<'a>(&'a mut self, world: &'a World, key: u16) -> Option<RenderResourceMeta<R>> {
-        self.resources.remove(&key).map(Arc::into_inner)
+        id: RenderResourceId,
+    ) -> Option<&'a RenderResourceMeta<R>> {
+        self.resources.get(&id).map(Borrow::borrow)
     }
 
     fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
@@ -228,26 +300,14 @@ where
             }
         }
     }
-}
 
-impl<R: RenderResource> RetainedRenderStore<R> for SimpleRenderStore<R> {
-    fn retain(&mut self, key: u16, label: InternedRenderLabel) {
-        self.resources_to_retain.insert(key, label);
-    }
-
-    fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>> {
-        self.retained_resources.remove(&label)
-    }
-}
-
-impl<R: RenderResource> Default for SimpleRenderStore<R> {
-    fn default() -> Self {
-        Self {
-            retained_resources: Default::default(),
-            resources: Default::default(),
-            queued_resources: Default::default(),
-            resources_to_retain: Default::default(),
-        }
+    fn init_dependent_resources(
+        &mut self,
+        graph: &RenderGraph,
+        world: &World,
+        device: &RenderDevice,
+    ) {
+        todo!()
     }
 }
 
@@ -289,323 +349,335 @@ impl<R: RenderResource<Data = R>, F: FnOnce(&RenderDevice) -> R> IntoRenderResou
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
-pub struct RenderHandle<'a, R: RenderResource> {
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct RenderResourceId {
+    id: u32,
+}
+
+pub struct RenderHandle<'a, R> {
     id: RenderResourceId,
+    // deps: DependencySet,
     data: PhantomData<&'a R>,
 }
 
+impl<'a, R> PartialEq for RenderHandle<'a, R> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id //&& self.deps == other.deps
+    }
+}
+
+impl<'a, R> Eq for RenderHandle<'a, R> {}
+
+impl<'a, R> Hash for RenderHandle<'a, R> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.data.hash(state);
+    }
+}
+
 impl<'a, R: RenderResource> RenderHandle<'a, R> {
-    pub(super) fn new(index: u16) -> Self {
+    pub(super) fn new(id: RenderResourceId) -> Self {
         Self {
-            id: RenderResourceId {
-                index,
-                generation: 0,
-            },
+            id,
+            // deps: Default::default(),
             data: PhantomData,
         }
     }
 
-    pub(super) fn index(&self) -> u16 {
-        self.id.index
+    // pub(super) fn new_with_deps(id: RenderResourceId, deps: DependencySet) -> Self {
+    //     Self {
+    //         id,
+    //         deps,
+    //         data: PhantomData,
+    //     }
+    // }
+
+    pub(super) fn id(&self) -> RenderResourceId {
+        self.id
     }
 
-    pub fn is_fresh(&self) -> bool {
-        self.id.generation == 0
-    }
-
-    fn as_unsafe(&self) -> UnsafeRenderHandle<R> {
-        UnsafeRenderHandle {
-            id: self.id,
-            usage_type: ResourceUsageType::Read,
-            data: PhantomData,
-        }
-    }
-
-    fn as_unsafe_mut(&mut self) -> UnsafeRenderHandle<R> {
-        UnsafeRenderHandle {
-            id: self.id,
-            usage_type: ResourceUsageType::Write,
-            data: PhantomData,
-        }
-    }
-
-    fn into_unsafe(self) -> UnsafeRenderHandle<R> {
-        UnsafeRenderHandle {
-            id: self.id,
-            usage_type: ResourceUsageType::Take,
-            data: PhantomData,
-        }
+    pub(super) fn generation(&self, graph: &RenderGraph) -> RenderResourceGeneration {
+        graph.generation(self.id)
     }
 }
 
-pub enum RenderDependency {
-    Read(RenderResourceId),
-    ReadWrite(RenderResourceId),
-    BindGroup(UnsafeRenderBindGroup),
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct RenderResourceId {
-    pub(super) index: u16,
-    pub(super) generation: u16,
-}
-
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub struct DependencySet {
     reads: HashSet<RenderResourceId>,
     writes: HashSet<RenderResourceId>,
-    takes: HashSet<RenderResourceId>,
-    bind_groups: HashSet<UnsafeRenderBindGroup>,
 }
 
 impl DependencySet {
-    pub fn add<R: RenderResource>(&mut self, resource: &UnsafeRenderHandle<R>) {
-        match resource.usage_type {
-            ResourceUsageType::Read => {
-                self.reads.insert(resource.id);
+    pub fn add<R: RenderResource>(
+        &mut self,
+        resource: impl IntoRenderDependency<R>,
+    ) -> RenderRef<R> {
+        let deps = resource.into_render_dependency(seal::Token);
+        for dep in deps {
+            match dep.usage {
+                RenderResourceUsage::Read => self.reads.insert(dep.id),
+                RenderResourceUsage::Write => self.writes.insert(dep.id),
             }
-            ResourceUsageType::Write => {
-                self.writes.insert(resource.id);
-            }
-            ResourceUsageType::Take => {
-                self.takes.insert(resource.id);
-            }
+        }
+        RenderRef {
+            id: dep.id,
+            data: PhantomData,
         }
     }
 
-    pub fn add_bind_group(&mut self, bind_group: &RenderBindGroup) {
-        self.bind_groups.insert(bind_group);
+    pub(super) fn iter_writes<'a>(&'a self) -> impl Iterator<Item = RenderResourceId> + 'a {
+        self.writes.iter().copied()
     }
 }
 
-#[derive(Copy, Clone)]
-enum ResourceUsageType {
-    Read,
-    Write,
-    Take,
+struct RenderDependency {
+    id: RenderResourceId,
+    usage: RenderResourceUsage,
 }
 
-pub struct UnsafeRenderHandle<R: RenderResource> {
+#[derive(Copy, Clone)]
+enum RenderResourceUsage {
+    Read,
+    Write,
+}
+
+pub trait IntoRenderDependency<R: RenderResource> {
+    fn into_render_dependency(self, _: seal::Token) -> impl Iterator<Item = RenderDependency>;
+}
+
+impl<R: RenderResource> IntoRenderDependency<R> for &RenderHandle<'_, R> {
+    fn into_render_dependency(self, _: seal::Token) -> impl Iterator<Item = RenderDependency> {
+        std::iter::once(RenderDependency {
+            id: self.id,
+            usage: RenderResourceUsage::Read,
+        })
+    }
+}
+
+impl<R: RenderResource> IntoRenderDependency<R> for &mut RenderHandle<'_, R> {
+    fn into_render_dependency(self, _: seal::Token) -> impl Iterator<Item = RenderDependency> {
+        std::iter::once(RenderDependency {
+            id: self.id,
+            usage: RenderResourceUsage::Write,
+        })
+    }
+}
+
+pub struct RenderRef<R: RenderResource> {
     id: RenderResourceId,
-    usage_type: ResourceUsageType,
     data: PhantomData<R>,
 }
 
-impl<R: RenderResource> UnsafeRenderHandle<R> {
+impl<R: RenderResource> RenderRef<R> {
     pub fn get<'w>(&self, graph: &'w RenderGraph, world: &'w World) -> Option<&'w R> {
         todo!()
     }
 
-    pub fn get_mut<'w>(&self, graph: &'w mut RenderGraph, world: &'w World) -> Option<&'w mut R> {}
+    pub fn get_mut<'w>(&self, graph: &'w mut RenderGraph, world: &'w World) -> Option<&'w mut R> {
+        todo!()
+    }
 
     pub fn take<'w>(&self, graph: &'w mut RenderGraph, world: &'w World) -> Option<R> {
         todo!()
     }
 }
 
-impl UnsafeRenderBindGroup {
-    fn new(bind_group: RenderBindGroup) -> Self {
-        Self { id: bind_group.id }
-    }
-
-    fn get(graph: &RenderGraph) -> Option<&BindGroup> {
-        todo!()
-    }
-}
-
-impl<R: RenderResource> Copy for UnsafeRenderHandle<R> {}
-impl<R: RenderResource> Clone for UnsafeRenderHandle<R> {
+impl<R: RenderResource> Copy for RenderRef<R> {}
+impl<R: RenderResource> Clone for RenderRef<R> {
     fn clone(&self) -> Self {
         *self
     }
 }
+//
+// struct MutResource;
+// struct RefResource;
+// struct TakeResource;
+//
+// pub trait RenderData<Marker>: 'static {
+//     type Item<'w>;
+//     type Handle: Send + Sync + 'static;
+//
+//     fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet);
+//     fn get_from_graph<'w>(
+//         fetch: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>>;
+// }
+//
+// impl<R: RenderResource> RenderData<RefResource> for &'static R {
+//     type Item<'w> = &'w R;
+//     type Handle = UnsafeRenderHandle<R>;
+//
+//     fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
+//         dependencies.add(handle)
+//     }
+//
+//     fn get_from_graph<'w>(
+//         handle: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>> {
+//         handle.get(graph, world)
+//     }
+// }
+//
+// impl<R: RenderResource> RenderData<MutResource> for &'static mut R {
+//     type Item<'w> = &'w mut R;
+//     type Handle = UnsafeRenderHandle<R>;
+//
+//     fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
+//         dependencies.add(handle)
+//     }
+//
+//     fn get_from_graph<'w>(
+//         handle: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>> {
+//         handle.get_mut(graph, world)
+//     }
+// }
+//
+// impl<R: RenderResource> RenderData<TakeResource> for R {
+//     type Item<'w> = R;
+//     type Handle = UnsafeRenderHandle<R>;
+//
+//     fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
+//         dependencies.add(handle)
+//     }
+//
+//     fn get_from_graph<'w>(
+//         handle: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>> {
+//         handle.take(graph, world)
+//     }
+// }
 
-struct MutResource;
-struct RefResource;
-struct TakeResource;
-
-pub trait RenderData<Marker> {
-    type Item<'w>;
-    type Handle: Send + Sync + 'static;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet);
-    fn get_from_graph<'w>(
-        fetch: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>>;
-}
-
-impl<R: RenderResource> RenderData<RefResource> for &R {
-    type Item<'w> = &'w R;
-    type Handle = UnsafeRenderHandle<R>;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
-        dependencies.add(handle)
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-        handle.get(graph, world)
-    }
-}
-
-impl<R: RenderResource> RenderData<MutResource> for &mut R {
-    type Item<'w> = &'w mut R;
-    type Handle = UnsafeRenderHandle<R>;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
-        dependencies.add(handle)
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-        handle.get_mut(graph, world)
-    }
-}
-
-impl<R: RenderResource> RenderData<TakeResource> for R {
-    type Item<'w> = R;
-    type Handle = UnsafeRenderHandle<R>;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
-        dependencies.add(handle)
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-        handle.take(graph, world)
-    }
-}
-
-impl RenderData<RefResource> for &BindGroup {
-    type Item<'w> = &'w BindGroup;
-    type Handle = UnsafeRenderBindGroup;
-
-    fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
-        dependencies.add_bind_group(handle);
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-    }
-}
-
-impl<M, D: RenderData<M>, const N: usize> RenderData<[M; N]> for [D; N] {
-    type Item<'w> = [D::Item<'w>; N];
-    type Handle = [D::Handle; N];
-
-    fn add_dependencies(fetch: &Self::Handle, dependencies: &mut DependencySet) {
-        for f in fetch {
-            D::add_dependencies(f, dependencies);
-        }
-    }
-
-    fn get_from_graph<'w>(
-        handle: &Self::Handle,
-        graph: &'w mut RenderGraph,
-        world: &'w World,
-    ) -> Option<Self::Item<'w>> {
-        let mut items: Self::Item<'w> = [];
-        for i in 0..N {
-            items[i] = D::get_from_graph(&handle[i], graph, world)?;
-        }
-        Some(items)
-    }
-}
-
-macro_rules! impl_render_data {
-    ($(($T: ident, $M:ident, $t: ident, $i: ident)),*) => {
-        impl <$($M,)* $($T: RenderData<$M>),*> RenderData<($($M,)*)> for ($($T,)*) {
-            type Item<'w> = ($($T::Item<'w>,)*);
-            type Handle = ($($T::Handle,)*);
-
-            fn add_dependencies(($($t,)*): &Self::Handle, dependencies: &mut DependencySet) {
-                $($T::add_dependencies($t, dependencies);)*
-            }
-
-            fn get_from_graph<'w>(
-                ($($t,)*): &Self::Handle,
-                graph: &'w mut RenderGraph,
-                world: &'w World,
-            ) -> Option<Self::Item<'w>> {
-                match ($($T::get_from_graph($t, graph, world),)*) {
-                    ($(Some($i),)*) => Some(($($i,)*)),
-                    _ => None,
-                }
-            }
-        }
-    };
-}
-
-all_tuples!(impl_render_data, 0, 16, T, M, t, i);
-
-pub trait IntoRenderData<Marker> {
-    type Data: RenderData<Marker>;
-
-    fn into_render_data(self) -> <Self::Data as RenderData<Marker>>::Handle;
-}
-
-impl<'a, R: RenderResource> IntoRenderData<RefResource> for &RenderHandle<'a, R> {
-    type Data = &'a R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
-        self.as_unsafe()
-    }
-}
-
-impl<'a, R: RenderResource> IntoRenderData<MutResource> for &mut RenderHandle<'a, R> {
-    type Data = &'a mut R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData<MutResource>>::Handle {
-        self.as_unsafe_mut()
-    }
-}
-
-impl<'a, R: RenderResource> IntoRenderData<TakeResource> for RenderHandle<'a, R> {
-    type Data = R;
-
-    fn into_render_data(self) -> <Self::Data as RenderData<TakeResource>>::Handle {
-        self.into_unsafe()
-    }
-}
-
-impl<'a> IntoRenderData<RefResource> for &RenderBindGroup<'a> {
-    type Data = &'a BindGroup;
-
-    fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
-        self.as_unsafe()
-    }
-}
-
-macro_rules! impl_into_render_data {
-    ($(($T: ident, $M: ident, $t: ident)),*) => {
-        impl <$($M,)* $($T: IntoRenderData<$M>),*> IntoRenderData<($($M,)*)> for ($($T,)*) {
-            type Data = ($($T::Data,)*);
-
-            #[allow(clippy::unused_unit)]
-            fn into_render_data(self) -> <Self::Data as RenderData<($($M,)*)>>::Handle {
-                let ($($t,)*) = self;
-                ($($t.into_render_data(),)*)
-            }
-        }
-    }
-}
-
-all_tuples!(impl_into_render_data, 0, 16, T, M, t);
+// impl RenderData<RefResource> for &'static BindGroup {
+//     type Item<'w> = &'w BindGroup;
+//     type Handle = UnsafeRenderBindGroup;
+//
+//     fn add_dependencies(handle: &Self::Handle, dependencies: &mut DependencySet) {
+//         dependencies.add_bind_group(handle);
+//     }
+//
+//     fn get_from_graph<'w>(
+//         handle: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>> {
+//         todo!()
+//     }
+// }
+//
+// impl<M, D: RenderData<M>, const N: usize> RenderData<[M; N]> for [D; N] {
+//     type Item<'w> = [D::Item<'w>; N];
+//     type Handle = [D::Handle; N];
+//
+//     fn add_dependencies(fetch: &Self::Handle, dependencies: &mut DependencySet) {
+//         for f in fetch {
+//             D::add_dependencies(f, dependencies);
+//         }
+//     }
+//
+//     fn get_from_graph<'w>(
+//         handle: &Self::Handle,
+//         graph: &'w mut RenderGraph,
+//         world: &'w World,
+//     ) -> Option<Self::Item<'w>> {
+//         // let mut items: Self::Item<'w> = [];
+//         // for i in 0..N {
+//         //     items[i] = D::get_from_graph(&handle[i], graph, world)?;
+//         // }
+//         // Some(items)
+//         todo!()
+//     }
+// }
+//
+// macro_rules! impl_render_data {
+//     ($(($T: ident, $M:ident, $t: ident, $i: ident)),*) => {
+//         impl <$($M,)* $($T: RenderData<$M>),*> RenderData<($($M,)*)> for ($($T,)*) {
+//             type Item<'w> = ($($T::Item<'w>,)*);
+//             type Handle = ($($T::Handle,)*);
+//
+//             fn add_dependencies(($($t,)*): &Self::Handle, dependencies: &mut DependencySet) {
+//                 $($T::add_dependencies($t, dependencies);)*
+//             }
+//
+//             #[allow(unreachable_patterns)]
+//             fn get_from_graph<'w>(
+//                 ($($t,)*): &Self::Handle,
+//                 graph: &'w mut RenderGraph,
+//                 world: &'w World,
+//             ) -> Option<Self::Item<'w>> {
+//                 $(let $i = $T::get_from_graph($t, graph, world);)*
+//                 match ($($i,)*) {
+//                     ($(Some($i),)*) => Some(($($i,)*)),
+//                     _ => None,
+//                 }
+//             }
+//         }
+//     };
+// }
+//
+// all_tuples!(impl_render_data, 0, 16, T, M, t, i);
+//
+// pub trait IntoRenderData<Marker> {
+//     type Data: RenderData<Marker>;
+//
+//     fn into_render_data(self) -> <Self::Data as RenderData<Marker>>::Handle;
+// }
+//
+// impl<'a, R: RenderResource> IntoRenderData<RefResource> for &RenderHandle<'a, R> {
+//     type Data = &'static R;
+//
+//     fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
+//         self.as_unsafe()
+//     }
+// }
+//
+// impl<'a, R: RenderResource> IntoRenderData<MutResource> for &mut RenderHandle<'a, R> {
+//     type Data = &'static mut R;
+//
+//     fn into_render_data(self) -> <Self::Data as RenderData<MutResource>>::Handle {
+//         self.as_unsafe_mut()
+//     }
+// }
+//
+// impl<'a, R: RenderResource> IntoRenderData<TakeResource> for RenderHandle<'a, R> {
+//     type Data = R;
+//
+//     fn into_render_data(self) -> <Self::Data as RenderData<TakeResource>>::Handle {
+//         self.into_unsafe()
+//     }
+// }
+//
+// impl<'a> IntoRenderData<RefResource> for &RenderBindGroup<'a> {
+//     type Data = &'static BindGroup;
+//
+//     fn into_render_data(self) -> <Self::Data as RenderData<RefResource>>::Handle {
+//         self.as_unsafe()
+//     }
+// }
+//
+// macro_rules! impl_into_render_data {
+//     ($(($T: ident, $M: ident, $t: ident)),*) => {
+//         impl <$($M,)* $($T: IntoRenderData<$M>),*> IntoRenderData<($($M,)*)> for ($($T,)*) {
+//             type Data = ($($T::Data,)*);
+//
+//             #[allow(clippy::unused_unit)]
+//             fn into_render_data(self) -> <Self::Data as RenderData<($($M,)*)>>::Handle {
+//                 let ($($t,)*) = self;
+//                 ($($t.into_render_data(),)*)
+//             }
+//         }
+//     }
+// }
+//
+// all_tuples!(impl_into_render_data, 0, 16, T, M, t);
 
 // impl<'a, R: RenderResource> IntoRenderDependency<'a> for &'a RenderHandle<R> {
 //     fn into_render_dependency(self) -> RenderDependency {

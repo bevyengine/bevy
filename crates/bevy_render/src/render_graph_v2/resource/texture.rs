@@ -1,7 +1,6 @@
 use bevy_ecs::world::World;
 use bevy_math::FloatOrd;
-use bevy_utils::HashMap;
-use std::{borrow::Cow, hash::Hash, sync::Arc};
+use std::hash::Hash;
 
 use crate::{
     render_graph_v2::{seal, RenderGraph, RenderGraphBuilder},
@@ -10,13 +9,11 @@ use crate::{
         TextureViewDescriptor,
     },
     renderer::RenderDevice,
-    texture::CachedTexture,
 };
 
 use super::{
-    CachedRenderStore, DeferredResourceInit, IntoRenderResource, RenderHandle, RenderResource,
-    RenderResourceInit, RenderResourceMeta, RenderStore, RetainedRenderResource, SimpleRenderStore,
-    WriteRenderResource,
+    CachedRenderStore, DependencySet, IntoRenderResource, RenderHandle, RenderResource,
+    RenderResourceInit, RenderResourceMeta, SimpleRenderStore, WriteRenderResource,
 };
 
 impl seal::Super for Texture {}
@@ -49,7 +46,7 @@ impl RenderResource for Texture {
 
 impl WriteRenderResource for Texture {}
 
-impl RetainedRenderResource for Texture {}
+// impl RetainedRenderResource for Texture {}
 
 impl IntoRenderResource for TextureDescriptor<'static> {
     type Resource = Texture;
@@ -76,11 +73,15 @@ pub fn new_texture_with_data<'a>(
 ) -> RenderHandle<'a, Texture> {
     let size = descriptor.size;
     let mut tex = graph.new_resource(descriptor);
-    graph.add_node(&mut tex, move |mut ctx, _, queue| {
-        //todo: internal mutability on ctx?
-        let tex = ctx.input();
-        queue.write_texture(tex.as_image_copy(), data, data_layout, size);
-    });
+    {
+        //todo: macro syntax for this
+        let mut deps = DependencySet::default();
+        let tex = deps.add(&mut tex);
+        graph.add_node(deps, move |mut ctx, _, queue| {
+            //todo: internal mutability on ctx?
+            queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
+        });
+    }
     tex
 }
 

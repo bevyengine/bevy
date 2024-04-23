@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta,
-    RetainedRenderResource, SimpleRenderStore, WriteRenderResource,
+    IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta, SimpleRenderStore,
+    WriteRenderResource,
 };
 
 impl seal::Super for Buffer {}
@@ -42,7 +42,7 @@ impl RenderResource for Buffer {
 
 impl WriteRenderResource for Buffer {}
 
-impl RetainedRenderResource for Buffer {}
+// impl RetainedRenderResource for Buffer {}
 
 impl IntoRenderResource for BufferDescriptor<'static> {
     type Resource = Buffer;
