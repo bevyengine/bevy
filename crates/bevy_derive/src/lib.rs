@@ -27,6 +27,7 @@ use quote::format_ident;
     note = "The current dynamic plugin system is unsound and will be removed in 0.15."
 )]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
+    #[allow(deprecated)]
     app_plugin::derive_dynamic_plugin(input)
 }
 
