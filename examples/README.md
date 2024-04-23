@@ -109,6 +109,7 @@ Example | Description
 [Multiple Sprites, One Entity](../examples/2d/multiple_sprites_one_entity.rs) | Constructs a large entity composed of multiple sprites
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
+[Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
