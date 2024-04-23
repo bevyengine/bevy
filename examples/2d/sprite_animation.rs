@@ -149,8 +149,8 @@ fn setup(
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(100.0),
-            left: Val::Px(100.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
         ..default()
