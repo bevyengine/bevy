@@ -644,7 +644,7 @@ pub fn extract_meshes_for_gpu_building(
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
     mut render_mesh_instance_queues: Local<
-        Parallel<Vec<((Entity, RenderMeshInstanceShared), MeshInputUniform)>>,
+        Parallel<Vec<(Entity, RenderMeshInstanceShared, MeshInputUniform)>>,
     >,
     meshes_query: Extract<
         Query<(
@@ -725,7 +725,8 @@ pub fn extract_meshes_for_gpu_building(
 
             render_mesh_instance_queues.scope(|queue| {
                 queue.push((
-                    (entity, shared),
+                    entity,
+                    shared,
                     MeshInputUniform {
                         flags: mesh_flags.bits(),
                         lightmap_uv_rect,
@@ -740,7 +741,7 @@ pub fn extract_meshes_for_gpu_building(
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
-        for ((entity, shared), mesh_uniform) in queue.drain(..) {
+        for (entity, shared, mesh_uniform) in queue.drain(..) {
             let buffer_index = current_input_buffer.push(mesh_uniform);
             let translation = vec3(
                 mesh_uniform.transform[0].w,
