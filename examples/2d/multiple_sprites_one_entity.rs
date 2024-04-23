@@ -10,19 +10,12 @@ fn main() {
         // the user can press the arrow keys to translate the parent entity in the window
         .add_systems(
             Update,
-            translate::<-5, 0>.run_if(input_pressed(KeyCode::ArrowLeft)),
-        )
-        .add_systems(
-            Update,
-            translate::<5, 0>.run_if(input_pressed(KeyCode::ArrowRight)),
-        )
-        .add_systems(
-            Update,
-            translate::<0, 5>.run_if(input_pressed(KeyCode::ArrowUp)),
-        )
-        .add_systems(
-            Update,
-            translate::<0, -5>.run_if(input_pressed(KeyCode::ArrowDown)),
+            (
+                translate::<-5, 0>.run_if(input_pressed(KeyCode::ArrowLeft)),
+                translate::<5, 0>.run_if(input_pressed(KeyCode::ArrowRight)),
+                translate::<0, 5>.run_if(input_pressed(KeyCode::ArrowUp)),
+                translate::<0, -5>.run_if(input_pressed(KeyCode::ArrowDown)),
+            ),
         )
         .run();
 }
