@@ -13,7 +13,7 @@ use bevy_ecs::prelude::*;
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
     if windows.is_empty() {
         bevy_utils::tracing::info!("No windows are open, exiting");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     }
 }
 
@@ -28,7 +28,7 @@ pub fn exit_on_primary_closed(
 ) {
     if windows.is_empty() {
         bevy_utils::tracing::info!("Primary window was closed, exiting");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     }
 }
 
