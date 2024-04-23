@@ -17,9 +17,8 @@ use bevy::{
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            PushConstantRange, RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
-            VertexState, VertexStepMode,
+            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
