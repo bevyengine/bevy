@@ -1646,7 +1646,6 @@ pub fn prepare_mesh_bind_group(
                         targets,
                         previous_weights,
                     ),
-
                     (Some(skin), Some(previous_skin), Some(previous_weights)) => layouts
                         .morphed_skinned_motion_vectors(
                             &render_device,
@@ -1751,6 +1750,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
         let skin_index = skin_indices.indices.get(entity);
         let morph_index = morph_indices.indices.get(entity);
+        // TODO: Previous indices may be none if this entity was created this frame,
+        // but there are other valid previous frame animated meshes, so we still
+        // have to set the dynamic offset for these
+        let previous_skin_index = skin_indices.previous_indices.get(entity);
+        let previous_morph_index = morph_indices.previous_indices.get(entity);
 
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
