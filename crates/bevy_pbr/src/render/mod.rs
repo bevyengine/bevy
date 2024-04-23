@@ -13,4 +13,5 @@ pub use light::*;
 pub use mesh::*;
 pub use mesh_bindings::MeshLayouts;
 pub use mesh_view_bindings::*;
+pub use morph::MorphUniform;
 pub use skin::{extract_skins, prepare_skins, SkinIndex, SkinUniform, MAX_JOINTS};

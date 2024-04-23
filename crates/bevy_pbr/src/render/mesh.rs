@@ -842,7 +842,7 @@ impl FromWorld for MeshPipeline {
             Res<RenderQueue>,
             Res<AnimatedMeshMotionVectors>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue, motion_vector_support) =
+        let (render_device, default_sampler, render_queue, animated_mesh_motion_vectors) =
             system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -888,7 +888,7 @@ impl FromWorld for MeshPipeline {
             view_layouts,
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts::new(&render_device, **motion_vector_support),
+            mesh_layouts: MeshLayouts::new(&render_device, **animated_mesh_motion_vectors),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
         }
@@ -1058,6 +1058,8 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
+        const ANIMATED_SKIN_MOTION_VECTORS      = 1 << 15;
+        const ANIMATED_MORPH_MOTION_VECTORS     = 1 << 16;
         const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
 
         // Bitfields
@@ -1175,14 +1177,16 @@ fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
-pub fn setup_morph_and_skinning_defs(
+pub fn setup_morph_and_skinning(
     mesh_layouts: &MeshLayouts,
     layout: &MeshVertexBufferLayoutRef,
     offset: u32,
     key: &MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
-) -> BindGroupLayout {
+    skinning_motion_vector_support: bool,
+    morph_motion_vector_support: bool,
+) -> (BindGroupLayout, bool) {
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
@@ -1193,19 +1197,37 @@ pub fn setup_morph_and_skinning_defs(
     match (is_skinned(layout), is_morphed, is_lightmapped) {
         (true, false, _) => {
             add_skin_data();
-            mesh_layouts.skinned.clone()
+            if skinning_motion_vector_support {
+                shader_defs.push("ANIMATED_MESH_MOTION_VECTORS".into());
+                (mesh_layouts.skinned_motion_vectors.clone().unwrap(), true)
+            } else {
+                (mesh_layouts.skinned.clone(), false)
+            }
         }
         (true, true, _) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed_skinned.clone()
+            if skinning_motion_vector_support && morph_motion_vector_support {
+                shader_defs.push("ANIMATED_MESH_MOTION_VECTORS".into());
+                (
+                    mesh_layouts.morphed_skinned_motion_vectors.clone().unwrap(),
+                    true,
+                )
+            } else {
+                (mesh_layouts.morphed_skinned.clone(), false)
+            }
         }
         (false, true, _) => {
             shader_defs.push("MORPH_TARGETS".into());
-            mesh_layouts.morphed.clone()
+            if morph_motion_vector_support {
+                shader_defs.push("ANIMATED_MESH_MOTION_VECTORS".into());
+                (mesh_layouts.morphed_motion_vectors.clone().unwrap(), true)
+            } else {
+                (mesh_layouts.morphed.clone(), false)
+            }
         }
-        (false, false, true) => mesh_layouts.lightmapped.clone(),
-        (false, false, false) => mesh_layouts.model_only.clone(),
+        (false, false, true) => (mesh_layouts.lightmapped.clone(), false),
+        (false, false, false) => (mesh_layouts.model_only.clone(), false),
     }
 }
 
@@ -1265,14 +1287,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("MULTISAMPLED".into());
         };
 
-        bind_group_layout.push(setup_morph_and_skinning_defs(
-            &self.mesh_layouts,
-            layout,
-            6,
-            &key,
-            &mut shader_defs,
-            &mut vertex_attributes,
-        ));
+        bind_group_layout.push(
+            setup_morph_and_skinning(
+                &self.mesh_layouts,
+                layout,
+                6,
+                &key,
+                &mut shader_defs,
+                &mut vertex_attributes,
+                false,
+                false,
+            )
+            .0,
+        );
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
@@ -1463,18 +1490,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             ));
         }
 
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE,
@@ -1493,7 +1508,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: bind_group_layout,
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -1598,17 +1613,54 @@ pub fn prepare_mesh_bind_group(
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
-    if let Some(skin) = skin {
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
+    let previous_skin = skins_uniform
+        .previous_buffer
+        .as_ref()
+        .and_then(BufferVec::buffer);
+    match (skin, previous_skin) {
+        (Some(skin), None) => groups.skinned = Some(layouts.skinned(&render_device, &model, skin)),
+        (Some(skin), Some(previous_skin)) => {
+            groups.skinned =
+                Some(layouts.skinned_motion_vectors(&render_device, &model, skin, previous_skin))
+        }
+        _ => {}
     }
 
     if let Some(weights) = weights_uniform.buffer.buffer() {
+        let previous_weights = weights_uniform
+            .previous_buffer
+            .as_ref()
+            .and_then(BufferVec::buffer);
+
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
-                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
-                } else {
-                    layouts.morphed(&render_device, &model, weights, targets)
+                let group = match (
+                    skin.filter(|_| is_skinned(&gpu_mesh.layout)),
+                    previous_skin,
+                    previous_weights,
+                ) {
+                    (None, _, Some(previous_weights)) => layouts.morphed_motion_vectors(
+                        &render_device,
+                        &model,
+                        weights,
+                        targets,
+                        previous_weights,
+                    ),
+
+                    (Some(skin), Some(previous_skin), Some(previous_weights)) => layouts
+                        .morphed_skinned_motion_vectors(
+                            &render_device,
+                            &model,
+                            skin,
+                            weights,
+                            targets,
+                            previous_skin,
+                            previous_weights,
+                        ),
+                    (Some(skin), _, None) => {
+                        layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
+                    }
+                    _ => layouts.morphed(&render_device, &model, weights, targets),
                 };
                 groups.morph_targets.insert(id, group);
             }
@@ -1790,12 +1842,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

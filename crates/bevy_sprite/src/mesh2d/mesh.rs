@@ -699,12 +699,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

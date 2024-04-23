@@ -438,13 +438,17 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        let bind_group = setup_morph_and_skinning_defs(
+        let (bind_group, animated_mesh_motion_vectors) = setup_morph_and_skinning(
             &self.mesh_layouts,
             layout,
             5,
             &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
+            key.mesh_key
+                .contains(MeshPipelineKey::ANIMATED_SKIN_MOTION_VECTORS),
+            key.mesh_key
+                .contains(MeshPipelineKey::ANIMATED_MORPH_MOTION_VECTORS),
         );
         bind_group_layouts.insert(1, bind_group);
 
@@ -535,11 +539,7 @@ where
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
+        if animated_mesh_motion_vectors {
             push_constant_ranges.push(PushConstantRange {
                 stages: ShaderStages::VERTEX,
                 range: 0..4,
@@ -712,6 +712,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    skins: Res<SkinUniform>,
+    morphs: Res<MorphUniform>,
     mut views: Query<
         (
             &ExtractedView,
@@ -831,6 +833,13 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 .contains_key(visible_entity)
             {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
+
+            if skins.previous_buffer.is_some() {
+                mesh_key |= MeshPipelineKey::ANIMATED_SKIN_MOTION_VECTORS;
+            }
+            if morphs.previous_buffer.is_some() {
+                mesh_key |= MeshPipelineKey::ANIMATED_MORPH_MOTION_VECTORS;
             }
 
             let pipeline_id = pipelines.specialize(

@@ -6,6 +6,9 @@
 
 @group(1) @binding(2) var<uniform> morph_weights: MorphWeights;
 @group(1) @binding(3) var morph_targets: texture_3d<f32>;
+#ifdef ANIMATED_MESH_MOTION_VECTORS
+@group(1) @binding(7) var<uniform> previous_morph_weights: MorphWeights;
+#endif
 
 // NOTE: Those are the "hardcoded" values found in `MorphAttributes` struct
 // in crates/bevy_render/src/mesh/morph/visitors.rs

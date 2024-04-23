@@ -5,6 +5,9 @@
 #ifdef SKINNED
 
 @group(1) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
+#ifdef ANIMATED_MESH_MOTION_VECTORS
+@group(1) @binding(6) var<uniform> previous_joint_matrices: SkinnedMesh;
+#endif
 
 fn skin_model(
     indexes: vec4<u32>,
