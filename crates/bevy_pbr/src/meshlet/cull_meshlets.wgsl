@@ -126,6 +126,16 @@ fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
     return sphere_diameter_pixels < 1.0;
 }
 
+// https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
+fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
+    let d2 = dot(cp, cp);
+    let r2 = r * r;
+    let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
+    let view_size = f32(max(view.viewport.z, view.viewport.w));
+    let sphere_diameter_pixels = sphere_diameter_uv * view_size;
+    return sphere_diameter_pixels < 1.0;
+}
+
 // https://zeux.io/2023/01/12/approximate-projected-bounds
 fn project_view_space_sphere_to_screen_space_aabb(cp: vec3<f32>, r: f32) -> vec4<f32> {
     let inv_width = view.projection[0][0] * 0.5;
