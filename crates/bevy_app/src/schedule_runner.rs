@@ -3,7 +3,6 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_ecs::event::ManualEventReader;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -82,26 +81,25 @@ impl Plugin for ScheduleRunnerPlugin {
                 app.cleanup();
             }
 
-            let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
                     app.update();
 
-                    if let Some(exit) = app.should_exit_manual(&mut app_exit_event_reader) {
+                    if let Some(exit) = app.should_exit() {
                         return exit;
                     }
 
                     AppExit::Success
                 }
                 RunMode::Loop { wait } => {
-                    let mut tick = move |app: &mut App,
-                                         wait: Option<Duration>|
+                    let tick = move |app: &mut App,
+                                     wait: Option<Duration>|
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
                         app.update();
 
-                        if let Some(exit) = app.should_exit_manual(&mut app_exit_event_reader) {
+                        if let Some(exit) = app.should_exit() {
                             return Err(exit);
                         };
 
