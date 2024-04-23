@@ -45,11 +45,10 @@ impl StaticTaskPool {
         self.thread_num() > 0
     }
 
-    /// Initializes the task pool with the configuration in
+    /// Initializes the task pool with the `builder`.
     ///
-    /// # Panics
-    /// Panics if the task pool was already initialized or provided a builder that
-    /// yields zero threads.
+    /// Retuns an error if the task pool was already initialized or provided a builder 
+    /// that yields zero threads.
     pub fn init(
         &'static self,
         builder: TaskPoolBuilder,
@@ -111,7 +110,6 @@ impl StaticTaskPool {
                 }
                 Err(join_handle) => {
                     *join_handles = Vec::new();
-                    drop(join_handles);
                     return Err(join_handle.into());
                 }
             }
