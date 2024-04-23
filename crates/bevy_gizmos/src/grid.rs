@@ -8,8 +8,12 @@ use bevy_color::LinearRgba;
 use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3};
 
 /// A builder returned by [`Gizmos::grid_3d`]
-pub struct GridBuilder3d<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct GridBuilder3d<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     spacing: Vec3,
@@ -19,8 +23,12 @@ pub struct GridBuilder3d<'a, 'w, 's, T: GizmoConfigGroup> {
     color: LinearRgba,
 }
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
-pub struct GridBuilder2d<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct GridBuilder2d<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     spacing: Vec2,
@@ -30,7 +38,11 @@ pub struct GridBuilder2d<'a, 'w, 's, T: GizmoConfigGroup> {
     color: LinearRgba,
 }
 
-impl<T: GizmoConfigGroup> GridBuilder3d<'_, '_, '_, T> {
+impl<Config, Clear> GridBuilder3d<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Skews the grid by `tan(skew)` in the x direction.
     /// `skew` is in radians
     pub fn skew_x(mut self, skew: f32) -> Self {
@@ -81,7 +93,12 @@ impl<T: GizmoConfigGroup> GridBuilder3d<'_, '_, '_, T> {
         self
     }
 }
-impl<T: GizmoConfigGroup> GridBuilder2d<'_, '_, '_, T> {
+
+impl<Config, Clear> GridBuilder2d<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Skews the grid by `tan(skew)` in the x direction.
     /// `skew` is in radians
     pub fn skew_x(mut self, skew: f32) -> Self {
@@ -121,7 +138,12 @@ impl<T: GizmoConfigGroup> GridBuilder2d<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for GridBuilder3d<'_, '_, '_, T> {
+impl<Config, Clear> Drop for GridBuilder3d<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Draws a grid, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
         draw_grid(
             self.gizmos,
@@ -135,7 +157,12 @@ impl<T: GizmoConfigGroup> Drop for GridBuilder3d<'_, '_, '_, T> {
         );
     }
 }
-impl<T: GizmoConfigGroup> Drop for GridBuilder2d<'_, '_, '_, T> {
+
+impl<Config, Clear> Drop for GridBuilder2d<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         draw_grid(
             self.gizmos,
@@ -149,7 +176,11 @@ impl<T: GizmoConfigGroup> Drop for GridBuilder2d<'_, '_, '_, T> {
         );
     }
 }
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw a 2D grid in 3D.
     ///
     /// This should be called for each frame the grid needs to be rendered.
@@ -193,7 +224,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<LinearRgba>,
-    ) -> GridBuilder2d<'_, 'w, 's, T> {
+    ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
             position,
@@ -249,7 +280,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         cell_count: UVec3,
         spacing: Vec3,
         color: impl Into<LinearRgba>,
-    ) -> GridBuilder3d<'_, 'w, 's, T> {
+    ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
             position,
@@ -305,7 +336,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<LinearRgba>,
-    ) -> GridBuilder2d<'_, 'w, 's, T> {
+    ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
             position: position.extend(0.),
@@ -320,8 +351,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_grid<T: GizmoConfigGroup>(
-    gizmos: &mut Gizmos<'_, '_, T>,
+fn draw_grid<Config, Clear>(
+    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     spacing: Vec3,
@@ -329,7 +360,10 @@ fn draw_grid<T: GizmoConfigGroup>(
     skew: Vec3,
     outer_edges: [bool; 3],
     color: LinearRgba,
-) {
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     if !gizmos.enabled {
         return;
     }
