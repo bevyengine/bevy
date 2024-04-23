@@ -794,8 +794,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
-                AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::MAY_DISCARD,
+                AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
+                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, &msaa);
+                }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
@@ -849,8 +850,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            match alpha_mode {
-                AlphaMode::Opaque => {
+            match mesh_key
+                .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
+            {
+                MeshPipelineKey::BLEND_OPAQUE | MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE => {
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBinKey {
@@ -875,7 +878,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     }
                 }
-                AlphaMode::Mask(_) => {
+                // Alpha mask
+                MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
@@ -902,10 +906,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     }
                 }
-                AlphaMode::Blend
-                | AlphaMode::Premultiplied
-                | AlphaMode::Add
-                | AlphaMode::Multiply => {}
+                _ => {}
             }
         }
     }

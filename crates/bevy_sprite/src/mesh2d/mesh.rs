@@ -12,7 +12,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::batching::no_gpu_preprocessing::{
-    batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, BatchedInstanceBuffer,
+    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
+    BatchedInstanceBuffer,
 };
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
@@ -38,7 +39,7 @@ use crate::Material2dBindGroupId;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
+#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
@@ -107,6 +108,9 @@ impl Plugin for Mesh2dRenderPlugin {
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }

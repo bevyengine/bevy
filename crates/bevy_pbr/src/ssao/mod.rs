@@ -127,7 +127,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 }
 
 /// Bundle to apply screen space ambient occlusion.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 pub struct ScreenSpaceAmbientOcclusionBundle {
     pub settings: ScreenSpaceAmbientOcclusionSettings,
     pub depth_prepass: DepthPrepass,
