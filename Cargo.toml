@@ -2887,6 +2887,7 @@ wasm = true
 [[example]]
 name = "visibility_range"
 path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.visibility_range]
 name = "Visibility range"
