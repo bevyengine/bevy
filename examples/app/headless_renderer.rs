@@ -1,75 +1,222 @@
 //! This example illustrates how to make headless renderer
+//! derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
+//! It follows this steps:
+//! 1) Render from camera to gpu-image render target
+//! 2) Copy form gpu image to buffer using ImageCopyDriver node in RenderGraph
+//! 3) Copy from buffer to channel using image_copy::receive_image_from_buffer after RenderSet::Render
+//! 4) Save from channel to random named file using scene::update at PostUpdate in MainWorld
+//! 5) Exit if single_image setting is set
+
+use bevy::{
+    app::ScheduleRunnerPlugin, core_pipeline::tonemapping::Tonemapping, prelude::*,
+    render::renderer::RenderDevice,
+};
+
+use crossbeam_channel::{Receiver, Sender};
+
+// To communicate between the main world and the render world we need a channel.
+// Since the main world and render world run in parallel, there will always be a frame of latency
+// between the data sent from the render world and the data received in the main world
+//
+// frame n => render world sends data through the channel at the end of the frame
+// frame n + 1 => main world receives the data
+//
+// Receiver and Sender are kept in resources because there is single camera and single target
+// That's why there is single images role, if you want to differentiate images
+// from different cameras, you should keep Receiver in ImageCopier and Sender in ImageToSave
+// or send some id with data
+
+/// This will receive asynchronously any data sent from the render world
+#[derive(Resource, Deref)]
+struct MainWorldReceiver(Receiver<Vec<u8>>);
+
+/// This will send asynchronously any data to the main world
+#[derive(Resource, Deref)]
+struct RenderWorldSender(Sender<Vec<u8>>);
+
+// Parameters of resulting image
+struct AppConfig {
+    width: u32,
+    height: u32,
+    single_image: bool,
+}
+
+fn main() {
+    let config = AppConfig {
+        width: 1920,
+        height: 1080,
+        single_image: true,
+    };
+
+    // setup frame capture
+    App::new()
+        .insert_resource(frame_capture::scene::SceneController::new(
+            config.width,
+            config.height,
+            config.single_image,
+        ))
+        .insert_resource(ClearColor(Color::srgb_u8(0, 0, 0)))
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                }),
+        )
+        .add_plugins(frame_capture::image_copy::ImageCopyPlugin)
+        // headless frame capture
+        .add_plugins(frame_capture::scene::CaptureFramePlugin)
+        .add_plugins(ScheduleRunnerPlugin::run_loop(
+            std::time::Duration::from_secs_f64(1.0 / 60.0),
+        ))
+        .init_resource::<frame_capture::scene::SceneController>()
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut scene_controller: ResMut<frame_capture::scene::SceneController>,
+    render_device: Res<RenderDevice>,
+) {
+    let render_target = frame_capture::scene::setup_render_target(
+        &mut commands,
+        &mut images,
+        &render_device,
+        &mut scene_controller,
+        15,
+        String::from("main_scene"),
+    );
+
+    // Scene is empty, but you can add any mesh to generate non black box picture
+
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        tonemapping: Tonemapping::None,
+        camera: Camera {
+            target: render_target,
+            ..default()
+        },
+        ..default()
+    });
+}
 
 mod frame_capture {
     pub mod image_copy {
+        use crate::{MainWorldReceiver, RenderWorldSender};
         use bevy::prelude::*;
         use bevy::render::{
             render_asset::RenderAssets,
-            render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext},
+            render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
             render_resource::{
                 Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
                 ImageCopyBuffer, ImageDataLayout, Maintain, MapMode,
             },
             renderer::{RenderContext, RenderDevice, RenderQueue},
-            Extract, RenderApp,
+            Extract, Render, RenderApp, RenderSet,
         };
         use std::sync::{
             atomic::{AtomicBool, Ordering},
             Arc,
         };
 
-        pub fn receive_images(
-            image_copiers: Query<&ImageCopier>,
-            mut images: ResMut<Assets<Image>>,
+        pub fn receive_image_from_buffer(
+            image_copiers: Res<ImageCopiers>,
             render_device: Res<RenderDevice>,
+            sender: Res<RenderWorldSender>,
         ) {
-            for image_copier in image_copiers.iter() {
+            for image_copier in image_copiers.0.iter() {
                 if !image_copier.enabled() {
                     continue;
                 }
-                // Derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
-                // We need to scope the mapping variables so that we can
-                // unmap the buffer
-                futures_lite::future::block_on(async {
-                    let buffer_slice = image_copier.buffer.slice(..);
 
-                    // NOTE: We have to create the mapping THEN device.poll() before await
-                    // the future. Otherwise the application will freeze.
-                    let (tx, rx) = async_channel::bounded(1);
-                    buffer_slice.map_async(MapMode::Read, move |result| {
-                        tx.send_blocking(result).unwrap();
-                    });
-                    render_device.poll(Maintain::Wait);
-                    rx.recv().await.unwrap().unwrap();
-                    if let Some(image) = images.get_mut(&image_copier.dst_image) {
-                        image.data = buffer_slice.get_mapped_range().to_vec();
-                    }
+                // Finally time to get our data back from the gpu.
+                // First we get a buffer slice which represents a chunk of the buffer (which we
+                // can't access yet).
+                // We want the whole thing so use unbounded range.
+                let buffer_slice = image_copier.buffer.slice(..);
 
-                    image_copier.buffer.unmap();
+                // Now things get complicated. WebGPU, for safety reasons, only allows either the GPU
+                // or CPU to access a buffer's contents at a time. We need to "map" the buffer which means
+                // flipping ownership of the buffer over to the CPU and making access legal. We do this
+                // with `BufferSlice::map_async`.
+                //
+                // The problem is that map_async is not an async function so we can't await it. What
+                // we need to do instead is pass in a closure that will be executed when the slice is
+                // either mapped or the mapping has failed.
+                //
+                // The problem with this is that we don't have a reliable way to wait in the main
+                // code for the buffer to be mapped and even worse, calling get_mapped_range or
+                // get_mapped_range_mut prematurely will cause a panic, not return an error.
+                //
+                // Using channels solves this as awaiting the receiving of a message from
+                // the passed closure will force the outside code to wait. It also doesn't hurt
+                // if the closure finishes before the outside code catches up as the message is
+                // buffered and receiving will just pick that up.
+                //
+                // It may also be worth noting that although on native, the usage of asynchronous
+                // channels is wholly unnecessary, for the sake of portability to WASM
+                // we'll use async channels that work on both native and WASM.
+
+                let (s, r) = crossbeam_channel::bounded(1);
+
+                // Maps the buffer so it can be read on the cpu
+                buffer_slice.map_async(MapMode::Read, move |r| match r {
+                    // This will execute once the gpu is ready, so after the call to poll()
+                    Ok(r) => s.send(r).expect("Failed to send map update"),
+                    Err(err) => panic!("Failed to map buffer {err}"),
                 });
+
+                // In order for the mapping to be completed, one of three things must happen.
+                // One of those can be calling `Device::poll`. This isn't necessary on the web as devices
+                // are polled automatically but natively, we need to make sure this happens manually.
+                // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
+
+                // This blocks until the gpu is done executing everything
+                render_device.poll(Maintain::wait()).panic_on_timeout();
+
+                // This blocks until the buffer is mapped
+                r.recv().expect("Failed to receive the map_async message");
+
+                // This could fail on app exit, if Main world clears resources while Render world still renders
+                sender
+                    .send(buffer_slice.get_mapped_range().to_vec())
+                    .expect("Failed to send data to main world");
+
+                // We need to make sure all `BufferView`'s are dropped before we do what we're about
+                // to do.
+                // Unmap so that we can copy to the staging buffer in the next iteration.
+                image_copier.buffer.unmap();
             }
         }
 
-        #[derive(Debug, PartialEq, Eq, Clone, Hash, bevy::render::render_graph::RenderLabel)]
+        #[derive(Debug, PartialEq, Eq, Clone, Hash, RenderLabel)]
         pub struct ImageCopy;
 
+        // Plugin for Render world part of work
         pub struct ImageCopyPlugin;
         impl Plugin for ImageCopyPlugin {
             fn build(&self, app: &mut App) {
+                let (s, r) = crossbeam_channel::unbounded();
+
                 let render_app = app
-                    .add_systems(Update, receive_images)
+                    .insert_resource(MainWorldReceiver(r))
                     .sub_app_mut(RenderApp);
 
-                render_app.add_systems(ExtractSchedule, image_copy_extract);
-
-                let mut graph = render_app
-                    .world_mut()
-                    .get_resource_mut::<RenderGraph>()
-                    .unwrap();
-
+                let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
                 graph.add_node(ImageCopy, ImageCopyDriver);
+                graph.add_node_edge(bevy::render::graph::CameraDriverLabel, ImageCopy);
 
-                graph.add_node_edge(ImageCopy, bevy::render::graph::CameraDriverLabel);
+                render_app
+                    .insert_resource(RenderWorldSender(s))
+                    // Make ImageCopiers accessible in RenderWorld system and plugin
+                    .add_systems(ExtractSchedule, image_copy_extract)
+                    // Receives image data from buffer to channel
+                    // so we need to run it after the render graph is done
+                    .add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
             }
         }
 
@@ -81,13 +228,11 @@ mod frame_capture {
             buffer: Buffer,
             enabled: Arc<AtomicBool>,
             src_image: Handle<Image>,
-            dst_image: Handle<Image>,
         }
 
         impl ImageCopier {
             pub fn new(
                 src_image: Handle<Image>,
-                dst_image: Handle<Image>,
                 size: Extent3d,
                 render_device: &RenderDevice,
             ) -> ImageCopier {
@@ -104,7 +249,6 @@ mod frame_capture {
                 ImageCopier {
                     buffer: cpu_buffer,
                     src_image,
-                    dst_image,
                     enabled: Arc::new(AtomicBool::new(true)),
                 }
             }
@@ -126,6 +270,7 @@ mod frame_capture {
         #[derive(Default)]
         pub struct ImageCopyDriver;
 
+        // Copies image content from render target to buffer
         impl render_graph::Node for ImageCopyDriver {
             fn run(
                 &self,
@@ -189,8 +334,7 @@ mod frame_capture {
         }
     }
     pub mod scene {
-        use std::path::PathBuf;
-
+        use super::{super::MainWorldReceiver, image_copy::ImageCopier};
         use bevy::{
             app::AppExit,
             prelude::*,
@@ -202,8 +346,7 @@ mod frame_capture {
                 renderer::RenderDevice,
             },
         };
-
-        use super::image_copy::ImageCopier;
+        use std::path::PathBuf;
 
         #[derive(Component, Default)]
         pub struct CaptureCamera;
@@ -219,7 +362,7 @@ mod frame_capture {
             }
         }
 
-        #[derive(Debug, Default, Resource, Event)]
+        #[derive(Debug, Default, Resource)]
         pub struct SceneController {
             state: SceneState,
             name: String,
@@ -300,7 +443,6 @@ mod frame_capture {
 
             commands.spawn(ImageCopier::new(
                 render_target_image_handle.clone(),
-                cpu_image_handle.clone(),
                 size,
                 render_device,
             ));
@@ -312,8 +454,10 @@ mod frame_capture {
             RenderTarget::Image(render_target_image_handle)
         }
 
+        // Takes from channel image content sent from render world and saves it to disk
         fn update(
             images_to_save: Query<&ImageToSave>,
+            receiver: Res<MainWorldReceiver>,
             mut images: ResMut<Assets<Image>>,
             mut scene_controller: ResMut<SceneController>,
             mut app_exit_writer: EventWriter<AppExit>,
@@ -322,123 +466,41 @@ mod frame_capture {
                 if n < 1 {
                     use rand::Rng;
                     let mut rng = rand::thread_rng();
-                    for image in images_to_save.iter() {
-                        let img_bytes = images.get_mut(image.id()).unwrap();
 
-                        let img = match img_bytes.clone().try_into_dynamic() {
-                            Ok(img) => img.to_rgba8(),
-                            Err(e) => panic!("Failed to create image buffer {e:?}"),
-                        };
+                    // We don't want to block the main world on this,
+                    // so we use try_recv which attempts to receive without blocking
+                    while let Ok(data) = receiver.try_recv() {
+                        for image in images_to_save.iter() {
+                            let img_bytes = images.get_mut(image.id()).unwrap();
+                            img_bytes.data = data.clone();
 
-                        let images_dir =
-                            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
-                        println!("Saving image to: {images_dir:?}");
-                        std::fs::create_dir_all(&images_dir).unwrap();
+                            let img = match img_bytes.clone().try_into_dynamic() {
+                                Ok(img) => img.to_rgba8(),
+                                Err(e) => panic!("Failed to create image buffer {e:?}"),
+                            };
 
-                        let number = rng.gen::<u128>();
-                        let image_path = images_dir.join(format!("{number:032X}.png"));
-                        if let Err(e) = img.save(image_path) {
-                            panic!("Failed to save image: {}", e);
-                        };
-                    }
-                    if scene_controller.single_image {
-                        app_exit_writer.send(AppExit);
+                            let images_dir =
+                                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
+                            println!("Saving image to: {images_dir:?}");
+                            std::fs::create_dir_all(&images_dir).unwrap();
+
+                            let number = rng.gen::<u128>();
+                            let image_path = images_dir.join(format!("{number:032X}.png"));
+                            if let Err(e) = img.save(image_path) {
+                                panic!("Failed to save image: {}", e);
+                            };
+                        }
+                        if scene_controller.single_image {
+                            app_exit_writer.send(AppExit);
+                            break;
+                        }
                     }
                 } else {
+                    // clears channel for skipped frames
+                    while let Ok(_) = receiver.try_recv() {}
                     scene_controller.state = SceneState::Render(n - 1);
                 }
             }
         }
     }
-}
-
-struct AppConfig {
-    width: u32,
-    height: u32,
-    single_image: bool,
-}
-
-use bevy::{
-    app::ScheduleRunnerPlugin, core_pipeline::tonemapping::Tonemapping, prelude::*,
-    render::renderer::RenderDevice,
-};
-
-fn main() {
-    let mut app = App::new();
-
-    let config = AppConfig {
-        width: 1920,
-        height: 1080,
-        single_image: true,
-    };
-
-    // setup frame capture
-    app.insert_resource(frame_capture::scene::SceneController::new(
-        config.width,
-        config.height,
-        config.single_image,
-    ));
-    app.insert_resource(ClearColor(Color::srgb_u8(0, 0, 0)));
-
-    app.add_plugins(
-        DefaultPlugins
-            .set(ImagePlugin::default_nearest())
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: bevy::window::ExitCondition::DontExit,
-                close_when_requested: false,
-            })
-            .build()
-            // avoid panic, caused by using buffer by main world and render world at same time:
-            // thread '<unnamed>' panicked at /path/to/.cargo/registry/src/index.crates.io-6f17d22bba15001f/wgpu-0.19.3/src/backend/wgpu_core.rs:2225:30:
-            // Error in Queue::submit: Validation Error
-            //
-            // Caused by:
-            //     Buffer Id(0,1,your_backend_type) is still mapped
-            .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>(),
-    );
-
-    app.add_plugins(frame_capture::image_copy::ImageCopyPlugin);
-
-    // headless frame capture
-    app.add_plugins(frame_capture::scene::CaptureFramePlugin);
-
-    app.add_plugins(ScheduleRunnerPlugin::run_loop(
-        std::time::Duration::from_secs_f64(1.0 / 60.0),
-    ));
-
-    app.init_resource::<frame_capture::scene::SceneController>();
-    app.add_event::<frame_capture::scene::SceneController>();
-
-    app.add_systems(Startup, setup);
-
-    app.run();
-}
-
-fn setup(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut scene_controller: ResMut<frame_capture::scene::SceneController>,
-    render_device: Res<RenderDevice>,
-) {
-    let render_target = frame_capture::scene::setup_render_target(
-        &mut commands,
-        &mut images,
-        &render_device,
-        &mut scene_controller,
-        15,
-        String::from("main_scene"),
-    );
-
-    // Scene is empty, but you can add any mesh to generate non black box picture
-
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        tonemapping: Tonemapping::None,
-        camera: Camera {
-            target: render_target,
-            ..default()
-        },
-        ..default()
-    });
 }

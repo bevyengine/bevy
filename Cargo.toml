@@ -343,7 +343,6 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
-async-channel = "2.2.1"
 argh = "0.1.12"
 thiserror = "1.0"
 
