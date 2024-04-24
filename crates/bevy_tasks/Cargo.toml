@@ -9,16 +9,14 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-multi-threaded = []
+multi-threaded = ["dep:event-listener", "dep:concurrent-queue"]
 
 [dependencies]
 futures-lite = "2.0.1"
-async-executor = "1.7.2"
-event-listener = "5.0"
-event-listener-strategy = "0.5"
+async-executor = "1.11"
 async-io = { version = "2.0.0", optional = true }
-async-task = "4.2.0"
-concurrent-queue = "2.0.0"
+concurrent-queue = { version = "2.0.0", optional = true }
+event-listener = { version = "5.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
@@ -30,4 +28,5 @@ web-time = { version = "0.2" }
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

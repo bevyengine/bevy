@@ -1,10 +1,15 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_a11y::Focus;
 
@@ -102,11 +107,11 @@ impl Plugin for WindowPlugin {
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
-                .world
+                .world_mut()
                 .spawn(primary_window.clone())
                 .insert(PrimaryWindow)
                 .id();
-            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
             }
         }

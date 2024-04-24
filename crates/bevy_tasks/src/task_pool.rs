@@ -7,13 +7,10 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use async_task::FallibleTask;
+use async_executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use event_listener::{Event, EventListener};
-use event_listener_strategy::{EventListenerFuture, FutureWrapper, Strategy};
+use event_listener::{Event, listener};
 use futures_lite::FutureExt;
-use std::pin::Pin;
-use std::task::Poll;
 
 use crate::{
     block_on,
@@ -41,7 +38,7 @@ pub struct TaskPoolBuilder {
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
-    /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
+    /// be named `<thread_name> (<thread_index>)`, i.e. `"MyThreadPool (2)"`.
     thread_name: Option<String>,
 
     on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
@@ -98,23 +95,6 @@ impl TaskPoolBuilder {
     }
 }
 
-#[derive(Debug)]
-struct Shutdown {
-    shutdown: Option<EventListener>,
-}
-
-impl EventListenerFuture for Shutdown {
-    type Output = ();
-
-    fn poll_with_strategy<'a, S: Strategy<'a>>(
-        mut self: Pin<&mut Self>,
-        strategy: &mut S,
-        context: &mut S::Context,
-    ) -> Poll<Self::Output> {
-        strategy.poll(&mut self.shutdown, context)
-    }
-}
-
 /// A thread pool for executing tasks.
 ///
 /// While futures usually need to be polled to be executed, Bevy tasks are being
@@ -127,14 +107,10 @@ impl EventListenerFuture for Shutdown {
 /// will still execute a task, even if it is dropped.
 #[derive(Debug)]
 pub struct TaskPool {
-    /// The executor for the pool
-    ///
-    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
-    /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
+    /// The executor for the pool.
     executor: Arc<async_executor::Executor<'static>>,
 
-    /// Inner state of the pool
+    // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
     shutdown: Arc<Event>,
 }
@@ -191,16 +167,14 @@ impl TaskPool {
                             }
                             let _destructor = CallOnDrop(on_thread_destroy);
                             loop {
-                                let shutdown = FutureWrapper::new(Shutdown {
-                                    shutdown: Some(shutdown.listen()),
-                                });
                                 let res = std::panic::catch_unwind(|| {
                                     let tick_forever = async move {
                                         loop {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    block_on(ex.run(tick_forever.or(shutdown)));
+                                    listener!(shutdown => shutdown_listener);
+                                    block_on(ex.run(tick_forever.or(shutdown_listener)));
                                 });
                                 if res.is_ok() {
                                     break;
@@ -355,6 +329,7 @@ impl TaskPool {
         })
     }
 
+    #[allow(unsafe_code)]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,

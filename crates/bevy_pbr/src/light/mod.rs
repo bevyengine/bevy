@@ -10,15 +10,25 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
+    mesh::Mesh,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
 
 use crate::*;
+
+mod ambient_light;
+pub use ambient_light::AmbientLight;
+mod point_light;
+pub use point_light::PointLight;
+mod spot_light;
+pub use spot_light::SpotLight;
+mod directional_light;
+pub use directional_light::DirectionalLight;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -77,61 +87,6 @@ pub mod light_consts {
     }
 }
 
-/// A light that emits light in all directions from a central point.
-///
-/// Real-world values for `intensity` (luminous power in lumens) based on the electrical power
-/// consumption of the type of real-world light are:
-///
-/// | Luminous Power (lumen) (i.e. the intensity member) | Incandescent non-halogen (Watts) | Incandescent halogen (Watts) | Compact fluorescent (Watts) | LED (Watts |
-/// |------|-----|----|--------|-------|
-/// | 200  | 25  |    | 3-5    | 3     |
-/// | 450  | 40  | 29 | 9-11   | 5-8   |
-/// | 800  | 60  |    | 13-15  | 8-12  |
-/// | 1100 | 75  | 53 | 18-20  | 10-16 |
-/// | 1600 | 100 | 72 | 24-28  | 14-17 |
-/// | 2400 | 150 |    | 30-52  | 24-30 |
-/// | 3100 | 200 |    | 49-75  | 32    |
-/// | 4000 | 300 |    | 75-100 | 40.5  |
-///
-/// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
-pub struct PointLight {
-    pub color: Color,
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
-    pub intensity: f32,
-    pub range: f32,
-    pub radius: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it can be small close to the camera and gets larger further
-    /// away.
-    pub shadow_normal_bias: f32,
-}
-
-impl Default for PointLight {
-    fn default() -> Self {
-        PointLight {
-            color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
-            intensity: 1_000_000.0,
-            range: 20.0,
-            radius: 0.0,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-        }
-    }
-}
-
-impl PointLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
-}
-
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
@@ -144,143 +99,9 @@ impl Default for PointLightShadowMap {
     }
 }
 
-/// A light that emits light in a given direction from a central point.
-/// Behaves like a point light in a perfectly absorbent housing that
-/// shines light only in a given direction. The direction is taken from
-/// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
-pub struct SpotLight {
-    pub color: Color,
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
-    pub intensity: f32,
-    pub range: f32,
-    pub radius: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it can be small close to the camera and gets larger further
-    /// away.
-    pub shadow_normal_bias: f32,
-    /// Angle defining the distance from the spot light direction to the outer limit
-    /// of the light's cone of effect.
-    /// `outer_angle` should be < `PI / 2.0`.
-    /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
-    /// approaches this limit.
-    pub outer_angle: f32,
-    /// Angle defining the distance from the spot light direction to the inner limit
-    /// of the light's cone of effect.
-    /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
-    /// `inner_angle` should be <= `outer_angle`
-    pub inner_angle: f32,
-}
-
-impl SpotLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
-}
-
-impl Default for SpotLight {
-    fn default() -> Self {
-        // a quarter arc attenuating from the center
-        Self {
-            color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
-            intensity: 1_000_000.0,
-            range: 20.0,
-            radius: 0.0,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
-        }
-    }
-}
-
-/// A Directional light.
-///
-/// Directional lights don't exist in reality but they are a good
-/// approximation for light sources VERY far away, like the sun or
-/// the moon.
-///
-/// The light shines along the forward direction of the entity's transform. With a default transform
-/// this would be along the negative-Z axis.
-///
-/// Valid values for `illuminance` are:
-///
-/// | Illuminance (lux) | Surfaces illuminated by                        |
-/// |-------------------|------------------------------------------------|
-/// | 0.0001            | Moonless, overcast night sky (starlight)       |
-/// | 0.002             | Moonless clear night sky with airglow          |
-/// | 0.05–0.3          | Full moon on a clear night                     |
-/// | 3.4               | Dark limit of civil twilight under a clear sky |
-/// | 20–50             | Public areas with dark surroundings            |
-/// | 50                | Family living room lights                      |
-/// | 80                | Office building hallway/toilet lighting        |
-/// | 100               | Very dark overcast day                         |
-/// | 150               | Train station platforms                        |
-/// | 320–500           | Office lighting                                |
-/// | 400               | Sunrise or sunset on a clear day.              |
-/// | 1000              | Overcast day; typical TV studio lighting       |
-/// | 10,000–25,000     | Full daylight (not direct sun)                 |
-/// | 32,000–100,000    | Direct sunlight                                |
-///
-/// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-///
-/// ## Shadows
-///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
-///
-/// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
-///
-/// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
-///
-/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
-///
-/// ```
-/// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
-/// App::new()
-///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
-/// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct DirectionalLight {
-    pub color: Color,
-    /// Illuminance in lux (lumens per square meter), representing the amount of
-    /// light projected onto surfaces by this light source. Lux is used here
-    /// instead of lumens because a directional light illuminates all surfaces
-    /// more-or-less the same way (depending on the angle of incidence). Lumens
-    /// can only be specified for light sources which emit light from a specific
-    /// area.
-    pub illuminance: f32,
-    pub shadows_enabled: bool,
-    pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it is automatically adjusted to the orthographic projection.
-    pub shadow_normal_bias: f32,
-}
-
-impl Default for DirectionalLight {
-    fn default() -> Self {
-        DirectionalLight {
-            color: Color::WHITE,
-            illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
-            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
-            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-        }
-    }
-}
-
-impl DirectionalLight {
-    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
-    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
-}
+/// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
+/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
@@ -616,50 +437,11 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-
-/// An ambient light, which lights the entire scene equally.
-///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
-///
-/// # Examples
-///
-/// Make ambient light slightly brighter:
-///
-/// ```
-/// # use bevy_ecs::system::ResMut;
-/// # use bevy_pbr::AmbientLight;
-/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-///    ambient_light.brightness = 100.0;
-/// }
-/// ```
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
-pub struct AmbientLight {
-    pub color: Color,
-    /// A direct scale factor multiplied with `color` before being passed to the shader.
-    pub brightness: f32,
-}
-
-impl Default for AmbientLight {
-    fn default() -> Self {
-        Self {
-            color: Color::WHITE,
-            brightness: 80.0,
-        }
-    }
-}
-impl AmbientLight {
-    pub const NONE: AmbientLight = AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.0,
-    };
-}
-
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
+/// Add this component to make a [`Mesh`] not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+/// Add this component to make a [`Mesh`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -667,7 +449,7 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -683,8 +465,6 @@ pub struct TransmittedShadowReceiver;
 ///
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
-///
-/// Currently does not affect point lights.
 #[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum ShadowFilteringMethod {
@@ -692,20 +472,29 @@ pub enum ShadowFilteringMethod {
     ///
     /// Fast but poor quality.
     Hardware2x2,
-    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
-    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    /// Approximates a fixed Gaussian blur, good when TAA isn't in use.
     ///
     /// Good quality, good performance.
+    ///
+    /// For directional and spot lights, this uses a [method by Ignacio Castaño
+    /// for *The Witness*] using 9 samples and smart filtering to achieve the same
+    /// as a regular 5x5 filter kernel.
+    ///
+    /// [method by Ignacio Castaño for *The Witness*]: https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1/
     #[default]
-    Castano13,
-    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
-    /// samples in spiral pattern, randomly-rotated by interleaved gradient
-    /// noise with spatial variation.
+    Gaussian,
+    /// A randomized filter that varies over time, good when TAA is in use.
     ///
     /// Good quality when used with
     /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
     /// and good performance.
-    Jimenez14,
+    ///
+    /// For directional and spot lights, this uses a [method by Jorge Jimenez for
+    /// *Call of Duty: Advanced Warfare*] using 8 samples in spiral pattern,
+    /// randomly-rotated by interleaved gradient noise with spatial variation.
+    ///
+    /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+    Temporal,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -2075,7 +1864,11 @@ pub fn check_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
         ),
-        (Without<NotShadowCaster>, Without<DirectionalLight>),
+        (
+            Without<NotShadowCaster>,
+            Without<DirectionalLight>,
+            With<Handle<Mesh>>,
+        ),
     >,
 ) {
     fn shrink_entities(visible_entities: &mut VisibleEntities) {
@@ -2163,7 +1956,7 @@ pub fn check_light_mesh_visibility(
                         }
 
                         view_visibility.set();
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             } else {
@@ -2175,7 +1968,7 @@ pub fn check_light_mesh_visibility(
                         .expect("Per-view visible entities should have been inserted already");
 
                     for frustum_visible_entities in view_visible_entities {
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             }
@@ -2244,13 +2037,13 @@ pub fn check_light_mesh_visibility(
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                 view_visibility.set();
-                                visible_entities.entities.push(entity);
+                                visible_entities.push::<WithMesh>(entity);
                             }
                         }
                     } else {
                         view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     }
                 }
@@ -2305,11 +2098,11 @@ pub fn check_light_mesh_visibility(
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                             view_visibility.set();
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     } else {
                         view_visibility.set();
-                        visible_entities.entities.push(entity);
+                        visible_entities.push::<WithMesh>(entity);
                     }
                 }
 

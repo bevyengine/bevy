@@ -1,10 +1,9 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -21,7 +20,7 @@ struct CustomAssetLoader;
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum CustomAssetLoaderError {
+enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -34,18 +33,16 @@ impl AssetLoader for CustomAssetLoader {
     type Asset = CustomAsset;
     type Settings = ();
     type Error = CustomAssetLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
-            Ok(custom_asset)
-        })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
+        Ok(custom_asset)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -61,10 +58,10 @@ struct Blob {
 #[derive(Default)]
 struct BlobAssetLoader;
 
-/// Possible errors that can be produced by [`CustomAssetLoader`]
+/// Possible errors that can be produced by [`BlobAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum BlobAssetLoaderError {
+enum BlobAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load file: {0}")]
     Io(#[from] std::io::Error),
@@ -75,19 +72,17 @@ impl AssetLoader for BlobAssetLoader {
     type Settings = ();
     type Error = BlobAssetLoaderError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-        Box::pin(async move {
-            info!("Loading Blob...");
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        info!("Loading Blob...");
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
 
-            Ok(Blob { bytes })
-        })
+        Ok(Blob { bytes })
     }
 }
 

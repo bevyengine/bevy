@@ -6,9 +6,14 @@ description = "CI script for Bevy"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[dependencies]
+argh = "0.1"
+xshell = "0.2"
+bitflags = "2.3"
+
 [lints]
 workspace = true
 
-[dependencies]
-xshell = "0.2"
-bitflags = "2.3"
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

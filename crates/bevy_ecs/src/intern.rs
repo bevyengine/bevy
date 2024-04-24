@@ -11,7 +11,7 @@ use std::{
     sync::{OnceLock, PoisonError, RwLock},
 };
 
-use crate::HashSet;
+use bevy_utils::HashSet;
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -26,7 +26,7 @@ use crate::HashSet;
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
 ///
 /// ```
-/// # use bevy_utils::intern::*;
+/// # use bevy_ecs::intern::*;
 /// #[derive(PartialEq, Eq, Hash, Debug)]
 /// struct Value(i32);
 /// impl Internable for Value {

@@ -481,7 +481,7 @@ pub struct WorldChildBuilder<'w> {
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityWorldMut<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -851,6 +851,7 @@ mod tests {
         );
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct C(u32);
 

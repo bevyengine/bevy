@@ -1,5 +1,11 @@
-//! This crate provides core functionality for Bevy Engine.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! This crate provides core functionality for Bevy Engine.
 
 mod name;
 #[cfg(feature = "serialize")]
@@ -143,7 +149,7 @@ mod tests {
         ));
         app.update();
 
-        let frame_count = app.world.resource::<FrameCount>();
+        let frame_count = app.world().resource::<FrameCount>();
         assert_eq!(1, frame_count.0);
     }
 }

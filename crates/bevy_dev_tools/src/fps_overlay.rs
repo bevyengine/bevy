@@ -10,8 +10,18 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
+use bevy_hierarchy::BuildChildren;
 use bevy_text::{Font, Text, TextSection, TextStyle};
-use bevy_ui::node_bundles::TextBundle;
+use bevy_ui::{
+    node_bundles::{NodeBundle, TextBundle},
+    PositionType, Style, ZIndex,
+};
+use bevy_utils::default;
+
+/// Global [`ZIndex`] used to render the fps overlay.
+///
+/// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
+pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
 
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
@@ -67,13 +77,26 @@ impl Default for FpsOverlayConfig {
 struct FpsText;
 
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new("FPS: ", overlay_config.text_config.clone()),
-            TextSection::from_style(overlay_config.text_config.clone()),
-        ]),
-        FpsText,
-    ));
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                // We need to make sure the overlay doesn't affect the position of other UI nodes
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            // Render overlay on top of everything
+            z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn((
+                TextBundle::from_sections([
+                    TextSection::new("FPS: ", overlay_config.text_config.clone()),
+                    TextSection::from_style(overlay_config.text_config.clone()),
+                ]),
+                FpsText,
+            ));
+        });
 }
 
 fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {

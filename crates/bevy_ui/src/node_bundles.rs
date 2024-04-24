@@ -6,8 +6,8 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node, Style,
+    UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_color::Color;
@@ -27,13 +27,15 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
     /// The color of the Node's border
     pub border_color: BorderColor,
+    /// The border radius of the node
+    pub border_radius: BorderRadius,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -62,6 +64,7 @@ impl Default for NodeBundle {
             // Transparent background
             background_color: Color::NONE.into(),
             border_color: Color::NONE.into(),
+            border_radius: BorderRadius::default(),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
@@ -86,7 +89,7 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
@@ -134,7 +137,7 @@ pub struct ImageBundle {
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The calculated size based on the given image
@@ -177,7 +180,7 @@ pub struct AtlasImageBundle {
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// Contains the text of the node
@@ -305,7 +308,7 @@ pub struct ButtonBundle {
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
@@ -314,6 +317,8 @@ pub struct ButtonBundle {
     pub focus_policy: FocusPolicy,
     /// The color of the Node's border
     pub border_color: BorderColor,
+    /// The border radius of the node
+    pub border_radius: BorderRadius,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -344,6 +349,7 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
             border_color: BorderColor(Color::NONE),
+            border_radius: BorderRadius::default(),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -363,7 +369,7 @@ impl Default for ButtonBundle {
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and it's children
+    /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The [`UiMaterial`] used to render the node.

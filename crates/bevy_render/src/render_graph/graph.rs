@@ -5,8 +5,8 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{prelude::World, system::Resource};
-use bevy_utils::{define_label, intern::Interned, HashMap};
+use bevy_ecs::{define_label, intern::Interned, prelude::World, system::Resource};
+use bevy_utils::HashMap;
 use std::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};

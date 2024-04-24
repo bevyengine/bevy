@@ -344,6 +344,7 @@ mod test {
     // This has an arbitrary value `String` stored to ensure
     // when then command gets pushed, the `bytes` vector gets
     // some data added to it.
+    #[allow(dead_code)]
     struct PanicCommand(String);
     impl Command for PanicCommand {
         fn apply(self, _: &mut World) {
@@ -392,6 +393,7 @@ mod test {
         assert_is_send(SpawnCommand);
     }
 
+    #[allow(dead_code)]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
         fn apply(self, _: &mut World) {}
