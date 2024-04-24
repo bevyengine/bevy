@@ -383,14 +383,15 @@ pub fn prepare_meshlet_per_frame_resources(
                 })
             })
             .collect::<Box<[TextureView]>>();
+        let depth_pyramid_all_mips = depth_pyramid.default_view.clone();
 
         let previous_depth_pyramid = match gpu_scene.previous_depth_pyramids.get(&view_entity) {
             Some(texture_view) => texture_view.clone(),
-            None => depth_pyramid_mips[0].clone(),
+            None => depth_pyramid_all_mips.clone(),
         };
         gpu_scene
             .previous_depth_pyramids
-            .insert(view_entity, depth_pyramid_mips[0].clone());
+            .insert(view_entity, depth_pyramid_all_mips.clone());
 
         let material_depth_color = TextureDescriptor {
             label: Some("meshlet_material_depth_color"),
@@ -432,6 +433,7 @@ pub fn prepare_meshlet_per_frame_resources(
             visibility_buffer_draw_indirect_args_first,
             visibility_buffer_draw_indirect_args_second,
             visibility_buffer_draw_triangle_buffer: visibility_buffer_draw_triangle_buffer.clone(),
+            depth_pyramid_all_mips,
             depth_pyramid_mips,
             previous_depth_pyramid,
             material_depth_color: not_shadow_view
@@ -504,7 +506,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources
                 .visibility_buffer_draw_triangle_buffer
                 .as_entire_binding(),
-            &view_resources.depth_pyramid_mips[0],
+            &view_resources.depth_pyramid_all_mips,
             view_uniforms.clone(),
             previous_view_uniforms.clone(),
         ));
@@ -901,6 +903,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer_draw_indirect_args_first: Buffer,
     pub visibility_buffer_draw_indirect_args_second: Buffer,
     visibility_buffer_draw_triangle_buffer: Buffer,
+    depth_pyramid_all_mips: TextureView,
     pub depth_pyramid_mips: Box<[TextureView]>,
     previous_depth_pyramid: TextureView,
     pub material_depth_color: Option<CachedTexture>,
