@@ -285,7 +285,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
     let handle_exit_status = exit_status.clone();
 
     // prepare structures to access data in the world
-    let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
     let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
@@ -307,7 +306,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
         handle_winit_event(
             &mut app,
-            &mut app_exit_event_reader,
             &mut runner_state,
             &mut create_window,
             &mut event_writer_system_state,
@@ -336,7 +334,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
 #[allow(clippy::too_many_arguments /* TODO: probs can reduce # of args */)]
 fn handle_winit_event(
     app: &mut App,
-    app_exit_event_reader: &mut ManualEventReader<AppExit>,
     runner_state: &mut WinitAppRunnerState,
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     event_writer_system_state: &mut SystemState<(
@@ -783,16 +780,10 @@ fn handle_winit_event(
         _ => (),
     }
 
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        let mut exit_events = app_exit_event_reader.read(app_exit_events);
-        if exit_events.len() != 0 {
-            *exit_status = exit_events
-                .find(|exit| exit.is_error())
-                .cloned()
-                .unwrap_or(AppExit::Success);
-            event_loop.exit();
-            return;
-        }
+    if let Some(app_exit) = app.should_exit() {
+        *exit_status = app_exit;
+        event_loop.exit();
+        return;
     }
 
     // We drain events after every received winit event in addition to on app update to ensure

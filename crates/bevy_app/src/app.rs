@@ -867,17 +867,7 @@ impl App {
     pub fn should_exit(&self) -> Option<AppExit> {
         let mut reader = ManualEventReader::default();
 
-        self.should_exit_manual(&mut reader)
-    }
-
-    /// Several app runners in this crate keep their own [`ManualEventReader<AppExit>`].
-    /// This exists to accommodate them.
-    pub(crate) fn should_exit_manual(
-        &self,
-        reader: &mut ManualEventReader<AppExit>,
-    ) -> Option<AppExit> {
         let events = self.world().get_resource::<Events<AppExit>>()?;
-
         let mut events = reader.read(events);
 
         if events.len() != 0 {
