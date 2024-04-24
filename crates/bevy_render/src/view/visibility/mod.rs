@@ -459,62 +459,63 @@ pub fn check_visibility<QF>(
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        visible_aabb_query.par_iter_mut().for_each(|query_item| {
-            let (
-                entity,
-                inherited_visibility,
-                mut view_visibility,
-                maybe_entity_mask,
-                maybe_model_aabb,
-                transform,
-                no_frustum_culling,
-                has_visibility_range,
-            ) = query_item;
+        visible_aabb_query.par_iter_mut().for_each_init(
+            || thread_queues.borrow_local_mut(),
+            |queue, query_item| {
+                let (
+                    entity,
+                    inherited_visibility,
+                    mut view_visibility,
+                    maybe_entity_mask,
+                    maybe_model_aabb,
+                    transform,
+                    no_frustum_culling,
+                    has_visibility_range,
+                ) = query_item;
 
-            // Skip computing visibility for entities that are configured to be hidden.
-            // ViewVisibility has already been reset in `reset_view_visibility`.
-            if !inherited_visibility.get() {
-                return;
-            }
+                // Skip computing visibility for entities that are configured to be hidden.
+                // ViewVisibility has already been reset in `reset_view_visibility`.
+                if !inherited_visibility.get() {
+                    return;
+                }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                return;
-            }
+                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                if !view_mask.intersects(&entity_mask) {
+                    return;
+                }
 
-            // If outside of the visibility range, cull.
-            if has_visibility_range
-                && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                    !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
-                })
-            {
-                return;
-            }
+                // If outside of the visibility range, cull.
+                if has_visibility_range
+                    && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                    })
+                {
+                    return;
+                }
 
-            // If we have an aabb, do frustum culling
-            if !no_frustum_culling {
-                if let Some(model_aabb) = maybe_model_aabb {
-                    let model = transform.affine();
-                    let model_sphere = Sphere {
-                        center: model.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
-                        return;
+                // If we have an aabb, do frustum culling
+                if !no_frustum_culling {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let model = transform.affine();
+                        let model_sphere = Sphere {
+                            center: model.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                            return;
+                        }
                     }
                 }
-            }
 
-            view_visibility.set();
-            thread_queues.scope(|queue| {
+                view_visibility.set();
                 queue.push(entity);
-            });
-        });
+            },
+        );
 
         visible_entities.clear::<QF>();
         thread_queues.drain_into(visible_entities.get_mut::<QF>());

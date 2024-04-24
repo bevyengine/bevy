@@ -619,8 +619,10 @@ pub fn extract_meshes_for_cpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -655,23 +657,19 @@ pub fn extract_meshes_for_cpu_building(
                 no_automatic_batching,
             );
 
-            render_mesh_instance_queues.scope(|queue| {
-                let transform = transform.affine();
-                queue.push((
-                    entity,
-                    RenderMeshInstanceCpu {
-                        transforms: MeshTransforms {
-                            transform: (&transform).into(),
-                            previous_transform: (&previous_transform
-                                .map(|t| t.0)
-                                .unwrap_or(transform))
-                                .into(),
-                            flags: mesh_flags.bits(),
-                        },
-                        shared,
+            let transform = transform.affine();
+            queue.push((
+                entity,
+                RenderMeshInstanceCpu {
+                    transforms: MeshTransforms {
+                        transform: (&transform).into(),
+                        previous_transform: (&previous_transform.map(|t| t.0).unwrap_or(transform))
+                            .into(),
+                        flags: mesh_flags.bits(),
                     },
-                ));
-            });
+                    shared,
+                },
+            ));
         },
     );
 
@@ -719,8 +717,10 @@ pub fn extract_meshes_for_gpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -759,17 +759,15 @@ pub fn extract_meshes_for_gpu_building(
             let lightmap_uv_rect =
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
-            render_mesh_instance_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    RenderMeshInstanceGpuBuilder {
-                        shared,
-                        transform: (&transform.affine()).into(),
-                        lightmap_uv_rect,
-                        mesh_flags,
-                    },
-                ));
-            });
+            queue.push((
+                entity,
+                RenderMeshInstanceGpuBuilder {
+                    shared,
+                    transform: (&transform.affine()).into(),
+                    lightmap_uv_rect,
+                    mesh_flags,
+                },
+            ));
         },
     );
 
@@ -1525,18 +1523,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             ));
         }
 
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE,
@@ -1555,7 +1541,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: bind_group_layout,
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -1852,12 +1838,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

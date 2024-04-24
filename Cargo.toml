@@ -330,8 +330,11 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 ios_simulator = ["bevy_internal/ios_simulator"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+
+# WASM does not support dynamic linking.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -462,6 +465,17 @@ doc-scrape-examples = true
 [package.metadata.example.sprite]
 name = "Sprite"
 description = "Renders a sprite"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_animation"
+path = "examples/2d/sprite_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_animation]
+name = "Sprite Animation"
+description = "Animates a sprite in response to an event"
 category = "2D Rendering"
 wasm = true
 
