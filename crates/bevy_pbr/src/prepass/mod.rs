@@ -534,18 +534,6 @@ where
             PREPASS_SHADER_HANDLE
         };
 
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
@@ -585,7 +573,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
         };
 

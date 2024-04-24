@@ -517,17 +517,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -547,7 +536,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -699,12 +688,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,
