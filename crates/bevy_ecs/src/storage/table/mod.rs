@@ -212,17 +212,11 @@ impl Table {
         &self.entities
     }
 
-    /// Get the capacity of this table, this is equivalent to `self.entities.capacity()`
+    /// Get the capacity of this table, in entities.
     /// Note that if an allocation is in process, this might not match the actual capacity of the columns, but it should once the allocation ends.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.entities.capacity()
-    }
-
-    /// Get the length of this table, this is equivalent to `self.entities.len()` or [`Self::entity_count`]
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -231,8 +225,8 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        debug_assert!(row.as_usize() < self.len());
-        let last_element_index = self.len() - 1;
+        debug_assert!(row.as_usize() < self.entity_count());
+        let last_element_index = self.entity_count() - 1;
         if row.as_usize() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
@@ -276,7 +270,7 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let last_element_index = self.len() - 1;
+        let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -309,7 +303,7 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let last_element_index = self.len() - 1;
+        let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -336,14 +330,14 @@ impl Table {
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `comp_ptr` holds a component that matches the `component_id`
-    pub unsafe fn initialize_component(
+    pub(crate) unsafe fn initialize_component(
         &mut self,
         row: TableRow,
         component_id: ComponentId,
         comp_ptr: OwningPtr<'_>,
         change_tick: Tick,
     ) {
-        debug_assert!(row.as_usize() < self.len());
+        debug_assert!(row.as_usize() < self.entity_count());
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .initialize(row, comp_ptr, change_tick);
@@ -354,14 +348,14 @@ impl Table {
     /// # Safety
     /// `row.as_usize()` < `self.len()`
     /// `comp_ptr` holds the data of a component matching the `component_id`
-    pub unsafe fn replace_component(
+    pub(crate) unsafe fn replace_component(
         &mut self,
         row: TableRow,
         component_id: ComponentId,
         comp_ptr: OwningPtr<'_>,
         change_tick: Tick,
     ) {
-        debug_assert!(row.as_usize() < self.len());
+        debug_assert!(row.as_usize() < self.entity_count());
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .replace(row, comp_ptr, change_tick);
@@ -380,7 +374,7 @@ impl Table {
         new_table: &mut Table,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
-        let last_element_index = self.len() - 1;
+        let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -409,7 +403,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
         self.get_column(component_id)
-            .map(|col| col.get_data_slice_for(self.len()))
+            .map(|col| col.get_data_slice_for(self.entity_count()))
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
@@ -419,7 +413,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_added_ticks_slice(self.len()) })
+            .map(|col| unsafe { col.get_added_ticks_slice(self.entity_count()) })
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
@@ -429,7 +423,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_changed_ticks_slice(self.len()) })
+            .map(|col| unsafe { col.get_changed_ticks_slice(self.entity_count()) })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
@@ -438,7 +432,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.as_usize() < self.len()).then_some(
+        (row.as_usize() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
@@ -454,7 +448,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.as_usize() < self.len()).then_some(
+        (row.as_usize() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
@@ -511,7 +505,7 @@ impl Table {
 
     /// Reserves `additional` elements worth of capacity within the table.
     pub(crate) fn reserve(&mut self, additional: usize) {
-        if self.capacity() - self.len() < additional {
+        if self.capacity() - self.entity_count() < additional {
             let column_cap = self.capacity();
             self.entities.reserve(additional);
 
@@ -579,7 +573,7 @@ impl Table {
     /// the allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let len = self.len();
+        let len = self.entity_count();
         self.entities.push(entity);
         for col in self.columns.values_mut() {
             col.added_ticks
@@ -619,7 +613,7 @@ impl Table {
 
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        let len = self.len();
+        let len = self.entity_count();
         for col in self.columns.values_mut() {
             // SAFETY: `len` is the actual length of the column
             unsafe { col.check_change_ticks(len, change_tick) };
@@ -633,7 +627,7 @@ impl Table {
 
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
-        let len = self.len();
+        let len = self.entity_count();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
@@ -651,7 +645,7 @@ impl Table {
     /// # Safety
     /// - this table must hold the component matching `component_id`
     /// - `row` must be in bounds
-    pub unsafe fn take_component(
+    pub(crate) unsafe fn take_component(
         &mut self,
         component_id: ComponentId,
         row: TableRow,
@@ -801,7 +795,7 @@ impl IndexMut<TableId> for Tables {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        let len = self.len();
+        let len = self.entity_count();
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {

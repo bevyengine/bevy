@@ -38,7 +38,7 @@ impl ThinColumn {
     /// - `last_element_index` = `len - 1`
     /// - `last_element_index` != `row.as_usize()`
     /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
+    pub(crate) unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
         last_element_index: usize,
         row: TableRow,
@@ -57,7 +57,7 @@ impl ThinColumn {
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
     /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_and_drop_unchecked(
+    pub(crate) unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
         row: TableRow,
@@ -76,7 +76,7 @@ impl ThinColumn {
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
     /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
-    pub unsafe fn swap_remove_and_forget_unchecked(
+    pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
         row: TableRow,
@@ -95,7 +95,11 @@ impl ThinColumn {
     /// # Safety
     /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
     /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
-    pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
+    pub(crate) unsafe fn realloc(
+        &mut self,
+        current_capacity: NonZeroUsize,
+        new_capacity: NonZeroUsize,
+    ) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
         self.changed_ticks.realloc(current_capacity, new_capacity);
@@ -103,7 +107,7 @@ impl ThinColumn {
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
     /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
-    pub fn alloc(&mut self, new_capacity: NonZeroUsize) {
+    pub(crate) fn alloc(&mut self, new_capacity: NonZeroUsize) {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);
         self.changed_ticks.alloc(new_capacity);
@@ -218,7 +222,7 @@ impl ThinColumn {
     /// - `len` is indeed the length of the column
     /// - `cap` is indeed the capacity of the column
     /// - the data stored in `self` will never be used again
-    pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+    pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
         self.data.drop(cap, len);
@@ -229,7 +233,7 @@ impl ThinColumn {
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
-    pub unsafe fn drop_last_component(&mut self, last_element_index: usize) {
+    pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         std::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         std::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
         self.data.drop_last_element(last_element_index);
