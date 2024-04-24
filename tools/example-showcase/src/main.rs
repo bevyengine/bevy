@@ -276,6 +276,11 @@ fn main() {
                     .map(|s| s.to_string())
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
+
+                for command in &to_run.setup {
+                    let _ = cmd!(sh, "{command}").run();
+                }
+
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -726,6 +731,17 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                setup: metadata
+                    .get("setup")
+                    .map(|setup| {
+                        setup
+                            .as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| v.as_str().unwrap().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
@@ -740,4 +756,5 @@ struct Example {
     category: String,
     wasm: bool,
     required_features: Vec<String>,
+    setup: Vec<String>,
 }
