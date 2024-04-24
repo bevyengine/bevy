@@ -75,16 +75,14 @@ fn cull_meshlets(
     if !lod_is_ok || parent_lod_is_ok { return; }
 #endif
 
-    // Project the culling bounding sphere to view-space
+    // Project the culling bounding sphere to view-space for occlusion culling
 #ifdef MESHLET_FIRST_CULLING_PASS
-    let culling_bounding_sphere_center_view_space = (previous_view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
     let previous_model = affine3_to_square(instance_uniform.previous_model);
     let previous_model_scale = max(length(previous_model[0]), max(length(previous_model[1]), length(previous_model[2])));
     culling_bounding_sphere_center = previous_model * vec4(bounding_spheres.self_culling.center, 1.0);
     culling_bounding_sphere_radius = previous_model_scale * bounding_spheres.self_culling.radius;
-#else
-    let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #endif
+    let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 
     let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
     // Halve the view-space AABB size as the depth pyramid is half the view size
