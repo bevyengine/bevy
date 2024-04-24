@@ -134,7 +134,8 @@ fn environment_map_light(
 
     var out: EnvironmentMapLight;
 
-    // We have to copy `base` here to work around a Naga bug.
+    // We have to copy `base` here to work around a Naga issue:
+    // <https://github.com/gfx-rs/wgpu/issues/5593>.
     var base = (*input).base;
     let radiances = compute_radiances(&base, world_position, found_diffuse_indirect);
     if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
@@ -179,7 +180,8 @@ fn environment_map_light(
     let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
     let inv_Fc = 1.0 - Fc;
 
-    // We have to copy `clearcoat` here to work around a Naga bug.
+    // We have to copy `clearcoat` here to work around Naga bug
+    // <https://github.com/gfx-rs/wgpu/issues/5593>.
     var clearcoat = (*input).clearcoat;
     let clearcoat_radiances = compute_radiances(&clearcoat, world_position, found_diffuse_indirect);
 
