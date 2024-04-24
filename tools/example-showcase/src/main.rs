@@ -278,7 +278,9 @@ fn main() {
                     .collect::<Vec<_>>();
 
                 for command in &to_run.setup {
-                    let _ = cmd!(sh, "{command}").run();
+                    let exe = &command[0];
+                    let args = &command[1..];
+                    let _ = cmd!(sh, "{exe} {args...}").run().unwrap();
                 }
 
                 let _ = cmd!(
@@ -738,7 +740,13 @@ fn parse_examples() -> Vec<Example> {
                             .as_array()
                             .unwrap()
                             .into_iter()
-                            .map(|v| v.as_str().unwrap().to_string())
+                            .map(|v| {
+                                v.as_array()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|v| v.as_str().unwrap().to_string())
+                                    .collect()
+                            })
                             .collect()
                     })
                     .unwrap_or_default(),
@@ -756,5 +764,5 @@ struct Example {
     category: String,
     wasm: bool,
     required_features: Vec<String>,
-    setup: Vec<String>,
+    setup: Vec<Vec<String>>,
 }

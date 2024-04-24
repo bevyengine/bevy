@@ -987,7 +987,12 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 setup = [
-  "curl -o assets/models/bunny.meshlet_mesh https://github.com/JMS55/bevy_meshlet_asset/blob/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
 ]
 
 [[example]]
