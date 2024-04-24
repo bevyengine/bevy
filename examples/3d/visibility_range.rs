@@ -73,10 +73,15 @@ fn main() {
         }))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
-        .add_systems(Update, move_camera)
-        .add_systems(Update, set_visibility_ranges)
-        .add_systems(Update, update_help_text)
-        .add_systems(Update, update_mode)
+        .add_systems(
+            Update,
+            (
+                move_camera,
+                set_visibility_ranges,
+                update_help_text,
+                update_mode,
+            ),
+        )
         .run();
 }
 
@@ -106,7 +111,7 @@ fn setup(
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmetLowPoly/FlightHelmetLowPoly.glb#Scene0"),
+            scene: asset_server.load("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf#Scene0"),
             ..default()
         })
         .insert(MainModel::LowPoly);
@@ -136,10 +141,6 @@ fn setup(
     // Spawn a camera.
     commands
         .spawn(Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
             transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
             ..default()
         })
