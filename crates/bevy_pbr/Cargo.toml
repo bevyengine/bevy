@@ -16,9 +16,15 @@ shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = []
+meshlet = [
+  "dep:lz4_flex",
+  "dep:serde",
+  "dep:bincode",
+  "dep:thiserror",
+  "dep:range-alloc",
+]
 # Enables processing meshes into meshlet meshes
-meshlet_processor = ["dep:meshopt", "dep:thiserror"]
+meshlet_processor = ["meshlet", "dep:meshopt", "dep:metis", "dep:itertools"]
 
 [dependencies]
 # bevy
@@ -37,19 +43,27 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 
+
 # other
-meshopt = { version = "0.2", optional = true }
-thiserror = { version = "1", optional = true }
 bitflags = "2.3"
 fixedbitset = "0.5"
+# meshlet
+lz4_flex = { version = "0.11", default-features = false, features = [
+  "frame",
+], optional = true }
+serde = { version = "1", features = ["derive", "rc"], optional = true }
+bincode = { version = "1", optional = true }
+thiserror = { version = "1", optional = true }
+range-alloc = { version = "0.1", optional = true }
+meshopt = { version = "0.2", optional = true }
+metis = { version = "0.2", optional = true }
+itertools = { version = "0.12", optional = true }
 # direct dependency required for derive macro
-bytemuck = { version = "1", features = ["derive"] }
+bytemuck = { version = "1", features = ["derive", "must_cast"] }
 radsort = "0.1"
 smallvec = "1.6"
-serde = { version = "1", features = ["derive", "rc"] }
-bincode = "1"
-range-alloc = "0.1"
 nonmax = "0.5"
+static_assertions = "1"
 
 [lints]
 workspace = true

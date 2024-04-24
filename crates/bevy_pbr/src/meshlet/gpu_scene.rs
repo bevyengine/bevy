@@ -1,4 +1,7 @@
-use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
+use super::{
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletMesh},
+    persistent_buffer::PersistentGpuBuffer,
+};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
@@ -174,7 +177,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 }
 
 // TODO: Try using Queue::write_buffer_with() in queue_meshlet_mesh_upload() to reduce copies
-fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
+fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
     buffer: &mut StorageBuffer<Vec<T>>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
@@ -187,7 +190,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
 
     if capacity >= size {
         let inner = inner.unwrap();
-        let bytes = bytemuck::cast_slice(buffer.get().as_slice());
+        let bytes = bytemuck::must_cast_slice(buffer.get().as_slice());
         render_queue.write_buffer(inner, 0, bytes);
     } else {
         buffer.write_buffer(render_device, render_queue);
@@ -352,7 +355,7 @@ pub fn prepare_meshlet_per_frame_resources(
             });
 
         let depth_size = Extent3d {
-            // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
+            // Round down to the nearest power of 2 to ensure depth is conservative
             width: previous_power_of_2(view.viewport.z),
             height: previous_power_of_2(view.viewport.w),
             depth_or_array_layers: 1,
@@ -611,7 +614,7 @@ pub struct MeshletGpuScene {
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
-    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
+    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64)>,
 
     scene_meshlet_count: u32,
@@ -619,11 +622,11 @@ pub struct MeshletGpuScene {
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
-    /// Per-instance Entity, RenderLayers, and NotShadowCaster
+    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
     instances: Vec<(Entity, RenderLayers, bool)>,
     /// Per-instance transforms, model matrices, and render flags
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
-    /// Per-view per-instance visibility bit. Used for RenderLayer and NotShadowCaster support.
+    /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
     thread_instance_ids: StorageBuffer<Vec<u32>>,
@@ -840,7 +843,7 @@ impl MeshletGpuScene {
             );
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+                .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
 
             (
                 [
@@ -850,7 +853,7 @@ impl MeshletGpuScene {
                     meshlets_slice,
                     meshlet_bounding_spheres_slice,
                 ],
-                meshlet_mesh.total_meshlet_triangles,
+                meshlet_mesh.worst_case_meshlet_triangles,
             )
         };
 

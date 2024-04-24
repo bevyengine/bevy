@@ -37,7 +37,7 @@ fn ci_testing_exit_after(
 ) {
     if let Some(exit_after) = ci_testing_config.exit_after {
         if *current_frame > exit_after {
-            app_exit_events.send(AppExit);
+            app_exit_events.send(AppExit::Success);
             info!("Exiting after {} frames. Test successful!", exit_after);
         }
     }
@@ -62,7 +62,7 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
     };
 
     if let Some(frame_time) = config.frame_time {
-        app.world
+        app.world_mut()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
                 frame_time,
             )));

@@ -1,6 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![deny(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -78,6 +79,8 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the compute shader instance data building pass.
+        GpuPreprocess,
     }
 }
 
@@ -93,10 +96,9 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
-    render_phase::sort_phase_system,
     render_resource::Shader,
-    texture::Image,
-    view::VisibilitySystems,
+    texture::{GpuImage, Image},
+    view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -128,11 +130,16 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
-    /// Controls if the prepass is enabled for the StandardMaterial.
+    /// Controls if the prepass is enabled for the [`StandardMaterial`].
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
     /// Controls if [`DeferredPbrLightingPlugin`] is added.
     pub add_default_deferred_lighting_plugin: bool,
+    /// Controls if GPU [`MeshUniform`] building is enabled.
+    ///
+    /// This requires compute shader support and so will be forcibly disabled if
+    /// the platform doesn't support those.
+    pub use_gpu_instance_buffer_builder: bool,
 }
 
 impl Default for PbrPlugin {
@@ -140,6 +147,7 @@ impl Default for PbrPlugin {
         Self {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
+            use_gpu_instance_buffer_builder: true,
         }
     }
 }
@@ -261,6 +269,7 @@ impl Plugin for PbrPlugin {
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
@@ -280,7 +289,9 @@ impl Plugin for PbrPlugin {
             .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
-                MeshRenderPlugin,
+                MeshRenderPlugin {
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()
@@ -292,6 +303,9 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
+                GpuMeshPreprocessPlugin {
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                },
             ))
             .configure_sets(
                 PostUpdate,
@@ -336,6 +350,7 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
+                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
                     check_light_mesh_visibility
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
@@ -352,16 +367,18 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            &Handle::<StandardMaterial>::default(),
-            StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.5),
-                unlit: true,
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .insert(
+                &Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::srgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -373,31 +390,21 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<Image>),
-                    sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                        .after(prepare_assets::<GpuImage>),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();
 
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
+        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
-
-        render_app.ignore_ambiguity(
-            bevy_render::Render,
-            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
-            bevy_render::batching::batch_and_prepare_render_phase::<
-                bevy_core_pipeline::core_3d::Transmissive3d,
-                MeshPipeline,
-            >,
-        );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

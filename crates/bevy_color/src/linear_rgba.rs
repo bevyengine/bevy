@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_point, Alpha, ClampColor, Luminance,
-    Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
+    Luminance, Mix, StandardColor,
 };
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
@@ -32,7 +32,7 @@ pub struct LinearRgba {
 
 impl StandardColor for LinearRgba {}
 
-impl_componentwise_point!(LinearRgba, [red, green, blue, alpha]);
+impl_componentwise_vector_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.
@@ -293,9 +293,10 @@ impl From<LinearRgba> for Vec4 {
     }
 }
 
-impl From<LinearRgba> for wgpu::Color {
+#[cfg(feature = "wgpu-types")]
+impl From<LinearRgba> for wgpu_types::Color {
     fn from(color: LinearRgba) -> Self {
-        wgpu::Color {
+        wgpu_types::Color {
             r: color.red as f64,
             g: color.green as f64,
             b: color.blue as f64,

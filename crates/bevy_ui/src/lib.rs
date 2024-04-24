@@ -53,8 +53,12 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::RenderApp;
+use bevy_render::{
+    view::{check_visibility, VisibilitySystems},
+    RenderApp,
+};
 use bevy_transform::TransformSystem;
+use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
@@ -97,6 +101,10 @@ struct AmbiguousWithTextSystem;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2DLayout;
 
+/// A convenient alias for `With<Node>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithNode = With<Node>;
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
@@ -129,6 +137,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.before(UiSystem::Layout),
                 apply_deferred
                     .after(update_target_camera_system)
@@ -173,7 +182,7 @@ impl Plugin for UiPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
