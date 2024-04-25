@@ -1,11 +1,11 @@
 //! This example illustrates how to make headless renderer
-//! derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
+//! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
 //! It follows this steps:
 //! 1) Render from camera to gpu-image render target
-//! 2) Copy form gpu image to buffer using ImageCopyDriver node in RenderGraph
-//! 3) Copy from buffer to channel using image_copy::receive_image_from_buffer after RenderSet::Render
-//! 4) Save from channel to random named file using scene::update at PostUpdate in MainWorld
-//! 5) Exit if single_image setting is set
+//! 2) Copy form gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
+//! 3) Copy from buffer to channel using `image_copy::receive_image_from_buffer` after `RenderSet::Render`
+//! 4) Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
+//! 5) Exit if `single_image` setting is set
 
 use bevy::{
     app::ScheduleRunnerPlugin, core_pipeline::tonemapping::Tonemapping, prelude::*,
@@ -491,13 +491,13 @@ mod frame_capture {
                             };
                         }
                         if scene_controller.single_image {
-                            app_exit_writer.send(AppExit);
+                            app_exit_writer.send(AppExit::Success);
                             break;
                         }
                     }
                 } else {
                     // clears channel for skipped frames
-                    while let Ok(_) = receiver.try_recv() {}
+                    while receiver.try_recv().is_ok() {}
                     scene_controller.state = SceneState::Render(n - 1);
                 }
             }
