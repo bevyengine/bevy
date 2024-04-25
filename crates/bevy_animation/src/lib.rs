@@ -8,6 +8,7 @@
 //! Animation for the game engine Bevy
 
 mod animatable;
+pub mod curves;
 mod graph;
 mod transition;
 mod util;

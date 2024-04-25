@@ -624,7 +624,7 @@ pub trait CubicGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct CubicSegment<P: VectorSpace> {
     coeff: [P; 4],
 }

@@ -3,6 +3,7 @@
 
 use crate::{Quat, VectorSpace};
 use std::{
+    borrow::Cow,
     cmp::{max_by, min_by},
     marker::PhantomData,
     ops::{Deref, RangeInclusive},
@@ -139,6 +140,40 @@ where
 impl Interpolable for Quat {
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
+    }
+}
+
+impl<T> Interpolable for Vec<T>
+where
+    T: Interpolable,
+{
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.iter()
+            .zip(other)
+            .map(|(x, y)| x.interpolate(y, t))
+            .collect()
+    }
+}
+
+impl<T> Interpolable for Cow<'_, [T]>
+where
+    T: Interpolable,
+{
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        if t <= 0.0 {
+            self.clone()
+        } else if t >= 1.0 {
+            other.clone()
+        } else {
+            Cow::Owned(
+                // Cow<'_, [T]> derefs into [T], and its owned counterpart is Vec<T>
+                (*self)
+                    .into_iter()
+                    .zip((*other).into_iter())
+                    .map(|(x, y)| x.interpolate(y, t))
+                    .collect::<Vec<T>>(),
+            )
+        }
     }
 }
 
