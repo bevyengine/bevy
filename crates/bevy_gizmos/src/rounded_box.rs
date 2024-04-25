@@ -158,7 +158,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
         edge_radius *= config.corner_radius.signum();
 
         // Handle cases where the rounded cuboid collapses into simpler shapes
-        if edge_radius == 0. {
+        if edge_radius == 0.0 {
             let transform = Transform::from_translation(config.position)
                 .with_rotation(config.rotation)
                 .with_scale(self.size);
