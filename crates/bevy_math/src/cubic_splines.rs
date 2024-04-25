@@ -558,7 +558,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
             .map(|((points, weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
-                // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
+                // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
                 let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");

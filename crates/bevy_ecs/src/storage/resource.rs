@@ -298,7 +298,7 @@ impl<const SEND: bool> Resources<SEND> {
         self.resources.get_mut(component_id)
     }
 
-    /// Fetches or initializes a new resource and returns back it's underlying column.
+    /// Fetches or initializes a new resource and returns back its underlying column.
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`

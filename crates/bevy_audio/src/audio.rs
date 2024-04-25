@@ -252,6 +252,15 @@ where
     pub settings: PlaybackSettings,
 }
 
+impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            source: self.source.clone(),
+            settings: self.settings,
+        }
+    }
+}
+
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {

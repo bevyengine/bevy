@@ -37,7 +37,7 @@ fn ci_testing_exit_after(
 ) {
     if let Some(exit_after) = ci_testing_config.exit_after {
         if *current_frame > exit_after {
-            app_exit_events.send(AppExit);
+            app_exit_events.send(AppExit::Success);
             info!("Exiting after {} frames. Test successful!", exit_after);
         }
     }

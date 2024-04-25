@@ -35,7 +35,7 @@ pub(crate) struct AssetInfo {
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in get_or_create_path_handle for context.
+    /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
 }
 
