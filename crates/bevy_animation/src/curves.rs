@@ -1,6 +1,6 @@
 use bevy_math::{
     cubic_splines::{CubicGenerator, CubicHermite},
-    curve::{interval, ConstantCurve, Curve, Interpolable, Interval, UnevenSampleCurve},
+    curve::{interval, ConstantCurve, Curve, Interpolable, Interval, MapCurve, UnevenSampleCurve},
     FloatExt, Quat, Vec3, Vec4, VectorSpace,
 };
 
@@ -193,6 +193,27 @@ impl Curve<Quat> for RotationCurve {
         }
     }
 }
+/// A curve specifying the [`MorphWeights`] for a mesh in animation. The variants are broken
+/// down by interpolation mode (with the exception of `Constant`, which never interpolates).
+///
+/// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
+/// recommended to use its implementation of the [`MultiCurve`] subtrait, which allows dumping
+/// cross-channel sample data into an external buffer, avoiding allocation.
+pub enum WeightsCurve {
+    /// A curve which takes a constant value over its domain. Notably, this is how animations with
+    /// only a single keyframe are interpreted.
+    Constant(ConstantCurve<Vec<f32>>),
+
+    /// A curve which interpolates linearly between keyframes.
+    Linear(DynamicArrayCurve<f32>),
+
+    /// A curve which interpolates between keyframes in steps.
+    Step(DynamicArrayCurve<Stepped<f32>>),
+
+    /// A curve which interpolates between keyframes by using auxiliary tangent data to join
+    /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
+    CubicSpline(DynamicArrayCurve<TwoSidedHermite<f32>>),
+}
 
 /// A curve for animating either a the component of a [`Transform`] (translation, rotation, scale)
 /// or the [`MorphWeights`] of morph targets for a mesh.
@@ -208,20 +229,32 @@ pub enum VariableCurve {
     /// A [`ScaleCurve`] for animating the `scale` component of a [`Transform`].
     Scale(ScaleCurve),
 
-    /// A [`DynamicArrayCurve`] for animating [`MorphWeights`] of a mesh.
-    Weights(DynamicArrayCurve<f32>),
+    /// A [`WeightsCurve`] for animating [`MorphWeights`] of a mesh.
+    Weights(WeightsCurve),
 }
+
+// TODO: Actually implement `MultiCurve` for this.
 
 //--------------//
 // EXPERIMENTAL //
 //--------------//
 
+pub trait MultiCurve<T>: Curve<Vec<T>>
+where
+    T: Interpolable,
+{
+    fn sample_into(&self, buffer: &mut [T], t: f32);
+}
+
+// Blanket for `MapCurve`
+
 // Idea: Perhaps this thing can be combined explicitly with a fixed buffer to create a curve that
 // does not allocate.
 
-/// A curve-like data structure which holds data for a list of keyframes in a number of distinct
+/// A curve data structure which holds data for a list of keyframes in a number of distinct
 /// "channels" equal to its `width`. This is sampled through `sample_into`, which places the data
-/// into an external buffer.
+/// into an external buffer. If `T: Default`, this may also be used as a `Curve` directly, but a new
+/// `Vec<T>` will be allocated for each call, which may be undesirable.
 pub struct DynamicArrayCurve<T>
 where
     T: Interpolable,
@@ -380,5 +413,14 @@ where
         let mut output: Vec<T> = vec![<T as Default>::default(); self.width];
         self.sample_into(output.as_mut_slice(), t);
         output
+    }
+}
+
+impl<T> MultiCurve<T> for DynamicArrayCurve<T>
+where
+    T: Interpolable + Default,
+{
+    fn sample_into(&self, buffer: &mut [T], t: f32) {
+        self.sample_into(buffer, t);
     }
 }
