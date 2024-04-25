@@ -2,13 +2,13 @@
 
 #import bevy_pbr::{
     prepass_io::VertexOutput,
-    prepass_bindings::previous_view_proj,
+    prepass_bindings::previous_view_uniforms,
     mesh_view_bindings::view,
     pbr_bindings,
     pbr_types,
 }
 
-// Cutoff used for the premultiplied alpha modes BLEND and ADD.
+// Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
@@ -30,7 +30,9 @@ fn prepass_alpha_discard(in: VertexOutput) {
         if output_color.a < pbr_bindings::material.alpha_cutoff {
             discard;
         }
-    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND || alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD) {
+    } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE) {
         if output_color.a < PREMULTIPLIED_ALPHA_CUTOFF {
             discard;
         }
@@ -47,7 +49,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
 fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
     let clip_position_t = view.unjittered_view_proj * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_proj * previous_world_position;
+    let previous_clip_position_t = previous_view_uniforms.view_proj * previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

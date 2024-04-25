@@ -4,7 +4,6 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, PURPLE},
-    gizmos::light::{LightGizmoColor, LightGizmoConfigGroup},
     prelude::*,
 };
 

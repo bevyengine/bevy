@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()
@@ -19,7 +19,6 @@ fn main() {
                 update_parallax_depth_scale,
                 update_parallax_layers,
                 switch_method,
-                close_on_esc,
             ),
         )
         .run();

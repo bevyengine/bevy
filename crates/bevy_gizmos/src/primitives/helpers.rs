@@ -51,15 +51,18 @@ pub(crate) fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<
 /// This function draws a semi-sphere at the specified `center` point with the given `rotation`,
 /// `radius`, and `color`. The `segments` parameter determines the level of detail, and the `top`
 /// argument specifies the shape of the semi-sphere's tip.
-pub(crate) fn draw_semi_sphere<T: GizmoConfigGroup>(
-    gizmos: &mut Gizmos<'_, '_, T>,
+pub(crate) fn draw_semi_sphere<Config, Clear>(
+    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
     segments: usize,
     rotation: Quat,
     center: Vec3,
     top: Vec3,
     color: LinearRgba,
-) {
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     circle_coordinates(radius, segments)
         .map(|p| Vec3::new(p.x, 0.0, p.y))
         .map(rotate_then_translate_3d(rotation, center))
@@ -75,14 +78,17 @@ pub(crate) fn draw_semi_sphere<T: GizmoConfigGroup>(
 /// # Note
 ///
 /// This function is necessary to use instead of `gizmos.circle` for certain primitives to ensure that points align correctly. For example, the major circles of a torus are drawn with this method, and using `gizmos.circle` would result in the minor circles not being positioned precisely on the major circles' segment points.
-pub(crate) fn draw_circle_3d<T: GizmoConfigGroup>(
-    gizmos: &mut Gizmos<'_, '_, T>,
+pub(crate) fn draw_circle_3d<Config, Clear>(
+    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
     segments: usize,
     rotation: Quat,
     translation: Vec3,
     color: LinearRgba,
-) {
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     let positions = (0..=segments)
         .map(|frac| frac as f32 / segments as f32)
         .map(|percentage| percentage * TAU)
@@ -93,15 +99,18 @@ pub(crate) fn draw_circle_3d<T: GizmoConfigGroup>(
 }
 
 /// Draws the connecting lines of a cylinder between the top circle and the bottom circle.
-pub(crate) fn draw_cylinder_vertical_lines<T: GizmoConfigGroup>(
-    gizmos: &mut Gizmos<'_, '_, T>,
+pub(crate) fn draw_cylinder_vertical_lines<Config, Clear>(
+    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
     segments: usize,
     half_height: f32,
     rotation: Quat,
     center: Vec3,
     color: LinearRgba,
-) {
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     circle_coordinates(radius, segments)
         .map(move |point_2d| {
             [1.0, -1.0]

@@ -584,7 +584,7 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
@@ -594,7 +594,7 @@ pub struct MissingAssetSourceError(AssetSourceId<'static>);
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 

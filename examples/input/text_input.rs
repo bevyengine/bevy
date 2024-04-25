@@ -123,9 +123,6 @@ struct Bubble {
     timer: Timer,
 }
 
-#[derive(Component)]
-struct ImePreedit;
-
 fn bubbling_text(
     mut commands: Commands,
     mut bubbles: Query<(Entity, &mut Transform, &mut Bubble)>,

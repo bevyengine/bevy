@@ -123,6 +123,7 @@ fn create_cube_mesh() -> Mesh {
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
+        // The camera coordinate space is right-handed x-right, y-up, z-back. This means "forward" is -Z.
         // Meshes always rotate around their local [0, 0, 0] when a rotation is applied to their Transform.
         // By centering our mesh around the origin, rotating the mesh preserves its center of mass.
         vec![
@@ -166,7 +167,7 @@ fn create_cube_mesh() -> Mesh {
         Mesh::ATTRIBUTE_UV_0,
         vec![
             // Assigning the UV coords for the top side.
-            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.25],
+            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.2],
             // Assigning the UV coords for the bottom side.
             [0.0, 0.45], [0.0, 0.25], [1.0, 0.25], [1.0, 0.45],
             // Assigning the UV coords for the right side.
