@@ -319,6 +319,7 @@ impl encase::ShaderType for LinearRgba {
         encase::private::Metadata {
             alignment,
             has_uniform_min_alignment: false,
+            is_pod: false,
             min_size: size,
             extra: (),
         }
