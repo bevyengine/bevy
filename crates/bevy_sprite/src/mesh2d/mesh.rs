@@ -12,7 +12,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::batching::no_gpu_preprocessing::{
-    batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, BatchedInstanceBuffer,
+    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
+    BatchedInstanceBuffer,
 };
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
@@ -38,7 +39,7 @@ use crate::Material2dBindGroupId;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
+#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
@@ -47,10 +48,6 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
         Self(handle)
     }
 }
-
-/// A convenient alias for `With<Mesh2dHandle>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -111,6 +108,9 @@ impl Plugin for Mesh2dRenderPlugin {
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }
@@ -517,17 +517,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -547,7 +536,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -699,12 +688,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

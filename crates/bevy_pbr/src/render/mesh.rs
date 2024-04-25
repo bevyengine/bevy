@@ -15,8 +15,8 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        clear_batched_instance_buffers, gpu_preprocessing, no_gpu_preprocessing, GetBatchData,
-        GetFullBatchData, NoAutomaticBatching,
+        gpu_preprocessing, no_gpu_preprocessing, GetBatchData, GetFullBatchData,
+        NoAutomaticBatching,
     },
     mesh::*,
     render_asset::RenderAssets,
@@ -139,10 +139,14 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
-                .add_systems(ExtractSchedule, (extract_skins, extract_morphs))
                 .add_systems(
                     ExtractSchedule,
-                    clear_batched_instance_buffers::<MeshPipeline>.before(ExtractMeshesSet),
+                    (
+                        extract_skins,
+                        extract_morphs,
+                        gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
+                            .before(ExtractMeshesSet),
+                    ),
                 )
                 .add_systems(
                     Render,
@@ -151,6 +155,9 @@ impl Plugin for MeshRenderPlugin {
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }
@@ -588,8 +595,10 @@ pub fn extract_meshes_for_cpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -614,23 +623,19 @@ pub fn extract_meshes_for_cpu_building(
                 no_automatic_batching,
             );
 
-            render_mesh_instance_queues.scope(|queue| {
-                let transform = transform.affine();
-                queue.push((
-                    entity,
-                    RenderMeshInstanceCpu {
-                        transforms: MeshTransforms {
-                            transform: (&transform).into(),
-                            previous_transform: (&previous_transform
-                                .map(|t| t.0)
-                                .unwrap_or(transform))
-                                .into(),
-                            flags: mesh_flags.bits(),
-                        },
-                        shared,
+            let transform = transform.affine();
+            queue.push((
+                entity,
+                RenderMeshInstanceCpu {
+                    transforms: MeshTransforms {
+                        transform: (&transform).into(),
+                        previous_transform: (&previous_transform.map(|t| t.0).unwrap_or(transform))
+                            .into(),
+                        flags: mesh_flags.bits(),
                     },
-                ));
-            });
+                    shared,
+                },
+            ));
         },
     );
 
@@ -676,8 +681,10 @@ pub fn extract_meshes_for_gpu_building(
         )>,
     >,
 ) {
-    meshes_query.par_iter().for_each(
-        |(
+    meshes_query.par_iter().for_each_init(
+        || render_mesh_instance_queues.borrow_local_mut(),
+        |queue,
+         (
             entity,
             view_visibility,
             transform,
@@ -706,17 +713,15 @@ pub fn extract_meshes_for_gpu_building(
             let lightmap_uv_rect =
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
-            render_mesh_instance_queues.scope(|queue| {
-                queue.push((
-                    entity,
-                    RenderMeshInstanceGpuBuilder {
-                        shared,
-                        transform: (&transform.affine()).into(),
-                        lightmap_uv_rect,
-                        mesh_flags,
-                    },
-                ));
-            });
+            queue.push((
+                entity,
+                RenderMeshInstanceGpuBuilder {
+                    shared,
+                    transform: (&transform.affine()).into(),
+                    lightmap_uv_rect,
+                    mesh_flags,
+                },
+            ));
         },
     );
 
@@ -1024,7 +1029,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
-    pub struct MeshPipelineKey: u32 {
+    pub struct MeshPipelineKey: u64 {
         // Nothing
         const NONE                              = 0;
 
@@ -1051,12 +1056,13 @@ bitflags::bitflags! {
         const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
 
         // Bitfields
-        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
-        const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                   // ← Values are just sequential within the mask, and can range from 0 to 3
-        const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                   //
-        const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                   // ← We still have room for one more value without adding more bits
-        const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
+        const BLEND_OPAQUE                      = 0 << Self::BLEND_SHIFT_BITS;                     // ← Values are just sequential within the mask
+        const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                     // ← As blend states is on 3 bits, it can range from 0 to 7
+        const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                     // ← See `BLEND_MASK_BITS` for the number of bits available
+        const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;                     //
+        const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for three more values without adding more bits
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -1091,31 +1097,32 @@ bitflags::bitflags! {
 }
 
 impl MeshPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = Self::LAST_FLAG.bits().trailing_zeros() + 1;
+    const MSAA_MASK_BITS: u64 = 0b111;
+    const MSAA_SHIFT_BITS: u64 = Self::LAST_FLAG.bits().trailing_zeros() as u64 + 1;
 
-    const BLEND_MASK_BITS: u32 = 0b11;
-    const BLEND_SHIFT_BITS: u32 = Self::MSAA_MASK_BITS.count_ones() + Self::MSAA_SHIFT_BITS;
+    const BLEND_MASK_BITS: u64 = 0b111;
+    const BLEND_SHIFT_BITS: u64 = Self::MSAA_MASK_BITS.count_ones() as u64 + Self::MSAA_SHIFT_BITS;
 
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::BLEND_MASK_BITS.count_ones() + Self::BLEND_SHIFT_BITS;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b111;
+    const TONEMAP_METHOD_SHIFT_BITS: u64 =
+        Self::BLEND_MASK_BITS.count_ones() as u64 + Self::BLEND_SHIFT_BITS;
 
-    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
-    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_MASK_BITS.count_ones() + Self::TONEMAP_METHOD_SHIFT_BITS;
+    const SHADOW_FILTER_METHOD_MASK_BITS: u64 = 0b11;
+    const SHADOW_FILTER_METHOD_SHIFT_BITS: u64 =
+        Self::TONEMAP_METHOD_MASK_BITS.count_ones() as u64 + Self::TONEMAP_METHOD_SHIFT_BITS;
 
-    const VIEW_PROJECTION_MASK_BITS: u32 = 0b11;
-    const VIEW_PROJECTION_SHIFT_BITS: u32 =
-        Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones() + Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+    const VIEW_PROJECTION_MASK_BITS: u64 = 0b11;
+    const VIEW_PROJECTION_SHIFT_BITS: u64 = Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones()
+        as u64
+        + Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
 
-    const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u32 = 0b11;
-    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u32 =
-        Self::VIEW_PROJECTION_MASK_BITS.count_ones() + Self::VIEW_PROJECTION_SHIFT_BITS;
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u64 = 0b11;
+    const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
+        Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+            (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
@@ -1132,7 +1139,7 @@ impl MeshPipelineKey {
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
-        let primitive_topology_bits = ((primitive_topology as u32)
+        let primitive_topology_bits = ((primitive_topology as u64)
             & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         Self::from_bits_retain(primitive_topology_bits)
@@ -1143,11 +1150,11 @@ impl MeshPipelineKey {
             >> BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
             & BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS;
         match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            x if x == PrimitiveTopology::PointList as u64 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u64 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u64 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
         }
     }
@@ -1157,6 +1164,14 @@ impl MeshPipelineKey {
 const_assert_eq!(
     (((MeshPipelineKey::LAST_FLAG.bits() << 1) - 1) | MeshPipelineKey::ALL_RESERVED_BITS.bits())
         & BaseMeshPipelineKey::all().bits(),
+    0
+);
+
+// Ensure that the reserved bits don't overlap with the topology bits
+const_assert_eq!(
+    (BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS
+        << BaseMeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
+        & MeshPipelineKey::ALL_RESERVED_BITS.bits(),
     0
 );
 
@@ -1271,7 +1286,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let mut is_opaque = false;
+        let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -1301,6 +1316,17 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE {
+            label = "alpha_to_coverage_mesh_pipeline".into();
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
+            blend = None;
+            // For the opaque and alpha mask passes, fragments that are closer will replace
+            // the current fragment value in the output and the depth is written to the
+            // depth buffer
+            depth_write_enabled = true;
+            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
+            alpha_to_coverage_enabled = true;
+            shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
             label = "opaque_mesh_pipeline".into();
             // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
@@ -1441,18 +1467,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             ));
         }
 
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE,
@@ -1471,7 +1485,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: bind_group_layout,
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -1500,7 +1514,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
-                alpha_to_coverage_enabled: false,
+                alpha_to_coverage_enabled,
             },
             label: Some(label),
         })
@@ -1768,12 +1782,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

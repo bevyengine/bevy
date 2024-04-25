@@ -35,7 +35,11 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
 
 // direction 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
@@ -52,8 +56,12 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, T> {
 // sphere
 
 /// Builder for configuring the drawing options of [`Sphere`].
-pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the sphere
     radius: f32,
@@ -69,7 +77,11 @@ pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
+impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to approximate the sphere geometry.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -77,8 +89,12 @@ impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T> {
-    type Output<'a> = SphereBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = SphereBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -98,7 +114,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, T>
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -134,18 +154,22 @@ impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
 
 // plane 3d
 
-/// Builder for configuring the drawing options of [`Sphere`].
-pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+/// Builder for configuring the drawing options of [`Plane3d`].
+pub struct Plane3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // direction of the normal orthogonal to the plane
     normal: Dir3,
 
-    // Rotation of the sphere around the origin in 3D space
+    // Rotation of the plane around the origin in 3D space
     rotation: Quat,
-    // Center position of the sphere in 3D space
+    // Center position of the plane in 3D space
     position: Vec3,
-    // Color of the sphere
+    // Color of the plane
     color: Color,
 
     // Number of axis to hint the plane
@@ -156,7 +180,11 @@ pub struct Plane3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segment_length: f32,
 }
 
-impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Plane3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to hint the plane.
     pub fn segment_count(mut self, count: usize) -> Self {
         self.segment_count = count;
@@ -176,8 +204,12 @@ impl<T: GizmoConfigGroup> Plane3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T> {
-    type Output<'a> = Plane3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Plane3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -199,7 +231,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Plane3d> for Gizmos<'w, 's, T
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Plane3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -243,7 +279,11 @@ impl<T: GizmoConfigGroup> Drop for Plane3dBuilder<'_, '_, '_, T> {
 
 // line 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
@@ -271,7 +311,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, T>
 
 // segment 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
@@ -294,8 +338,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's,
 
 // polyline 3d
 
-impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive3d<Polyline3d<N>>
-    for Gizmos<'w, 's, T>
+impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
+    for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     type Output<'a> = () where Self: 'a;
 
@@ -321,7 +368,11 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive3d<Polyline3d<N>
 
 // boxed polyline 3d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
@@ -348,7 +399,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'
 
 // cuboid
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_3d(
@@ -404,8 +459,12 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, T>
 // cylinder 3d
 
 /// Builder for configuring the drawing options of [`Cylinder`].
-pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Cylinder3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the cylinder
     radius: f32,
@@ -425,7 +484,11 @@ pub struct Cylinder3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> Cylinder3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to approximate the cylinder geometry.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -433,8 +496,12 @@ impl<T: GizmoConfigGroup> Cylinder3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, T> {
-    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -455,7 +522,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cylinder> for Gizmos<'w, 's, 
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -501,8 +572,12 @@ impl<T: GizmoConfigGroup> Drop for Cylinder3dBuilder<'_, '_, '_, T> {
 // capsule 3d
 
 /// Builder for configuring the drawing options of [`Capsule3d`].
-pub struct Capsule3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Capsule3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the capsule
     radius: f32,
@@ -522,7 +597,11 @@ pub struct Capsule3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> Capsule3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to approximate the capsule geometry.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -530,8 +609,12 @@ impl<T: GizmoConfigGroup> Capsule3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's, T> {
-    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -552,7 +635,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Capsule3d> for Gizmos<'w, 's,
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Capsule3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -594,8 +681,12 @@ impl<T: GizmoConfigGroup> Drop for Capsule3dBuilder<'_, '_, '_, T> {
 // cone 3d
 
 /// Builder for configuring the drawing options of [`Cone`].
-pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Cone3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the cone
     radius: f32,
@@ -618,7 +709,11 @@ pub struct Cone3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     height_segments: usize,
 }
 
-impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to approximate the cone geometry for its base and height.
     pub fn segments(mut self, segments: usize) -> Self {
         self.base_segments = segments;
@@ -645,8 +740,12 @@ impl<T: GizmoConfigGroup> Cone3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
-    type Output<'a> = Cone3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Cone3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -668,7 +767,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Cone> for Gizmos<'w, 's, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Cone3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -712,8 +815,12 @@ impl<T: GizmoConfigGroup> Drop for Cone3dBuilder<'_, '_, '_, T> {
 // conical frustum 3d
 
 /// Builder for configuring the drawing options of [`ConicalFrustum`].
-pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the top circle
     radius_top: f32,
@@ -735,7 +842,11 @@ pub struct ConicalFrustum3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> ConicalFrustum3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments used to approximate the curved surfaces.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -743,8 +854,12 @@ impl<T: GizmoConfigGroup> ConicalFrustum3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w, 's, T> {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -766,7 +881,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<ConicalFrustum> for Gizmos<'w
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -818,8 +937,12 @@ impl<T: GizmoConfigGroup> Drop for ConicalFrustum3dBuilder<'_, '_, '_, T> {
 // torus 3d
 
 /// Builder for configuring the drawing options of [`Torus`].
-pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Torus3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     // Radius of the minor circle (tube)
     minor_radius: f32,
@@ -841,7 +964,11 @@ pub struct Torus3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     major_segments: usize,
 }
 
-impl<T: GizmoConfigGroup> Torus3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of segments in the minor (tube) direction.
     pub fn minor_segments(mut self, minor_segments: usize) -> Self {
         self.minor_segments = minor_segments;
@@ -855,8 +982,12 @@ impl<T: GizmoConfigGroup> Torus3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> {
-    type Output<'a> = Torus3dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Torus3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -878,7 +1009,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Torus> for Gizmos<'w, 's, T> 
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Torus3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Torus3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;

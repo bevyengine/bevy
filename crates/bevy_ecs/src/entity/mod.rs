@@ -1060,10 +1060,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
     fn entity_comparison() {
-        // This is intentionally testing `lt` and `ge` as separate functions.
-        #![allow(clippy::nonminimal_bool)]
-
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())

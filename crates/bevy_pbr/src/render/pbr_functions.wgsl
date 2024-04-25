@@ -30,7 +30,11 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     }
 
 #ifdef MAY_DISCARD
-    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    // NOTE: `MAY_DISCARD` is only defined in the alpha to coverage case if MSAA
+    // was off. This special situation causes alpha to coverage to fall back to
+    // alpha mask.
+    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
