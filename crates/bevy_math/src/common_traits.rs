@@ -1,4 +1,4 @@
-use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
+use glam::{Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -45,11 +45,6 @@ pub trait VectorSpace:
     fn lerp(&self, rhs: Self, t: f32) -> Self {
         *self * (1. - t) + rhs * t
     }
-}
-
-// This is cursed and we should probably remove Quat from these.
-impl VectorSpace for Quat {
-    const ZERO: Self = Quat::from_xyzw(0., 0., 0., 0.);
 }
 
 impl VectorSpace for Vec4 {
@@ -104,18 +99,6 @@ pub trait NormedVectorSpace: VectorSpace {
     #[inline]
     fn distance_squared(self, rhs: Self) -> f32 {
         (rhs - self).norm_squared()
-    }
-}
-
-impl NormedVectorSpace for Quat {
-    #[inline]
-    fn norm(self) -> f32 {
-        self.length()
-    }
-
-    #[inline]
-    fn norm_squared(self) -> f32 {
-        self.length_squared()
     }
 }
 

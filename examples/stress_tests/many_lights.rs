@@ -10,7 +10,7 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
@@ -157,7 +157,7 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

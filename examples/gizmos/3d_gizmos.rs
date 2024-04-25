@@ -137,6 +137,12 @@ fn draw_example_collection(
         .circle_segments(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
+
+    // You can create more complex arrows using the arrow builder.
+    gizmos
+        .arrow(Vec3::new(2., 0., 2.), Vec3::new(2., 2., 2.), ORANGE_RED)
+        .with_double_end()
+        .with_tip_length(0.5);
 }
 
 fn update_config(

@@ -8,11 +8,14 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+#[cfg(target_os = "linux")]
+use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
 use std::{
+    num::NonZeroU32,
     ops::{Deref, DerefMut},
     sync::PoisonError,
 };
@@ -35,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
@@ -51,7 +54,7 @@ impl Plugin for WindowRenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
@@ -64,6 +67,7 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
+    pub desired_maximum_frame_latency: Option<NonZeroU32>,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
     /// to CPU memory.
@@ -134,6 +138,7 @@ fn extract_windows(
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
+            desired_maximum_frame_latency: window.desired_maximum_frame_latency,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
             size_changed: false,
@@ -215,6 +220,9 @@ impl WindowSurfaces {
         self.configured_windows.remove(window);
     }
 }
+
+#[cfg(target_os = "linux")]
+const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
@@ -304,18 +312,40 @@ pub fn prepare_windows(
                 })
         };
 
+        #[cfg(target_os = "linux")]
+        let is_nvidia = || {
+            render_instance
+                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
+                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
+        };
+
         let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
-            window.set_swapchain_texture(frame);
+            match surface.get_current_texture() {
+                Ok(frame) => window.set_swapchain_texture(frame),
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
+                }
+                Err(err) => panic!("Error configuring surface: {err}"),
+            };
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
                     window.set_swapchain_texture(frame);
+                }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_data.configuration);
@@ -402,6 +432,12 @@ pub fn need_surface_configuration(
     false
 }
 
+// 2 is wgpu's default/what we've been using so far.
+// 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+// all work for the previous frame before starting work on the next frame, which then means the gpu
+// has to wait for the cpu to finish to start on the next frame.
+const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
+
 /// Creates window surfaces.
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
@@ -461,12 +497,10 @@ pub fn create_surfaces(
                         PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                         PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
                     },
-                    // TODO: Expose this as a setting somewhere
-                    // 2 is wgpu's default/what we've been using so far.
-                    // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
-                    // all work for the previous frame before starting work on the next frame, which then means the gpu
-                    // has to wait for the cpu to finish to start on the next frame.
-                    desired_maximum_frame_latency: 2,
+                    desired_maximum_frame_latency: window
+                        .desired_maximum_frame_latency
+                        .map(NonZeroU32::get)
+                        .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
                     alpha_mode: match window.alpha_mode {
                         CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
                         CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,

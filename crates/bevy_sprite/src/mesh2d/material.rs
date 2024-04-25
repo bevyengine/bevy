@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
@@ -12,12 +12,13 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    mesh::{Mesh, MeshVertexBufferLayoutRef},
-    prelude::Image,
-    render_asset::{prepare_assets, RenderAssets},
+    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
+    render_asset::{
+        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -25,19 +26,18 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
-use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -148,35 +148,26 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>();
+        app.init_asset::<M>()
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<ExtractedMaterials2d<M>>()
-                .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (extract_materials_2d::<M>, extract_material_meshes_2d::<M>),
-                )
+                .add_systems(ExtractSchedule, extract_material_meshes_2d::<M>)
                 .add_systems(
                     Render,
-                    (
-                        prepare_materials_2d::<M>
-                            .in_set(RenderSet::PrepareAssets)
-                            .after(prepare_assets::<Image>),
-                        queue_material2d_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials_2d::<M>),
-                    ),
+                    queue_material2d_meshes::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_assets::<PreparedMaterial2d<M>>),
                 );
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<Material2dPipeline<M>>();
         }
     }
@@ -330,7 +321,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     for SetMaterial2dBindGroup<M, I>
 {
     type Param = (
-        SRes<RenderMaterials2d<M>>,
+        SRes<RenderAssets<PreparedMaterial2d<M>>>,
         SRes<RenderMaterial2dInstances<M>>,
     );
     type ViewQuery = ();
@@ -349,7 +340,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         let Some(material_instance) = material_instances.get(&item.entity()) else {
             return RenderCommandResult::Failure;
         };
-        let Some(material2d) = materials.get(material_instance) else {
+        let Some(material2d) = materials.get(*material_instance) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
@@ -379,8 +370,8 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderMaterials2d<M>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut views: Query<(
@@ -388,7 +379,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -412,21 +403,21 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh2d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(material2d) = render_materials.get(material_asset_id) else {
+            let Some(material2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
             let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -483,157 +474,37 @@ impl<T: Material2d> PreparedMaterial2d<T> {
     }
 }
 
-#[derive(Resource)]
-pub struct ExtractedMaterials2d<M: Material2d> {
-    extracted: Vec<(AssetId<M>, M)>,
-    removed: Vec<AssetId<M>>,
-}
+impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
+    type SourceAsset = M;
 
-impl<M: Material2d> Default for ExtractedMaterials2d<M> {
-    fn default() -> Self {
-        Self {
-            extracted: Default::default(),
-            removed: Default::default(),
-        }
-    }
-}
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<GpuImage>>,
+        SRes<FallbackImage>,
+        SRes<Material2dPipeline<M>>,
+    );
 
-/// Stores all prepared representations of [`Material2d`] assets for as long as they exist.
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials2d<T: Material2d>(HashMap<AssetId<T>, PreparedMaterial2d<T>>);
-
-impl<T: Material2d> Default for RenderMaterials2d<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// This system extracts all created or modified assets of the corresponding [`Material2d`] type
-/// into the "render world".
-pub fn extract_materials_2d<M: Material2d>(
-    mut commands: Commands,
-    mut events: Extract<EventReader<AssetEvent<M>>>,
-    assets: Extract<Res<Assets<M>>>,
-) {
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.read() {
-        #[allow(clippy::match_same_arms)]
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-            }
-            AssetEvent::Removed { id } => {
-                changed_assets.remove(id);
-                removed.push(*id);
-            }
-            AssetEvent::Unused { .. } => {}
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
-
-    let mut extracted_assets = Vec::new();
-    for id in changed_assets.drain() {
-        if let Some(asset) = assets.get(id) {
-            extracted_assets.push((id, asset.clone()));
-        }
-    }
-
-    commands.insert_resource(ExtractedMaterials2d {
-        extracted: extracted_assets,
-        removed,
-    });
-}
-
-/// All [`Material2d`] values of a given type that should be prepared next frame.
-pub struct PrepareNextFrameMaterials<M: Material2d> {
-    assets: Vec<(AssetId<M>, M)>,
-}
-
-impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
-    }
-}
-
-/// This system prepares all assets of the corresponding [`Material2d`] type
-/// which where extracted this frame for the GPU.
-pub fn prepare_materials_2d<M: Material2d>(
-    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
-    mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
-    mut render_materials: ResMut<RenderMaterials2d<M>>,
-    render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    fallback_image: Res<FallbackImage>,
-    pipeline: Res<Material2dPipeline<M>>,
-) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (id, material) in queued_assets {
-        if extracted_assets.removed.contains(&id) {
-            continue;
-        }
-
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
+    fn prepare_asset(
+        material: Self::SourceAsset,
+        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
+        match material.as_bind_group(
+            &pipeline.material2d_layout,
+            render_device,
+            images,
+            fallback_image,
         ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(id, prepared_asset);
-            }
+            Ok(prepared) => Ok(PreparedMaterial2d {
+                bindings: prepared.bindings,
+                bind_group: prepared.bind_group,
+                key: prepared.data,
+                depth_bias: material.depth_bias(),
+            }),
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((id, material));
+                Err(PrepareAssetError::RetryNextUpdate(material))
             }
         }
     }
-
-    for removed in std::mem::take(&mut extracted_assets.removed) {
-        render_materials.remove(&removed);
-    }
-
-    for (asset_id, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(asset_id, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((asset_id, material));
-            }
-        }
-    }
-}
-
-fn prepare_material2d<M: Material2d>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &FallbackImage,
-    pipeline: &Material2dPipeline<M>,
-) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material2d_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
-    Ok(PreparedMaterial2d {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-        depth_bias: material.depth_bias(),
-    })
 }
 
 /// A component bundle for entities with a [`Mesh2dHandle`] and a [`Material2d`].

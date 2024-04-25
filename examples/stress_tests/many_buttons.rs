@@ -5,7 +5,7 @@ use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
 

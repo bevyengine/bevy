@@ -137,12 +137,16 @@ pub unsafe trait SystemParam: Sized {
     /// and creates a new instance of this param's [`State`](Self::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
+    ///
+    /// # Safety
+    /// `archetype` must be from the [`World`] used to initialize `state` in `init_state`.
     #[inline]
-    fn new_archetype(
-        _state: &mut Self::State,
-        _archetype: &Archetype,
-        _system_meta: &mut SystemMeta,
+    #[allow(unused_variables)]
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
     ) {
     }
 
@@ -208,7 +212,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         state
     }
 
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
         state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
@@ -1343,8 +1351,10 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
-                $($param::new_archetype($param, _archetype, _system_meta);)*
+            #[allow(unused_unsafe)]
+            unsafe fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
+                // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                unsafe { $($param::new_archetype($param, _archetype, _system_meta);)* }
             }
 
             #[inline]
@@ -1487,8 +1497,13 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::init_state(world, system_meta)
     }
 
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        P::new_archetype(state, archetype, system_meta);
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
+        unsafe { P::new_archetype(state, archetype, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1531,9 +1546,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::{assert_is_system, Query},
+        system::assert_is_system,
     };
-    use std::{cell::RefCell, marker::PhantomData};
+    use std::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]

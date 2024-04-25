@@ -11,8 +11,9 @@ keywords = ["bevy"]
 [features]
 trace = []
 bevy_debug_stepping = []
-default = ["bevy_reflect", "bevy_debug_stepping"]
+default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
+serialize = ["bevy_ecs/serde"]
 
 [dependencies]
 # bevy
@@ -24,13 +25,13 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-ron = { version = "0.8.0", optional = true }
 downcast-rs = "1.2.0"
 thiserror = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
+console_error_panic_hook = "0.1.6"
 
 [lints]
 workspace = true

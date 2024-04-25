@@ -7,6 +7,7 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
+use bevy_render::texture::GpuImage;
 use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
@@ -29,7 +30,7 @@ use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, SortedRenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
@@ -69,7 +70,7 @@ pub enum RenderUiSystem {
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
-    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+    let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
     };
 
@@ -116,7 +117,7 @@ pub fn build_ui_render(app: &mut App) {
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
     let ui_graph_3d = get_ui_graph(render_app);
-    let mut graph = render_app.world.resource_mut::<RenderGraph>();
+    let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
 
     if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
@@ -135,8 +136,8 @@ pub fn build_ui_render(app: &mut App) {
     }
 }
 
-fn get_ui_graph(render_app: &mut App) -> RenderGraph {
-    let ui_pass_node = UiPassNode::new(&mut render_app.world);
+fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
+    let ui_pass_node = UiPassNode::new(render_app.world_mut());
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
@@ -704,7 +705,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .id();
             commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
-                RenderPhase::<TransparentUi>::default(),
+                SortedRenderPhase::<TransparentUi>::default(),
             ));
         }
     }
@@ -874,7 +875,7 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -920,8 +921,8 @@ pub fn prepare_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {

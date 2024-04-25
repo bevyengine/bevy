@@ -42,6 +42,7 @@ pub struct SpriteBundle {
 ///
 /// Check the following examples for usage:
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[deprecated(
     since = "0.14.0",

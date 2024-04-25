@@ -117,13 +117,12 @@ pub struct WindowDestroyed {
 /// The event is sent only if the cursor is over one of the application's windows.
 /// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition of `delta`.
 ///
-/// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
+/// Not to be confused with the `MouseMotion` event from `bevy_input`.
 ///
 /// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
-/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see [`MouseMotion`] instead.
+/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-/// [`MouseMotion`]: bevy_input::mouse::MouseMotion
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -279,7 +278,7 @@ pub struct WindowOccluded {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
-    /// Window that had it's scale factor changed.
+    /// Window that had its scale factor changed.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
@@ -294,7 +293,7 @@ pub struct WindowScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
-    /// Window that had it's scale factor changed by the backend.
+    /// Window that had its scale factor changed by the backend.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
