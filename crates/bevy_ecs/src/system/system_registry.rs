@@ -44,13 +44,20 @@ pub struct SystemId<I = (), O = ()> {
 }
 
 impl<I, O> SystemId<I, O> {
-    /// Get the underlying [`Entity`] value of a [`SystemId`].
+    /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
+    ///
+    /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
+    /// is really an entity with associated handler function.
+    ///
+    /// For example, this is useful if you want to assign a name label to a system.
     pub fn entity(self) -> Entity {
         self.entity
     }
 
-    /// Create [`SystemId`] from an [`Entity`].
-    /// The entity must be a system & the `I` + `O` types must be correct to use this for running.
+    /// Create [`SystemId`] from an [`Entity`]. Useful when you only have entity handles to avoid
+    /// adding extra compnents that have a [`SystemId`] everywhere. To run a system with this ID
+    ///  - The entity must be a system
+    ///  - The `I` + `O` types must be correct
     pub fn from_entity(entity: Entity) -> Self {
         Self {
             entity,
