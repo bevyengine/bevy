@@ -411,7 +411,7 @@ impl TypeRegistry {
     /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that type was found.
     pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
         self.registrations.values().filter_map(|item| {
-            let type_data = self.get_type_data::<T>(item.type_id());
+            let type_data = item.data::<T>(item.type_id());
             type_data.map(|data| (item, data))
         })
     }
