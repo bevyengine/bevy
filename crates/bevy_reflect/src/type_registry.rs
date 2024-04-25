@@ -407,8 +407,8 @@ impl TypeRegistry {
         self.registrations.values_mut()
     }
 
-    /// Returns an iterator over the [`TypeRegistration`]s with their corresponding [`TypeData`]
-    /// of the registered types.
+    /// Checks to see if the [`TypeData`] of type `T` is associated with each registered type,
+    /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that type was found.
     pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
         self.registrations.values().filter_map(|item| {
             let type_data = self.get_type_data::<T>(item.type_id());
