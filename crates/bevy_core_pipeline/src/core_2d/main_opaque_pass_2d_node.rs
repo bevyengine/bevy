@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{SortedRenderPhase, TrackedRenderPass},
+    render_phase::{BinnedRenderPhase, TrackedRenderPass},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -18,7 +18,7 @@ pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static SortedRenderPhase<Opaque2d>,
+        &'static BinnedRenderPhase<Opaque2d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -62,7 +62,7 @@ impl ViewNode for MainOpaquePass2dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_2d_span = info_span!("opaque_main_pass_2d").entered();
                 opaque_phase.render(&mut render_pass, world, view_entity);

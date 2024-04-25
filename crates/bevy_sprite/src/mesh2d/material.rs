@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{Opaque2d, Transparent2d},
+    core_2d::{Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -18,8 +18,8 @@ use bevy_render::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+        AddRenderCommand, BinnedRenderPhase, DrawFunctions, PhaseItem, RenderCommand,
+        RenderCommandResult, SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -399,7 +399,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut SortedRenderPhase<Opaque2d>,
+        &mut BinnedRenderPhase<Opaque2d>,
         &mut SortedRenderPhase<Transparent2d>,
     )>,
 ) where
@@ -467,16 +467,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
 
             match material_2d.properties.alpha_mode {
                 AlphaMode2d::Opaque => {
-                    opaque_phase.add(Opaque2d {
-                        entity: *visible_entity,
-                        draw_function: draw_opaque_2d,
+                    let bin_key = Opaque2dBinKey {
                         pipeline: pipeline_id,
-                        // Front-to-back ordering
-                        sort_key: -FloatOrd(mesh_z + material_2d.properties.depth_bias),
-                        // Batching is done in batch_and_prepare_render_phase
-                        batch_range: 0..1,
-                        dynamic_offset: None,
-                    });
+                        draw_function: draw_opaque_2d,
+                        asset_id: mesh_instance.mesh_asset_id,
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    opaque_phase.add(bin_key, *visible_entity, mesh_instance.automatic_batching);
                 }
                 AlphaMode2d::Blend => {
                     transparent_phase.add(Transparent2d {

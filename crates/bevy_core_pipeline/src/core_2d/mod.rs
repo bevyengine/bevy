@@ -30,6 +30,7 @@ pub mod graph {
 
 use std::ops::Range;
 
+use bevy_asset::AssetId;
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -41,14 +42,15 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    mesh::Mesh,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        SortedPhaseItem, SortedRenderPhase,
+        sort_phase_system, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
+        DrawFunctionId, DrawFunctions, PhaseItem, SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
     texture::TextureCache,
@@ -80,7 +82,6 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Opaque2d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
                     prepare_core_2d_depth_textures.in_set(RenderSet::PrepareResources),
                 ),
@@ -118,22 +119,29 @@ impl Plugin for Core2dPlugin {
 
 /// Opaque 2D [`SortedPhaseItem`]s.
 pub struct Opaque2d {
-    pub sort_key: FloatOrd,
-    pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub representative_entity: Entity,
     pub batch_range: Range<u32>,
     pub dynamic_offset: Option<NonMaxU32>,
+    pub key: Opaque2dBinKey,
 }
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Opaque2dBinKey {
+    pub pipeline: CachedRenderPipelineId,
+    pub draw_function: DrawFunctionId,
+    pub asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: Option<BindGroupId>,
+}
+
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+        self.key.draw_function
     }
 
     #[inline]
@@ -157,25 +165,28 @@ impl PhaseItem for Opaque2d {
     }
 }
 
-impl SortedPhaseItem for Opaque2d {
-    type SortKey = FloatOrd;
+impl BinnedPhaseItem for Opaque2d {
+    type BinKey = Opaque2dBinKey;
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        radsort::sort_by_key(items, |item| item.sort_key().0);
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        dynamic_offset: Option<NonMaxU32>,
+    ) -> Self {
+        Opaque2d {
+            representative_entity,
+            batch_range,
+            dynamic_offset,
+            key,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
@@ -249,7 +260,7 @@ pub fn extract_core_2d_camera_phases(
     for (entity, camera) in &cameras_2d {
         if camera.is_active {
             commands.get_or_spawn(entity).insert((
-                SortedRenderPhase::<Opaque2d>::default(),
+                BinnedRenderPhase::<Opaque2d>::default(),
                 SortedRenderPhase::<Transparent2d>::default(),
             ));
         }
@@ -264,7 +275,7 @@ pub fn prepare_core_2d_depth_textures(
     views_2d: Query<
         (Entity, &ExtractedCamera),
         (
-            With<SortedRenderPhase<Opaque2d>>,
+            With<BinnedRenderPhase<Opaque2d>>,
             With<SortedRenderPhase<Transparent2d>>,
             With<Camera2d>,
         ),
