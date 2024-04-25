@@ -39,8 +39,8 @@ struct FragmentOutput {
 @vertex
 fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let packed_ids = draw_triangle_buffer[vertex_index / 3u];
-    let cluster_id = packed_ids >> 8u;
-    let triangle_id = extractBits(packed_ids, 0u, 8u);
+    let cluster_id = packed_ids >> 6u;
+    let triangle_id = extractBits(packed_ids, 0u, 6u);
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];

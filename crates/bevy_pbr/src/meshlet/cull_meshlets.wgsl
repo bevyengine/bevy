@@ -121,7 +121,7 @@ fn cull_meshlets(
     if meshlet_visible {
         let meshlet_triangle_count = meshlets[meshlet_id].triangle_count;
         let buffer_start = atomicAdd(&draw_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
-        let cluster_id_packed = cluster_id << 8u;
+        let cluster_id_packed = cluster_id << 6u;
         for (var triangle_id = 0u; triangle_id < meshlet_triangle_count; triangle_id++) {
             draw_triangle_buffer[buffer_start + triangle_id] = cluster_id_packed | triangle_id;
         }
