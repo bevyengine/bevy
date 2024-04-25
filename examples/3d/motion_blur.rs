@@ -7,8 +7,13 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    // MSAA and Motion Blur together are not compatible on WebGL
+    #[cfg(target_arch = "wasm32")]
+    app.insert_resource(Msaa::Off);
+
+    app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
         .run();
@@ -21,9 +26,11 @@ fn setup_camera(mut commands: Commands) {
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
         MotionBlurBundle {
+            #[allow(clippy::needless_update)]
             motion_blur: MotionBlur {
                 shutter_angle: 1.0,
                 samples: 2,
+                ..default()
             },
             ..default()
         },

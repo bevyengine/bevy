@@ -100,7 +100,7 @@ pub struct MotionBlur {
     pub samples: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     // WebGL2 structs must be 16 byte aligned.
-    pub _webgl2_padding: bevy_math::Vec3,
+    pub _webgl2_padding: bevy_math::Vec2,
 }
 
 impl Default for MotionBlur {
@@ -109,7 +109,7 @@ impl Default for MotionBlur {
             shutter_angle: 0.5,
             samples: 1,
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            _webgl2_padding: bevy_math::Vec3::default(),
+            _webgl2_padding: bevy_math::Vec2::default(),
         }
     }
 }
