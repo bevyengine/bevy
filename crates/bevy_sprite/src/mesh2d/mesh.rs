@@ -389,7 +389,7 @@ impl GetFullBatchData for Mesh2dPipeline {
             "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
             but this is not yet implemented for 2d meshes"
         );
-        return None;
+        None
     }
 
     fn get_binned_index(
@@ -400,7 +400,7 @@ impl GetFullBatchData for Mesh2dPipeline {
             "`get_binned_index` is only intended for GPU mesh uniform building, \
             but this is not yet implemented for 2d meshes"
         );
-        return None;
+        None
     }
 }
 
