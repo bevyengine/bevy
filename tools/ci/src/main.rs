@@ -1,8 +1,8 @@
 //! CI script used for Bevy.
 
 mod ci;
-mod prepare;
 mod commands;
+mod prepare;
 
 pub(crate) use self::ci::*;
 pub(crate) use self::prepare::*;
