@@ -22,6 +22,9 @@
 mod dim2;
 pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 
+mod dim3;
+pub use dim3::*;
+
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
 pub trait Meshable {
     /// The output of [`Self::mesh`]. This can either be a [`Mesh`](super::Mesh)

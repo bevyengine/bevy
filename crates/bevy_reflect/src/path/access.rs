@@ -2,8 +2,8 @@
 
 use std::{borrow::Cow, fmt};
 
-use super::error::{AccessErrorKind, TypeKind};
-use crate::{AccessError, Reflect, ReflectMut, ReflectRef, VariantType};
+use super::error::AccessErrorKind;
+use crate::{AccessError, Reflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
 
 type InnerResult<T> = Result<T, AccessErrorKind>;
 
@@ -38,7 +38,7 @@ impl<'a> Access<'a> {
     /// Converts this into an "owned" value.
     ///
     /// If the [`Access`] is of variant [`Field`](Access::Field),
-    /// the field's [`Cow<str>`] will be converted to it's owned
+    /// the field's [`Cow<str>`] will be converted to its owned
     /// counterpart, which doesn't require a reference.
     pub fn into_owned(self) -> Access<'static> {
         match self {
@@ -55,7 +55,7 @@ impl<'a> Access<'a> {
         offset: Option<usize>,
     ) -> Result<&'r dyn Reflect, AccessError<'a>> {
         self.element_inner(base)
-            .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.into())))
+            .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
             .map_err(|err| err.with_access(self.clone(), offset))
     }
 
@@ -78,7 +78,7 @@ impl<'a> Access<'a> {
             },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
                 Err(AccessErrorKind::IncompatibleTypes {
-                    expected: TypeKind::Struct,
+                    expected: ReflectKind::Struct,
                     actual: actual.into(),
                 })
             }
@@ -90,14 +90,14 @@ impl<'a> Access<'a> {
                 actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: TypeKind::Tuple,
+                expected: ReflectKind::Tuple,
                 actual: actual.into(),
             }),
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: TypeKind::List,
+                expected: ReflectKind::List,
                 actual: actual.into(),
             }),
         }
@@ -108,7 +108,7 @@ impl<'a> Access<'a> {
         base: &'r mut dyn Reflect,
         offset: Option<usize>,
     ) -> Result<&'r mut dyn Reflect, AccessError<'a>> {
-        let kind = base.into();
+        let kind = base.reflect_kind();
 
         self.element_inner_mut(base)
             .and_then(|maybe| maybe.ok_or(AccessErrorKind::MissingField(kind)))
@@ -137,7 +137,7 @@ impl<'a> Access<'a> {
             },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
                 Err(AccessErrorKind::IncompatibleTypes {
-                    expected: TypeKind::Struct,
+                    expected: ReflectKind::Struct,
                     actual: actual.into(),
                 })
             }
@@ -149,14 +149,14 @@ impl<'a> Access<'a> {
                 actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: TypeKind::Tuple,
+                expected: ReflectKind::Tuple,
                 actual: actual.into(),
             }),
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: TypeKind::List,
+                expected: ReflectKind::List,
                 actual: actual.into(),
             }),
         }

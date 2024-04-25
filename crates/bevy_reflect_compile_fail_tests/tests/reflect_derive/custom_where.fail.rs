@@ -1,4 +1,4 @@
-use bevy_reflect::{Reflect, FromType};
+use bevy_reflect::{FromType, Reflect};
 use std::marker::PhantomData;
 
 #[derive(Clone)]
@@ -10,19 +10,10 @@ impl<T> FromType<T> for ReflectMyTrait {
     }
 }
 
-// Reason: where clause cannot be used with #[reflect(MyTrait)]
+// Reason: populated `where` clause must be last with #[reflect(MyTrait)]
 #[derive(Reflect)]
-#[reflect(MyTrait, where)]
+#[reflect(where T: std::fmt::Debug, MyTrait)]
 pub struct Foo<T> {
-    value: String,
-    #[reflect(ignore)]
-    _marker: PhantomData<T>,
-}
-
-// Reason: where clause cannot be used with #[reflect(MyTrait)]
-#[derive(Reflect)]
-#[reflect(where, MyTrait)]
-pub struct Bar<T> {
     value: String,
     #[reflect(ignore)]
     _marker: PhantomData<T>,

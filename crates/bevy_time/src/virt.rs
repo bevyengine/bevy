@@ -1,4 +1,3 @@
-use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::Reflect;
 use bevy_utils::{tracing::debug, Duration};
 
@@ -268,11 +267,7 @@ impl Default for Virtual {
 /// Advances [`Time<Virtual>`] and [`Time`] based on the elapsed [`Time<Real>`].
 ///
 /// The virtual time will be advanced up to the provided [`Time::max_delta`].
-pub fn virtual_time_system(
-    mut current: ResMut<Time>,
-    mut virt: ResMut<Time<Virtual>>,
-    real: Res<Time<Real>>,
-) {
+pub fn update_virtual_time(current: &mut Time, virt: &mut Time<Virtual>, real: &Time<Real>) {
     let raw_delta = real.delta();
     virt.advance_with_raw_delta(raw_delta);
     *current = virt.as_generic();

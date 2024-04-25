@@ -131,6 +131,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
+    /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
+    /// then consider applying a `map_unchanged` beforehand to allow changing only the relevant
+    /// field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
+    ///
     /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
     /// # Examples
@@ -180,6 +186,12 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
+    ///
+    /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
+    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to allow
+    /// changing only the relevant field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
     ///
     /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
@@ -427,8 +439,10 @@ impl<'w> Ticks<'w> {
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref(),
-            changed: cells.changed.deref(),
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            added: unsafe { cells.added.deref() },
+            // SAFETY: Caller ensures there is no mutable access to the cell.
+            changed: unsafe { cells.changed.deref() },
             last_run,
             this_run,
         }
@@ -452,8 +466,10 @@ impl<'w> TicksMut<'w> {
         this_run: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
+            // SAFETY: Caller ensures there is no alias to the cell.
+            added: unsafe { cells.added.deref_mut() },
+            // SAFETY: Caller ensures there is no alias to the cell.
+            changed: unsafe { cells.changed.deref_mut() },
             last_run,
             this_run,
         }
@@ -711,7 +727,7 @@ where
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component
+/// Unique mutable borrow of an entity's component or of a resource.
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -829,6 +845,12 @@ impl<'w> MutUntyped<'w> {
         }
     }
 
+    /// Returns `true` if this value was changed or mutably dereferenced
+    /// either since a specific change tick.
+    pub fn has_changed_since(&self, tick: Tick) -> bool {
+        self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
+    }
+
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
     ///
     /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
@@ -879,7 +901,8 @@ impl<'w> MutUntyped<'w> {
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
     pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
         Mut {
-            value: self.value.deref_mut(),
+            // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
+            value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
         }
     }
@@ -930,6 +953,15 @@ impl std::fmt::Debug for MutUntyped<'_> {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
+    }
+}
+
+impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
+    fn from(value: Mut<'w, T>) -> Self {
+        MutUntyped {
+            value: value.value.into(),
+            ticks: value.ticks,
+        }
     }
 }
 
@@ -1248,5 +1280,30 @@ mod tests {
         new.reflect_mut();
 
         assert!(new.is_changed());
+    }
+
+    #[test]
+    fn mut_untyped_from_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run: Tick::new(3),
+            this_run: Tick::new(4),
+        };
+        let mut c = C {};
+        let mut_typed = Mut {
+            value: &mut c,
+            ticks,
+        };
+
+        let into_mut: MutUntyped = mut_typed.into();
+        assert_eq!(1, into_mut.ticks.added.get());
+        assert_eq!(2, into_mut.ticks.changed.get());
+        assert_eq!(3, into_mut.ticks.last_run.get());
+        assert_eq!(4, into_mut.ticks.this_run.get());
     }
 }

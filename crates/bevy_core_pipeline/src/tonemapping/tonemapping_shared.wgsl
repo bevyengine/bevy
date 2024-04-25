@@ -7,8 +7,8 @@
     @group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
     @group(0) @binding(4) var dt_lut_sampler: sampler;
 #else
-    @group(0) @binding(16) var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(17) var dt_lut_sampler: sampler;
+    @group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(19) var dt_lut_sampler: sampler;
 #endif
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {

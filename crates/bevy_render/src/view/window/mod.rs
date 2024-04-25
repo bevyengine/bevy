@@ -4,20 +4,24 @@ use crate::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, EntityHashMap, HashSet};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+#[cfg(target_os = "linux")]
+use bevy_utils::warn_once;
+use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
 use std::{
+    num::NonZeroU32,
     ops::{Deref, DerefMut},
     sync::PoisonError,
 };
 use wgpu::{
-    BufferUsages, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
+    BufferUsages, SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 
 pub mod screenshot;
@@ -34,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
@@ -42,15 +46,15 @@ impl Plugin for WindowRenderPlugin {
                 .add_systems(
                     Render,
                     create_surfaces
-                        .run_if(need_new_surfaces)
-                        .in_set(RenderSet::PrepareAssets),
+                        .run_if(need_surface_configuration)
+                        .before(prepare_windows),
                 )
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
@@ -63,6 +67,7 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
+    pub desired_maximum_frame_latency: Option<NonZeroU32>,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
     /// to CPU memory.
@@ -92,11 +97,11 @@ impl ExtractedWindow {
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: EntityHashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = EntityHashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -133,6 +138,7 @@ fn extract_windows(
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
+            desired_maximum_frame_latency: window.desired_maximum_frame_latency,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
             size_changed: false,
@@ -197,13 +203,13 @@ fn extract_windows(
 
 struct SurfaceData {
     // TODO: what lifetime should this be?
-    surface: wgpu::Surface<'static>,
-    format: TextureFormat,
+    surface: WgpuWrapper<wgpu::Surface<'static>>,
+    configuration: SurfaceConfiguration,
 }
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: EntityHashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
 }
@@ -214,6 +220,9 @@ impl WindowSurfaces {
         self.configured_windows.remove(window);
     }
 }
+
+#[cfg(target_os = "linux")]
+const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
@@ -254,45 +263,12 @@ pub fn prepare_windows(
             continue;
         };
 
-        let surface_configuration = wgpu::SurfaceConfiguration {
-            format: surface_data.format,
-            width: window.physical_width,
-            height: window.physical_height,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            },
-            // TODO: Expose this as a setting somewhere
-            // 2 is wgpu's default/what we've been using so far.
-            // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
-            // all work for the previous frame before starting work on the next frame, which then means the gpu
-            // has to wait for the cpu to finish to start on the next frame.
-            desired_maximum_frame_latency: 2,
-            alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
-            },
-            view_formats: if !surface_data.format.is_srgb() {
-                vec![surface_data.format.add_srgb_suffix()]
-            } else {
-                vec![]
-            },
-        };
-
         // This is an ugly hack to work around drivers that don't support MSAA.
         // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
         // feature detection for MSAA.
         // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
         let sample_flags = render_adapter
-            .get_texture_format_features(surface_configuration.format)
+            .get_texture_format_features(surface_data.configuration.format)
             .flags;
 
         if !sample_flags.sample_count_supported(msaa.samples()) {
@@ -308,7 +284,7 @@ pub fn prepare_windows(
                 format!("MSAA {}x", fallback.samples())
             };
 
-            bevy_log::warn!(
+            bevy_utils::tracing::warn!(
                 "MSAA {}x is not supported on this device. Falling back to {}.",
                 msaa.samples(),
                 fallback_str,
@@ -336,22 +312,43 @@ pub fn prepare_windows(
                 })
         };
 
+        #[cfg(target_os = "linux")]
+        let is_nvidia = || {
+            render_instance
+                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .iter()
+                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
+        };
+
         let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            render_device.configure_surface(surface, &surface_configuration);
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
-            window.set_swapchain_texture(frame);
+            match surface.get_current_texture() {
+                Ok(frame) => window.set_swapchain_texture(frame),
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
+                }
+                Err(err) => panic!("Error configuring surface: {err}"),
+            };
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
                     window.set_swapchain_texture(frame);
                 }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    warn_once!(
+                        "Couldn't get swap chain texture. This often happens with \
+                        the NVIDIA drivers on Linux. It can be safely ignored."
+                    );
+                }
                 Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_configuration);
+                    render_device.configure_surface(surface, &surface_data.configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");
@@ -369,20 +366,20 @@ pub fn prepare_windows(
                 }
             }
         };
-        window.swap_chain_texture_format = Some(surface_data.format);
+        window.swap_chain_texture_format = Some(surface_data.configuration.format);
 
         if window.screenshot_func.is_some() {
             let texture = render_device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("screenshot-capture-rendertarget"),
                 size: wgpu::Extent3d {
-                    width: surface_configuration.width,
-                    height: surface_configuration.height,
+                    width: surface_data.configuration.width,
+                    height: surface_data.configuration.height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: surface_configuration.format.add_srgb_suffix(),
+                format: surface_data.configuration.format.add_srgb_suffix(),
                 usage: TextureUsages::RENDER_ATTACHMENT
                     | TextureUsages::COPY_SRC
                     | TextureUsages::TEXTURE_BINDING,
@@ -394,7 +391,7 @@ pub fn prepare_windows(
                 size: screenshot::get_aligned_size(
                     window.physical_width,
                     window.physical_height,
-                    surface_data.format.pixel_size() as u32,
+                    surface_data.configuration.format.pixel_size() as u32,
                 ) as u64,
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
@@ -407,7 +404,7 @@ pub fn prepare_windows(
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,
-                surface_configuration.format,
+                surface_data.configuration.format,
             );
             window.swap_chain_texture_view = Some(texture_view);
             window.screenshot_memory = Some(ScreenshotPreparedState {
@@ -420,17 +417,26 @@ pub fn prepare_windows(
     }
 }
 
-pub fn need_new_surfaces(
+pub fn need_surface_configuration(
     windows: Res<ExtractedWindows>,
     window_surfaces: Res<WindowSurfaces>,
 ) -> bool {
     for window in windows.windows.values() {
-        if !window_surfaces.configured_windows.contains(&window.entity) {
+        if !window_surfaces.configured_windows.contains(&window.entity)
+            || window.size_changed
+            || window.present_mode_changed
+        {
             return true;
         }
     }
     false
 }
+
+// 2 is wgpu's default/what we've been using so far.
+// 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+// all work for the previous frame before starting work on the next frame, which then means the gpu
+// has to wait for the cpu to finish to start on the next frame.
+const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 
 /// Creates window surfaces.
 pub fn create_surfaces(
@@ -443,9 +449,10 @@ pub fn create_surfaces(
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
+    render_device: Res<RenderDevice>,
 ) {
     for window in windows.windows.values() {
-        window_surfaces
+        let data = window_surfaces
             .surfaces
             .entry(window.entity)
             .or_insert_with(|| {
@@ -477,7 +484,61 @@ pub fn create_surfaces(
                     }
                 }
 
-                SurfaceData { surface, format }
+                let configuration = wgpu::SurfaceConfiguration {
+                    format,
+                    width: window.physical_width,
+                    height: window.physical_height,
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    present_mode: match window.present_mode {
+                        PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                        PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+                        PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                        PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                        PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                        PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                    },
+                    desired_maximum_frame_latency: window
+                        .desired_maximum_frame_latency
+                        .map(NonZeroU32::get)
+                        .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
+                    alpha_mode: match window.alpha_mode {
+                        CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+                        CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+                        CompositeAlphaMode::PreMultiplied => {
+                            wgpu::CompositeAlphaMode::PreMultiplied
+                        }
+                        CompositeAlphaMode::PostMultiplied => {
+                            wgpu::CompositeAlphaMode::PostMultiplied
+                        }
+                        CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+                    },
+                    view_formats: if !format.is_srgb() {
+                        vec![format.add_srgb_suffix()]
+                    } else {
+                        vec![]
+                    },
+                };
+
+                render_device.configure_surface(&surface, &configuration);
+
+                SurfaceData {
+                    surface: WgpuWrapper::new(surface),
+                    configuration,
+                }
             });
+
+        if window.size_changed || window.present_mode_changed {
+            data.configuration.width = window.physical_width;
+            data.configuration.height = window.physical_height;
+            data.configuration.present_mode = match window.present_mode {
+                PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+            };
+            render_device.configure_surface(&data.surface, &data.configuration);
+        }
     }
 }

@@ -3,7 +3,10 @@ use bevy_utils::tracing::{
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
 };
-use std::fmt::{Debug, Write};
+use std::{
+    ffi::CString,
+    fmt::{Debug, Write},
+};
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
 #[derive(Default)]
@@ -37,16 +40,6 @@ impl Visit for StringRecorder {
     }
 }
 
-impl core::fmt::Display for StringRecorder {
-    fn fmt(&self, mut f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        if !self.0.is_empty() {
-            write!(&mut f, " {}", self.0)
-        } else {
-            Ok(())
-        }
-    }
-}
-
 impl core::default::Default for StringRecorder {
     fn default() -> Self {
         StringRecorder::new()
@@ -73,25 +66,35 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         }
     }
 
+    #[allow(unsafe_code)]
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        fn sanitize(string: &str) -> CString {
+            let mut bytes: Vec<u8> = string
+                .as_bytes()
+                .into_iter()
+                .copied()
+                .filter(|byte| *byte != 0)
+                .collect();
+            CString::new(bytes).unwrap()
+        }
+
         let mut recorder = StringRecorder::new();
         event.record(&mut recorder);
         let meta = event.metadata();
-        let level = meta.level();
-        let priority = match *level {
+        let priority = match *meta.level() {
             Level::TRACE => android_log_sys::LogPriority::VERBOSE,
             Level::DEBUG => android_log_sys::LogPriority::DEBUG,
             Level::INFO => android_log_sys::LogPriority::INFO,
             Level::WARN => android_log_sys::LogPriority::WARN,
             Level::ERROR => android_log_sys::LogPriority::ERROR,
         };
-        let message = format!("{}\0", recorder);
-        let tag = format!("{}\0", meta.name());
+        // SAFETY: Called only on Android platforms. priority is guaranteed to be in range of c_int.
+        // The provided tag and message are null terminated properly.
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
-                tag.as_ptr() as *const android_log_sys::c_char,
-                message.as_ptr() as *const android_log_sys::c_char,
+                sanitize(meta.name()).as_ptr(),
+                sanitize(&recorder.0).as_ptr(),
             );
         }
     }

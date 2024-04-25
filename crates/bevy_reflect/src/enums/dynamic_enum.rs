@@ -2,8 +2,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
-    Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter,
-    VariantType,
+    Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo,
+    VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -377,6 +377,11 @@ impl Reflect for DynamicEnum {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
     }
 
     #[inline]

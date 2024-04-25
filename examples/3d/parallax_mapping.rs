@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()
@@ -19,7 +19,6 @@ fn main() {
                 update_parallax_depth_scale,
                 update_parallax_layers,
                 switch_method,
-                close_on_esc,
             ),
         )
         .run();
@@ -222,9 +221,8 @@ fn setup(
     // light
     commands
         .spawn(PointLightBundle {
-            transform: Transform::from_xyz(1.8, 0.7, -1.1),
+            transform: Transform::from_xyz(2.0, 1.0, -1.1),
             point_light: PointLight {
-                intensity: 50_000.0,
                 shadows_enabled: true,
                 ..default()
             },
@@ -232,28 +230,19 @@ fn setup(
         })
         .with_children(|commands| {
             // represent the light source as a sphere
-            let mesh = meshes.add(
-                Mesh::try_from(shape::Icosphere {
-                    radius: 0.05,
-                    subdivisions: 3,
-                })
-                .unwrap(),
-            );
+            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
             commands.spawn(PbrBundle { mesh, ..default() });
         });
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane {
-            size: 10.0,
-            subdivisions: 0,
-        }),
+        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
-            ..Color::rgb_u8(0, 80, 0).into()
+            ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
@@ -279,7 +268,7 @@ fn setup(
             mesh: meshes.add(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
-                Mesh::from(shape::Cube { size: 1.0 })
+                Mesh::from(Cuboid::default())
                     .with_generated_tangents()
                     .unwrap(),
             ),
@@ -290,7 +279,7 @@ fn setup(
     ));
 
     let background_cube = meshes.add(
-        Mesh::from(shape::Cube { size: 40.0 })
+        Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
             .with_generated_tangents()
             .unwrap(),
     );

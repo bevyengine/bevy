@@ -45,10 +45,13 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
+  - [Gizmos](#gizmos)
   - [Input](#input)
+  - [Math](#math)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -94,10 +97,10 @@ Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
 [2D Bounding Volume Intersections](../examples/2d/bounding_2d.rs) | Showcases bounding volumes and intersection tests
-[2D Gizmos](../examples/2d/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
+[2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
@@ -105,6 +108,7 @@ Example | Description
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
+[Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
@@ -118,7 +122,6 @@ Example | Description
 Example | Description
 --- | ---
 [3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials
-[3D Gizmos](../examples/3d/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
@@ -127,13 +130,15 @@ Example | Description
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
-[Deterministic rendering](../examples/3d/deterministic.rs) | Stop flickering from z-fighting at a performance cost
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
+[Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
+[Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
+[Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
@@ -162,6 +167,8 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
+[Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
@@ -171,6 +178,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS
 [Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
@@ -192,9 +200,11 @@ Example | Description
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
+[Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
+[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 
 ## Async Tasks
@@ -212,8 +222,15 @@ Example | Description
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
+[Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
+
+## Dev tools
+
+Example | Description
+--- | ---
+[FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 
 ## Diagnostics
 
@@ -227,6 +244,7 @@ Example | Description
 Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
+[Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -247,16 +265,27 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution
+[System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
 
 ## Games
 
 Example | Description
 --- | ---
 [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout"
+[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
+[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+
+## Gizmos
+
+Example | Description
+--- | ---
+[2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
+[3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
+[Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
 
 ## Input
 
@@ -275,6 +304,12 @@ Example | Description
 [Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
+
+## Math
+
+Example | Description
+--- | ---
+[Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 
 ## Reflection
 
@@ -306,6 +341,7 @@ Example | Description
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
+[GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
@@ -360,6 +396,7 @@ Example | Description
 Example | Description
 --- | ---
 [3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
+[Alignment](../examples/transforms/align.rs) | A demonstration of Transform's axis-alignment feature
 [Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction
 [Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects
 [Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis
@@ -378,6 +415,7 @@ Example | Description
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
+[Rounded Borders](../examples/ui/rounded_borders.rs) | Demonstrates how to create a node with a rounded border
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
@@ -387,6 +425,8 @@ Example | Description
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
+[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
+[UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
@@ -503,7 +543,7 @@ make run
 ```
 
 In an ideal world, this will boot up, install and run the app for the first
-iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
 ```sh
@@ -567,13 +607,6 @@ ruby -run -ehttpd examples/wasm
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
-WebGPU depends on unstable APIs so you will also need to pass the `web_sys_unstable_apis` flag to your builds. For example:
-
-```sh
-RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build ...
-```
-
-Check `wasm-bindgen` [docs on Unstable APIs](https://rustwasm.github.io/wasm-bindgen/web-sys/unstable-apis.html) for more details.
 
 Bevy has an helper to build its examples:
 

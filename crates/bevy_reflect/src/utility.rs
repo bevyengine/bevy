@@ -1,7 +1,7 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, NoOpTypeIdHash, TypeIdMap};
+use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -110,6 +110,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     }
 }
 
+impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A container for [`TypedProperty`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
@@ -205,7 +211,7 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        Self(RwLock::new(TypeIdMap::with_hasher(NoOpTypeIdHash)))
+        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -242,6 +248,12 @@ impl<T: TypedProperty> GenericTypeCell<T> {
                 Box::leak(Box::new(value))
             })
             .get()
+    }
+}
+
+impl<T: TypedProperty> Default for GenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -1,4 +1,5 @@
 #![allow(clippy::single_component_path_imports)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 //! [![](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
 //!
@@ -6,7 +7,7 @@
 //! and performance.
 //!
 //! Check out the [Bevy website](https://bevyengine.org) for more information, read the
-//! [Bevy Book](https://bevyengine.org/learn/book/introduction) for a step-by-step guide, and [engage with our
+//! [Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction) for a step-by-step introduction, and [engage with our
 //! community](https://bevyengine.org/community/) if you have any questions or ideas!
 //!
 //! ## Example
@@ -47,6 +48,7 @@
 
 pub use bevy_internal::*;
 
-#[cfg(feature = "dynamic_linking")]
+// WASM does not support dynamic linking.
+#[cfg(all(feature = "dynamic_linking", not(target_family = "wasm")))]
 #[allow(unused_imports)]
 use bevy_dylib;

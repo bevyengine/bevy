@@ -9,6 +9,7 @@
 //! This is a native only feature.
 
 use bevy::{
+    color::palettes::css::*,
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
@@ -27,6 +28,7 @@ fn main() {
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 }),
+                ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
@@ -39,7 +41,7 @@ fn main() {
             global: true,
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `WireframeColor` component.
-            default_color: Color::WHITE,
+            default_color: WHITE.into(),
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
@@ -52,18 +54,11 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::BLUE),
-        ..default()
-    });
-
     // Red cube: Never renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
-            material: materials.add(Color::RED),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::from(RED)),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         },
@@ -71,34 +66,42 @@ fn setup(
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
-        material: materials.add(Color::ORANGE),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::from(ORANGE)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // Green cube: Always renders a wireframe
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
-            material: materials.add(Color::GREEN),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         },
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
+        WireframeColor { color: LIME.into() },
+    ));
+
+    // plane
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+            material: materials.add(Color::from(BLUE)),
+            ..default()
+        },
+        // You can insert this component without the `Wireframe` component
+        // to override the color of the global wireframe for this mesh
         WireframeColor {
-            color: Color::GREEN,
+            color: BLACK.into(),
         },
     ));
 
     // light
     commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
+        transform: Transform::from_xyz(2.0, 4.0, 2.0),
         ..default()
     });
 
@@ -123,7 +126,7 @@ fn setup(
 fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
-    mut wireframe_colors: Query<&mut WireframeColor>,
+    mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
     mut text: Query<&mut Text>,
 ) {
     text.single_mut().sections[0].value = format!(
@@ -149,20 +152,20 @@ Color: {:?}
 
     // Toggle the global wireframe color
     if keyboard_input.just_pressed(KeyCode::KeyX) {
-        config.default_color = if config.default_color == Color::WHITE {
-            Color::PINK
+        config.default_color = if config.default_color == WHITE.into() {
+            DEEP_PINK.into()
         } else {
-            Color::WHITE
+            WHITE.into()
         };
     }
 
     // Toggle the color of a wireframe using WireframeColor and not the global color
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == Color::GREEN {
-                Color::RED
+            color.color = if color.color == LIME.into() {
+                RED.into()
             } else {
-                Color::GREEN
+                LIME.into()
             };
         }
     }

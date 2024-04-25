@@ -10,7 +10,7 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satis
   --> tests/ui/system_param_derive_readonly.rs:18:23
    |
 18 |     assert_readonly::<Mutable>();
-   |                       ^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `&'static mut Foo`
+   |                       ^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `&'static mut Foo`, which is required by `Mutable<'_, '_>: ReadOnlySystemParam`
    |
    = help: the following other types implement trait `ReadOnlyQueryData`:
              bevy_ecs::change_detection::Ref<'__w, T>

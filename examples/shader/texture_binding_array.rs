@@ -5,8 +5,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
-        texture::FallbackImage, RenderApp,
+        render_asset::RenderAssets,
+        render_resource::*,
+        renderer::RenderDevice,
+        texture::{FallbackImage, GpuImage},
+        RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
@@ -33,11 +36,11 @@ impl Plugin for GpuFeatureSupportChecker {
     fn build(&self, _app: &mut App) {}
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world.resource::<RenderDevice>();
+        let render_device = render_app.world().resource::<RenderDevice>();
 
         // Check if the device support the required feature. If not, exit the example.
         // In a real application, you should setup a fallback for the missing feature
@@ -74,7 +77,7 @@ fn setup(
 
     // a cube with multiple textures
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(BindlessMaterial { textures }),
         ..default()
     });
@@ -92,7 +95,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -133,7 +136,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         _: &BindGroupLayout,
         _: &RenderDevice,
-        _: &RenderAssets<Image>,
+        _: &RenderAssets<GpuImage>,
         _: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because

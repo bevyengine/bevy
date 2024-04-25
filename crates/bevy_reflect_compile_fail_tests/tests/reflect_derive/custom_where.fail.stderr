@@ -1,11 +1,5 @@
-error: expected identifier, found keyword `where`
-  --> tests/reflect_derive/custom_where.fail.rs:15:20
+error: expected `:`
+  --> tests/reflect_derive/custom_where.fail.rs:15:44
    |
-15 | #[reflect(MyTrait, where)]
-   |                    ^^^^^
-
-error: unexpected token
-  --> tests/reflect_derive/custom_where.fail.rs:24:16
-   |
-24 | #[reflect(where, MyTrait)]
-   |                ^
+15 | #[reflect(where T: std::fmt::Debug, MyTrait)]
+   |                                            ^

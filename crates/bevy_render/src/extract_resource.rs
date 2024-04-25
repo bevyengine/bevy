@@ -31,7 +31,7 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
         }
     }
@@ -51,7 +51,7 @@ pub fn extract_resource<R: ExtractResource>(
         } else {
             #[cfg(debug_assertions)]
             if !main_resource.is_added() {
-                bevy_log::warn_once!(
+                bevy_utils::warn_once!(
                     "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
                     std::any::type_name::<R>()

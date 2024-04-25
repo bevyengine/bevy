@@ -57,7 +57,6 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `world` must have permission to access any of the components specified in `Self::update_archetype_component_access`.
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
     unsafe fn init_fetch<'w>(
@@ -121,6 +120,8 @@ pub unsafe trait WorldQuery {
     ) -> Self::Item<'w>;
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
+    ///
+    /// Used to check which queries are disjoint and can run in parallel
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
@@ -128,10 +129,14 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Attempts to initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
+    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
+    /// access to the [`World`].
     fn get_state(world: &World) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    ///
+    /// Used to check which [`Archetype`]s can be skipped by the query
+    /// (if none of the [`Component`](crate::component::Component)s match)
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -145,7 +150,7 @@ macro_rules! impl_tuple_world_query {
         #[allow(clippy::unused_unit)]
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
-        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
@@ -164,7 +169,8 @@ macro_rules! impl_tuple_world_query {
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -178,14 +184,16 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_archetype($name, $state, _archetype, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_archetype($name, $state, _archetype, _table); })*
             }
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_table($name, $state, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_table($name, $state, _table); })*
             }
 
             #[inline(always)]
@@ -196,7 +204,8 @@ macro_rules! impl_tuple_world_query {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
-                ($($name::fetch($name, _entity, _table_row),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::fetch($name, _entity, _table_row) },)*)
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {

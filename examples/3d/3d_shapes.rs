@@ -4,6 +4,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::basic::SILVER,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -23,7 +24,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.5;
+const X_EXTENT: f32 = 12.0;
 
 fn setup(
     mut commands: Commands,
@@ -37,13 +38,12 @@ fn setup(
     });
 
     let shapes = [
-        meshes.add(shape::Cube::default()),
-        meshes.add(shape::Box::default()),
-        meshes.add(shape::Capsule::default()),
-        meshes.add(shape::Torus::default()),
-        meshes.add(shape::Cylinder::default()),
-        meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
-        meshes.add(shape::UVSphere::default()),
+        meshes.add(Cuboid::default()),
+        meshes.add(Capsule3d::default()),
+        meshes.add(Torus::default()),
+        meshes.add(Cylinder::default()),
+        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
+        meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
 
     let num_shapes = shapes.len();
@@ -67,9 +67,10 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500000.0,
-            range: 100.,
             shadows_enabled: true,
+            intensity: 10_000_000.,
+            range: 100.0,
+            shadow_depth_bias: 0.2,
             ..default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
@@ -78,8 +79,8 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0)),
-        material: materials.add(Color::SILVER),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        material: materials.add(Color::from(SILVER)),
         ..default()
     });
 

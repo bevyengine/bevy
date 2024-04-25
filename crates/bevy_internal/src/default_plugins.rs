@@ -4,6 +4,7 @@ use bevy_app::{plugin_group, Plugin};
 plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     DefaultPlugins {
+        bevy_app:::PanicHandlerPlugin,
         bevy_log:::LogPlugin,
         bevy_core:::TaskPoolPlugin,
         bevy_core:::TypeRegistrationPlugin,
@@ -38,10 +39,10 @@ plugin_group! {
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
         bevy_ui:::UiPlugin,
-        // NOTE: Load this after renderer initialization so that it knows about the supported
-        // compressed texture formats
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
+        // NOTE: Load this after renderer initialization so that it knows about the supported
+        // compressed texture formats
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
         #[cfg(feature = "bevy_audio")]
@@ -52,10 +53,12 @@ plugin_group! {
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_gizmos")]
         bevy_gizmos:::GizmoPlugin,
+        #[cfg(feature = "bevy_dev_tools")]
+        bevy_dev_tools:::DevToolsPlugin,
         #[doc(hidden)]
         :IgnoreAmbiguitiesPlugin,
     }
-    /// [`DefaultPlugins`] obeys *Cargo feature* flags. Users may exert control over this plugin group
+    /// [`DefaultPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
     /// by disabling `default-features` in their `Cargo.toml` and enabling only those features
     /// that they wish to use.
     ///
@@ -72,35 +75,14 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
-        app.ignore_ambiguity(
-            bevy_app::PostUpdate,
-            bevy_animation::animation_player,
-            bevy_ui::ui_layout_system,
-        );
-
-        #[cfg(feature = "bevy_render")]
-        if let Ok(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
-            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_sprite"))]
-            {
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
-                    bevy_sprite::queue_sprites,
-                );
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
-                    bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                );
-            }
-            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_pbr"))]
-            {
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos3d,
-                    bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>,
-                );
-            }
+        if app.is_plugin_added::<bevy_animation::AnimationPlugin>()
+            && app.is_plugin_added::<bevy_ui::UiPlugin>()
+        {
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_animation::advance_animations,
+                bevy_ui::ui_layout_system,
+            );
         }
     }
 }
@@ -113,6 +95,8 @@ plugin_group! {
         bevy_core:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,
+        #[cfg(feature = "bevy_dev_tools")]
+        bevy_dev_tools:::DevToolsPlugin,
     }
     /// This group of plugins is intended for use for minimal, *headless* programs –
     /// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)

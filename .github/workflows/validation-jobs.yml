@@ -7,8 +7,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+
 env:
   CARGO_TERM_COLOR: always
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
@@ -27,8 +32,9 @@ jobs:
             target
           key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
-        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
       - name: Build and install iOS app in iOS Simulator.
         run: cd examples/mobile && make install
@@ -66,18 +72,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Install Bevy dependencies
-        run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev libxkbcommon-x11-0;
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
+      - name: Install additional Linux dependencies for Vulkan
+        run: |
+          sudo add-apt-repository ppa:kisak/turtle -y
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/cache@v4
         with:
           path: |
@@ -105,67 +107,66 @@ jobs:
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
           name: example-traces-linux
-          path: traces.zip
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-linux
-          path: screenshots.zip
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-linux
           path: example-run/
 
-  run-examples-macos-metal:
+  run-examples-on-windows-dx12:
     if: ${{ github.event_name == 'merge_group' }}
-    runs-on: macos-14
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Disable audio
-        # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
-        run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
       - name: Build bevy
+        shell: bash
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
+        shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
             if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
               mkdir screenshots-$example_name
               mv screenshot-*.png screenshots-$example_name/
             fi
           done
-          zip traces.zip trace*.json
-          zip -r screenshots.zip screenshots-*
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
         uses: actions/upload-artifact@v4
         with:
-          name: example-traces-macos
-          path: traces.zip
+          name: example-traces-windows
+          path: traces
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-macos
-          path: screenshots.zip
+          name: screenshots-windows
+          path: screenshots
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
-          name: example-run-macos
+          name: example-run-windows
           path: example-run/
 
   run-examples-on-wasm:
@@ -236,8 +237,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
         env:
@@ -278,7 +279,36 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Run cargo udeps
         run: cargo udeps
+
+  check-example-showcase-patches-still-work:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Apply patches
+        run: |
+          CODE=0
+          for patch in tools/example-showcase/*.patch; do
+            # Try applying the patch, logging an error if it fails.
+            git apply --ignore-whitespace $patch || { echo "::error::$patch failed to apply."; CODE=1; }
+          done
+          exit $CODE
+      - name: Build with patches
+        run: cargo build

@@ -84,16 +84,17 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<Image>::default())
+        app.add_plugins(RenderAssetPlugin::<GpuImage>::default())
             .register_type::<Image>()
             .init_asset::<Image>()
             .register_asset_reflect::<Image>();
-        app.world
+
+        app.world_mut()
             .resource_mut::<Assets<Image>>()
-            .insert(Handle::default(), Image::default());
+            .insert(&Handle::default(), Image::default());
         #[cfg(feature = "basis-universal")]
         if let Some(processor) = app
-            .world
+            .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
             processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
@@ -103,7 +104,7 @@ impl Plugin for ImagePlugin {
                 .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
         }
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<TextureCache>().add_systems(
                 Render,
                 update_texture_cache_system.in_set(RenderSet::Cleanup),
@@ -118,6 +119,8 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
@@ -131,14 +134,16 @@ impl Plugin for ImagePlugin {
             feature = "bmp",
             feature = "basis-universal",
             feature = "ktx2",
+            feature = "webp",
+            feature = "pnm"
         ))]
         {
             app.init_asset_loader::<ImageLoader>();
         }
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
-                let device = render_app.world.resource::<RenderDevice>();
+                let device = render_app.world().resource::<RenderDevice>();
                 device.create_sampler(&self.default_sampler.as_wgpu())
             };
             render_app

@@ -154,7 +154,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            self.data.replace_unchecked(Self::ROW, value);
+            unsafe {
+                self.data.replace_unchecked(Self::ROW, value);
+            }
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
@@ -185,7 +187,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            self.data.replace_unchecked(Self::ROW, value);
+            unsafe {
+                self.data.replace_unchecked(Self::ROW, value);
+            }
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
@@ -294,7 +298,7 @@ impl<const SEND: bool> Resources<SEND> {
         self.resources.get_mut(component_id)
     }
 
-    /// Fetches or initializes a new resource and returns back it's underlying column.
+    /// Fetches or initializes a new resource and returns back its underlying column.
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`

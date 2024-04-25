@@ -17,6 +17,7 @@ bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 bevy_math = { path = "../crates/bevy_math" }
+bevy_render = { path = "../crates/bevy_render" }
 
 [profile.release]
 opt-level = 3
@@ -63,6 +64,11 @@ path = "benches/bevy_math/bezier.rs"
 harness = false
 
 [[bench]]
-name = "utils"
-path = "benches/bevy_utils/entity_hash.rs"
+name = "torus"
+path = "benches/bevy_render/torus.rs"
+harness = false
+
+[[bench]]
+name = "entity_hash"
+path = "benches/bevy_ecs/world/entity_hash.rs"
 harness = false
