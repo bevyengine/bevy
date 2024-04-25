@@ -91,6 +91,7 @@ impl Plugin for ScheduleRunnerPlugin {
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
+                        //
                         app.update();
 
                         if let Some(app_exit_events) =

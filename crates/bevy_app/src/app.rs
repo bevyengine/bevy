@@ -257,6 +257,7 @@ impl App {
     ///
     /// The active schedule of the app must be set before this method is called.
     pub fn update(&mut self) {
+        //
         #[cfg(feature = "trace")]
         let _bevy_update_span = info_span!("update").entered();
         {

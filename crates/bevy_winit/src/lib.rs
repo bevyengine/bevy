@@ -307,6 +307,15 @@ pub fn winit_runner(mut app: App) {
     }
 }
 
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => {{
+        let msg = format!($($arg)*);
+        let js_msg = wasm_bindgen::JsValue::from_str(&msg);
+        web_sys::console::log_1(&js_msg);
+    }};
+}
+
 #[allow(clippy::too_many_arguments /* TODO: probs can reduce # of args */)]
 fn handle_winit_event(
     app: &mut App,
@@ -404,12 +413,14 @@ fn handle_winit_event(
 
             // Trigger next redraw if we're changing the update mode
             if next_update_mode != runner_state.update_mode {
+                log!(">> UpdateMode changed: request redraw");
                 runner_state.redraw_requested = true;
                 runner_state.update_mode = next_update_mode;
             }
 
             // Trigger next redraw if mode is continuous
             if next_update_mode == UpdateMode::Continuous {
+                log!(">> mode is continuous, request redraw");
                 runner_state.redraw_requested = true;
             }
 
@@ -431,16 +442,20 @@ fn handle_winit_event(
                 }
             };
 
+            log!(">> 1 handle_winit:evt() should update is = {should_update}");
+
             // Ensure that an update is triggered on the first iterations for app initialization
             if runner_state.startup_forced_updates > 0 {
                 runner_state.startup_forced_updates -= 1;
                 should_update = true;
+                log!(">> 2 handle_winit:evt() should update is = {should_update}");
             }
 
             // Trigger one last update to enter the suspended state
             if runner_state.active == ActiveState::WillSuspend {
                 runner_state.active = ActiveState::Suspended;
                 should_update = true;
+                log!(">> 3 handle_winit:evt() should update is = {should_update}");
 
                 #[cfg(target_os = "android")]
                 {
@@ -456,6 +471,8 @@ fn handle_winit_event(
             if runner_state.active == ActiveState::WillResume {
                 runner_state.active = ActiveState::Active;
                 should_update = true;
+                log!(">> 4 handle_winit:evt() should update is = {should_update}");
+                // Trigger the next redraw ro refresh the screen immediately
                 runner_state.redraw_requested = true;
 
                 #[cfg(target_os = "android")]
@@ -506,6 +523,7 @@ fn handle_winit_event(
                         window.request_redraw();
                     }
                 } else {
+                    log!(">> run_app_update() by should_update = true");
                     // Not redrawing, but the timeout elapsed.
                     run_app_update_if_should(runner_state, app);
 
@@ -534,15 +552,18 @@ fn handle_winit_event(
 
                             match event_loop.control_flow() {
                                 ControlFlow::Poll if visible => {
+                                    log!(">> Continuous: window visible, set_control_flow to wait");
                                     event_loop.set_control_flow(ControlFlow::Wait)
                                 }
                                 ControlFlow::Wait if !visible => {
+                                    log!(">> Continuous: window NOT visible, set_control_flow to poll");
                                     event_loop.set_control_flow(ControlFlow::Poll)
                                 }
                                 _ => {}
                             }
                         }
                         else {
+                            log!(">> Continuous: set control flow to wait");
                             event_loop.set_control_flow(ControlFlow::Wait);
                         }
                     }
@@ -550,7 +571,10 @@ fn handle_winit_event(
                 UpdateMode::Reactive { wait, .. } => {
                     if let Some(next) = last_update_started.checked_add(wait) {
                         if runner_state.wait_elapsed {
+                            log!(">> Reactive: wait elapsed, set_control_flow to WaitUntil");
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                        } else {
+                            log!(">> Reactive: wait not elapsed yet");
                         }
                     }
                 }
@@ -561,8 +585,14 @@ fn handle_winit_event(
                 StartCause::WaitCancelled {
                     requested_resume: Some(_),
                     ..
-                } => false,
-                _ => true,
+                } => {
+                    log!(">> New event caused by WaitCancelled with some requested_resume. Wait Elapsed = false");
+                    false
+                },
+                _ => {
+                    log!(">> Wait elapsed = true because new event with cause {:?}", cause);
+                    true
+                },
             };
         }
         Event::WindowEvent {
@@ -767,6 +797,7 @@ fn handle_winit_event(
                     app.send_event(WindowDestroyed { window });
                 }
                 WindowEvent::RedrawRequested => {
+                    log!(">> run_app_update() by RedrawRequested");
                     run_app_update_if_should(runner_state, app);
                 }
                 _ => {}
@@ -814,6 +845,7 @@ fn run_app_update_if_should(runner_state: &mut WinitAppRunnerState, app: &mut Ap
     }
 
     if app.plugins_state() == PluginsState::Cleaned {
+        log!(">> actual app update");
         app.update();
     }
 }
