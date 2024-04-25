@@ -1,6 +1,7 @@
 use std::{iter, mem};
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -10,8 +11,7 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bevy_utils::EntityHashMap;
-use bytemuck::Pod;
+use bytemuck::NoUninit;
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -19,7 +19,7 @@ pub struct MorphIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
+pub struct MorphIndices(EntityHashMap<MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {
@@ -54,7 +54,7 @@ const fn can_align(step: usize, target: usize) -> bool {
 const WGPU_MIN_ALIGN: usize = 256;
 
 /// Align a [`BufferVec`] to `N` bytes by padding the end with `T::default()` values.
-fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
+fn add_to_alignment<T: NoUninit + Default>(buffer: &mut BufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
     let t_size = mem::size_of::<T>();
     if !can_align(n, t_size) {
@@ -109,6 +109,6 @@ pub fn no_automatic_morph_batching(
     query: Query<Entity, (With<MeshMorphWeights>, Without<NoAutomaticBatching>)>,
 ) {
     for entity in &query {
-        commands.entity(entity).insert(NoAutomaticBatching);
+        commands.entity(entity).try_insert(NoAutomaticBatching);
     }
 }

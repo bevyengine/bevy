@@ -5,7 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::warn;
+use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
@@ -35,7 +35,7 @@ pub(crate) struct AssetInfo {
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in get_or_create_path_handle for context.
+    /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
 }
 
@@ -71,7 +71,7 @@ pub(crate) struct AssetInfos {
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
-    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
+    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<Box<str>>>,
     pub(crate) handle_providers: TypeIdMap<AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
@@ -113,7 +113,7 @@ impl AssetInfos {
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
@@ -129,7 +129,7 @@ impl AssetInfos {
                 let mut without_label = path.to_owned();
                 if let Some(label) = without_label.take_label() {
                     let labels = living_labeled_assets.entry(without_label).or_default();
-                    labels.insert(label.to_string());
+                    labels.insert(label.as_ref().into());
                 }
             }
         }
@@ -205,15 +205,14 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            bevy_utils::hashbrown::hash_map::Entry::Occupied(entry) => {
+            Entry::Occupied(entry) => {
                 let id = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self.infos.get_mut(&id).unwrap();
                 let mut should_load = false;
                 if loading_mode == HandleLoadingMode::Force
                     || (loading_mode == HandleLoadingMode::Request
-                        && (info.load_state == LoadState::NotLoaded
-                            || info.load_state == LoadState::Failed))
+                        && matches!(info.load_state, LoadState::NotLoaded | LoadState::Failed(_)))
                 {
                     info.load_state = LoadState::Loading;
                     info.dep_load_state = DependencyLoadState::Loading;
@@ -246,7 +245,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            bevy_utils::hashbrown::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
@@ -358,7 +357,7 @@ impl AssetInfos {
         }
     }
 
-    // Returns `true` if the asset should be removed from the collection
+    /// Returns `true` if the asset should be removed from the collection.
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
         Self::process_handle_drop_internal(
             &mut self.infos,
@@ -412,7 +411,7 @@ impl AssetInfos {
                         // If dependency is loaded, reduce our count by one
                         false
                     }
-                    LoadState::Failed => {
+                    LoadState::Failed(_) => {
                         failed_deps.insert(*dep_id);
                         false
                     }
@@ -582,12 +581,12 @@ impl AssetInfos {
         }
     }
 
-    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId) {
+    pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId, error: AssetLoadError) {
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
             let info = self
                 .get_mut(failed_id)
                 .expect("Asset info should always exist at this point");
-            info.load_state = LoadState::Failed;
+            info.load_state = LoadState::Failed(Box::new(error));
             info.dep_load_state = DependencyLoadState::Failed;
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
             (
@@ -613,7 +612,7 @@ impl AssetInfos {
         info: &AssetInfo,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         path: &AssetPath<'static>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
     ) {
         for loader_dependency in info.loader_dependencies.keys() {
             if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
@@ -642,7 +641,7 @@ impl AssetInfos {
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
-        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {

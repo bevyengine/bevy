@@ -140,7 +140,7 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage, Image},
 };
 use std::{num::NonZeroU32, ops::Deref};
 
@@ -156,6 +156,11 @@ use super::LightProbeComponent;
 
 pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(160299515939076705258408299184317675488);
+
+/// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
+/// overflow the number of texture bindings when deferred rendering is in use
+/// (see issue #11885).
+pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "wasm32"));
 
 /// The component that defines an irradiance volume.
 ///
@@ -207,7 +212,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// the view, as well as the sampler.
     pub(crate) fn get(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
@@ -231,7 +236,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// arrays are available on the current platform.
     fn get_multiple(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         let mut texture_views = vec![];
@@ -264,7 +269,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// arrays aren't available on the current platform.
     fn get_single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
@@ -317,7 +322,7 @@ impl LightProbeComponent for IrradianceVolume {
     // here.
     type ViewLightProbeInfo = ();
 
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
+    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.voxels).is_none() {
             None
         } else {
@@ -331,7 +336,7 @@ impl LightProbeComponent for IrradianceVolume {
 
     fn create_render_view_light_probes(
         _: Option<&Self>,
-        _: &RenderAssets<Image>,
+        _: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self> {
         RenderViewLightProbes::new()
     }

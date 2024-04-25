@@ -63,13 +63,13 @@ impl<'a> AccessError<'a> {
         &self.kind
     }
 
-    /// The returns the [`Access`] that this [`AccessError`] occured in.
+    /// The returns the [`Access`] that this [`AccessError`] occurred in.
     pub const fn access(&self) -> &Access {
         &self.access
     }
 
     /// If the [`Access`] was created with a parser or an offset was manually provided,
-    /// returns the offset of the [`Access`] in it's path string.
+    /// returns the offset of the [`Access`] in its path string.
     pub const fn offset(&self) -> Option<&usize> {
         self.offset.as_ref()
     }

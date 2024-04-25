@@ -1,9 +1,9 @@
 use crate::util;
+use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
-use bevy_utils::FloatOrd;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -57,6 +57,31 @@ macro_rules! impl_float_animatable {
     };
 }
 
+macro_rules! impl_color_animatable {
+    ($ty: ident) => {
+        impl Animatable for $ty {
+            #[inline]
+            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+                let value = *a * (1. - t) + *b * t;
+                value.clamped()
+            }
+
+            #[inline]
+            fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+                let mut value = Default::default();
+                for input in inputs {
+                    if input.additive {
+                        value += input.weight * input.value;
+                    } else {
+                        value = Self::interpolate(&value, &input.value, input.weight);
+                    }
+                }
+                value.clamped()
+            }
+        }
+    };
+}
+
 impl_float_animatable!(f32, f32);
 impl_float_animatable!(Vec2, f32);
 impl_float_animatable!(Vec3A, f32);
@@ -66,6 +91,12 @@ impl_float_animatable!(f64, f64);
 impl_float_animatable!(DVec2, f64);
 impl_float_animatable!(DVec3, f64);
 impl_float_animatable!(DVec4, f64);
+
+impl_color_animatable!(LinearRgba);
+impl_color_animatable!(Laba);
+impl_color_animatable!(Oklaba);
+impl_color_animatable!(Srgba);
+impl_color_animatable!(Xyza);
 
 // Vec3 is special cased to use Vec3A internally for blending
 impl Animatable for Vec3 {
@@ -142,8 +173,7 @@ impl Animatable for Transform {
 }
 
 impl Animatable for Quat {
-    /// Performs an nlerp, because it's cheaper and easier to combine with other animations,
-    /// reference: <http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/>
+    /// Performs a slerp to smoothly interpolate between quaternions.
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         // We want to smoothly interpolate between the two quaternions by default,

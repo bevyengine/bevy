@@ -17,23 +17,20 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
+    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
-#[cfg(any(
-    not(feature = "webgl"),
-    not(target_arch = "wasm32"),
-    feature = "webgpu"
-))]
-use bevy_render::render_resource::binding_types::{texture_2d_array, texture_cube_array};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries},
+    irradiance_volume::{
+        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
+        IRRADIANCE_VOLUMES_ARE_USABLE,
+    },
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
@@ -188,13 +185,19 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                #[cfg(any(
-                    not(feature = "webgl"),
-                    not(target_arch = "wasm32"),
-                    feature = "webgpu"
+                #[cfg(all(
+                    not(feature = "ios_simulator"),
+                    any(
+                        not(feature = "webgl"),
+                        not(target_arch = "wasm32"),
+                        feature = "webgpu"
+                    )
                 ))]
                 texture_cube_array(TextureSampleType::Depth),
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                #[cfg(any(
+                    feature = "ios_simulator",
+                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
+                ))]
                 texture_cube(TextureSampleType::Depth),
             ),
             // Point Shadow Texture Array Sampler
@@ -247,7 +250,10 @@ fn layout_entries(
                 ),
             ),
             // Globals
-            (9, uniform_buffer::<GlobalsUniform>(false)),
+            (
+                9,
+                uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
+            ),
             // Fog
             (10, uniform_buffer::<GpuFog>(true)),
             // Light probes
@@ -269,11 +275,14 @@ fn layout_entries(
     ));
 
     // Irradiance volumes
-    let irradiance_volume_entries = irradiance_volume::get_bind_group_layout_entries(render_device);
-    entries = entries.extend_with_indices((
-        (16, irradiance_volume_entries[0]),
-        (17, irradiance_volume_entries[1]),
-    ));
+    if IRRADIANCE_VOLUMES_ARE_USABLE {
+        let irradiance_volume_entries =
+            irradiance_volume::get_bind_group_layout_entries(render_device);
+        entries = entries.extend_with_indices((
+            (16, irradiance_volume_entries[0]),
+            (17, irradiance_volume_entries[1]),
+        ));
+    }
 
     // Tonemapping
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
@@ -361,7 +370,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
-        Res<RenderAssets<Image>>,
+        Res<RenderAssets<GpuImage>>,
         FallbackImageMsaa,
         Res<FallbackImage>,
         Res<FallbackImageZero>,
@@ -459,31 +468,36 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             }
 
-            let irradiance_volume_bind_group_entries =
-                RenderViewIrradianceVolumeBindGroupEntries::get(
+            let irradiance_volume_bind_group_entries = if IRRADIANCE_VOLUMES_ARE_USABLE {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
                     render_view_irradiance_volumes,
                     &images,
                     &fallback_image,
                     &render_device,
-                );
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
-                RenderViewIrradianceVolumeBindGroupEntries::Single {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::Single {
                     texture_view,
                     sampler,
-                } => {
+                }) => {
                     entries = entries.extend_with_indices(((16, texture_view), (17, sampler)));
                 }
-                RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+                Some(RenderViewIrradianceVolumeBindGroupEntries::Multiple {
                     ref texture_views,
                     sampler,
-                } => {
+                }) => {
                     entries = entries
                         .extend_with_indices(((16, texture_views.as_slice()), (17, sampler)));
                 }
+                None => {}
             }
 
-            let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
+            let lut_bindings =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling

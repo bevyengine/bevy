@@ -63,7 +63,7 @@ fn update_clipping(
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
         // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).insert(CalculatedClip {
+        commands.entity(entity).try_insert(CalculatedClip {
             clip: inherited_clip,
         });
     }
@@ -155,13 +155,15 @@ fn update_children_target_camera(
 
     for &child in children {
         // Skip if the child has already been updated or update is not needed
-        if updated_entities.contains(&child) || camera_to_set == node_query.get(child).unwrap() {
+        if updated_entities.contains(&child)
+            || camera_to_set == node_query.get(child).ok().flatten()
+        {
             continue;
         }
 
         match camera_to_set {
             Some(camera) => {
-                commands.entity(child).insert(camera.clone());
+                commands.entity(child).try_insert(camera.clone());
             }
             None => {
                 commands.entity(child).remove::<TargetCamera>();

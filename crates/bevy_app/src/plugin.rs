@@ -100,6 +100,26 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     }
 }
 
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
+/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
+pub(crate) struct PlaceholderPlugin;
+
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
+
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.
 ///
@@ -115,8 +135,7 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-
-    use bevy_ecs::all_tuples;
+    use bevy_utils::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 

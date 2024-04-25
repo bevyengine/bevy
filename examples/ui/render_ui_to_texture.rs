@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::css::GOLD,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -59,14 +60,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 500_000.0,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    });
+    commands.spawn(DirectionalLightBundle::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {
@@ -92,7 +86,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::GOLD.into(),
+                background_color: GOLD.into(),
                 ..default()
             },
             TargetCamera(texture_camera),

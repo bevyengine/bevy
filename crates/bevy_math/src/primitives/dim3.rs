@@ -1,150 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, InvalidDirectionError, Primitive3d};
-use crate::{Quat, Vec3};
-
-/// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Direction3d(Vec3);
-impl Primitive3d for Direction3d {}
-
-impl Direction3d {
-    /// A unit vector pointing along the positive X axis.
-    pub const X: Self = Self(Vec3::X);
-    /// A unit vector pointing along the positive Y axis.
-    pub const Y: Self = Self(Vec3::Y);
-    /// A unit vector pointing along the positive Z axis.
-    pub const Z: Self = Self(Vec3::Z);
-    /// A unit vector pointing along the negative X axis.
-    pub const NEG_X: Self = Self(Vec3::NEG_X);
-    /// A unit vector pointing along the negative Y axis.
-    pub const NEG_Y: Self = Self(Vec3::NEG_Y);
-    /// A unit vector pointing along the negative Z axis.
-    pub const NEG_Z: Self = Self(Vec3::NEG_Z);
-
-    /// Create a direction from a finite, nonzero [`Vec3`].
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new(value: Vec3) -> Result<Self, InvalidDirectionError> {
-        Self::new_and_length(value).map(|(dir, _)| dir)
-    }
-
-    /// Create a [`Direction3d`] from a [`Vec3`] that is already normalized.
-    ///
-    /// # Warning
-    ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
-    pub fn new_unchecked(value: Vec3) -> Self {
-        debug_assert!(value.is_normalized());
-
-        Self(value)
-    }
-
-    /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new_and_length(value: Vec3) -> Result<(Self, f32), InvalidDirectionError> {
-        let length = value.length();
-        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
-
-        direction
-            .map(|dir| (Self(dir), length))
-            .ok_or(InvalidDirectionError::from_length(length))
-    }
-
-    /// Create a direction from its `x`, `y`, and `z` components.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
-        Self::new(Vec3::new(x, y, z))
-    }
-}
-
-impl TryFrom<Vec3> for Direction3d {
-    type Error = InvalidDirectionError;
-
-    fn try_from(value: Vec3) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<Direction3d> for Vec3 {
-    fn from(value: Direction3d) -> Self {
-        value.0
-    }
-}
-
-impl std::ops::Deref for Direction3d {
-    type Target = Vec3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::Neg for Direction3d {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        Self(-self.0)
-    }
-}
-
-impl std::ops::Mul<f32> for Direction3d {
-    type Output = Vec3;
-    fn mul(self, rhs: f32) -> Self::Output {
-        self.0 * rhs
-    }
-}
-
-impl std::ops::Mul<Direction3d> for Quat {
-    type Output = Direction3d;
-
-    /// Rotates the [`Direction3d`] using a [`Quat`].
-    fn mul(self, direction: Direction3d) -> Self::Output {
-        let rotated = self * *direction;
-
-        // Make sure the result is normalized.
-        // This can fail for non-unit quaternions.
-        debug_assert!(rotated.is_normalized());
-
-        Direction3d::new_unchecked(rotated)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Direction3d {
-    type Epsilon = f32;
-    fn default_epsilon() -> f32 {
-        f32::EPSILON
-    }
-    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::RelativeEq for Direction3d {
-    fn default_max_relative() -> f32 {
-        f32::EPSILON
-    }
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
-        self.as_ref()
-            .relative_eq(other.as_ref(), epsilon, max_relative)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::UlpsEq for Direction3d {
-    fn default_max_ulps() -> u32 {
-        4
-    }
-    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
-        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
-    }
-}
+use super::{Circle, Primitive3d};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -207,35 +64,38 @@ impl Sphere {
     }
 }
 
-/// An unbounded plane in 3D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Direction3d,
+    pub normal: Dir3,
+    /// Half of the width and height of the plane
+    pub half_size: Vec2,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
-    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and height of `1.0`.
     fn default() -> Self {
         Self {
-            normal: Direction3d::Y,
+            normal: Dir3::Y,
+            half_size: Vec2::splat(0.5),
         }
     }
 }
 
 impl Plane3d {
-    /// Create a new `Plane3d` from a normal
+    /// Create a new `Plane3d` from a normal and a half size
     ///
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
-    pub fn new(normal: Vec3) -> Self {
+    pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
-            normal: Direction3d::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
+            half_size,
         }
     }
 
@@ -251,8 +111,71 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Direction3d::new((b - a).cross(c - a))
-            .expect("plane must be defined by three finite points that don't lie on the same line");
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "finite plane must be defined by three finite points that don't lie on the same line",
+        );
+        let translation = (a + b + c) / 3.0;
+
+        (
+            Self {
+                normal,
+                ..Default::default()
+            },
+            translation,
+        )
+    }
+}
+
+/// An unbounded plane in 3D space. It forms a separating surface through the origin,
+/// stretching infinitely far
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct InfinitePlane3d {
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    pub normal: Dir3,
+}
+impl Primitive3d for InfinitePlane3d {}
+
+impl Default for InfinitePlane3d {
+    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self { normal: Dir3::Y }
+    }
+}
+
+impl InfinitePlane3d {
+    /// Create a new `InfinitePlane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline(always)]
+    pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
+    where
+        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+    {
+        Self {
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
+        }
+    }
+
+    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
+    /// of those points.
+    ///
+    /// The direction of the plane normal is determined by the winding order
+    /// of the triangular shape formed by the points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a valid normal can not be computed, for example when the points
+    /// are *collinear* and lie on the same line.
+    #[inline(always)]
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "infinite plane must be defined by three finite points that don't lie on the same line",
+        );
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
@@ -266,7 +189,7 @@ impl Plane3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Line3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
 }
 impl Primitive3d for Line3d {}
 
@@ -276,7 +199,7 @@ impl Primitive3d for Line3d {}
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment3d {
     /// The direction of the line
-    pub direction: Direction3d,
+    pub direction: Dir3,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -286,7 +209,7 @@ impl Primitive3d for Segment3d {}
 impl Segment3d {
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Direction3d, length: f32) -> Self {
+    pub fn new(direction: Dir3, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -305,7 +228,7 @@ impl Segment3d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Direction3d::new_unchecked(diff / length), length),
+            Self::new(Dir3::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -419,6 +342,15 @@ impl Cuboid {
     pub fn from_corners(point1: Vec3, point2: Vec3) -> Self {
         Self {
             half_size: (point2 - point1).abs() / 2.0,
+        }
+    }
+
+    /// Create a `Cuboid` from a single length.
+    /// The resulting `Cuboid` will be the same size in every direction.
+    #[inline(always)]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec3::splat(length / 2.0),
         }
     }
 
@@ -765,40 +697,256 @@ impl Torus {
     }
 }
 
+/// A 3D triangle primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Triangle3d {
+    /// The vertices of the triangle.
+    pub vertices: [Vec3; 3],
+}
+
+impl Primitive3d for Triangle3d {}
+
+impl Default for Triangle3d {
+    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+            ],
+        }
+    }
+}
+
+impl Triangle3d {
+    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+
+    /// Get the area of the triangle.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() / 2.0
+    }
+
+    /// Get the perimeter of the triangle.
+    #[inline(always)]
+    pub fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        a.distance(b) + b.distance(c) + c.distance(a)
+    }
+
+    /// Get the normal of the triangle in the direction of the right-hand rule, assuming
+    /// the vertices are ordered in a counter-clockwise direction.
+    ///
+    /// The normal is computed as the cross product of the vectors `ab` and `ac`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    #[inline(always)]
+    pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        Dir3::new(ab.cross(ac))
+    }
+
+    /// Checks if the triangle is degenerate, meaning it has zero area.
+    ///
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
+    /// This indicates that the three vertices are collinear or nearly collinear.
+    #[inline(always)]
+    pub fn is_degenerate(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() < 10e-7
+    }
+
+    /// Reverse the triangle by swapping the first and last vertices.
+    #[inline(always)]
+    pub fn reverse(&mut self) {
+        self.vertices.swap(0, 2);
+    }
+
+    /// Get the centroid of the triangle.
+    ///
+    /// This function finds the geometric center of the triangle by averaging the vertices:
+    /// `centroid = (a + b + c) / 3`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
+    }
+
+    /// Get the largest side of the triangle.
+    ///
+    /// Returns the two points that form the largest side of the triangle.
+    #[inline(always)]
+    pub fn largest_side(&self) -> (Vec3, Vec3) {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        let mut largest_side_points = (a, b);
+        let mut largest_side_length = ab.length();
+
+        if bc.length() > largest_side_length {
+            largest_side_points = (b, c);
+            largest_side_length = bc.length();
+        }
+
+        if ca.length() > largest_side_length {
+            largest_side_points = (a, c);
+        }
+
+        largest_side_points
+    }
+
+    /// Get the circumcenter of the triangle.
+    #[inline(always)]
+    pub fn circumcenter(&self) -> Vec3 {
+        if self.is_degenerate() {
+            // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
+            let (p1, p2) = self.largest_side();
+            return (p1 + p2) / 2.0;
+        }
+
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let n = ab.cross(ac);
+
+        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
+        a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
+            / (2.0 * n.length_squared()))
+    }
+}
+
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+impl Primitive3d for Tetrahedron {}
+
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+            ],
+        }
+    }
+}
+
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
+    }
+
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+
+    /// Get the signed volume of the tetrahedron.
+    ///
+    /// If it's negative, the normal vector of the face defined by
+    /// the first three points using the right-hand rule points
+    /// away from the fourth vertex.
+    #[inline(always)]
+    pub fn signed_volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        Mat3::from_cols(ab, ac, ad).determinant() / 6.0
+    }
+
+    /// Get the centroid of the tetrahedron.
+    ///
+    /// This function finds the geometric center of the tetrahedron
+    /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
+    use crate::Quat;
     use approx::assert_relative_eq;
 
     #[test]
     fn direction_creation() {
-        assert_eq!(Direction3d::new(Vec3::X * 12.5), Ok(Direction3d::X));
+        assert_eq!(Dir3::new(Vec3::X * 12.5), Ok(Dir3::X));
         assert_eq!(
-            Direction3d::new(Vec3::new(0.0, 0.0, 0.0)),
+            Dir3::new(Vec3::new(0.0, 0.0, 0.0)),
             Err(InvalidDirectionError::Zero)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NEG_INFINITY, 0.0, 0.0)),
             Err(InvalidDirectionError::Infinite)
         );
         assert_eq!(
-            Direction3d::new(Vec3::new(f32::NAN, 0.0, 0.0)),
+            Dir3::new(Vec3::new(f32::NAN, 0.0, 0.0)),
             Err(InvalidDirectionError::NaN)
         );
-        assert_eq!(
-            Direction3d::new_and_length(Vec3::X * 6.5),
-            Ok((Direction3d::X, 6.5))
-        );
+        assert_eq!(Dir3::new_and_length(Vec3::X * 6.5), Ok((Dir3::X, 6.5)));
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Direction3d::X)
+            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
@@ -839,6 +987,14 @@ mod tests {
     #[test]
     fn plane_from_points() {
         let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        assert_eq!(plane.half_size, Vec2::new(0.5, 0.5), "incorrect half size");
+        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+    }
+
+    #[test]
+    fn infinite_plane_from_points() {
+        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
         assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
     }
@@ -929,5 +1085,65 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+        assert_eq!(
+            tetrahedron.signed_volume(),
+            3.2058334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
+
+        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.33333334,
+            "incorrect volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().signed_volume(),
+            -0.33333334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
+    }
+
+    #[test]
+    fn triangle_math() {
+        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
+        let triangle = Triangle3d::new(a, b, c);
+
+        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
+        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
+        assert_eq!(
+            triangle.circumcenter(),
+            Vec3::new(-1., 1.75, 0.75),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            triangle.normal(),
+            Ok(Dir3::new_unchecked(Vec3::new(
+                -0.04134491,
+                -0.4134491,
+                0.90958804
+            ))),
+            "incorrect normal"
+        );
+
+        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
+        assert!(degenerate.is_degenerate(), "did not find degenerate");
     }
 }
