@@ -1,17 +1,12 @@
-use std::{
-    borrow::Borrow,
-    marker::PhantomData,
-    ops::Index,
-    sync::{Arc, Weak},
-};
+use std::{borrow::Borrow, marker::PhantomData, ops::Index, sync::Arc};
 
 use bevy_ecs::world::World;
 use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
-use crate::{render_graph::InternedRenderLabel, renderer::RenderDevice};
+use crate::renderer::RenderDevice;
 
-use super::{seal, NodeContext, RenderGraph, RenderResourceGeneration};
+use super::{seal, RenderGraph, RenderResourceGeneration};
 
 pub mod bind_group;
 pub mod buffer;
@@ -65,7 +60,6 @@ pub trait RenderResource: seal::Super {
     fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
-
     fn from_descriptor(
         descriptor: &Self::Descriptor,
         world: &World,
@@ -87,14 +81,6 @@ pub trait RenderStore<R: RenderResource>: seal::Super {
         world: &'a World,
         key: RenderResourceId,
     ) -> Option<&'a RenderResourceMeta<R>>;
-
-    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice);
-    fn init_dependent_resources(
-        &mut self,
-        graph: &RenderGraph,
-        world: &World,
-        device: &RenderDevice,
-    );
 }
 
 // pub trait RetainedRenderStore<R: RenderResource>: WriteRenderStore<R> {
@@ -117,22 +103,19 @@ pub struct RenderResourceMeta<R: RenderResource> {
     pub(super) resource: R::Data,
 }
 
-type DeferredResourceInit<R> =
-    Box<dyn FnOnce(&mut World, &RenderDevice) -> RenderResourceMeta<R> + Send + Sync + 'static>;
-
-type UnsafeDependentResourceInit<R> =
-    Box<dyn FnOnce(NodeContext, &RenderDevice) -> RenderResourceMeta<R> + Send + Sync + 'static>;
-
 pub enum RenderResourceInit<R: RenderResource> {
     FromDescriptor(R::Descriptor),
-    Eager(RenderResourceMeta<R>),
-    Deferred(DeferredResourceInit<R>),
-    UnsafeDependentResource(DependencySet, UnsafeDependentResourceInit<R>, seal::Token),
+    Resource(RenderResourceMeta<R>),
+}
+
+impl<R: RenderResource> From<RenderResourceMeta<R>> for RenderResourceInit<R> {
+    fn from(value: RenderResourceMeta<R>) -> Self {
+        RenderResourceInit::Resource(value)
+    }
 }
 
 pub struct SimpleRenderStore<R: RenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<R>>,
-    queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
     // resources_to_retain: HashMap<RenderResourceId, InternedRenderLabel>,
     // retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
 }
@@ -158,13 +141,9 @@ impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
                     },
                 );
             }
-            RenderResourceInit::Eager(meta) => {
+            RenderResourceInit::Resource(meta) => {
                 self.resources.insert(id, meta);
             }
-            RenderResourceInit::Deferred(init) => {
-                self.queued_resources.insert(id, init);
-            }
-            RenderResourceInit::UnsafeDependentResource(_, _, _) => todo!(),
         }
     }
 
@@ -174,21 +153,6 @@ impl<R: RenderResource> RenderStore<R> for SimpleRenderStore<R> {
         id: RenderResourceId,
     ) -> Option<&'a RenderResourceMeta<R>> {
         self.resources.get(&id)
-    }
-
-    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
-        for (key, init) in self.queued_resources.drain() {
-            self.resources.insert(key, (init)(world, device));
-        }
-    }
-
-    fn init_dependent_resources(
-        &mut self,
-        graph: &RenderGraph,
-        world: &World,
-        device: &RenderDevice,
-    ) {
-        todo!()
     }
 }
 
@@ -220,7 +184,7 @@ impl<R: RenderResource> Default for SimpleRenderStore<R> {
     fn default() -> Self {
         Self {
             resources: Default::default(),
-            queued_resources: Default::default(),
+            //queued_resources: Default::default(),
             // retained_resources: Default::default(),
             // resources_to_retain: Default::default(),
         }
@@ -231,7 +195,7 @@ where
     R::Descriptor: Clone + Hash + Eq,
 {
     resources: HashMap<RenderResourceId, Arc<RenderResourceMeta<R>>>,
-    queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
+    //queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
     cached_resources: HashMap<R::Descriptor, Arc<RenderResourceMeta<R>>>,
 }
 
@@ -262,7 +226,7 @@ where
                     });
                 self.resources.insert(id, sampler.clone());
             }
-            RenderResourceInit::Eager(meta) => {
+            RenderResourceInit::Resource(meta) => {
                 if let Some(descriptor) = meta.descriptor.clone() {
                     let meta = Arc::new(meta);
                     self.cached_resources
@@ -273,10 +237,6 @@ where
                     self.resources.insert(id, Arc::new(meta));
                 };
             }
-            RenderResourceInit::Deferred(init) => {
-                self.queued_resources.insert(id, init);
-            }
-            RenderResourceInit::UnsafeDependentResource(res, token) => todo!(),
         }
     }
 
@@ -287,28 +247,6 @@ where
     ) -> Option<&'a RenderResourceMeta<R>> {
         self.resources.get(&id).map(Borrow::borrow)
     }
-
-    fn init_queued_resources(&mut self, world: &mut World, device: &RenderDevice) {
-        for (key, init) in self.queued_resources.drain() {
-            let meta = (init)(world, device);
-            if let Some(descriptor) = meta.descriptor.clone() {
-                self.cached_resources
-                    .entry(descriptor)
-                    .or_insert(Arc::new(meta));
-            } else {
-                self.resources.insert(key, Arc::new(meta));
-            }
-        }
-    }
-
-    fn init_dependent_resources(
-        &mut self,
-        graph: &RenderGraph,
-        world: &World,
-        device: &RenderDevice,
-    ) {
-        todo!()
-    }
 }
 
 impl<R: RenderResource> Default for CachedRenderStore<R>
@@ -318,7 +256,6 @@ where
     fn default() -> Self {
         Self {
             resources: Default::default(),
-            queued_resources: Default::default(),
             cached_resources: Default::default(),
         }
     }
@@ -342,7 +279,7 @@ impl<R: RenderResource<Data = R>, F: FnOnce(&RenderDevice) -> R> IntoRenderResou
         _world: &World,
         render_device: &RenderDevice,
     ) -> RenderResourceInit<Self::Resource> {
-        RenderResourceInit::Eager(RenderResourceMeta {
+        RenderResourceInit::Resource(RenderResourceMeta {
             descriptor: None,
             resource: (self)(render_device),
         })
@@ -412,17 +349,18 @@ impl DependencySet {
         &mut self,
         resource: impl IntoRenderDependency<R>,
     ) -> RenderRef<R> {
-        let deps = resource.into_render_dependency(seal::Token);
-        for dep in deps {
-            match dep.usage {
-                RenderResourceUsage::Read => self.reads.insert(dep.id),
-                RenderResourceUsage::Write => self.writes.insert(dep.id),
-            }
-        }
-        RenderRef {
-            id: dep.id,
-            data: PhantomData,
-        }
+        // let deps = resource.into_render_dependency(seal::Token);
+        // for dep in deps {
+        //     match dep.usage {
+        //         RenderResourceUsage::Read => self.reads.insert(dep.id),
+        //         RenderResourceUsage::Write => self.writes.insert(dep.id),
+        //     }
+        // }
+        // RenderRef {
+        //     id: dep.id,
+        //     data: PhantomData,
+        // }
+        todo!()
     }
 
     pub(super) fn iter_writes<'a>(&'a self) -> impl Iterator<Item = RenderResourceId> + 'a {

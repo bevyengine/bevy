@@ -10,7 +10,8 @@ use crate::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
         ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
         SpecializedComputePipeline, SpecializedComputePipelines, SpecializedMeshPipeline,
-        SpecializedMeshPipelines, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines, SpecializedRenderPipeline,
+        SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
 };
@@ -118,24 +119,10 @@ where
 
     fn into_render_resource(
         self,
-        _world: &World,
+        world: &World,
         _render_device: &RenderDevice,
     ) -> RenderResourceInit<Self::Resource> {
-        RenderResourceInit::Deferred(Box::new(|world, _| {
-            world.init_resource::<SpecializedRenderPipelines<P>>();
-            let (mut specializer, pipelines, layout) = SystemState::<(
-                ResMut<SpecializedRenderPipelines<P>>,
-                Res<PipelineCache>,
-                Res<P>,
-            )>::new(world)
-            .get_mut(world);
-
-            let pipeline = specializer.specialize(&pipelines, &layout, self.0);
-            RenderResourceMeta {
-                descriptor: None,
-                resource: pipeline,
-            }
-        }))
+        RenderResourceInit::FromDescriptor(world.resource::<P>().specialize(self.0))
     }
 }
 
@@ -154,24 +141,10 @@ where
 
     fn into_render_resource(
         self,
-        _world: &World,
+        world: &World,
         _render_device: &RenderDevice,
     ) -> RenderResourceInit<Self::Resource> {
-        RenderResourceInit::Deferred(Box::new(move |world, _| {
-            world.init_resource::<SpecializedComputePipelines<P>>();
-            let (mut specializer, pipelines, layout) = SystemState::<(
-                ResMut<SpecializedComputePipelines<P>>,
-                Res<PipelineCache>,
-                Res<P>,
-            )>::new(world)
-            .get_mut(world);
-
-            let pipeline = specializer.specialize(&pipelines, &layout, self.0);
-            RenderResourceMeta {
-                descriptor: None,
-                resource: pipeline,
-            }
-        }))
+        RenderResourceInit::FromDescriptor(world.resource::<P>().specialize(self.0))
     }
 }
 
@@ -191,25 +164,14 @@ where
 
     fn into_render_resource(
         self,
-        _world: &World,
+        world: &World,
         _render_device: &RenderDevice,
     ) -> RenderResourceInit<Self::Resource> {
-        RenderResourceInit::Deferred(Box::new(move |world, _| {
-            world.init_resource::<SpecializedMeshPipelines<P>>();
-            let (mut specializer, pipelines, layout) = SystemState::<(
-                ResMut<SpecializedMeshPipelines<P>>,
-                Res<PipelineCache>,
-                Res<P>,
-            )>::new(world)
-            .get_mut(world);
-
-            let pipeline = specializer
-                .specialize(&pipelines, &layout, self.1, &self.0)
-                .expect("Unable to specialize mesh pipeline.");
-            RenderResourceMeta {
-                descriptor: None,
-                resource: pipeline,
-            }
-        }))
+        RenderResourceInit::FromDescriptor(
+            world
+                .resource::<P>()
+                .specialize(self.1, &self.0)
+                .unwrap_or_else(|err| panic!("{}", err)),
+        )
     }
 }

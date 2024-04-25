@@ -61,29 +61,29 @@ impl IntoRenderResource for TextureDescriptor<'static> {
             descriptor: Some(self),
             resource: tex,
         };
-        RenderResourceInit::Eager(meta)
+        RenderResourceInit::Resource(meta)
     }
 }
 
-pub fn new_texture_with_data<'a>(
-    graph: &'a mut RenderGraphBuilder,
-    descriptor: TextureDescriptor<'static>,
-    data_layout: ImageDataLayout,
-    data: &'static [u8],
-) -> RenderHandle<'a, Texture> {
-    let size = descriptor.size;
-    let mut tex = graph.new_resource(descriptor);
-    {
-        //todo: macro syntax for this
-        let mut deps = DependencySet::default();
-        let tex = deps.add(&mut tex);
-        graph.add_node(deps, move |mut ctx, _, queue| {
-            //todo: internal mutability on ctx?
-            queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
-        });
-    }
-    tex
-}
+// pub fn new_texture_with_data<'a>(
+//     graph: &'a mut RenderGraphBuilder,
+//     descriptor: TextureDescriptor<'static>,
+//     data_layout: ImageDataLayout,
+//     data: &'static [u8],
+// ) -> RenderHandle<'a, Texture> {
+//     let size = descriptor.size;
+//     let mut tex = graph.new_resource(descriptor);
+//     {
+//         //todo: macro syntax for this
+//         let mut deps = DependencySet::default();
+//         let tex = deps.add(&mut tex);
+//         graph.add_node(deps, move |mut ctx, _, queue| {
+//             //todo: internal mutability on ctx?
+//             queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
+//         });
+//     }
+//     tex
+// }
 
 impl seal::Super for TextureView {}
 

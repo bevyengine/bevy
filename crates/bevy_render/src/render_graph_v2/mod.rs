@@ -189,8 +189,8 @@ impl<'a> RenderGraphBuilder<'a> {
 
     pub fn add_node(
         &mut self,
-        dependencies: DependencySet,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'static,
+        dependencies: impl Into<DependencySet>,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'a,
     ) -> &mut Self {
         todo!();
         self

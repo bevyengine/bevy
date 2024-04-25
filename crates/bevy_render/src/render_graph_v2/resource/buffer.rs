@@ -57,6 +57,6 @@ impl IntoRenderResource for BufferDescriptor<'static> {
             descriptor: Some(self),
             resource: buf,
         };
-        RenderResourceInit::Eager(meta)
+        RenderResourceInit::Resource(meta)
     }
 }
