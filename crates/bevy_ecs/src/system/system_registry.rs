@@ -46,7 +46,7 @@ pub struct SystemId<I = (), O = ()> {
 impl<I, O> SystemId<I, O> {
     /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
     ///
-    /// It's trivial to convert [`SystemId`] into an [`Entity`] since a system
+    /// It's trivial to convert [`SystemId`] into an [`Entity`] since a one-shot system
     /// is really an entity with associated handler function.
     ///
     /// For example, this is useful if you want to assign a name label to a system.
