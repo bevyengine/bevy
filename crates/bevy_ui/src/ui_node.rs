@@ -1178,7 +1178,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with a percentage of the viewport's smaller dimmension
+    /// Create a grid track with a percentage of the viewport's smaller dimension
     pub fn vmin<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::VMin(value),
@@ -1187,7 +1187,7 @@ impl GridTrack {
         .into()
     }
 
-    /// Create a grid track with a percentage of the viewport's larger dimmension
+    /// Create a grid track with a percentage of the viewport's larger dimension
     pub fn vmax<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::VMax(value),
