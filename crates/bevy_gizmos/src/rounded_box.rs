@@ -1,6 +1,6 @@
 //! Additional [`Gizmos`] Functions -- Rounded cuboids and rectangles
 //!
-//! Includes the implementation of[`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
+//! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
 //! and assorted support items.
 
 use std::f32::consts::FRAC_PI_2;
