@@ -20,19 +20,34 @@
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instanced meshlet per thread
 fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
-    // Fetch the instanced meshlet data
+    // Fetch the instance data and check for instance culling
     if cluster_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
     let instance_id = meshlet_thread_instance_ids[cluster_id.x];
     if should_cull_instance(instance_id) {
         return;
     }
+
+    // Fetch other meshlet data
     let meshlet_id = meshlet_thread_meshlet_ids[cluster_id.x];
-    let bounding_sphere = meshlet_bounding_spheres[meshlet_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
-    let bounding_sphere_center = model * vec4(bounding_sphere.center, 1.0);
-    let bounding_sphere_radius = model_scale * bounding_sphere.radius;
+    let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
+
+    // Calculate view-space LOD bounding sphere for the meshlet
+    let lod_bounding_sphere_center = model * vec4(bounding_spheres.self_lod.center, 1.0);
+    let lod_bounding_sphere_radius = model_scale * bounding_spheres.self_lod.radius;
+    let lod_bounding_sphere_center_view_space = (view.inverse_view * vec4(lod_bounding_sphere_center.xyz, 1.0)).xyz;
+
+    // Calculate view-space LOD bounding sphere for the meshlet's parent
+    let parent_lod_bounding_sphere_center = model * vec4(bounding_spheres.parent_lod.center, 1.0);
+    let parent_lod_bounding_sphere_radius = model_scale * bounding_spheres.parent_lod.radius;
+    let parent_lod_bounding_sphere_center_view_space = (view.inverse_view * vec4(parent_lod_bounding_sphere_center.xyz, 1.0)).xyz;
+
+    // Check LOD cut (meshlet error imperceptible, and parent error not imperceptible)
+    let lod_is_ok = lod_error_is_imperceptible(lod_bounding_sphere_center_view_space, lod_bounding_sphere_radius);
+    let parent_lod_is_ok = lod_error_is_imperceptible(parent_lod_bounding_sphere_center_view_space, parent_lod_bounding_sphere_radius);
+    if !lod_is_ok || parent_lod_is_ok { return; }
 
     // In the first pass, operate only on the clusters visible last frame. In the second pass, operate on all clusters.
 #ifdef MESHLET_SECOND_CULLING_PASS
@@ -42,18 +57,22 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     if !meshlet_visible { return; }
 #endif
 
+    // Calculate world-space culling bounding sphere for the cluster
+    let culling_bounding_sphere_center = model * vec4(bounding_spheres.self_culling.center, 1.0);
+    let culling_bounding_sphere_radius = model_scale * bounding_spheres.self_culling.radius;
+
     // Frustum culling
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
         if !meshlet_visible { break; }
-        meshlet_visible &= dot(view.frustum[i], bounding_sphere_center) > -bounding_sphere_radius;
+        meshlet_visible &= dot(view.frustum[i], culling_bounding_sphere_center) > -culling_bounding_sphere_radius;
     }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     // In the second culling pass, cull against the depth pyramid generated from the first pass
     if meshlet_visible {
-        let bounding_sphere_center_view_space = (view.inverse_view * vec4(bounding_sphere_center.xyz, 1.0)).xyz;
-        let aabb = project_view_space_sphere_to_screen_space_aabb(bounding_sphere_center_view_space, bounding_sphere_radius);
+        let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
+        let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
 
         // Halve the AABB size because the first depth mip resampling pass cut the full screen resolution into a power of two conservatively
         let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
@@ -71,11 +90,11 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
         let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
         if view.projection[3][3] == 1.0 {
             // Orthographic
-            let sphere_depth = view.projection[3][2] + (bounding_sphere_center_view_space.z + bounding_sphere_radius) * view.projection[2][2];
+            let sphere_depth = view.projection[3][2] + (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius) * view.projection[2][2];
             meshlet_visible &= sphere_depth >= occluder_depth;
         } else {
             // Perspective
-            let sphere_depth = -view.projection[3][2] / (bounding_sphere_center_view_space.z + bounding_sphere_radius);
+            let sphere_depth = -view.projection[3][2] / (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius);
             meshlet_visible &= sphere_depth >= occluder_depth;
         }
     }
@@ -84,6 +103,16 @@ fn cull_meshlets(@builtin(global_invocation_id) cluster_id: vec3<u32>) {
     // Write the bitmask of whether or not the cluster was culled
     let occlusion_bit = u32(meshlet_visible) << (cluster_id.x % 32u);
     atomicOr(&meshlet_occlusion[cluster_id.x / 32u], occlusion_bit);
+}
+
+// https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
+fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
+    let d2 = dot(cp, cp);
+    let r2 = r * r;
+    let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
+    let view_size = f32(max(view.viewport.z, view.viewport.w));
+    let sphere_diameter_pixels = sphere_diameter_uv * view_size;
+    return sphere_diameter_pixels < 1.0;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds

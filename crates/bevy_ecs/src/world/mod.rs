@@ -2227,7 +2227,7 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info = unsafe {
                     self.components
                         .get_info(component_id)
@@ -2308,7 +2308,7 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with it's ID.
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info = unsafe {
                     self.components
                         .get_info(component_id)
