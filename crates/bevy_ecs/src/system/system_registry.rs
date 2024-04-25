@@ -55,7 +55,7 @@ impl<I, O> SystemId<I, O> {
     }
 
     /// Create [`SystemId`] from an [`Entity`]. Useful when you only have entity handles to avoid
-    /// adding extra compnents that have a [`SystemId`] everywhere. To run a system with this ID
+    /// adding extra components that have a [`SystemId`] everywhere. To run a system with this ID
     ///  - The entity must be a system
     ///  - The `I` + `O` types must be correct
     pub fn from_entity(entity: Entity) -> Self {
