@@ -11,7 +11,11 @@ use std::f32::consts::TAU;
 
 // === 2D ===
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an arc, which is a part of the circumference of a circle, in 2D.
     ///
     /// This should be called for each frame the arc needs to be rendered.
@@ -50,7 +54,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Arc2dBuilder<'_, 'w, 's, T> {
+    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
             position,
@@ -64,8 +68,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Arc2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec2,
     direction_angle: f32,
     arc_angle: f32,
@@ -74,7 +82,11 @@ pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: Option<usize>,
 }
 
-impl<T: GizmoConfigGroup> Arc2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments.replace(segments);
@@ -82,7 +94,11 @@ impl<T: GizmoConfigGroup> Arc2dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Arc2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Arc2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -114,7 +130,11 @@ fn arc_2d_inner(
 
 // === 3D ===
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an arc, which is a part of the circumference of a circle, in 3D. For default values
     /// this is drawing a standard arc. A standard arc is defined as
     ///
@@ -169,7 +189,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
@@ -226,7 +246,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
 
@@ -273,7 +293,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
                 TAU - angle
@@ -293,7 +313,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         to: Vec3,
         color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
         // orientation ambiguity of `up` doesn't matter
         let from_axis = (from - center).normalize_or_zero();
@@ -320,8 +340,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Arc3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     // this is the vertex the arc starts on in the XZ plane. For the normal arc_3d method this is
     // always starting at Vec3::X. For the short/long arc methods we actually need a way to start
     // at the from position and this is where this internal field comes into play. Some implicit
@@ -340,7 +364,11 @@ pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: Option<usize>,
 }
 
-impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments.replace(segments);
@@ -348,7 +376,11 @@ impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Arc3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
