@@ -1021,6 +1021,10 @@ pub enum MinTrackSizingFunction {
     MaxContent,
     /// Track minimum size should be automatically sized
     Auto,
+    /// Track minimum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track minimum size should be a percent of the viewport's larger dimension.
+    VMax(f32),
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -1050,6 +1054,10 @@ pub enum MaxTrackSizingFunction {
     ///
     /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
     Fraction(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMax(f32),
 }
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
@@ -1166,6 +1174,24 @@ impl GridTrack {
         Self {
             min_sizing_function: min,
             max_sizing_function: max,
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's smaller dimmension
+    pub fn vmin<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMin(value),
+            max_sizing_function: MaxTrackSizingFunction::VMin(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's larger dimmension
+    pub fn vmax<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMax(value),
+            max_sizing_function: MaxTrackSizingFunction::VMax(value),
         }
         .into()
     }
@@ -1337,6 +1363,24 @@ impl RepeatedGridTrack {
         Self {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::minmax(min, max)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimmension
+    pub fn vmin<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmin(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimmension
+    pub fn vmax<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmax(value)]),
         }
         .into()
     }
