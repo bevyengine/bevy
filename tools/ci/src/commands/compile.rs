@@ -1,8 +1,8 @@
-use crate::commands::subcommands::{
+use crate::commands::{
     BenchCheckCommand, CompileCheckCommand, CompileFailCommand, ExampleCheckCommand,
     TestCheckCommand,
 };
-use crate::commands::{Flag, Prepare, PreparedCommand};
+use crate::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
 
 /// Alias for running the `compile-fail`, `bench-check`, `example-check`, `compile-check`, and `test-check` subcommands.
