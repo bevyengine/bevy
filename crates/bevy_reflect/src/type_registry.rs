@@ -406,6 +406,15 @@ impl TypeRegistry {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
         self.registrations.values_mut()
     }
+
+    /// Returns an iterator over the [`TypeRegistration`]s with their corresponding [`TypeData`]
+    /// of the registered types.
+    pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
+        self.registrations.values().filter_map(|item| {
+            let type_data = self.get_type_data::<T>(item.type_id());
+            type_data.map(|data| (item, data))
+        })
+    }
 }
 
 impl TypeRegistryArc {
