@@ -310,8 +310,12 @@ impl MinTrackSizingFunction {
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
             MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
             MinTrackSizingFunction::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
-            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::Fixed(Val::VMin(val).into_length_percentage(context)),
-            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(Val::VMax(val).into_length_percentage(context)),
+            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::VMin(val).into_length_percentage(context),
+            ),
+            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::VMax(val).into_length_percentage(context),
+            ),
         }
     }
 }
@@ -341,8 +345,12 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::Fraction(fraction) => {
                 taffy::style::MaxTrackSizingFunction::Fraction(fraction)
             }
-            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::Fixed(Val::VMin(val).into_length_percentage(context)),
-            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(Val::VMax(val).into_length_percentage(context)),
+            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::VMin(val).into_length_percentage(context),
+            ),
+            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::VMax(val).into_length_percentage(context),
+            ),
         }
     }
 }
