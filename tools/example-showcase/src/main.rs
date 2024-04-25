@@ -280,7 +280,7 @@ fn main() {
                 for command in &to_run.setup {
                     let exe = &command[0];
                     let args = &command[1..];
-                    let _ = cmd!(sh, "{exe} {args...}").run().unwrap();
+                    cmd!(sh, "{exe} {args...}").run().unwrap();
                 }
 
                 let _ = cmd!(
