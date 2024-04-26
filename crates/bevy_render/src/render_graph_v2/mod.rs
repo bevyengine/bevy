@@ -4,9 +4,11 @@ pub mod configurator;
 pub mod resource;
 
 mod seal {
-    pub trait Super: Sized + Send + Sync + 'static {}
+    pub trait Super: Sized + Send + Sync {}
     pub struct Token;
 }
+
+use std::borrow::Cow;
 
 use crate::{
     render_resource::{
@@ -26,7 +28,10 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, Si
 
 use resource::CachedRenderStore;
 
-use self::resource::{DependencySet, RenderRef, RenderResourceId, ResourceTracker};
+use self::resource::{
+    IntoRenderDependencies, RenderDependencies, RenderResourceGeneration, RenderResourceId,
+    RenderResourceInit, RenderResourceMeta, ResourceTracker,
+};
 
 // Roadmap:
 // 1. Autobuild (and cache) bind group layouts, textures, bind groups, and compute pipelines
@@ -39,22 +44,23 @@ use self::resource::{DependencySet, RenderRef, RenderResourceId, ResourceTracker
 // 8. Documentation, write an example, and cleanup
 
 #[derive(Resource, Default)]
-pub struct RenderGraph {
-    // TODO: maybe use a Vec for resource_descriptors, and replace next_id with resource_descriptors.len()
-    resources: ResourceTracker,
-    bind_group_layouts: CachedRenderStore<BindGroupLayout>,
+struct RenderGraphPersistentResources {}
+
+#[derive(Default)]
+pub struct RenderGraph<'g> {
+    resources: ResourceTracker<'g>,
+    bind_group_layouts: CachedRenderStore<'g, BindGroupLayout>,
     // bind_groups: RenderBindGroups,
-    textures: SimpleRenderStore<Texture>,
-    views: SimpleRenderStore<TextureView>,
-    samplers: CachedRenderStore<Sampler>,
-    buffers: SimpleRenderStore<Buffer>,
-    render_pipelines: CachedRenderStore<RenderPipeline>,
-    compute_pipelines: CachedRenderStore<ComputePipeline>,
+    textures: SimpleRenderStore<'g, Texture>,
+    views: SimpleRenderStore<'g, TextureView>,
+    samplers: CachedRenderStore<'g, Sampler>,
+    buffers: SimpleRenderStore<'g, Buffer>,
+    render_pipelines: CachedRenderStore<'g, RenderPipeline>,
+    compute_pipelines: CachedRenderStore<'g, ComputePipeline>,
+    //TODO:
 }
 
-type RenderResourceGeneration = u16;
-
-impl RenderGraph {
+impl<'g> RenderGraph<'g> {
     pub(crate) fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
     }
@@ -68,11 +74,12 @@ impl RenderGraph {
     }
 
     fn new_resource_id(&mut self) -> RenderResourceId {
-        self.resources.new_resource()
+        // self.resources.new_resource()
+        todo!()
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
-        self.resources[id]
+        self.resources.generation(id)
     }
 
     fn write_resource<R: RenderResource>(&mut self, resource: RenderHandle<R>) -> &mut Self {
@@ -81,29 +88,29 @@ impl RenderGraph {
     }
 }
 
-pub fn run_render_graph(
-    mut render_graph: ResMut<RenderGraph>,
-    render_device: &RenderDevice,
-    render_queue: &RenderQueue,
-    pipeline_cache: Res<PipelineCache>,
-) {
-    render_graph.reset();
-    //render_graph.build(render_device, &pipeline_cache);
-    render_graph.run(render_device, render_queue);
+// pub fn run_render_graph(
+//     mut render_graph: ResMut<RenderGraph>,
+//     render_device: &RenderDevice,
+//     render_queue: &RenderQueue,
+//     pipeline_cache: Res<PipelineCache>,
+// ) {
+//     render_graph.reset();
+//     //render_graph.build(render_device, &pipeline_cache);
+//     render_graph.run(render_device, render_queue);
+// }
+
+pub struct RenderGraphBuilder<'g> {
+    graph: &'g mut RenderGraph<'g>,
+    world: &'g World,
+    view_entity: EntityRef<'g>,
+    render_device: &'g RenderDevice,
 }
 
-pub struct RenderGraphBuilder<'a> {
-    graph: &'a mut RenderGraph,
-    world: &'a World,
-    view_entity: EntityRef<'a>,
-    render_device: &'a RenderDevice,
-}
-
-impl<'a> RenderGraphBuilder<'a> {
-    pub fn new_resource<R: IntoRenderResource>(
+impl<'g> RenderGraphBuilder<'g> {
+    pub fn new_resource<R: IntoRenderResource<'g>>(
         &mut self,
         resource: R,
-    ) -> RenderHandle<R::Resource> {
+    ) -> RenderHandle<'g, R::Resource> {
         let id = self.graph.new_resource_id();
         <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token).insert(
             id,
@@ -112,6 +119,17 @@ impl<'a> RenderGraphBuilder<'a> {
             self.render_device,
         );
         RenderHandle::new(id)
+    }
+
+    pub fn import_resource<R: RenderResource>(
+        &mut self,
+        descriptor: Option<R::Descriptor>,
+        resource: &'g R::Data,
+    ) -> RenderHandle<'g, R> {
+        self.new_resource(RenderResourceMeta {
+            descriptor,
+            resource: Cow::Borrowed(resource),
+        })
     }
 
     // pub fn import_resource<R: RenderResource>(
@@ -189,8 +207,8 @@ impl<'a> RenderGraphBuilder<'a> {
 
     pub fn add_node(
         &mut self,
-        dependencies: impl Into<DependencySet>,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'a,
+        dependencies: RenderDependencies<'g>,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'g,
     ) -> &mut Self {
         todo!();
         self
@@ -239,24 +257,27 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 }
 
-pub struct NodeContext<'a> {
-    graph: &'a RenderGraph,
-    world: &'a World,
-    view_entity: EntityRef<'a>,
+pub struct NodeContext<'g> {
+    graph: &'g RenderGraph<'g>,
+    world: &'g World,
+    view_entity: EntityRef<'g>,
 }
 
-impl<'a> NodeContext<'a> {
-    pub fn get<R: RenderResource>(&self, resource: RenderRef<R>) -> &'a R {
-        todo!()
+impl<'g> NodeContext<'g> {
+    pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &'g R {
+        R::get_store(self.graph, seal::Token)
+            .get(self.world, resource.id())
+            .and_then(|meta| R::from_data(&meta.resource, self.world))
+            .expect("Unable to locate render graph resource")
     }
 }
 
-impl<'a> NodeContext<'a> {
-    pub fn world_resource<R: Resource>(&'a self) -> &'a R {
+impl<'g> NodeContext<'g> {
+    pub fn world_resource<R: Resource>(&'g self) -> &'g R {
         self.world.resource()
     }
 
-    pub fn get_world_resource<R: Resource>(&'a self) -> Option<&'a R> {
+    pub fn get_world_resource<R: Resource>(&'g self) -> Option<&'g R> {
         self.world.get_resource()
     }
 
@@ -264,23 +285,23 @@ impl<'a> NodeContext<'a> {
         self.view_entity.id()
     }
 
-    pub fn view_contains<C: Component>(&'a self) -> bool {
+    pub fn view_contains<C: Component>(&'g self) -> bool {
         self.view_entity.contains::<C>()
     }
 
-    pub fn view_get<C: Component>(&'a self) -> Option<&'a C> {
+    pub fn view_get<C: Component>(&'g self) -> Option<&'g C> {
         self.view_entity.get()
     }
 
-    pub fn view_get_ref<C: Component>(&'a self) -> Option<Ref<'a, C>> {
+    pub fn view_get_ref<C: Component>(&'g self) -> Option<Ref<'g, C>> {
         self.view_entity.get_ref()
     }
 
-    pub fn view_entity(&'a self) -> EntityRef<'a> {
+    pub fn view_entity(&'g self) -> EntityRef<'g> {
         self.view_entity
     }
 
-    pub fn world(&'a self) -> &'a World {
+    pub fn world(&'g self) -> &'g World {
         self.world
     }
 }

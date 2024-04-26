@@ -1,4 +1,3 @@
-use crate::render_graph_v2::resource::RenderResource;
 use crate::renderer::RenderAdapter;
 use crate::{render_resource::*, renderer::RenderDevice, Extract};
 use bevy_asset::{AssetEvent, AssetId, Assets};

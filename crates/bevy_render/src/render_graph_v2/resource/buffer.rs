@@ -8,8 +8,7 @@ use crate::{
 };
 
 use super::{
-    IntoRenderResource, RenderResource, RenderResourceInit, RenderResourceMeta, SimpleRenderStore,
-    WriteRenderResource,
+    IntoRenderResource, RenderResource, RenderResourceInit, SimpleRenderStore, WriteRenderResource,
 };
 
 impl seal::Super for Buffer {}
@@ -17,18 +16,21 @@ impl seal::Super for Buffer {}
 impl RenderResource for Buffer {
     type Descriptor = BufferDescriptor<'static>;
     type Data = Buffer;
-    type Store = SimpleRenderStore<Self>;
+    type Store<'g> = SimpleRenderStore<'g, Self>;
 
-    fn get_store(graph: &RenderGraph, _: seal::Token) -> &Self::Store {
-        &graph.buffers
+    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
+        todo!()
     }
 
-    fn get_store_mut(graph: &mut RenderGraph, _: seal::Token) -> &mut Self::Store {
-        &mut graph.buffers
+    fn get_store_mut<'a, 'g: 'a>(
+        graph: &'a mut RenderGraph<'g>,
+        _: seal::Token,
+    ) -> &'a mut Self::Store<'g> {
+        todo!()
     }
 
-    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
-        Some(data)
+    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
+        todo!()
     }
 
     fn from_descriptor(
@@ -36,7 +38,7 @@ impl RenderResource for Buffer {
         world: &World,
         render_device: &RenderDevice,
     ) -> Self::Data {
-        render_device.create_buffer(descriptor)
+        todo!()
     }
 }
 
@@ -44,19 +46,14 @@ impl WriteRenderResource for Buffer {}
 
 // impl RetainedRenderResource for Buffer {}
 
-impl IntoRenderResource for BufferDescriptor<'static> {
+impl<'g> IntoRenderResource<'g> for BufferDescriptor<'static> {
     type Resource = Buffer;
 
     fn into_render_resource(
         self,
         world: &World,
         render_device: &RenderDevice,
-    ) -> RenderResourceInit<Self::Resource> {
-        let buf = Buffer::from_descriptor(&self, world, render_device);
-        let meta = RenderResourceMeta {
-            descriptor: Some(self),
-            resource: buf,
-        };
-        RenderResourceInit::Resource(meta)
+    ) -> RenderResourceInit<'g, Self::Resource> {
+        RenderResourceInit::FromDescriptor(self)
     }
 }

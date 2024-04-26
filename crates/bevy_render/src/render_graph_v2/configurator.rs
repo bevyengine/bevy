@@ -1,4 +1,4 @@
-use super::{RenderGraph, RenderGraphBuilder};
+use super::{RenderGraph, RenderGraphBuilder, RenderGraphPersistentResources};
 use bevy_ecs::{component::Component, entity::Entity, world::World};
 
 /// Component for automatically configuring the [`RenderGraph`] each frame for an entity.
@@ -22,19 +22,19 @@ impl RenderGraphConfigurator {
 
 /// Configures the [`RenderGraph`] based on entities with the [`RenderGraphConfigurator`] component.
 pub fn setup_view_render_graph_nodes(world: &mut World) {
-    world.resource_scope::<RenderGraph, _>(|world, mut render_graph| {
-        // TODO: Probably want to cache the QueryState
-        for (view_entity, configurator) in world
-            .query::<(Entity, &RenderGraphConfigurator)>()
-            .iter(world)
-        {
-            let builder = RenderGraphBuilder {
-                graph: &mut render_graph,
-                world,
-                view_entity: world.entity(view_entity),
-                render_device: todo!(),
-            };
-            (configurator.0)(builder);
-        }
-    });
+    // world.resource_scope::<RenderGraphPersistentResources, _>(|world, mut persistent_resources| {
+    //     // TODO: Probably want to cache the QueryState
+    //     for (view_entity, configurator) in world
+    //         .query::<(Entity, &RenderGraphConfigurator)>()
+    //         .iter(world)
+    //     {
+    //         let builder = RenderGraphBuilder {
+    //             graph: &mut render_graph,
+    //             world,
+    //             view_entity: world.entity(view_entity),
+    //             render_device: todo!(),
+    //         };
+    //         (configurator.0)(builder);
+    //     }
+    // });
 }
