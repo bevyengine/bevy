@@ -223,7 +223,7 @@ where
         rotation: Quat,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -233,7 +233,7 @@ where
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: [false, false],
-            color: color.into(),
+            color: color,
         }
     }
 
@@ -279,7 +279,7 @@ where
         rotation: Quat,
         cell_count: UVec3,
         spacing: Vec3,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
@@ -289,7 +289,7 @@ where
             cell_count,
             skew: Vec3::ZERO,
             outer_edges: [false, false, false],
-            color: color.into(),
+            color: color,
         }
     }
 
@@ -335,7 +335,7 @@ where
         rotation: f32,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -345,7 +345,7 @@ where
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: [false, false],
-            color: color.into(),
+            color: color,
         }
     }
 }

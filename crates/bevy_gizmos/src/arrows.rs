@@ -133,7 +133,7 @@ where
             gizmos: self,
             start,
             end,
-            color: color.into(),
+            color: color,
             double_ended: false,
             tip_length: length / 10.,
         }

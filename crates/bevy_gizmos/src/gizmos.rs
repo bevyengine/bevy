@@ -485,7 +485,7 @@ where
             position,
             rotation: rotation.normalize(),
             radius,
-            color: color.into(),
+            color: color,
             circle_segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }

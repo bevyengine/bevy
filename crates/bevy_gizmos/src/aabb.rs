@@ -80,7 +80,7 @@ fn draw_aabbs(
             .color
             .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color.into());
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
 }
 
@@ -93,7 +93,7 @@ fn draw_all_aabbs(
             .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color.into());
+        gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
 }
 

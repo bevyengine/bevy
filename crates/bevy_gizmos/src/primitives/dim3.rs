@@ -108,7 +108,7 @@ where
             radius: primitive.radius,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -223,7 +223,7 @@ where
             normal: primitive.normal,
             rotation,
             position,
-            color: color.into(),
+            color: color,
             axis_count: 4,
             segment_count: 3,
             segment_length: 0.25,
@@ -297,7 +297,7 @@ where
             return;
         }
 
-        let color = color.into();
+        let color = color;
         let direction = rotation * *primitive.direction;
         self.arrow(position, position + direction, color);
 
@@ -446,7 +446,7 @@ where
         // lines connecting upper and lower rectangles of the cuboid
         let connections = vertices.into_iter().zip(vertices.into_iter().skip(4));
 
-        let color = color.into();
+        let color = color;
         upper
             .chain(lower)
             .chain(connections)
@@ -516,7 +516,7 @@ where
             half_height: primitive.half_height,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -629,7 +629,7 @@ where
             half_length: primitive.half_length,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -760,7 +760,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             base_segments: DEFAULT_NUMBER_SEGMENTS,
             height_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -875,7 +875,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -1002,7 +1002,7 @@ where
             major_radius: primitive.major_radius,
             position,
             rotation,
-            color: color.into(),
+            color: color,
             minor_segments: DEFAULT_NUMBER_SEGMENTS,
             major_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -1101,7 +1101,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
 
         let lines = [(a, b), (a, c), (a, d), (b, c), (b, d), (c, d)];
 
-        let color = color.into();
+        let color = color;
         for (a, b) in lines.into_iter() {
             self.line(a, b, color);
         }

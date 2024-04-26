@@ -58,7 +58,7 @@ where
             position,
             rotation,
             half_size,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -97,7 +97,7 @@ where
             position,
             rotation: Mat2::from_angle(angle),
             half_size,
-            color: color.into(),
+            color: color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -136,7 +136,7 @@ where
             position,
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_size: Vec2::splat(radius),
-            color: color.into(),
+            color: color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -174,7 +174,7 @@ where
             position,
             rotation: Mat2::IDENTITY,
             half_size: Vec2::splat(radius),
-            color: color.into(),
+            color: color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }

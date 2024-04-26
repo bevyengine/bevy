@@ -61,7 +61,7 @@ where
             direction_angle,
             arc_angle,
             radius,
-            color: color.into(),
+            color: color,
             segments: None,
         }
     }
@@ -197,7 +197,7 @@ where
             rotation,
             angle,
             radius,
-            color: color.into(),
+            color: color,
             segments: None,
         }
     }
@@ -333,7 +333,7 @@ where
             rotation,
             angle,
             radius,
-            color: color.into(),
+            color: color,
             segments: None,
         }
     }
