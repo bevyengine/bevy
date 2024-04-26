@@ -25,6 +25,7 @@ use bevy_render::{
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
+#[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use environment_map::EnvironmentMapLight;
 
@@ -38,8 +39,11 @@ use crate::{
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
     ScreenSpaceReflectionsSettings, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
+
+#[cfg(debug_assertions)]
+use crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES;
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
