@@ -8,7 +8,8 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{HashMap, HashSet};
+use bevy_render_macros::ExtractResource;
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
@@ -39,6 +40,14 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     #[inline]
     fn asset_usage(_source_asset: &Self::SourceAsset) -> RenderAssetUsages {
         RenderAssetUsages::default()
+    }
+
+    /// Size of the data the asset will upload to the gpu. Specifying a return value
+    /// will allow the asset to be throttled via [`RenderAssetBytesPerFrame`].
+    #[inline]
+    #[allow(unused_variables)]
+    fn byte_len(source_asset: &Self::SourceAsset) -> Option<usize> {
+        None
     }
 
     /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a [`RenderAsset`].
@@ -160,7 +169,8 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
-    removed: Vec<AssetId<A::SourceAsset>>,
+    removed: HashSet<AssetId<A::SourceAsset>>,
+    added: HashSet<AssetId<A::SourceAsset>>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -168,6 +178,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
         Self {
             extracted: Default::default(),
             removed: Default::default(),
+            added: Default::default(),
         }
     }
 }
@@ -233,7 +244,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut changed_assets = HashSet::default();
-            let mut removed = Vec::new();
+            let mut removed = HashSet::default();
 
             for event in events.read() {
                 #[allow(clippy::match_same_arms)]
@@ -244,7 +255,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                     AssetEvent::Removed { .. } => {}
                     AssetEvent::Unused { id } => {
                         changed_assets.remove(id);
-                        removed.push(*id);
+                        removed.insert(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
@@ -253,6 +264,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             }
 
             let mut extracted_assets = Vec::new();
+            let mut added = HashSet::new();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
@@ -260,9 +272,11 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {
                                 extracted_assets.push((id, asset));
+                                added.insert(id);
                             }
                         } else {
                             extracted_assets.push((id, asset.clone()));
+                            added.insert(id);
                         }
                     }
                 }
@@ -271,6 +285,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             commands.insert_resource(ExtractedAssets::<A> {
                 extracted: extracted_assets,
                 removed,
+                added,
             });
             cached_state.state.apply(world);
         },
@@ -299,17 +314,37 @@ pub fn prepare_assets<A: RenderAsset>(
     mut render_assets: ResMut<RenderAssets<A>>,
     mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
     param: StaticSystemParam<<A as RenderAsset>::Param>,
+    mut bpf: ResMut<RenderAssetBytesPerFrame>,
 ) {
+    let mut wrote_asset_count = 0;
+
     let mut param = param.into_inner();
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
-        if extracted_assets.removed.contains(&id) {
+        if extracted_assets.removed.contains(&id) || extracted_assets.added.contains(&id) {
+            // skip previous frame's assets that have been removed or updated
             continue;
         }
+
+        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
+            // we could check if available bytes > byte_len here, but we want to make some
+            // forward progress even if the asset is larger than the max bytes per frame.
+            // this way we always write at least one (sized) asset per frame.
+            // in future we could also consider partial asset uploads.
+            if bpf.exhausted() {
+                prepare_next_frame.assets.push((id, extracted_asset));
+                continue;
+            }
+            size
+        } else {
+            0
+        };
 
         match A::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
+                bpf.write_bytes(write_bytes);
+                wrote_asset_count += 1;
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
                 prepare_next_frame.assets.push((id, extracted_asset));
@@ -317,18 +352,96 @@ pub fn prepare_assets<A: RenderAsset>(
         }
     }
 
-    for removed in extracted_assets.removed.drain(..) {
+    for removed in extracted_assets.removed.drain() {
         render_assets.remove(removed);
     }
 
     for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
+        // we remove previous here to ensure that if we are updating the asset then
+        // any users will not see the old asset after a new asset is extracted,
+        // even if the new asset is not yet ready or we are out of bytes to write.
+        render_assets.remove(id);
+
+        let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
+            if bpf.exhausted() {
+                prepare_next_frame.assets.push((id, extracted_asset));
+                continue;
+            }
+            size
+        } else {
+            0
+        };
+
         match A::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
+                bpf.write_bytes(write_bytes);
+                wrote_asset_count += 1;
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
                 prepare_next_frame.assets.push((id, extracted_asset));
             }
         }
+    }
+
+    if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
+        debug!(
+            "{} write budget exhausted with {} assets remaining (wrote {})",
+            std::any::type_name::<A>(),
+            prepare_next_frame.assets.len(),
+            wrote_asset_count
+        );
+    }
+}
+
+/// A resource that attempts to limit the amount of data transferred from cpu to gpu
+/// each frame, preventing choppy frames at the cost of waiting longer for gpu assets
+/// to become available
+#[derive(Resource, Default, Debug, Clone, Copy, ExtractResource)]
+pub struct RenderAssetBytesPerFrame {
+    pub max_bytes: Option<usize>,
+    pub available: usize,
+}
+
+impl RenderAssetBytesPerFrame {
+    /// `max_bytes`: the number of bytes to write per frame.
+    /// this is a soft limit: only full assets are written currently, uploading stops
+    /// after the first asset that exceeds the limit.
+    /// To participate, assets should implement [`RenderAsset::byte_len`]. If the default
+    /// is not overridden, the assets are assumed to be small enough to upload without restriction.
+    pub fn new(max_bytes: usize) -> Self {
+        Self {
+            max_bytes: Some(max_bytes),
+            available: 0,
+        }
+    }
+
+    /// Reset the available bytes. Called once per frame by the [`crate::RenderPlugin`].
+    pub fn reset(&mut self) {
+        self.available = self.max_bytes.unwrap_or(usize::MAX);
+    }
+
+    /// check how many bytes are available since the last reset
+    pub fn available_bytes(&self, required_bytes: usize) -> usize {
+        if self.max_bytes.is_none() {
+            return required_bytes;
+        }
+
+        required_bytes.min(self.available)
+    }
+
+    /// decrease the available bytes for the current frame
+    fn write_bytes(&mut self, bytes: usize) {
+        if self.max_bytes.is_none() {
+            return;
+        }
+
+        let write_bytes = bytes.min(self.available);
+        self.available -= write_bytes;
+    }
+
+    // check if any bytes remain available for writing this frame
+    fn exhausted(&self) -> bool {
+        self.available == 0
     }
 }
