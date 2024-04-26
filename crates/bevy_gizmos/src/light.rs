@@ -171,15 +171,15 @@ pub struct LightGizmoConfigGroup {
     ///
     /// Defaults to [`LightGizmoColor::MatchLightColor`].
     pub color: LightGizmoColor,
-    /// [`Color`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`LinearRgba`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`RED`].
     pub point_light_color: LinearRgba,
-    /// [`Color`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`LinearRgba`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`GREEN`].
     pub spot_light_color: LinearRgba,
-    /// [`Color`] to use for drawing a [`DirectionalLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`LinearRgba`] to use for drawing a [`DirectionalLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`BLUE`].
     pub directional_light_color: LinearRgba,

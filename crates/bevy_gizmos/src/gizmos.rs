@@ -3,7 +3,7 @@
 use std::{iter, marker::PhantomData, mem};
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
-use bevy_color::{Color, LinearRgba};
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     component::Tick,
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
@@ -285,12 +285,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line(&mut self, start: Vec3, end: Vec3, color: impl Into<Color>) {
+    pub fn line(&mut self, start: Vec3, end: Vec3, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -309,17 +309,17 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, GREEN, RED);
+    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line_gradient<C: Into<Color>>(
+    pub fn line_gradient(
         &mut self,
         start: Vec3,
         end: Vec3,
-        start_color: C,
-        end_color: C,
+        start_color: LinearRgba,
+        end_color: LinearRgba,
     ) {
         if !self.enabled {
             return;
@@ -339,12 +339,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray(Vec3::Y, Vec3::X, GREEN);
+    ///     gizmos.ray(Vec3::Y, Vec3::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray(&mut self, start: Vec3, vector: Vec3, color: impl Into<Color>) {
+    pub fn ray(&mut self, start: Vec3, vector: Vec3, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -362,17 +362,17 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, GREEN, RED);
+    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray_gradient<C: Into<Color>>(
+    pub fn ray_gradient(
         &mut self,
         start: Vec3,
         vector: Vec3,
-        start_color: C,
-        end_color: C,
+        start_color: LinearRgba,
+        end_color: LinearRgba,
     ) {
         if !self.enabled {
             return;
@@ -391,23 +391,18 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
+    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip(
-        &mut self,
-        positions: impl IntoIterator<Item = Vec3>,
-        color: impl Into<Color>,
-    ) {
+    pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: LinearRgba) {
         if !self.enabled {
             return;
         }
         self.extend_strip_positions(positions);
         let len = self.buffer.strip_positions.len();
-        let linear_color = LinearRgba::from(color.into());
-        self.buffer.strip_colors.resize(len - 1, linear_color);
+        self.buffer.strip_colors.resize(len - 1, color);
         self.buffer.strip_colors.push(LinearRgba::NAN);
     }
 
@@ -423,18 +418,15 @@ where
     /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient([
-    ///         (Vec3::ZERO, GREEN),
-    ///         (Vec3::X, RED),
-    ///         (Vec3::Y, BLUE)
+    ///         (Vec3::ZERO, GREEN.into()),
+    ///         (Vec3::X, RED.into()),
+    ///         (Vec3::Y, BLUE.into()),
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_gradient<C: Into<Color>>(
-        &mut self,
-        points: impl IntoIterator<Item = (Vec3, C)>,
-    ) {
+    pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, LinearRgba)>) {
         if !self.enabled {
             return;
         }
@@ -452,7 +444,7 @@ where
 
         for (position, color) in points {
             strip_positions.push(position);
-            strip_colors.push(LinearRgba::from(color.into()));
+            strip_colors.push(color);
         }
 
         strip_positions.push(Vec3::NAN);
@@ -468,14 +460,14 @@ where
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use bevy_color::Color;
+    /// # use bevy_color::palettes::basic::BLACK;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., BLACK.into());
     ///
     ///     // Each circle has 32 line-segments by default.
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
-    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., BLACK.into())
     ///         .circle_segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -486,14 +478,14 @@ where
         position: Vec3,
         rotation: Quat,
         radius: f32,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             position,
             rotation: rotation.normalize(),
             radius,
-            color: color.into(),
+            color,
             circle_segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -509,12 +501,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -533,13 +525,12 @@ where
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
-        let polymorphic_color: Color = color.into();
+    pub fn cuboid(&mut self, transform: impl TransformPoint, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -553,14 +544,14 @@ where
             tlf, trf, brf, blf, tlf, // Front
             tlb, trb, brb, blb, tlb, // Back
         ];
-        self.linestrip(strip_positions, polymorphic_color);
+        self.linestrip(strip_positions, color);
 
         let list_positions = [
             trf, trb, brf, brb, blf, blb, // Front to back
         ];
         self.extend_list_positions(list_positions);
 
-        self.add_list_color(polymorphic_color, 6);
+        self.add_list_color(color, 6);
     }
 
     /// Draw a line in 2D from `start` to `end`.
@@ -574,12 +565,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, GREEN);
+    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: impl Into<Color>) {
+    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -597,17 +588,17 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, GREEN, RED);
+    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn line_gradient_2d<C: Into<Color>>(
+    pub fn line_gradient_2d(
         &mut self,
         start: Vec2,
         end: Vec2,
-        start_color: C,
-        end_color: C,
+        start_color: LinearRgba,
+        end_color: LinearRgba,
     ) {
         if !self.enabled {
             return;
@@ -626,16 +617,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
+    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_2d(
-        &mut self,
-        positions: impl IntoIterator<Item = Vec2>,
-        color: impl Into<Color>,
-    ) {
+    pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -654,17 +641,17 @@ where
     /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.linestrip_gradient_2d([
-    ///         (Vec2::ZERO, GREEN),
-    ///         (Vec2::X, RED),
-    ///         (Vec2::Y, BLUE)
+    ///         (Vec2::ZERO, GREEN.into()),
+    ///         (Vec2::X, RED.into()),
+    ///         (Vec2::Y, BLUE.into())
     ///     ]);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn linestrip_gradient_2d<C: Into<Color>>(
+    pub fn linestrip_gradient_2d(
         &mut self,
-        positions: impl IntoIterator<Item = (Vec2, C)>,
+        positions: impl IntoIterator<Item = (Vec2, LinearRgba)>,
     ) {
         if !self.enabled {
             return;
@@ -687,12 +674,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, GREEN);
+    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: impl Into<Color>) {
+    pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: LinearRgba) {
         if !self.enabled {
             return;
         }
@@ -710,17 +697,17 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, GREEN, RED);
+    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn ray_gradient_2d<C: Into<Color>>(
+    pub fn ray_gradient_2d(
         &mut self,
         start: Vec2,
         vector: Vec2,
-        start_color: C,
-        end_color: C,
+        start_color: LinearRgba,
+        end_color: LinearRgba,
     ) {
         if !self.enabled {
             return;
@@ -739,7 +726,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -749,7 +736,7 @@ where
         position: Vec2,
         rotation: impl Into<Rotation2d>,
         size: Vec2,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) {
         if !self.enabled {
             return;
@@ -765,22 +752,17 @@ where
     }
 
     #[inline]
-    fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = impl Into<Color>>) {
-        self.buffer.list_colors.extend(
-            colors
-                .into_iter()
-                .map(|color| LinearRgba::from(color.into())),
-        );
+    fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = LinearRgba>) {
+        self.buffer
+            .list_colors
+            .extend(colors.into_iter().map(|color| color));
     }
 
     #[inline]
-    fn add_list_color(&mut self, color: impl Into<Color>, count: usize) {
-        let polymorphic_color: Color = color.into();
-        let linear_color = LinearRgba::from(polymorphic_color);
-
+    fn add_list_color(&mut self, color: LinearRgba, count: usize) {
         self.buffer
             .list_colors
-            .extend(iter::repeat(linear_color).take(count));
+            .extend(iter::repeat(color).take(count));
     }
 
     #[inline]
@@ -800,7 +782,7 @@ where
     position: Vec3,
     rotation: Quat,
     radius: f32,
-    color: Color,
+    color: LinearRgba,
     circle_segments: usize,
 }
 

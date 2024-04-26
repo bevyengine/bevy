@@ -1,4 +1,4 @@
-use bevy_color::Color;
+use bevy_color::LinearRgba;
 use bevy_gizmos::{config::GizmoConfigGroup, prelude::Gizmos};
 use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::Reflect;
@@ -142,7 +142,7 @@ impl<'w, 's> InsetGizmo<'w, 's> {
         };
         position.xy()
     }
-    fn line_2d(&mut self, mut start: Vec2, mut end: Vec2, color: Color) {
+    fn line_2d(&mut self, mut start: Vec2, mut end: Vec2, color: LinearRgba) {
         if approx_eq(start.x, end.x) {
             start.x = self.known_x.inset(start.x);
             end.x = start.x;
@@ -167,7 +167,7 @@ impl<'w, 's> InsetGizmo<'w, 's> {
         self.known_y.remove(top, 1);
         self.known_y.remove(bottom, -1);
     }
-    pub(super) fn rect_2d(&mut self, rect: LayoutRect, color: Color) {
+    pub(super) fn rect_2d(&mut self, rect: LayoutRect, color: LinearRgba) {
         let (left, right, top, bottom) = rect_border_axis(rect);
         if approx_eq(left, right) {
             self.line_2d(Vec2::new(left, top), Vec2::new(left, bottom), color);

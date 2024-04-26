@@ -103,22 +103,22 @@ fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
         match shape {
             Shape::Rectangle(r) => {
-                gizmos.primitive_2d(*r, translation, rotation, color);
+                gizmos.primitive_2d(*r, translation, rotation, color.into());
             }
             Shape::Circle(c) => {
-                gizmos.primitive_2d(*c, translation, rotation, color);
+                gizmos.primitive_2d(*c, translation, rotation, color.into());
             }
             Shape::Triangle(t) => {
-                gizmos.primitive_2d(*t, translation, rotation, color);
+                gizmos.primitive_2d(*t, translation, rotation, color.into());
             }
             Shape::Line(l) => {
-                gizmos.primitive_2d(*l, translation, rotation, color);
+                gizmos.primitive_2d(*l, translation, rotation, color.into());
             }
             Shape::Capsule(c) => {
-                gizmos.primitive_2d(*c, translation, rotation, color);
+                gizmos.primitive_2d(*c, translation, rotation, color.into());
             }
             Shape::Polygon(p) => {
-                gizmos.primitive_2d(*p, translation, rotation, color);
+                gizmos.primitive_2d(*p, translation, rotation, color.into());
             }
         }
     }
@@ -180,10 +180,10 @@ fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)
         let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
-                gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color);
+                gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color.into());
             }
             CurrentVolume::Circle(c) => {
-                gizmos.circle_2d(c.center(), c.radius(), color);
+                gizmos.circle_2d(c.center(), c.radius(), color.into());
             }
         }
     }
@@ -286,7 +286,7 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
 
 fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
     for r in [1., 2., 3.] {
-        gizmos.circle_2d(position, r, color);
+        gizmos.circle_2d(position, r, color.into());
     }
 }
 
@@ -294,7 +294,7 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
     gizmos.line_2d(
         ray.ray.origin,
         ray.ray.origin + *ray.ray.direction * ray.max,
-        WHITE,
+        WHITE.into(),
     );
     draw_filled_circle(gizmos, ray.ray.origin, FUCHSIA);
 }
@@ -359,7 +359,7 @@ fn aabb_cast_system(
                 aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
                 0.,
                 aabb_cast.aabb.half_size() * 2.,
-                LIME,
+                LIME.into(),
             );
         }
     }
@@ -387,7 +387,7 @@ fn bounding_circle_cast_system(
             gizmos.circle_2d(
                 circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
                 circle_cast.circle.radius(),
-                LIME,
+                LIME.into(),
             );
         }
     }
@@ -406,7 +406,7 @@ fn aabb_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
-    gizmos.rect_2d(center, 0., aabb.half_size() * 2., YELLOW);
+    gizmos.rect_2d(center, 0., aabb.half_size() * 2., YELLOW.into());
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
@@ -425,7 +425,7 @@ fn circle_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let circle = BoundingCircle::new(center, 50.);
-    gizmos.circle_2d(center, circle.radius(), YELLOW);
+    gizmos.circle_2d(center, circle.radius(), YELLOW.into());
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {

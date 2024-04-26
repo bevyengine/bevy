@@ -6,7 +6,7 @@
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
-    Color,
+    LinearRgba,
 };
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::TransformPoint;
@@ -20,7 +20,7 @@ where
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     start: Vec3,
     end: Vec3,
-    color: Color,
+    color: LinearRgba,
     double_ended: bool,
     tip_length: f32,
 }
@@ -40,7 +40,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN)
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN.into())
     ///         .with_tip_length(3.);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -118,7 +118,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN);
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -126,14 +126,14 @@ where
         &mut self,
         start: Vec3,
         end: Vec3,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
             start,
             end,
-            color: color.into(),
+            color,
             double_ended: false,
             tip_length: length / 10.,
         }
@@ -150,7 +150,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, GREEN);
+    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -158,7 +158,7 @@ where
         &mut self,
         start: Vec2,
         end: Vec2,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
@@ -197,8 +197,8 @@ where
         let end_y = transform.transform_point(base_length * Vec3::Y);
         let end_z = transform.transform_point(base_length * Vec3::Z);
 
-        self.arrow(start, end_x, RED);
-        self.arrow(start, end_y, GREEN);
-        self.arrow(start, end_z, BLUE);
+        self.arrow(start, end_x, RED.into());
+        self.arrow(start, end_y, GREEN.into());
+        self.arrow(start, end_z, BLUE.into());
     }
 }

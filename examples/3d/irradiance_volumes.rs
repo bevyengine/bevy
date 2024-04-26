@@ -48,8 +48,6 @@ static SWITCH_TO_SPHERE_HELP_TEXT: &str = "Tab: Switch to a plain sphere mesh";
 
 static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
-static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
-
 static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
     [0.0, 0.0, 44.601563, 0.0],
@@ -632,7 +630,7 @@ fn draw_gizmo(
 ) {
     if app_status.voxels_visible {
         for transform in irradiance_volume_query.iter() {
-            gizmos.cuboid(*transform, GIZMO_COLOR);
+            gizmos.cuboid(*transform, YELLOW.into());
         }
     }
 }

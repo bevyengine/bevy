@@ -1,5 +1,5 @@
-use crate::commands::prepare::{Flag, Prepare, PreparedCommand};
-use crate::commands::subcommands;
+use crate::commands;
+use crate::prepare::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
 
 /// The CI command line tool for Bevy.
@@ -62,17 +62,17 @@ impl CI {
             None => {
                 // Note that we are running the subcommands directly rather than using any aliases
                 let mut cmds = vec![];
-                cmds.append(&mut subcommands::FormatCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::ClippyCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::TestCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::TestCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::DocCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::DocTestCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::CompileCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::CfgCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::CompileFailCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::BenchCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut subcommands::ExampleCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::FormatCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::CfgCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
                 cmds
             }
         }
@@ -84,21 +84,21 @@ impl CI {
 #[argh(subcommand)]
 enum Commands {
     // Aliases (subcommands that run other subcommands)
-    Lints(subcommands::LintsCommand),
-    Doc(subcommands::DocCommand),
-    Compile(subcommands::CompileCommand),
+    Lints(commands::LintsCommand),
+    Doc(commands::DocCommand),
+    Compile(commands::CompileCommand),
     // Actual subcommands
-    Format(subcommands::FormatCommand),
-    Clippy(subcommands::ClippyCommand),
-    Test(subcommands::TestCommand),
-    TestCheck(subcommands::TestCheckCommand),
-    DocCheck(subcommands::DocCheckCommand),
-    DocTest(subcommands::DocTestCommand),
-    CompileCheck(subcommands::CompileCheckCommand),
-    CfgCheck(subcommands::CfgCheckCommand),
-    CompileFail(subcommands::CompileFailCommand),
-    BenchCheck(subcommands::BenchCheckCommand),
-    ExampleCheck(subcommands::ExampleCheckCommand),
+    Format(commands::FormatCommand),
+    Clippy(commands::ClippyCommand),
+    Test(commands::TestCommand),
+    TestCheck(commands::TestCheckCommand),
+    DocCheck(commands::DocCheckCommand),
+    DocTest(commands::DocTestCommand),
+    CompileCheck(commands::CompileCheckCommand),
+    CfgCheck(commands::CfgCheckCommand),
+    CompileFail(commands::CompileFailCommand),
+    BenchCheck(commands::BenchCheckCommand),
+    ExampleCheck(commands::ExampleCheckCommand),
 }
 
 impl Prepare for Commands {

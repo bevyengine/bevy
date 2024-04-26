@@ -210,7 +210,7 @@ where
     ///         Quat::IDENTITY,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(2.),
-    ///         GREEN
+    ///         GREEN.into(),
     ///         )
     ///         .skew_x(0.25)
     ///         .outer_edges();
@@ -223,7 +223,7 @@ where
         rotation: Quat,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -233,7 +233,7 @@ where
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: [false, false],
-            color: color.into(),
+            color,
         }
     }
 
@@ -266,7 +266,7 @@ where
     ///         Quat::IDENTITY,
     ///         UVec3::new(10, 2, 10),
     ///         Vec3::splat(2.),
-    ///         GREEN
+    ///         GREEN.into(),
     ///         )
     ///         .skew_x(0.25)
     ///         .outer_edges();
@@ -279,7 +279,7 @@ where
         rotation: Quat,
         cell_count: UVec3,
         spacing: Vec3,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
@@ -289,7 +289,7 @@ where
             cell_count,
             skew: Vec3::ZERO,
             outer_edges: [false, false, false],
-            color: color.into(),
+            color,
         }
     }
 
@@ -322,7 +322,7 @@ where
     ///         0.0,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(1.),
-    ///         GREEN
+    ///         GREEN.into(),
     ///         )
     ///         .skew_x(0.25)
     ///         .outer_edges();
@@ -335,7 +335,7 @@ where
         rotation: f32,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: LinearRgba,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -345,7 +345,7 @@ where
             cell_count,
             skew: Vec2::ZERO,
             outer_edges: [false, false],
-            color: color.into(),
+            color,
         }
     }
 }

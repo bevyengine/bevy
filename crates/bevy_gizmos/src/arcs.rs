@@ -5,7 +5,7 @@
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
-use bevy_color::Color;
+use bevy_color::LinearRgba;
 use bevy_math::{Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
@@ -36,12 +36,12 @@ where
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN.into());
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -53,7 +53,7 @@ where
         direction_angle: f32,
         arc_angle: f32,
         radius: f32,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
@@ -61,7 +61,7 @@ where
             direction_angle,
             arc_angle,
             radius,
-            color: color.into(),
+            color,
             segments: None,
         }
     }
@@ -78,7 +78,7 @@ where
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    color: Color,
+    color: LinearRgba,
     segments: Option<usize>,
 }
 
@@ -175,7 +175,7 @@ where
     ///          0.25,
     ///          Vec3::ONE,
     ///          rotation,
-    ///          ORANGE
+    ///          ORANGE.into(),
     ///          )
     ///          .segments(100);
     /// }
@@ -188,7 +188,7 @@ where
         radius: f32,
         position: Vec3,
         rotation: Quat,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
@@ -197,7 +197,7 @@ where
             rotation,
             angle,
             radius,
-            color: color.into(),
+            color,
             segments: None,
         }
     }
@@ -226,7 +226,7 @@ where
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        ORANGE
+    ///        ORANGE.into(),
     ///        )
     ///        .segments(100);
     /// }
@@ -245,7 +245,7 @@ where
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
@@ -273,7 +273,7 @@ where
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        ORANGE
+    ///        ORANGE.into(),
     ///        )
     ///        .segments(100);
     /// }
@@ -292,7 +292,7 @@ where
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
@@ -311,7 +311,7 @@ where
         center: Vec3,
         from: Vec3,
         to: Vec3,
-        color: impl Into<Color>,
+        color: LinearRgba,
         angle_fn: impl Fn(f32) -> f32,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
@@ -333,7 +333,7 @@ where
             rotation,
             angle,
             radius,
-            color: color.into(),
+            color,
             segments: None,
         }
     }
@@ -360,7 +360,7 @@ where
     rotation: Quat,
     angle: f32,
     radius: f32,
-    color: Color,
+    color: LinearRgba,
     segments: Option<usize>,
 }
 
