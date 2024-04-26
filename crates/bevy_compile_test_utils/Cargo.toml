@@ -1,6 +1,5 @@
 [package]
 name = "bevy_compile_test_utils"
-version = "0.1.0"
 edition = "2021"
 description = "Utils for compile tests used in the engine"
 homepage = "https://bevyengine.org"
