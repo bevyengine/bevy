@@ -20,7 +20,7 @@ use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
-    system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
+    system::{NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
@@ -106,7 +106,7 @@ fn should_update_accessibility_nodes(
 }
 
 fn update_accessibility_nodes(
-    adapters: NonSend<AccessKitAdapters>,
+    mut adapters: NonSendMut<AccessKitAdapters>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
@@ -120,7 +120,7 @@ fn update_accessibility_nodes(
     let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
         return;
     };
-    let Some(adapter) = adapters.get(&primary_window_id) else {
+    let Some(adapter) = adapters.get_mut(&primary_window_id) else {
         return;
     };
     if focus.is_changed() || !nodes.is_empty() {

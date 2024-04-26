@@ -290,7 +290,7 @@ pub fn winit_runner(mut app: App) {
         EventWriter<WindowResized>,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendMut<AccessKitAdapters>,
     )> = SystemState::new(app.world_mut());
 
     let mut create_window =
@@ -329,7 +329,7 @@ fn handle_winit_event(
         EventWriter<WindowResized>,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendMut<AccessKitAdapters>,
     )>,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<&Window>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
@@ -430,7 +430,7 @@ fn handle_winit_event(
         Event::WindowEvent {
             event, window_id, ..
         } => {
-            let (mut window_resized, winit_windows, mut windows, access_kit_adapters) =
+            let (mut window_resized, winit_windows, mut windows, mut access_kit_adapters) =
                 event_writer_system_state.get_mut(app.world_mut());
 
             let Some(window) = winit_windows.get_window_entity(window_id) else {
@@ -445,7 +445,7 @@ fn handle_winit_event(
 
             // Allow AccessKit to respond to `WindowEvent`s before they reach
             // the engine.
-            if let Some(adapter) = access_kit_adapters.get(&window) {
+            if let Some(adapter) = access_kit_adapters.get_mut(&window) {
                 if let Some(winit_window) = winit_windows.get_window(window) {
                     adapter.process_event(winit_window, &event);
                 }
