@@ -185,8 +185,6 @@ impl Default for GizmoConfig {
     }
 }
 
-// TODO: These fields are never read, delete them?
-#[allow(dead_code)]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
