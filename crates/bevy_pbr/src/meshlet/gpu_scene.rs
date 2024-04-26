@@ -265,7 +265,7 @@ pub fn prepare_meshlet_per_frame_resources(
         };
 
     let needed_buffer_size =
-        gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * size_of::<u32>() as u64;
+        gpu_scene.scene_meshlet_count.div_ceil(u32::BITS) as u64 * size_of::<u32>() as u64;
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
         let instance_visibility = gpu_scene
             .view_instance_visibility
