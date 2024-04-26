@@ -21,8 +21,8 @@ use bevy_ecs::{
 };
 use bevy_render::{
     batching::gpu_preprocessing::{
-        self, BatchedInstanceBuffers, IndirectParameters, IndirectParametersBuffer,
-        PreprocessWorkItem,
+        self, BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
+        IndirectParametersBuffer, PreprocessWorkItem,
     },
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
@@ -125,9 +125,9 @@ impl Plugin for GpuMeshPreprocessPlugin {
 
         // This plugin does nothing if GPU instance buffer building isn't in
         // use.
-        let render_device = render_app.world().resource::<RenderDevice>();
+        let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
         if !self.use_gpu_instance_buffer_builder
-            || !gpu_preprocessing::can_preprocess_on_gpu(render_device)
+            || *gpu_preprocessing_support == GpuPreprocessingSupport::None
         {
             return;
         }
@@ -443,7 +443,7 @@ pub fn prepare_preprocess_bind_groups(
             ))
         } else {
             PreprocessBindGroup(render_device.create_bind_group(
-                "preprocess_indirect_bind_group",
+                "preprocess_direct_bind_group",
                 &pipelines.direct.bind_group_layout,
                 &BindGroupEntries::sequential((
                     current_input_buffer.as_entire_binding(),

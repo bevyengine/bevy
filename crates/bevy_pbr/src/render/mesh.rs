@@ -15,7 +15,9 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        gpu_preprocessing::{self, IndirectParameters, IndirectParametersBuffer},
+        gpu_preprocessing::{
+            self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
+        },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     camera::Camera,
@@ -170,9 +172,12 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_device = render_app.world().resource::<RenderDevice>();
+            render_app.init_resource::<GpuPreprocessingSupport>();
+
+            let gpu_preprocessing_support =
+                render_app.world().resource::<GpuPreprocessingSupport>();
             let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
-                && gpu_preprocessing::can_preprocess_on_gpu(render_device);
+                && *gpu_preprocessing_support != GpuPreprocessingSupport::None;
 
             let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
             render_app.insert_resource(render_mesh_instances);
@@ -304,7 +309,7 @@ pub struct MeshInputUniform {
 
 /// Information about each mesh instance needed to cull it on GPU.
 ///
-/// At the moment, this just consists of its axis-aligned bounding box (AABB).
+/// This consists of its axis-aligned bounding box (AABB).
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 pub struct MeshCullingData {
@@ -459,17 +464,6 @@ pub struct RenderMeshInstanceGpuBuilder {
     pub mesh_flags: MeshFlags,
 }
 
-/// Holds information that will be needed to construct the [`MeshCullingData`].
-///
-/// This is the same as [`MeshCullingData`], but avoids the extra padding to
-/// save a bit of CPU memory bandwidth.
-pub struct MeshCullingDataGpuBuilder {
-    /// The 3D center of the AABB in model space.
-    pub aabb_center: Vec3,
-    /// The 3D extents of the AABB in model space, divided by two.
-    pub aabb_half_extents: Vec3,
-}
-
 /// The per-thread queues used during [`extract_meshes_for_gpu_building`].
 ///
 /// There are two varieties of these: one for when culling happens on CPU and
@@ -490,13 +484,7 @@ pub enum RenderMeshInstanceGpuQueue {
     /// The version of [`RenderMeshInstanceGpuQueue`] that contains the
     /// [`MeshCullingDataGpuBuilder`], used when any view has GPU culling
     /// enabled.
-    GpuCulling(
-        Vec<(
-            Entity,
-            RenderMeshInstanceGpuBuilder,
-            MeshCullingDataGpuBuilder,
-        )>,
-    ),
+    GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }
 
 impl RenderMeshInstanceShared {
@@ -639,7 +627,7 @@ impl RenderMeshInstanceGpuQueue {
         &mut self,
         entity: Entity,
         instance_builder: RenderMeshInstanceGpuBuilder,
-        culling_data_builder: Option<MeshCullingDataGpuBuilder>,
+        culling_data_builder: Option<MeshCullingData>,
     ) {
         match (&mut *self, culling_data_builder) {
             (&mut RenderMeshInstanceGpuQueue::CpuCulling(ref mut queue), None) => {
@@ -714,21 +702,20 @@ impl RenderMeshInstanceGpuBuilder {
     }
 }
 
-impl MeshCullingDataGpuBuilder {
-    /// Returns a new [`MeshCullingDataGpuBuilder`] initialized with the given
-    /// AABB.
+impl MeshCullingData {
+    /// Returns a new [`MeshCullingData`] initialized with the given AABB.
     ///
     /// If no AABB is provided, an infinitely-large one is conservatively
     /// chosen.
     fn new(aabb: Option<&Aabb>) -> Self {
         match aabb {
-            Some(aabb) => MeshCullingDataGpuBuilder {
-                aabb_center: aabb.center.into(),
-                aabb_half_extents: aabb.half_extents.into(),
+            Some(aabb) => MeshCullingData {
+                aabb_center: aabb.center.extend(0.0),
+                aabb_half_extents: aabb.half_extents.extend(0.0),
             },
-            None => MeshCullingDataGpuBuilder {
-                aabb_center: Vec3::ZERO,
-                aabb_half_extents: Vec3::INFINITY,
+            None => MeshCullingData {
+                aabb_center: Vec3::ZERO.extend(0.0),
+                aabb_half_extents: Vec3::INFINITY.extend(0.0),
             },
         }
     }
@@ -736,10 +723,7 @@ impl MeshCullingDataGpuBuilder {
     /// Flushes this mesh instance culling data to the
     /// [`MeshCullingDataBuffer`].
     fn add_to(&self, mesh_culling_data_buffer: &mut MeshCullingDataBuffer) -> usize {
-        mesh_culling_data_buffer.push(MeshCullingData {
-            aabb_center: self.aabb_center.extend(0.0),
-            aabb_half_extents: self.aabb_half_extents.extend(0.0),
-        })
+        mesh_culling_data_buffer.push(*self)
     }
 }
 
@@ -875,7 +859,7 @@ pub fn extract_meshes_for_gpu_building(
             Has<NoAutomaticBatching>,
         )>,
     >,
-    cameras_query: Extract<Query<Entity, (With<Camera>, With<GpuCulling>)>>,
+    cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
 ) {
     let any_gpu_culling = !cameras_query.is_empty();
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
@@ -915,8 +899,7 @@ pub fn extract_meshes_for_gpu_building(
             let lightmap_uv_rect =
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
-            let gpu_mesh_culling_data_builder =
-                any_gpu_culling.then(|| MeshCullingDataGpuBuilder::new(aabb));
+            let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
 
             let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
                 shared,
@@ -925,11 +908,7 @@ pub fn extract_meshes_for_gpu_building(
                 mesh_flags,
             };
 
-            queue.push(
-                entity,
-                gpu_mesh_instance_builder,
-                gpu_mesh_culling_data_builder,
-            );
+            queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
         },
     );
 
@@ -978,7 +957,9 @@ fn collect_meshes_for_gpu_building(
 
     for queue in render_mesh_instance_queues.iter_mut() {
         match *queue {
-            RenderMeshInstanceGpuQueue::None => todo!(),
+            RenderMeshInstanceGpuQueue::None => {
+                // This can only happen if the queue is empty.
+            }
             RenderMeshInstanceGpuQueue::CpuCulling(ref mut queue) => {
                 for (entity, mesh_instance_builder) in queue.drain(..) {
                     mesh_instance_builder.add_to(

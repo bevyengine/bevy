@@ -7,13 +7,14 @@ use bevy_ecs::{
     query::{Has, With},
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource, StaticSystemParam},
+    world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
 use bevy_utils::EntityHashMap;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use smallvec::smallvec;
-use wgpu::{BindingResource, BufferUsages};
+use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
@@ -21,7 +22,7 @@ use crate::{
         PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
     },
     render_resource::{BufferVec, GpuArrayBufferable, UninitBufferVec},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -41,7 +42,34 @@ impl Plugin for BatchingPlugin {
             write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
         );
     }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<GpuPreprocessingSupport>();
+    }
 }
+
+/// Records whether GPU preprocessing and/or GPU culling are supported on the
+/// device.
+///
+/// No GPU preprocessing is supported on WebGL because of the lack of compute
+/// shader support.  GPU preprocessing is supported on DirectX 12, but due to [a
+/// `wgpu` limitation] GPU culling is not.
+///
+/// [a `wgpu` limitation]: https://github.com/gfx-rs/wgpu/issues/2471
+#[derive(Clone, Copy, PartialEq, Resource)]
+pub enum GpuPreprocessingSupport {
+    /// No GPU preprocessing support is available at all.
+    None,
+    /// GPU preprocessing is available, but GPU culling isn't.
+    PreprocessingOnly,
+    /// Both GPU preprocessing and GPU culling are available.
+    Culling,
+}
+
 /// The GPU buffers holding the data needed to render batches.
 ///
 /// For example, in the 3D PBR pipeline this holds `MeshUniform`s, which are the
@@ -186,6 +214,26 @@ impl IndirectParametersBuffer {
 impl Default for IndirectParametersBuffer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl FromWorld for GpuPreprocessingSupport {
+    fn from_world(world: &mut World) -> Self {
+        let adapter = world.resource::<RenderAdapter>();
+        let device = world.resource::<RenderDevice>();
+
+        if device.limits().max_compute_workgroup_size_x == 0 {
+            GpuPreprocessingSupport::None
+        } else if !device
+            .features()
+            .contains(Features::INDIRECT_FIRST_INSTANCE) ||
+            !adapter.get_downlevel_capabilities().flags.contains(
+        DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
+        {
+            GpuPreprocessingSupport::PreprocessingOnly
+        } else {
+            GpuPreprocessingSupport::Culling
+        }
     }
 }
 
@@ -595,13 +643,6 @@ pub fn write_batched_instance_buffers<GFBD>(
             .buffer
             .write_buffer(&render_device, &render_queue);
     }
-}
-
-/// Determines whether it's possible to run preprocessing on the GPU.
-///
-/// Currently, this simply checks to see whether compute shaders are supported.
-pub fn can_preprocess_on_gpu(render_device: &RenderDevice) -> bool {
-    render_device.limits().max_compute_workgroup_size_x > 0
 }
 
 pub fn write_indirect_parameters_buffer(

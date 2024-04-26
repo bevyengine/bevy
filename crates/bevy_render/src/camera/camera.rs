@@ -1,4 +1,5 @@
 use crate::{
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
@@ -834,6 +835,7 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -921,7 +923,7 @@ pub fn extract_cameras(
                 commands.insert(perspective.clone());
             }
 
-            if gpu_culling {
+            if gpu_culling && *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
                 commands.insert(GpuCulling);
             }
         }
