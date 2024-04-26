@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     batching::gpu_preprocessing::{
-        self, BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
+        BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
         IndirectParametersBuffer, PreprocessWorkItem,
     },
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
