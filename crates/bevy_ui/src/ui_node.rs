@@ -1393,7 +1393,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimmension
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimension
     pub fn vmin<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
@@ -1402,7 +1402,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimmension
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimension
     pub fn vmax<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
