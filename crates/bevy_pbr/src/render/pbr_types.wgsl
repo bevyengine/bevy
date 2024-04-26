@@ -77,6 +77,8 @@ fn standard_material_new() -> StandardMaterial {
     material.ior = 1.5;
     material.attenuation_distance = 1.0;
     material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    material.clearcoat = 0.0;
+    material.clearcoat_perceptual_roughness = 0.0;
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
     material.parallax_depth_scale = 0.1;

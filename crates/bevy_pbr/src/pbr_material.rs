@@ -338,9 +338,8 @@ pub struct StandardMaterial {
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
 
-    /// An extra thin translucent layer on top of the main PBR layer. According
-    /// to the Filament spec, this is commonly used for materials such as car
-    /// paints, soda cans, lacquered wood, acrylic, and so forth.
+    /// An extra thin translucent layer on top of the main PBR layer. This is
+    /// typically used for painted surfaces.
     ///
     /// This value specifies the strength of the layer, which affects how
     /// visible the clearcoat layer will be.
@@ -368,7 +367,7 @@ pub struct StandardMaterial {
     pub clearcoat_perceptual_roughness: f32,
 
     /// An image texture that specifies the roughness of the clearcoat level in
-    /// the green channel.  Values from this texture are multiplied by the main
+    /// the green channel. Values from this texture are multiplied by the main
     /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
