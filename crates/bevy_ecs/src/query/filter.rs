@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
@@ -79,6 +79,12 @@ pub trait QueryFilter: WorldQuery {
     /// many elements are being iterated (such as `Iterator::collect()`).
     const IS_ARCHETYPAL: bool;
 
+    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
+    /// If false, the entity will be skipped.
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
@@ -142,7 +148,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -250,7 +256,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -357,7 +363,7 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
     }
 }
 
-macro_rules! impl_query_filter_tuple {
+macro_rules! impl_or_query_filter {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
@@ -506,7 +512,7 @@ macro_rules! impl_tuple_query_filter {
 }
 
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
-all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
+all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results added after the system last ran.
 ///
@@ -524,7 +530,7 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 /// # Time complexity
 ///
 /// `Added` is not [`ArchetypeFilter`], which practically means that
-/// if query (with `T` component filter) matches million entities,
+/// if the query (with `T` component filter) matches a million entities,
 /// `Added<T>` filter will iterate over all of them even if none of them were just added.
 ///
 /// For example, these two systems are roughly equivalent in terms of performance:
@@ -604,7 +610,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -612,7 +618,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -651,7 +657,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
@@ -813,7 +819,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
             last_run,
             this_run,
@@ -821,7 +827,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     const IS_DENSE: bool = {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => true,
             StorageType::SparseSet => false,
         }
@@ -860,7 +866,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
+        match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
                 let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };

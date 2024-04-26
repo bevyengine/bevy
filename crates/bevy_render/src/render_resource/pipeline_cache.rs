@@ -1,13 +1,17 @@
-use crate::renderer::RenderAdapter;
-use crate::{render_resource::*, renderer::RenderDevice, Extract};
+use crate::{
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice},
+    Extract,
+};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_tasks::Task;
+use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet,
+    HashMap, HashSet,
 };
 use naga::valid::Capabilities;
 use std::{
@@ -21,10 +25,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{
-    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
 
 use crate::render_resource::resource_macros::*;
 
@@ -52,7 +53,7 @@ pub enum Pipeline {
 type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
@@ -125,7 +126,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -188,6 +189,15 @@ impl ShaderCache {
                 Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
                 Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
+            (
+                Features::TEXTURE_FORMAT_16BIT_NORM,
+                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+            ),
+            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
+            (
+                Features::SHADER_EARLY_DEPTH_TEST,
+                Capabilities::EARLY_DEPTH_TEST,
+            ),
         ];
         let features = render_device.features();
         let mut capabilities = Capabilities::empty();
@@ -197,12 +207,28 @@ impl ShaderCache {
             }
         }
 
-        if render_adapter
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
-        {
-            capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[
+            (
+                DownlevelFlags::CUBE_ARRAY_TEXTURES,
+                Capabilities::CUBE_ARRAY_TEXTURES,
+            ),
+            (
+                DownlevelFlags::MULTISAMPLED_SHADING,
+                Capabilities::MULTISAMPLED_SHADING,
+            ),
+            (
+                DownlevelFlags::CUBE_ARRAY_TEXTURES,
+                Capabilities::CUBE_ARRAY_TEXTURES,
+            ),
+        ];
+        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
+            if render_adapter
+                .get_downlevel_capabilities()
+                .flags
+                .contains(*downlevel_flag)
+            {
+                capabilities |= *capability;
+            }
         }
 
         #[cfg(debug_assertions)]
@@ -277,9 +303,9 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
+        let module = match data.processed_shaders.entry_ref(shader_defs) {
+            EntryRef::Occupied(entry) => entry.into_mut(),
+            EntryRef::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
@@ -288,7 +314,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(ios_simulator) {
+                if cfg!(feature = "ios_simulator") {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
@@ -496,8 +522,14 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    /// Returns an iterator over the pipelines in the pipeline cache.
     pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
         self.pipelines.iter()
+    }
+
+    /// Returns a iterator of the IDs of all currently waiting pipelines.
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> + '_ {
+        self.waiting_pipelines.iter().copied()
     }
 
     /// Create a new pipeline cache associated with the given render device.

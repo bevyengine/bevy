@@ -30,7 +30,11 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     }
 
 #ifdef MAY_DISCARD
-    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    // NOTE: `MAY_DISCARD` is only defined in the alpha to coverage case if MSAA
+    // was off. This special situation causes alpha to coverage to fall back to
+    // alpha mask.
+    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
@@ -74,6 +78,10 @@ fn apply_normal_mapping(
     uv: vec2<f32>,
 #endif
     mip_bias: f32,
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    ddx_uv: vec2<f32>,
+    ddy_uv: vec2<f32>,
+#endif
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -98,7 +106,11 @@ fn apply_normal_mapping(
 #ifdef VERTEX_UVS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    var Nt = textureSampleGrad(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, ddx_uv, ddy_uv).rgb;
+#else
     var Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, uv, mip_bias).rgb;
+#endif
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
@@ -139,7 +151,7 @@ fn calculate_view(
         // Orthographic view vector
         V = normalize(vec3<f32>(view_bindings::view.view_proj[0].z, view_bindings::view.view_proj[1].z, view_bindings::view.view_proj[2].z));
     } else {
-        // Only valid for a perpective projection
+        // Only valid for a perspective projection
         V = normalize(view_bindings::view.world_position.xyz - world_position.xyz);
     }
     return V;

@@ -13,6 +13,7 @@ trace = []
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
+serialize = ["serde"]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 
@@ -25,6 +26,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
@@ -37,15 +39,17 @@ accesskit_winit = { version = "0.17", default-features = false, features = [
 ] }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.6"
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
-
 crossbeam-channel = "0.5"
 
-[package.metadata.docs.rs]
-features = ["x11"]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

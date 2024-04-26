@@ -1,9 +1,12 @@
-use crate::UiSurface;
-use bevy_ecs::prelude::Entity;
-use bevy_utils::HashMap;
 use std::fmt::Write;
+
 use taffy::prelude::Node;
 use taffy::tree::LayoutTree;
+
+use bevy_ecs::prelude::Entity;
+use bevy_utils::HashMap;
+
+use crate::layout::ui_surface::UiSurface;
 
 /// Prints a debug representation of the computed layout of the UI layout tree for each window.
 pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
@@ -25,7 +28,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 &mut out,
             );
         }
-        bevy_log::info!("Layout tree for camera entity: {entity:?}\n{out}");
+        bevy_utils::tracing::info!("Layout tree for camera entity: {entity:?}\n{out}");
     }
 }
 

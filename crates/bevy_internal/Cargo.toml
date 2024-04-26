@@ -12,9 +12,11 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 [features]
 trace = [
   "bevy_app/trace",
+  "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
+  "bevy_pbr?/trace",
   "bevy_render?/trace",
   "bevy_hierarchy/trace",
   "bevy_winit?/trace",
@@ -24,6 +26,8 @@ trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 detailed_trace = ["bevy_utils/detailed_trace"]
+
+sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 exr = ["bevy_render/exr"]
@@ -66,10 +70,12 @@ serialize = [
   "bevy_input/serialize",
   "bevy_time/serialize",
   "bevy_window/serialize",
+  "bevy_winit?/serialize",
   "bevy_transform/serialize",
   "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_ui?/serialize",
+  "bevy_color?/serialize",
 ]
 multi-threaded = [
   "bevy_asset?/multi-threaded",
@@ -114,12 +120,7 @@ webgpu = [
 ]
 
 # enable systems that allow for automated testing on CI
-bevy_ci_testing = [
-  "bevy_app/bevy_ci_testing",
-  "bevy_time/bevy_ci_testing",
-  "bevy_render?/bevy_ci_testing",
-  "bevy_render?/ci_limits",
-]
+bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
@@ -164,6 +165,18 @@ bevy_debug_stepping = [
   "bevy_app/bevy_debug_stepping",
 ]
 
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["bevy_pbr?/meshlet"]
+
+# Enables processing meshes into meshlet meshes for bevy_pbr
+meshlet_processor = ["bevy_pbr?/meshlet_processor"]
+
+# Provides a collection of developer tools
+bevy_dev_tools = ["dep:bevy_dev_tools"]
+
+# Enable support for the ios_simulator by downgrading some rendering capabilities
+ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
@@ -189,6 +202,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.14.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", optional = true, version = "0.14.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.14.0-dev" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.14.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.14.0-dev" }
@@ -201,6 +215,11 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.14.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.14.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.14.0-dev", default-features = false }
+bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.14.0-dev" }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

@@ -1,5 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![allow(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
@@ -9,8 +15,7 @@ extern crate core;
 pub mod alpha;
 pub mod batching;
 pub mod camera;
-pub mod color;
-pub mod deterministic;
+pub mod diagnostic;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -38,7 +43,6 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        color::Color,
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
@@ -57,10 +61,11 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
-use crate::deterministic::DeterministicRenderingConfig;
+use crate::mesh::GpuMesh;
+use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    mesh::{morph::MorphPlugin, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
@@ -88,11 +93,11 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
-/// The labels of the default App rendering sets.
+/// The systems sets of the default [`App`] rendering schedule.
 ///
 /// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
@@ -104,20 +109,22 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
-    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
-    /// ready for sorting
+    /// Queue drawable entities as phase items in render phases ready for
+    /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<GpuMesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
-    /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
+    // TODO: This could probably be moved in favor of a system ordering
+    // abstraction in `Render` or `Queue`
+    /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
+    /// [`BinKey`](render_phase::BinnedPhaseItem::BinKey)s here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
@@ -155,7 +162,7 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
+        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<GpuMesh>));
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -219,7 +226,7 @@ struct FutureRendererResources(
     >,
 );
 
-/// A Label for the rendering sub-app.
+/// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
@@ -230,8 +237,6 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(106653563
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.init_resource::<DeterministicRenderingConfig>();
-
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
@@ -259,8 +264,8 @@ impl Plugin for RenderPlugin {
 
                     let mut system_state: SystemState<
                         Query<&RawHandleWrapper, With<PrimaryWindow>>,
-                    > = SystemState::new(&mut app.world);
-                    let primary_window = system_state.get(&app.world).get_single().ok().cloned();
+                    > = SystemState::new(app.world_mut());
+                    let primary_window = system_state.get(app.world()).get_single().ok().cloned();
 
                     let settings = render_creation.clone();
                     let async_renderer = async move {
@@ -301,7 +306,7 @@ impl Plugin for RenderPlugin {
                             queue,
                             adapter_info,
                             render_adapter,
-                            RenderInstance(Arc::new(instance)),
+                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution
@@ -330,7 +335,8 @@ impl Plugin for RenderPlugin {
         ));
 
         app.register_type::<alpha::AlphaMode>()
-            .register_type::<color::Color>()
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
@@ -338,7 +344,7 @@ impl Plugin for RenderPlugin {
     }
 
     fn ready(&self, app: &App) -> bool {
-        app.world
+        app.world()
             .get_resource::<FutureRendererResources>()
             .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or(true)
@@ -347,7 +353,7 @@ impl Plugin for RenderPlugin {
     fn finish(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
-            app.world.remove_resource::<FutureRendererResources>()
+            app.world_mut().remove_resource::<FutureRendererResources>()
         {
             let (device, queue, adapter_info, render_adapter, instance) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();
@@ -381,16 +387,15 @@ struct ScratchMainWorld(World);
 
 /// Executes the [`ExtractSchedule`] step of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
-fn extract(main_world: &mut World, render_app: &mut App) {
+fn extract(main_world: &mut World, render_world: &mut World) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
     let inserted_world = std::mem::replace(main_world, scratch_world.0);
-    render_app.world.insert_resource(MainWorld(inserted_world));
-
-    render_app.world.run_schedule(ExtractSchedule);
+    render_world.insert_resource(MainWorld(inserted_world));
+    render_world.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
-    let inserted_world = render_app.world.remove_resource::<MainWorld>().unwrap();
+    let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
     let scratch_world = std::mem::replace(main_world, inserted_world.0);
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
@@ -399,8 +404,8 @@ fn extract(main_world: &mut World, render_app: &mut App) {
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
-    let mut render_app = App::empty();
-    render_app.main_schedule_label = Render.intern();
+    let mut render_app = SubApp::new();
+    render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -415,7 +420,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
         .init_resource::<render_graph::RenderGraph>()
-        .insert_resource(app.world.resource::<AssetServer>().clone())
+        .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
             Render,
@@ -432,11 +437,7 @@ unsafe fn initialize_render_app(app: &mut App) {
             ),
         );
 
-    let (sender, receiver) = bevy_time::create_time_channels();
-    app.insert_resource(receiver);
-    render_app.insert_resource(sender);
-
-    app.insert_sub_app(RenderApp, SubApp::new(render_app, move |main_world, render_app| {
+    render_app.set_extract(|main_world, render_world| {
         #[cfg(feature = "trace")]
         let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
         {
@@ -450,23 +451,27 @@ unsafe fn initialize_render_app(app: &mut App) {
             let total_count = main_world.entities().total_count();
 
             assert_eq!(
-                render_app.world.entities().len(),
+                render_world.entities().len(),
                 0,
                 "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
             );
 
             // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
             unsafe {
-                render_app
-                    .world
+                render_world
                     .entities_mut()
                     .flush_and_reserve_invalid_assuming_no_entities(total_count);
             }
         }
 
         // run extract schedule
-        extract(main_world, render_app);
-    }));
+        extract(main_world, render_world);
+    });
+
+    let (sender, receiver) = bevy_time::create_time_channels();
+    render_app.insert_resource(sender);
+    app.insert_resource(receiver);
+    app.insert_sub_app(RenderApp, render_app);
 }
 
 /// Applies the commands from the extract schedule. This happens during

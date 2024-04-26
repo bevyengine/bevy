@@ -17,6 +17,9 @@ use winit::{
     event_loop::EventLoopWindowTarget,
 };
 
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
+
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
@@ -31,8 +34,8 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<F: QueryFilter + 'static>(
-    event_loop: &EventLoopWindowTarget<()>,
+pub fn create_windows<F: QueryFilter + 'static>(
+    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
     (
         mut commands,
         mut created_windows,
@@ -80,6 +83,17 @@ pub(crate) fn create_windows<F: QueryFilter + 'static>(
                 window: window.clone(),
             });
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            if window.fit_canvas_to_parent {
+                let canvas = winit_window
+                    .canvas()
+                    .expect("window.canvas() can only be called in main thread.");
+                let style = canvas.style();
+                style.set_property("width", "100%").unwrap();
+                style.set_property("height", "100%").unwrap();
+            }
+        }
         window_created_events.send(WindowCreated { window: entity });
     }
 }
@@ -279,7 +293,7 @@ pub(crate) fn changed_windows(
 
         #[cfg(target_arch = "wasm32")]
         if window.canvas != cache.window.canvas {
-            window.canvas = cache.window.canvas.clone();
+            window.canvas.clone_from(&cache.window.canvas);
             warn!(
                 "Bevy currently doesn't support modifying the window canvas after initialization."
             );

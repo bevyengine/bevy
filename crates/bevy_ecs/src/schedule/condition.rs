@@ -752,7 +752,7 @@ pub mod common_conditions {
         move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => *current_state == state,
             None => {
-                warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
+                warn_once!("No state matching the type for {} exists - did you forget to `init_state` when initializing the app?", {
                         let debug_state = format!("{state:?}");
                         let result = debug_state
                             .split("::")
@@ -837,7 +837,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(bevy_ecs::event::event_update_system::<MyEvent>.before(my_system));
+    /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
     ///
     /// app.add_systems(
     ///     my_system.run_if(on_event::<MyEvent>()),
@@ -1032,7 +1032,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::component::Component;
     use crate::schedule::IntoSystemConfigs;
-    use crate::schedule::{common_conditions::not, State, States};
+    use crate::schedule::{State, States};
     use crate::system::Local;
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Event;

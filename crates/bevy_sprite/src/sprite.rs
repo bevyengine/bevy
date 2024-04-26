@@ -1,7 +1,7 @@
+use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::color::Color;
 
 use crate::TextureSlicer;
 
@@ -32,8 +32,6 @@ pub struct Sprite {
 }
 
 /// Controls how the image is altered when scaled.
-///
-/// Note: This is not yet compatible with texture atlases
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]
 pub enum ImageScaleMode {

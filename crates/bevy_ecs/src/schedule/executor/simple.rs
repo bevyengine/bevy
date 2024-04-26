@@ -10,6 +10,8 @@ use crate::{
     world::World,
 };
 
+use super::__rust_begin_short_backtrace;
+
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
@@ -93,7 +95,7 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                system.run((), world);
+                __rust_begin_short_backtrace::run(&mut **system, world);
             }));
             if let Err(payload) = res {
                 eprintln!("Encountered a panic in system `{}`!", &*system.name());
@@ -126,14 +128,14 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| condition.run((), world))
+        .map(|condition| __rust_begin_short_backtrace::readonly_run(&mut **condition, world))
         .fold(true, |acc, res| acc && res)
 }
 
 #[cfg(test)]
 #[test]
 fn skip_automatic_sync_points() {
-    // Schedules automatically insert appy_deferred systems, but these should
+    // Schedules automatically insert apply_deferred systems, but these should
     // not be executed as they only serve as markers and are not initialized
     use crate::prelude::*;
     let mut sched = Schedule::default();

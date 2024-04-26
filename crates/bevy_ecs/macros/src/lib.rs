@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
 
@@ -238,8 +239,9 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     (#(#param,)*)
                 }
 
-                fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta);
+                unsafe fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                    unsafe { <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -424,8 +426,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta)
+                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {

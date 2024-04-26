@@ -1,13 +1,11 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    color::Color,
-    extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::*,
+    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
 };
 
@@ -66,6 +64,10 @@ pub struct Wireframe;
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///
 /// This overrides the [`WireframeConfig::default_color`].
+//
+// TODO: consider caching materials based on this color.
+// This could blow up in size if people use random colored wireframes for each mesh.
+// It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct WireframeColor {
@@ -106,7 +108,7 @@ fn setup_global_wireframe_material(
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {
-            color: config.default_color,
+            color: config.default_color.into(),
         }),
     });
 }
@@ -118,7 +120,7 @@ fn global_color_changed(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
-        global_material.color = config.default_color;
+        global_material.color = config.default_color.into();
     }
 }
 
@@ -133,7 +135,7 @@ fn wireframe_color_changed(
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
         *handle = materials.add(WireframeMaterial {
-            color: wireframe_color.color,
+            color: wireframe_color.color.into(),
         });
     }
 }
@@ -157,19 +159,12 @@ fn apply_wireframe_material(
         }
     }
 
-    let mut wireframes_to_spawn = vec![];
-    for (e, wireframe_color) in &wireframes {
-        let material = if let Some(wireframe_color) = wireframe_color {
-            materials.add(WireframeMaterial {
-                color: wireframe_color.color,
-            })
-        } else {
-            // If there's no color specified we can use the global material since it's already set to use the default_color
-            global_material.handle.clone()
-        };
-        wireframes_to_spawn.push((e, material));
+    let mut material_to_spawn = vec![];
+    for (e, maybe_color) in &wireframes {
+        let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+        material_to_spawn.push((e, material));
     }
-    commands.insert_or_spawn_batch(wireframes_to_spawn);
+    commands.insert_or_spawn_batch(material_to_spawn);
 }
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
@@ -178,16 +173,21 @@ type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWirefr
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
-    meshes_without_material: Query<Entity, (WireframeFilter, Without<Handle<WireframeMaterial>>)>,
+    meshes_without_material: Query<
+        (Entity, Option<&WireframeColor>),
+        (WireframeFilter, Without<Handle<WireframeMaterial>>),
+    >,
     meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
     global_material: Res<GlobalWireframeMaterial>,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for e in &meshes_without_material {
+        for (e, maybe_color) in &meshes_without_material {
+            let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, global_material.handle.clone()));
+            material_to_spawn.push((e, material));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
@@ -197,10 +197,26 @@ fn apply_global_wireframe_material(
     }
 }
 
+/// Gets an handle to a wireframe material with a fallback on the default material
+fn get_wireframe_material(
+    maybe_color: Option<&WireframeColor>,
+    wireframe_materials: &mut Assets<WireframeMaterial>,
+    global_material: &GlobalWireframeMaterial,
+) -> Handle<WireframeMaterial> {
+    if let Some(wireframe_color) = maybe_color {
+        wireframe_materials.add(WireframeMaterial {
+            color: wireframe_color.color.into(),
+        })
+    } else {
+        // If there's no color specified we can use the global material since it's already set to use the default_color
+        global_material.handle.clone()
+    }
+}
+
 #[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
 pub struct WireframeMaterial {
     #[uniform(0)]
-    pub color: Color,
+    pub color: LinearRgba,
 }
 
 impl Material for WireframeMaterial {
@@ -211,11 +227,13 @@ impl Material for WireframeMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
+            depth_stencil.bias.slope_scale = 1.0;
+        }
         Ok(())
     }
 }

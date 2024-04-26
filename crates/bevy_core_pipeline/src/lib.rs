@@ -1,5 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 pub mod blit;
 pub mod bloom;
@@ -9,6 +15,7 @@ pub mod core_3d;
 pub mod deferred;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod prepass;
 mod skybox;
@@ -19,6 +26,8 @@ pub mod upscaling;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
+///
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
         pub use crate::taa::{
@@ -45,6 +54,7 @@ use crate::{
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
+    motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
@@ -81,6 +91,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                MotionBlurPlugin,
             ));
     }
 }

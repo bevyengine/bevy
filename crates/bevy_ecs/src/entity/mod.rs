@@ -37,7 +37,9 @@
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serde"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use map_entities::*;
 
 mod hash;
@@ -55,8 +57,9 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
+use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -80,6 +83,17 @@ type IdCursor = isize;
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Stability warning
+/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
+/// representation is liable to change from release to release as are the behaviors or performance
+/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in
+/// `Entity`'s representation, though made readable through various functions on the type, are not considered
+/// breaking changes under [SemVer].
+///
+/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarantee of long
+/// term wire format compatibility. Changes in behavior will cause serialized `Entity` values persisted
+/// to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being updated.
 ///
 /// # Usage
 ///
@@ -127,11 +141,13 @@ type IdCursor = isize;
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
-#[derive(Clone, Copy)]
+/// [SemVer]: https://semver.org/
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 #[cfg_attr(
-    feature = "bevy_reflect",
-    reflect_value(Hash, PartialEq, Serialize, Deserialize)
+    all(feature = "bevy_reflect", feature = "serde"),
+    reflect_value(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
@@ -352,6 +368,7 @@ impl From<Entity> for Identifier {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for Entity {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -361,6 +378,7 @@ impl Serialize for Entity {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Entity {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -372,9 +390,15 @@ impl<'de> Deserialize<'de> for Entity {
     }
 }
 
-impl fmt::Debug for Entity {
+impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.index(), self.generation())
+        write!(
+            f,
+            "{}v{}|{}",
+            self.index(),
+            self.generation(),
+            self.to_bits()
+        )
     }
 }
 
@@ -1036,10 +1060,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
     fn entity_comparison() {
-        // This is intentionally testing `lt` and `ge` as separate functions.
-        #![allow(clippy::nonminimal_bool)]
-
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())
@@ -1134,5 +1156,15 @@ mod tests {
             let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
             assert_ne!(hash, first_hash);
         }
+    }
+
+    #[test]
+    fn entity_display() {
+        let entity = Entity::from_raw(42);
+        let string = format!("{}", entity);
+        let bits = entity.to_bits().to_string();
+        assert!(string.contains("42"));
+        assert!(string.contains("v1"));
+        assert!(string.contains(&bits));
     }
 }

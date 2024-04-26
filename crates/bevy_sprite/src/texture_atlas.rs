@@ -1,6 +1,6 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
-use bevy_math::{Rect, Vec2};
+use bevy_math::{URect, UVec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
@@ -12,6 +12,7 @@ use bevy_utils::HashMap;
 /// [`TextureAtlasBuilder`]).
 ///
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// [Example usage animating sprite in response to an event.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
@@ -19,9 +20,9 @@ use bevy_utils::HashMap;
 #[reflect(Debug)]
 pub struct TextureAtlasLayout {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
-    pub size: Vec2,
+    pub size: UVec2,
     /// The specific areas of the atlas where each texture can be found
-    pub textures: Vec<Rect>,
+    pub textures: Vec<URect>,
     /// Maps from a specific image handle to the index in `textures` where they can be found.
     ///
     /// This field is set by [`TextureAtlasBuilder`].
@@ -40,6 +41,7 @@ pub struct TextureAtlasLayout {
 ///
 /// Check the following examples for usage:
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Component, Default, Debug, Clone, Reflect)]
 pub struct TextureAtlas {
@@ -51,7 +53,7 @@ pub struct TextureAtlas {
 
 impl TextureAtlasLayout {
     /// Create a new empty layout with custom `dimensions`
-    pub fn new_empty(dimensions: Vec2) -> Self {
+    pub fn new_empty(dimensions: UVec2) -> Self {
         Self {
             size: dimensions,
             texture_handles: None,
@@ -73,16 +75,16 @@ impl TextureAtlasLayout {
     /// * `padding` - Optional padding between cells
     /// * `offset` - Optional global grid offset
     pub fn from_grid(
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Option<Vec2>,
-        offset: Option<Vec2>,
+        tile_size: UVec2,
+        columns: u32,
+        rows: u32,
+        padding: Option<UVec2>,
+        offset: Option<UVec2>,
     ) -> Self {
         let padding = padding.unwrap_or_default();
         let offset = offset.unwrap_or_default();
         let mut sprites = Vec::new();
-        let mut current_padding = Vec2::ZERO;
+        let mut current_padding = UVec2::ZERO;
 
         for y in 0..rows {
             if y > 0 {
@@ -93,18 +95,17 @@ impl TextureAtlasLayout {
                     current_padding.x = padding.x;
                 }
 
-                let cell = Vec2::new(x as f32, y as f32);
-
+                let cell = UVec2::new(x, y);
                 let rect_min = (tile_size + current_padding) * cell + offset;
 
-                sprites.push(Rect {
+                sprites.push(URect {
                     min: rect_min,
                     max: rect_min + tile_size,
                 });
             }
         }
 
-        let grid_size = Vec2::new(columns as f32, rows as f32);
+        let grid_size = UVec2::new(columns, rows);
 
         Self {
             size: ((tile_size + current_padding) * grid_size) - current_padding,
@@ -121,7 +122,7 @@ impl TextureAtlasLayout {
     /// * `rect` - The section of the texture to be added
     ///
     /// [`TextureAtlas`]: crate::TextureAtlas
-    pub fn add_texture(&mut self, rect: Rect) -> usize {
+    pub fn add_texture(&mut self, rect: URect) -> usize {
         self.textures.push(rect);
         self.textures.len() - 1
     }
@@ -149,8 +150,8 @@ impl TextureAtlasLayout {
 }
 
 impl TextureAtlas {
-    /// Retrieves the current texture [`Rect`] of the sprite sheet according to the section `index`
-    pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<Rect> {
+    /// Retrieves the current texture [`URect`] of the sprite sheet according to the section `index`
+    pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<URect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
     }
