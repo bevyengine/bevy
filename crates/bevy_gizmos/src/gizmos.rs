@@ -1,6 +1,6 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData};
+use std::{iter, marker::PhantomData, mem};
 
 use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use bevy_color::{Color, LinearRgba};
@@ -11,6 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
+use bevy_utils::default;
 
 use crate::{
     config::GizmoConfigGroup,
@@ -18,47 +19,157 @@ use crate::{
     prelude::GizmoConfig,
 };
 
-#[derive(Resource, Default)]
-pub(crate) struct GizmoStorage<T: GizmoConfigGroup> {
+/// Storage of gizmo primitives.
+#[derive(Resource)]
+pub struct GizmoStorage<Config, Clear> {
     pub(crate) list_positions: Vec<Vec3>,
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    marker: PhantomData<T>,
+    marker: PhantomData<(Config, Clear)>,
 }
+
+impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
+    fn default() -> Self {
+        Self {
+            list_positions: default(),
+            list_colors: default(),
+            strip_positions: default(),
+            strip_colors: default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<Config, Clear> GizmoStorage<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Combine the other gizmo storage with this one.
+    pub fn append_storage<OtherConfig, OtherClear>(
+        &mut self,
+        other: &GizmoStorage<OtherConfig, OtherClear>,
+    ) {
+        self.list_positions.extend(other.list_positions.iter());
+        self.list_colors.extend(other.list_colors.iter());
+        self.strip_positions.extend(other.strip_positions.iter());
+        self.strip_colors.extend(other.strip_colors.iter());
+    }
+
+    pub(crate) fn swap<OtherConfig, OtherClear>(
+        &mut self,
+        other: &mut GizmoStorage<OtherConfig, OtherClear>,
+    ) {
+        mem::swap(&mut self.list_positions, &mut other.list_positions);
+        mem::swap(&mut self.list_colors, &mut other.list_colors);
+        mem::swap(&mut self.strip_positions, &mut other.strip_positions);
+        mem::swap(&mut self.strip_colors, &mut other.strip_colors);
+    }
+
+    /// Clear this gizmo storage of any requested gizmos.
+    pub fn clear(&mut self) {
+        self.list_positions.clear();
+        self.list_colors.clear();
+        self.strip_positions.clear();
+        self.strip_colors.clear();
+    }
+}
+
+/// Swap buffer for a specific clearing context.
+///
+/// This is to stash/store the default/requested gizmos so another context can
+/// be substituted for that duration.
+pub struct Swap<Clear>(PhantomData<Clear>);
 
 /// A [`SystemParam`] for drawing gizmos.
 ///
 /// They are drawn in immediate mode, which means they will be rendered only for
-/// the frames in which they are spawned.
-/// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
-pub struct Gizmos<'w, 's, T: GizmoConfigGroup = DefaultGizmoConfigGroup> {
-    buffer: Deferred<'s, GizmoBuffer<T>>,
+/// the frames, or ticks when in [`FixedMain`](bevy_app::FixedMain), in which
+/// they are spawned.
+///
+/// A system in [`Main`](bevy_app::Main) will be cleared each rendering
+/// frame, while a system in [`FixedMain`](bevy_app::FixedMain) will be
+/// cleared each time the [`RunFixedMainLoop`](bevy_app::RunFixedMainLoop)
+/// schedule is run.
+///
+/// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule
+/// to ensure they are drawn.
+///
+/// To set up your own clearing context (useful for custom scheduling similar
+/// to [`FixedMain`](bevy_app::FixedMain)):
+///
+/// ```
+/// use bevy_gizmos::{prelude::*, *, gizmos::GizmoStorage};
+/// # use bevy_app::prelude::*;
+/// # use bevy_ecs::{schedule::ScheduleLabel, prelude::*};
+/// # #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+/// # struct StartOfMyContext;
+/// # #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+/// # struct EndOfMyContext;
+/// # #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+/// # struct StartOfRun;
+/// # #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+/// # struct EndOfRun;
+/// # struct MyContext;
+/// struct ClearContextSetup;
+/// impl Plugin for ClearContextSetup {
+///     fn build(&self, app: &mut App) {
+///         app.init_resource::<GizmoStorage<DefaultGizmoConfigGroup, MyContext>>()
+///            // Make sure this context starts/ends cleanly if inside another context. E.g. it
+///            // should start after the parent context starts and end after the parent context ends.
+///            .add_systems(StartOfMyContext, start_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            // If not running multiple times, put this with [`start_gizmo_context`].
+///            .add_systems(StartOfRun, clear_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            // If not running multiple times, put this with [`end_gizmo_context`].
+///            .add_systems(EndOfRun, collect_requested_gizmos::<DefaultGizmoConfigGroup, MyContext>)
+///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
+///            .add_systems(
+///                Last,
+///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(UpdateGizmoMeshes),
+///            );
+///     }
+/// }
+/// ```
+pub struct Gizmos<'w, 's, Config = DefaultGizmoConfigGroup, Clear = ()>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    buffer: Deferred<'s, GizmoBuffer<Config, Clear>>,
     pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
-    pub config_ext: &'w T,
+    pub config_ext: &'w Config,
 }
 
-type GizmosState<T> = (
-    Deferred<'static, GizmoBuffer<T>>,
+type GizmosState<Config, Clear> = (
+    Deferred<'static, GizmoBuffer<Config, Clear>>,
     Res<'static, GizmoConfigStore>,
 );
 #[doc(hidden)]
-pub struct GizmosFetchState<T: GizmoConfigGroup> {
-    state: <GizmosState<T> as SystemParam>::State,
+pub struct GizmosFetchState<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    state: <GizmosState<Config, Clear> as SystemParam>::State,
 }
 
 #[allow(unsafe_code)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
-unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
-    type State = GizmosFetchState<T>;
-    type Item<'w, 's> = Gizmos<'w, 's, T>;
+unsafe impl<Config, Clear> SystemParam for Gizmos<'_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type State = GizmosFetchState<Config, Clear>;
+    type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<T>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
         }
     }
 
@@ -68,11 +179,13 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
         system_meta: &mut SystemMeta,
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe { GizmosState::<T>::new_archetype(&mut state.state, archetype, system_meta) };
+        unsafe {
+            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
+        };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        GizmosState::<T>::apply(&mut state.state, system_meta, world);
+        GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
     unsafe fn get_param<'w, 's>(
@@ -83,12 +196,17 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations
         let (f0, f1) = unsafe {
-            GizmosState::<T>::get_param(&mut state.state, system_meta, world, change_tick)
+            GizmosState::<Config, Clear>::get_param(
+                &mut state.state,
+                system_meta,
+                world,
+                change_tick,
+            )
         };
         // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
         // Implementing SystemParam manually allows us to do it to here
         // Having config available allows for early returns when gizmos are disabled
-        let (config, config_ext) = f1.into_inner().config::<T>();
+        let (config, config_ext) = f1.into_inner().config::<Config>();
         Gizmos {
             buffer: f0,
             enabled: config.enabled,
@@ -100,25 +218,50 @@ unsafe impl<T: GizmoConfigGroup> SystemParam for Gizmos<'_, '_, T> {
 
 #[allow(unsafe_code)]
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
-unsafe impl<'w, 's, T: GizmoConfigGroup> ReadOnlySystemParam for Gizmos<'w, 's, T>
+unsafe impl<'w, 's, Config, Clear> ReadOnlySystemParam for Gizmos<'w, 's, Config, Clear>
 where
-    Deferred<'s, GizmoBuffer<T>>: ReadOnlySystemParam,
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    Deferred<'s, GizmoBuffer<Config, Clear>>: ReadOnlySystemParam,
     Res<'w, GizmoConfigStore>: ReadOnlySystemParam,
 {
 }
 
-#[derive(Default)]
-struct GizmoBuffer<T: GizmoConfigGroup> {
+struct GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     list_positions: Vec<Vec3>,
     list_colors: Vec<LinearRgba>,
     strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
-    marker: PhantomData<T>,
+    marker: PhantomData<(Config, Clear)>,
 }
 
-impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
+impl<Config, Clear> Default for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn default() -> Self {
+        Self {
+            list_positions: default(),
+            list_colors: default(),
+            strip_positions: default(),
+            strip_colors: default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<Config, Clear> SystemBuffer for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage<T>>();
+        let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
@@ -126,7 +269,11 @@ impl<T: GizmoConfigGroup> SystemBuffer for GizmoBuffer<T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -340,7 +487,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: Quat,
         radius: f32,
         color: impl Into<Color>,
-    ) -> SphereBuilder<'_, 'w, 's, T> {
+    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             position,
@@ -644,8 +791,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 /// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct SphereBuilder<'a, 'w, 's, Config, Clear = ()>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     radius: f32,
@@ -653,7 +804,11 @@ pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     circle_segments: usize,
 }
 
-impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
+impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of line-segments per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
@@ -661,7 +816,11 @@ impl<T: GizmoConfigGroup> SphereBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for SphereBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
