@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{vec3, Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         gpu_preprocessing, no_gpu_preprocessing, GetBatchData, GetFullBatchData,
@@ -403,32 +403,6 @@ pub struct RenderMeshInstanceShared {
     pub flags: RenderMeshInstanceFlags,
 }
 
-/// Information that is gathered during the parallel portion of mesh extraction
-/// when GPU mesh uniform building is enabled.
-///
-/// From this, the [`MeshInputUniform`] and [`RenderMeshInstanceGpu`] are
-/// prepared.
-pub struct RenderMeshInstanceGpuBuilder {
-    /// Data that will be placed on the [`RenderMeshInstanceGpu`].
-    pub shared: RenderMeshInstanceShared,
-    /// The current transform.
-    pub transform: Affine3,
-    /// Four 16-bit unsigned normalized UV values packed into a [`UVec2`]:
-    ///
-    /// ```text
-    ///                         <--- MSB                   LSB --->
-    ///                         +---- min v ----+ +---- min u ----+
-    ///     lightmap_uv_rect.x: vvvvvvvv vvvvvvvv uuuuuuuu uuuuuuuu,
-    ///                         +---- max v ----+ +---- max u ----+
-    ///     lightmap_uv_rect.y: VVVVVVVV VVVVVVVV UUUUUUUU UUUUUUUU,
-    ///
-    /// (MSB: most significant bit; LSB: least significant bit.)
-    /// ```
-    pub lightmap_uv_rect: UVec2,
-    /// Various flags.
-    pub mesh_flags: MeshFlags,
-}
-
 impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
@@ -457,6 +431,7 @@ impl RenderMeshInstanceShared {
 
     /// Returns true if this entity is eligible to participate in automatic
     /// batching.
+    #[inline]
     pub fn should_batch(&self) -> bool {
         self.flags
             .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
@@ -650,7 +625,9 @@ pub fn extract_meshes_for_cpu_building(
 
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
-        render_mesh_instances.extend(queue.drain(..));
+        for (k, v) in queue.drain(..) {
+            render_mesh_instances.insert_unique_unchecked(k, v);
+        }
     }
 }
 
@@ -664,8 +641,9 @@ pub fn extract_meshes_for_gpu_building(
     mut batched_instance_buffers: ResMut<
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
-    mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>>,
-    mut prev_render_mesh_instances: Local<RenderMeshInstancesGpu>,
+    mut render_mesh_instance_queues: Local<
+        Parallel<Vec<(Entity, RenderMeshInstanceShared, MeshInputUniform)>>,
+    >,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -681,6 +659,24 @@ pub fn extract_meshes_for_gpu_building(
         )>,
     >,
 ) {
+    // Collect render mesh instances. Build up the uniform buffer.
+    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
+    else {
+        panic!(
+            "`collect_render_mesh_instances_for_gpu_building` should only be called if we're \
+                using GPU `MeshUniform` building"
+        );
+    };
+
+    let gpu_preprocessing::BatchedInstanceBuffers {
+        ref mut current_input_buffer,
+        ref mut previous_input_buffer,
+        ..
+    } = *batched_instance_buffers;
+
+    // Swap buffers.
+    mem::swap(current_input_buffer, previous_input_buffer);
+
     meshes_query.par_iter().for_each_init(
         || render_mesh_instance_queues.borrow_local_mut(),
         |queue,
@@ -710,94 +706,52 @@ pub fn extract_meshes_for_gpu_building(
                 no_automatic_batching,
             );
 
+            let previous_input_index = shared
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
+                .then(|| {
+                    render_mesh_instances
+                        .get(&entity)
+                        .map(|render_mesh_instance| {
+                            render_mesh_instance.current_uniform_index.into()
+                        })
+                        .unwrap_or(u32::MAX)
+                })
+                .unwrap_or(u32::MAX);
+
             let lightmap_uv_rect =
                 lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+            let affine3: Affine3 = (&transform.affine()).into();
 
             queue.push((
                 entity,
-                RenderMeshInstanceGpuBuilder {
-                    shared,
-                    transform: (&transform.affine()).into(),
+                shared,
+                MeshInputUniform {
+                    flags: mesh_flags.bits(),
                     lightmap_uv_rect,
-                    mesh_flags,
+                    transform: affine3.to_transpose(),
+                    previous_input_index,
                 },
             ));
         },
     );
 
-    collect_meshes_for_gpu_building(
-        &mut render_mesh_instances,
-        &mut batched_instance_buffers,
-        &mut render_mesh_instance_queues,
-        &mut prev_render_mesh_instances,
-    );
-}
-
-/// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
-/// mesh uniforms are built.
-fn collect_meshes_for_gpu_building(
-    render_mesh_instances: &mut RenderMeshInstances,
-    batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
-        MeshUniform,
-        MeshInputUniform,
-    >,
-    render_mesh_instance_queues: &mut Parallel<Vec<(Entity, RenderMeshInstanceGpuBuilder)>>,
-    prev_render_mesh_instances: &mut RenderMeshInstancesGpu,
-) {
-    // Collect render mesh instances. Build up the uniform buffer.
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
-    else {
-        panic!(
-            "`collect_render_mesh_instances_for_gpu_building` should only be called if we're \
-            using GPU `MeshUniform` building"
-        );
-    };
-
-    let gpu_preprocessing::BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
-        ..
-    } = batched_instance_buffers;
-
-    // Swap buffers.
-    mem::swap(current_input_buffer, previous_input_buffer);
-    mem::swap(render_mesh_instances, prev_render_mesh_instances);
-
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
-        for (entity, builder) in queue.drain(..) {
-            let previous_input_index = if builder
-                .shared
-                .flags
-                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
-            {
-                prev_render_mesh_instances
-                    .get(&entity)
-                    .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
-            } else {
-                None
-            };
-
-            // Push the mesh input uniform.
-            let current_uniform_index = current_input_buffer.push(MeshInputUniform {
-                transform: builder.transform.to_transpose(),
-                lightmap_uv_rect: builder.lightmap_uv_rect,
-                flags: builder.mesh_flags.bits(),
-                previous_input_index: match previous_input_index {
-                    Some(previous_input_index) => previous_input_index.into(),
-                    None => u32::MAX,
-                },
-            }) as u32;
-
-            // Record the [`RenderMeshInstance`].
-            render_mesh_instances.insert(
+        for (entity, shared, mesh_uniform) in queue.drain(..) {
+            let buffer_index = current_input_buffer.push(mesh_uniform);
+            let translation = vec3(
+                mesh_uniform.transform[0].w,
+                mesh_uniform.transform[1].w,
+                mesh_uniform.transform[2].w,
+            );
+            render_mesh_instances.insert_unique_unchecked(
                 entity,
                 RenderMeshInstanceGpu {
-                    translation: builder.transform.translation,
-                    shared: builder.shared,
-                    current_uniform_index: NonMaxU32::try_from(current_uniform_index)
-                        .unwrap_or_default(),
+                    shared,
+                    translation,
+                    current_uniform_index: NonMaxU32::new(buffer_index as u32).unwrap_or_default(),
                 },
             );
         }
