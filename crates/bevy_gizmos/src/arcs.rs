@@ -36,12 +36,12 @@ where
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN.into());
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -61,7 +61,7 @@ where
             direction_angle,
             arc_angle,
             radius,
-            color: color,
+            color,
             segments: None,
         }
     }
@@ -175,7 +175,7 @@ where
     ///          0.25,
     ///          Vec3::ONE,
     ///          rotation,
-    ///          ORANGE
+    ///          ORANGE.into(),
     ///          )
     ///          .segments(100);
     /// }
@@ -197,7 +197,7 @@ where
             rotation,
             angle,
             radius,
-            color: color,
+            color,
             segments: None,
         }
     }
@@ -226,7 +226,7 @@ where
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        ORANGE
+    ///        ORANGE.into(),
     ///        )
     ///        .segments(100);
     /// }
@@ -273,7 +273,7 @@ where
     ///        Vec3::ONE,
     ///        Vec3::ONE + Vec3::NEG_ONE,
     ///        Vec3::ZERO,
-    ///        ORANGE
+    ///        ORANGE.into(),
     ///        )
     ///        .segments(100);
     /// }
@@ -333,7 +333,7 @@ where
             rotation,
             angle,
             radius,
-            color: color,
+            color,
             segments: None,
         }
     }

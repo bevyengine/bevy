@@ -35,12 +35,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), GREEN);
+    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), GREEN.into());
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), RED)
+    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -58,7 +58,7 @@ where
             position,
             rotation,
             half_size,
-            color: color,
+            color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -74,12 +74,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), GREEN);
+    ///     gizmos.ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(2., 1.), GREEN.into());
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), RED)
+    ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -97,7 +97,7 @@ where
             position,
             rotation: Mat2::from_angle(angle),
             half_size,
-            color: color,
+            color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -113,12 +113,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., GREEN);
+    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., GREEN.into());
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
+    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -136,7 +136,7 @@ where
             position,
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_size: Vec2::splat(radius),
-            color: color,
+            color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -152,12 +152,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle_2d(Vec2::ZERO, 1., GREEN);
+    ///     gizmos.circle_2d(Vec2::ZERO, 1., GREEN.into());
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle_2d(Vec2::ZERO, 5., RED)
+    ///         .circle_2d(Vec2::ZERO, 5., RED.into())
     ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -174,7 +174,7 @@ where
             position,
             rotation: Mat2::IDENTITY,
             half_size: Vec2::splat(radius),
-            color: color,
+            color,
             segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }

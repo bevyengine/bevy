@@ -13,7 +13,7 @@
 //! # use bevy_math::prelude::*;
 //! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN.into());
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```

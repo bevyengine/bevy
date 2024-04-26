@@ -40,7 +40,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN)
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN.into())
     ///         .with_tip_length(3.);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -118,7 +118,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN);
+    ///     gizmos.arrow(Vec3::ZERO, Vec3::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -133,7 +133,7 @@ where
             gizmos: self,
             start,
             end,
-            color: color,
+            color,
             double_ended: false,
             tip_length: length / 10.,
         }
@@ -150,7 +150,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, GREEN);
+    ///     gizmos.arrow_2d(Vec2::ZERO, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

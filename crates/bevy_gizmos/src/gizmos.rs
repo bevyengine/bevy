@@ -285,7 +285,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
+    ///     gizmos.line(Vec3::ZERO, Vec3::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -309,7 +309,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, GREEN, RED);
+    ///     gizmos.line_gradient(Vec3::ZERO, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -339,7 +339,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray(Vec3::Y, Vec3::X, GREEN);
+    ///     gizmos.ray(Vec3::Y, Vec3::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -362,7 +362,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, GREEN, RED);
+    ///     gizmos.ray_gradient(Vec3::Y, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -391,7 +391,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
+    ///     gizmos.linestrip([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -485,7 +485,7 @@ where
             position,
             rotation: rotation.normalize(),
             radius,
-            color: color,
+            color,
             circle_segments: DEFAULT_CIRCLE_SEGMENTS,
         }
     }
@@ -501,7 +501,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -525,7 +525,7 @@ where
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cuboid(Transform::IDENTITY, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -565,7 +565,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, GREEN);
+    ///     gizmos.line_2d(Vec2::ZERO, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -588,7 +588,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, GREEN, RED);
+    ///     gizmos.line_gradient_2d(Vec2::ZERO, Vec2::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -617,7 +617,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
+    ///     gizmos.linestrip_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -674,7 +674,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, GREEN);
+    ///     gizmos.ray_2d(Vec2::Y, Vec2::X, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -697,7 +697,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, GREEN, RED);
+    ///     gizmos.line_gradient(Vec3::Y, Vec3::X, GREEN.into(), RED.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -726,7 +726,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN.into());
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

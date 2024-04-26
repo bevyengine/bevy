@@ -223,7 +223,7 @@ where
             direction: primitive.direction,
             position,
             rotation: Mat2::from_angle(angle),
-            color: color,
+            color,
             draw_arrow: false,
         }
     }
@@ -365,7 +365,7 @@ where
 
             position,
             rotation: Mat2::from_angle(angle),
-            color: color,
+            color,
 
             draw_arrow: Default::default(),
         }

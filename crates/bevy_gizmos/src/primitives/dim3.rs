@@ -108,7 +108,7 @@ where
             radius: primitive.radius,
             position,
             rotation,
-            color: color,
+            color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -223,7 +223,7 @@ where
             normal: primitive.normal,
             rotation,
             position,
-            color: color,
+            color,
             axis_count: 4,
             segment_count: 3,
             segment_length: 0.25,
@@ -516,7 +516,7 @@ where
             half_height: primitive.half_height,
             position,
             rotation,
-            color: color,
+            color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -629,7 +629,7 @@ where
             half_length: primitive.half_length,
             position,
             rotation,
-            color: color,
+            color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -760,7 +760,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color: color,
+            color,
             base_segments: DEFAULT_NUMBER_SEGMENTS,
             height_segments: DEFAULT_NUMBER_SEGMENTS,
         }
@@ -875,7 +875,7 @@ where
             height: primitive.height,
             position,
             rotation,
-            color: color,
+            color,
             segments: DEFAULT_NUMBER_SEGMENTS,
         }
     }
@@ -1002,7 +1002,7 @@ where
             major_radius: primitive.major_radius,
             position,
             rotation,
-            color: color,
+            color,
             minor_segments: DEFAULT_NUMBER_SEGMENTS,
             major_segments: DEFAULT_NUMBER_SEGMENTS,
         }
