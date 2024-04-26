@@ -1,5 +1,8 @@
-use crate::renderer::RenderAdapter;
-use crate::{render_resource::*, renderer::RenderDevice, Extract};
+use crate::{
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice},
+    Extract,
+};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
@@ -186,6 +189,15 @@ impl ShaderCache {
                 Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
                 Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
+            (
+                Features::TEXTURE_FORMAT_16BIT_NORM,
+                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+            ),
+            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
+            (
+                Features::SHADER_EARLY_DEPTH_TEST,
+                Capabilities::EARLY_DEPTH_TEST,
+            ),
         ];
         let features = render_device.features();
         let mut capabilities = Capabilities::empty();
@@ -195,12 +207,28 @@ impl ShaderCache {
             }
         }
 
-        if render_adapter
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
-        {
-            capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[
+            (
+                DownlevelFlags::CUBE_ARRAY_TEXTURES,
+                Capabilities::CUBE_ARRAY_TEXTURES,
+            ),
+            (
+                DownlevelFlags::MULTISAMPLED_SHADING,
+                Capabilities::MULTISAMPLED_SHADING,
+            ),
+            (
+                DownlevelFlags::CUBE_ARRAY_TEXTURES,
+                Capabilities::CUBE_ARRAY_TEXTURES,
+            ),
+        ];
+        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
+            if render_adapter
+                .get_downlevel_capabilities()
+                .flags
+                .contains(*downlevel_flag)
+            {
+                capabilities |= *capability;
+            }
         }
 
         #[cfg(debug_assertions)]
