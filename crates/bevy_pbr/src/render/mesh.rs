@@ -1044,8 +1044,8 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
-        const SSR                               = 1 << 15;
-        const LAST_FLAG                         = Self::SSR.bits();
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 15;
+        const LAST_FLAG                         = Self::SCREEN_SPACE_REFLECTIONS.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;

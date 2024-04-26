@@ -383,12 +383,12 @@ fn apply_pbr_lighting(
 
     // If screen space reflections are going to be used for this material, don't
     // accumulate environment map light yet. The SSR shader will do it.
-#ifdef SSR
+#ifdef SCREEN_SPACE_REFLECTIONS
     let use_ssr = perceptual_roughness <=
         view_bindings::ssr_settings.perceptual_roughness_threshold;
-#else   // SSR
+#else   // SCREEN_SPACE_REFLECTIONS
     let use_ssr = false;
-#endif  // SSR
+#endif  // SCREEN_SPACE_REFLECTIONS
 
     if (!use_ssr) {
         let environment_light = environment_map::environment_map_light(

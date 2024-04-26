@@ -305,7 +305,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::SSR) {
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             shader_defs.push("SSR".into());
         }
 
@@ -488,7 +488,7 @@ pub fn prepare_deferred_lighting_pipelines(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         if ssr {
-            view_key |= MeshPipelineKey::SSR;
+            view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
         }
 
         // We don't need to check to see whether the environment map is loaded
