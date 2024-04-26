@@ -767,6 +767,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
