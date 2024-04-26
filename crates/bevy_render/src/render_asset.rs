@@ -169,8 +169,8 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
-    removed: Vec<AssetId<A::SourceAsset>>,
-    added: Vec<AssetId<A::SourceAsset>>,
+    removed: HashSet<AssetId<A::SourceAsset>>,
+    added: HashSet<AssetId<A::SourceAsset>>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -244,7 +244,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut changed_assets = HashSet::default();
-            let mut removed = Vec::new();
+            let mut removed = HashSet::default();
 
             for event in events.read() {
                 #[allow(clippy::match_same_arms)]
@@ -255,7 +255,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                     AssetEvent::Removed { .. } => {}
                     AssetEvent::Unused { id } => {
                         changed_assets.remove(id);
-                        removed.push(*id);
+                        removed.insert(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
@@ -264,7 +264,7 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
             }
 
             let mut extracted_assets = Vec::new();
-            let mut added = Vec::new();
+            let mut added = HashSet::new();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
@@ -272,11 +272,11 @@ fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: 
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {
                                 extracted_assets.push((id, asset));
-                                added.push(id);
+                                added.insert(id);
                             }
                         } else {
                             extracted_assets.push((id, asset.clone()));
-                            added.push(id);
+                            added.insert(id);
                         }
                     }
                 }
@@ -322,6 +322,7 @@ pub fn prepare_assets<A: RenderAsset>(
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
         if extracted_assets.removed.contains(&id) || extracted_assets.added.contains(&id) {
+            // skip previous frame's assets that have been removed or updated
             continue;
         }
 
@@ -351,7 +352,7 @@ pub fn prepare_assets<A: RenderAsset>(
         }
     }
 
-    for removed in extracted_assets.removed.drain(..) {
+    for removed in extracted_assets.removed.drain() {
         render_assets.remove(removed);
     }
 
