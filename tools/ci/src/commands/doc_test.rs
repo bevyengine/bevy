@@ -1,4 +1,4 @@
-use crate::commands::{Flag, Prepare, PreparedCommand};
+use crate::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 

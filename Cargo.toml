@@ -335,8 +335,11 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 ios_simulator = ["bevy_internal/ios_simulator"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+
+# WASM does not support dynamic linking.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -767,6 +770,17 @@ name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "tonemapping"
