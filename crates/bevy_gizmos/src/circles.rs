@@ -4,7 +4,7 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
-use bevy_color::Color;
+use bevy_color::LinearRgba;
 use bevy_math::Mat2;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
@@ -51,7 +51,7 @@ where
         position: Vec3,
         rotation: Quat,
         half_size: Vec2,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
@@ -90,7 +90,7 @@ where
         position: Vec2,
         angle: f32,
         half_size: Vec2,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
@@ -129,7 +129,7 @@ where
         position: Vec3,
         normal: Dir3,
         radius: f32,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
@@ -167,7 +167,7 @@ where
         &mut self,
         position: Vec2,
         radius: f32,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
@@ -190,7 +190,7 @@ where
     position: Vec3,
     rotation: Quat,
     half_size: Vec2,
-    color: Color,
+    color: LinearRgba,
     segments: usize,
 }
 
@@ -233,7 +233,7 @@ where
     position: Vec2,
     rotation: Mat2,
     half_size: Vec2,
-    color: Color,
+    color: LinearRgba,
     segments: usize,
 }
 

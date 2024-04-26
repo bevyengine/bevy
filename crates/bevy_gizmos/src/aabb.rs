@@ -3,7 +3,7 @@
 use crate as bevy_gizmos;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::{Color, Oklcha};
+use bevy_color::{LinearRgba, Oklcha};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -58,7 +58,7 @@ pub struct AabbGizmoConfigGroup {
     /// A random color is chosen per box if `None`.
     ///
     /// Defaults to `None`.
-    pub default_color: Option<Color>,
+    pub default_color: Option<LinearRgba>,
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
@@ -68,7 +68,7 @@ pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
     /// The default color from the [`AabbGizmoConfigGroup`] config is used if `None`,
-    pub color: Option<Color>,
+    pub color: Option<LinearRgba>,
 }
 
 fn draw_aabbs(
@@ -80,7 +80,7 @@ fn draw_aabbs(
             .color
             .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.cuboid(aabb_transform(aabb, transform), color.into());
     }
 }
 
@@ -93,11 +93,11 @@ fn draw_all_aabbs(
             .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.cuboid(aabb_transform(aabb, transform), color.into());
     }
 }
 
-fn color_from_entity(entity: Entity) -> Color {
+fn color_from_entity(entity: Entity) -> LinearRgba {
     Oklcha::sequential_dispersed(entity.index()).into()
 }
 

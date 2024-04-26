@@ -1089,7 +1089,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
         primitive: Tetrahedron,
         position: Vec3,
         rotation: Quat,
-        color: impl Into<Color>,
+        color: LinearRgba,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
