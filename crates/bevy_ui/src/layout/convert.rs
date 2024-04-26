@@ -316,6 +316,12 @@ impl MinTrackSizingFunction {
             MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::VMax(val).into_length_percentage(context),
             ),
+            MinTrackSizingFunction::Vh(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Vh(val).into_length_percentage(context),
+            ),
+            MinTrackSizingFunction::Vw(val) => taffy::style::MinTrackSizingFunction::Fixed(
+                Val::Vw(val).into_length_percentage(context),
+            ),
         }
     }
 }
@@ -350,6 +356,12 @@ impl MaxTrackSizingFunction {
             ),
             MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::VMax(val).into_length_percentage(context),
+            ),
+            MaxTrackSizingFunction::Vh(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Vh(val).into_length_percentage(context),
+            ),
+            MaxTrackSizingFunction::Vw(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+                Val::Vw(val).into_length_percentage(context),
             ),
         }
     }
