@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy_math::{
     cubic_splines::{CubicGenerator, CubicHermite},
     curve::{interval, ConstantCurve, Curve, Interpolable, Interval, MapCurve, UnevenSampleCurve},
@@ -7,7 +9,7 @@ use bevy_math::{
 /// A wrapper struct that gives the enclosed type the property of being [`Interpolable`] with
 /// naïve step interpolation. `self.interpolate(other, t)` is such that `self` is returned when
 /// `t` is less than `1.0`, while `other` is returned for values `1.0` and greater.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Stepped<T: Clone>(pub T)
 where
     T: Clone;
@@ -28,7 +30,7 @@ impl<T: Clone> Interpolable for Stepped<T> {
 ///
 /// Note that outside of the interval `[0, 1]`, this uses global extrapolation based on the
 /// out-tangent of the left-hand point and the in-tangent of the right-hand point.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct TwoSidedHermite<V: VectorSpace> {
     /// The position of the datum in space.
     pub point: V,
@@ -215,6 +217,42 @@ pub enum WeightsCurve {
     CubicSpline(DynamicArrayCurve<TwoSidedHermite<f32>>),
 }
 
+impl Curve<Vec<f32>> for WeightsCurve {
+    fn domain(&self) -> Interval {
+        match self {
+            WeightsCurve::Constant(c) => c.domain(),
+            WeightsCurve::Linear(c) => c.domain(),
+            WeightsCurve::Step(c) => c.domain(),
+            WeightsCurve::CubicSpline(c) => c.domain(),
+        }
+    }
+
+    fn sample(&self, t: f32) -> Vec<f32> {
+        match self {
+            WeightsCurve::Constant(c) => c.sample(t),
+            WeightsCurve::Linear(c) => c.sample(t),
+            WeightsCurve::Step(c) => c.map(|v| v.into_iter().map(|x| x.0).collect()).sample(t),
+            WeightsCurve::CubicSpline(c) => c
+                .map(|v| v.into_iter().map(|x| x.point).collect())
+                .sample(t),
+        }
+    }
+}
+
+impl MultiCurve<f32> for WeightsCurve {
+    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(f32) -> S)
+    where
+        S: Interpolable,
+    {
+        match self {
+            WeightsCurve::Constant(c) => todo!(),
+            WeightsCurve::Linear(c) => todo!(),
+            WeightsCurve::Step(c) => todo!(),
+            WeightsCurve::CubicSpline(c) => todo!(),
+        }
+    }
+}
+
 /// A curve for animating either a the component of a [`Transform`] (translation, rotation, scale)
 /// or the [`MorphWeights`] of morph targets for a mesh.
 ///
@@ -233,23 +271,78 @@ pub enum VariableCurve {
     Weights(WeightsCurve),
 }
 
-// TODO: Actually implement `MultiCurve` for this.
-
 //--------------//
 // EXPERIMENTAL //
 //--------------//
 
+/// A trait for a curve that takes many interpolable values simultaneously, providing a function
+/// to place those values into a buffer rather than allocating while sampling.
 pub trait MultiCurve<T>: Curve<Vec<T>>
 where
     T: Interpolable,
 {
-    fn sample_into(&self, buffer: &mut [T], t: f32);
+    /// Sample a number of simultaneous values from this curve into a buffer.
+    fn sample_into(&self, t: f32, buffer: &mut [T]) {
+        self.map_sample_into(t, buffer, &|x| x)
+    }
+
+    /// Map the collection of samples by `f` before putting them into the given buffer.
+    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
+    where
+        S: Interpolable;
 }
 
-// Blanket for `MapCurve`
+pub struct MultiMapCurve<S, T, C, F>
+where
+    S: Interpolable,
+    T: Interpolable,
+    C: MultiCurve<S>,
+    F: Fn(S) -> T,
+{
+    preimage: C,
+    f: F,
+    _phantom: PhantomData<(S, T)>,
+}
 
-// Idea: Perhaps this thing can be combined explicitly with a fixed buffer to create a curve that
-// does not allocate.
+impl<S, T, C, F> Curve<Vec<T>> for MultiMapCurve<S, T, C, F>
+where
+    S: Interpolable,
+    T: Interpolable,
+    C: MultiCurve<S>,
+    F: Fn(S) -> T,
+{
+    fn domain(&self) -> Interval {
+        self.preimage.domain()
+    }
+
+    fn sample(&self, t: f32) -> Vec<T> {
+        self.preimage
+            .sample(t)
+            .into_iter()
+            .map(|x| (self.f)(x))
+            .collect()
+    }
+}
+
+impl<S, T, C, F> MultiCurve<T> for MultiMapCurve<S, T, C, F>
+where
+    S: Interpolable,
+    T: Interpolable,
+    C: MultiCurve<S>,
+    F: Fn(S) -> T,
+{
+    fn sample_into(&self, t: f32, buffer: &mut [T]) {
+        self.preimage.map_sample_into(t, buffer, &self.f);
+    }
+
+    fn map_sample_into<R>(&self, t: f32, buffer: &mut [R], g: &impl Fn(T) -> R)
+    where
+        R: Interpolable,
+    {
+        let gf = |x| g((self.f)(x));
+        self.preimage.map_sample_into(t, buffer, &gf);
+    }
+}
 
 /// A curve data structure which holds data for a list of keyframes in a number of distinct
 /// "channels" equal to its `width`. This is sampled through `sample_into`, which places the data
@@ -358,7 +451,7 @@ where
     ///
     /// # Panics
     /// Panics if the provided buffer is not at least as large as `width`.
-    pub fn sample_into(&self, buffer: &mut [T], t: f32) {
+    pub fn sample_into(&self, t: f32, buffer: &mut [T]) {
         assert!(buffer.len() >= self.width);
 
         let t = self.domain().clamp(t);
@@ -396,6 +489,53 @@ where
             buffer[offset] = lower_value.interpolate(upper_value, lerp_param);
         }
     }
+
+    /// Sample the interpolated data at time `t` into a given `buffer` after mapping it through
+    /// a function `f`.
+    ///
+    /// # Panics
+    /// Panics if the provided buffer is not at least as large as `width`.
+    pub fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
+    where
+        S: Interpolable,
+    {
+        assert!(buffer.len() >= self.width);
+
+        let t = self.domain().clamp(t);
+
+        let Some(lower_index) = self.find_keyframe(t) else {
+            // After clamping, `find_keyframe` will only return None if we landed on the
+            // last keyframe.
+            let index = self.times.len() - 1;
+
+            // Jump to where the values for the last keyframe are:
+            let morph_index = index * self.width;
+
+            // Copy the values for the last keyframe into the buffer:
+            for offset in 0..self.width {
+                buffer[offset] = f(self.values[morph_index + offset].clone());
+            }
+
+            return;
+        };
+
+        // Get the adjacent timestamps and the lerp parameter of `t` between them:
+        let upper_index = lower_index + 1;
+        let lower_timestamp = self.times[lower_index];
+        let upper_timestamp = self.times[upper_index];
+        let lerp_param = f32::inverse_lerp(lower_timestamp, upper_timestamp, t);
+
+        // The indices in `self.values` where the values actually start:
+        let lower_morph_index = lower_index * self.width;
+        let upper_morph_index = upper_index * self.width;
+
+        // Interpolate and dump the results into the given buffer:
+        for offset in 0..self.width {
+            let lower_value = &self.values[lower_morph_index + offset];
+            let upper_value = &self.values[upper_morph_index + offset];
+            buffer[offset] = f(lower_value.interpolate(upper_value, lerp_param));
+        }
+    }
 }
 
 // Note that the `sample` function always allocates its output, whereas `sample_into` can dump
@@ -411,7 +551,7 @@ where
 
     fn sample(&self, t: f32) -> Vec<T> {
         let mut output: Vec<T> = vec![<T as Default>::default(); self.width];
-        self.sample_into(output.as_mut_slice(), t);
+        self.sample_into(t, output.as_mut_slice());
         output
     }
 }
@@ -420,7 +560,14 @@ impl<T> MultiCurve<T> for DynamicArrayCurve<T>
 where
     T: Interpolable + Default,
 {
-    fn sample_into(&self, buffer: &mut [T], t: f32) {
-        self.sample_into(buffer, t);
+    fn sample_into(&self, t: f32, buffer: &mut [T]) {
+        self.sample_into(t, buffer);
+    }
+
+    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
+    where
+        S: Interpolable,
+    {
+        self.map_sample_into(t, buffer, f)
     }
 }
