@@ -410,7 +410,7 @@ impl<'a, R: RenderResource> RenderHandle<'a, R> {
     }
 }
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq, Clone)]
 pub struct RenderDependencies<'g> {
     reads: HashSet<RenderResourceId>,
     writes: HashSet<RenderResourceId>,

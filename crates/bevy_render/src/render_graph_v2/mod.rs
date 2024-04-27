@@ -29,8 +29,8 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, Si
 use resource::CachedRenderStore;
 
 use self::resource::{
-    RenderDependencies, RenderResourceGeneration, RenderResourceId, RenderResourceMeta,
-    ResourceTracker,
+    RenderDependencies, RenderResourceGeneration, RenderResourceId, RenderResourceInit,
+    RenderResourceMeta, ResourceTracker,
 };
 
 // Roadmap:
@@ -65,17 +65,21 @@ impl<'g> RenderGraph<'g> {
         // TODO
     }
 
-    fn new_resource_id(&mut self) -> RenderResourceId {
-        // self.resources.new_resource()
-        todo!()
+    fn new_resource_id(
+        &mut self,
+        dependencies: Option<RenderDependencies<'g>>,
+    ) -> RenderResourceId {
+        self.resources.new_resource(dependencies)
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
         self.resources.generation(id)
     }
 
-    fn write_resource<R: RenderResource>(&mut self, resource: RenderHandle<R>) -> &mut Self {
-        self.resources.write(resource.id());
+    fn write_resources(&mut self, dependencies: &RenderDependencies<'g>) -> &mut Self {
+        dependencies
+            .iter_writes()
+            .for_each(|id| self.resources.write(id));
         self
     }
 }
@@ -92,10 +96,14 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         resource: R,
     ) -> RenderHandle<'g, R::Resource> {
-        let id = self.graph.new_resource_id();
+        let resource = resource.into_render_resource(self.world, self.render_device);
+        let id = self.graph.new_resource_id(match &resource {
+            RenderResourceInit::DependentResource(deps, _, _) => Some(deps.clone()),
+            _ => None,
+        });
         <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token).insert(
             id,
-            resource.into_render_resource(self.world, self.render_device),
+            resource,
             self.world,
             self.render_device,
         );
@@ -191,6 +199,7 @@ impl<'g> RenderGraphBuilder<'g> {
         dependencies: RenderDependencies<'g>,
         node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'g,
     ) -> &mut Self {
+        self.graph.write_resources(&dependencies);
         todo!();
         self
     }

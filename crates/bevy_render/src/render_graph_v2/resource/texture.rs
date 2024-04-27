@@ -75,7 +75,6 @@ pub fn new_texture_with_data<'g>(
     let size = descriptor.size;
     let mut tex = graph.new_resource(descriptor);
     graph.add_node(render_deps(&mut tex), move |ctx, _, queue| {
-        //todo: internal mutability on ctx?
         queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
     });
     tex
