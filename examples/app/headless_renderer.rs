@@ -1,11 +1,11 @@
 //! This example illustrates how to make headless renderer
 //! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
 //! It follows this steps:
-//! 1) Render from camera to gpu-image render target
-//! 2) Copy form gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
-//! 3) Copy from buffer to channel using `image_copy::receive_image_from_buffer` after `RenderSet::Render`
-//! 4) Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
-//! 5) Exit if `single_image` setting is set
+//! 1. Render from camera to gpu-image render target
+//! 2. Copy form gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
+//! 3. Copy from buffer to channel using `image_copy::receive_image_from_buffer` after `RenderSet::Render`
+//! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
+//! 5. Exit if `single_image` setting is set
 
 use bevy::{
     app::ScheduleRunnerPlugin, core_pipeline::tonemapping::Tonemapping, prelude::*,
@@ -59,6 +59,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
+                // Do not create a window on startup.
                 .set(WindowPlugin {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,
@@ -69,6 +70,7 @@ fn main() {
         // headless frame capture
         .add_plugins(frame_capture::scene::CaptureFramePlugin)
         .add_plugins(ScheduleRunnerPlugin::run_loop(
+            // Run 60 times per second.
             std::time::Duration::from_secs_f64(1.0 / 60.0),
         ))
         .init_resource::<frame_capture::scene::SceneController>()
@@ -88,7 +90,7 @@ fn setup(
         &render_device,
         &mut scene_controller,
         15,
-        String::from("main_scene"),
+        "main_scene".into(),
     );
 
     // Scene is empty, but you can add any mesh to generate non black box picture
