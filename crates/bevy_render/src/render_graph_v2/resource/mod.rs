@@ -196,30 +196,6 @@ impl<'g, R: RenderResource> RenderStore<'g, R> for SimpleRenderStore<'g, R> {
     }
 }
 
-// impl<R: RenderResource> WriteRenderStore<R> for SimpleRenderStore<R> {
-// fn get_mut<'a>(
-//     &'a mut self,
-//     world: &'a World,
-//     key: u16,
-// ) -> Option<&'a mut RenderResourceMeta<R>> {
-//     self.resources.get_mut(&key)
-// }
-//
-// fn take<'a>(&'a mut self, world: &'a World, key: u16) -> Option<RenderResourceMeta<R>> {
-//     self.resources.remove(&key)
-// }
-//}
-
-// impl<R: RenderResource> RetainedRenderStore<R> for SimpleRenderStore<R> {
-//     fn retain(&mut self, key: u16, label: InternedRenderLabel) {
-//         self.resources_to_retain.insert(key, label);
-//     }
-//
-//     fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>> {
-//         self.retained_resources.remove(&label)
-//     }
-// }
-
 impl<'g, R: RenderResource> Default for SimpleRenderStore<'g, R> {
     fn default() -> Self {
         Self {
@@ -476,7 +452,7 @@ impl<'g, R: RenderResource> From<&RenderHandle<'g, R>> for RenderDependency<'g> 
     }
 }
 
-impl<'g, R: RenderResource> From<&mut RenderHandle<'g, R>> for RenderDependency<'g> {
+impl<'g, R: WriteRenderResource> From<&mut RenderHandle<'g, R>> for RenderDependency<'g> {
     fn from(value: &mut RenderHandle<'g, R>) -> Self {
         RenderDependency {
             id: value.id(),

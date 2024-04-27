@@ -121,25 +121,6 @@ impl<'g> RenderGraphBuilder<'g> {
         })
     }
 
-    // pub fn import_resource<R: RenderResource>(
-    //     &mut self,
-    //     descriptor: Option<R::Descriptor>,
-    //     resource: R::Data,
-    // ) -> RenderHandle<R> {
-    //     let next_id: u16 = self.graph.next_id;
-    //     R::get_store_mut(self.graph, seal::Token).insert(
-    //         next_id,
-    //         RenderResourceInit::Eager(RenderResourceMeta {
-    //             descriptor,
-    //             resource,
-    //         }),
-    //         self.world,
-    //         self.render_device,
-    //     );
-    //     self.graph.next_id += 1;
-    //     RenderHandle::new(next_id)
-    // }
-
     pub fn get_descriptor_of<R: RenderResource>(
         &self,
         resource: RenderHandle<R>,
@@ -153,46 +134,6 @@ impl<'g> RenderGraphBuilder<'g> {
         self.get_descriptor_of(resource)
             .expect("No descriptor found for resource")
     }
-
-    // pub fn new_resource_view<R: IntoRenderResourceView>(&mut self, )
-
-    // pub fn retain<R: RetainedRenderResource>(
-    //     &mut self,
-    //     label: InternedRenderLabel,
-    //     resource: RenderHandle<R>,
-    // ) where
-    //     R::Store: RetainedRenderStore<R>,
-    // {
-    //     R::get_store_mut(self.graph, seal::Token).retain(resource.index(), label);
-    // }
-    //
-    // pub fn get_retained<R: RetainedRenderResource>(
-    //     &mut self,
-    //     label: InternedRenderLabel,
-    // ) -> Option<RenderHandle<R>>
-    // where
-    //     R::Store: RetainedRenderStore<R>,
-    // {
-    //     let next_id: u16 = self.graph.next_id;
-    //     let store = R::get_store_mut(self.graph, seal::Token);
-    //     let res = store.get_retained(label)?;
-    //     store.insert(
-    //         next_id,
-    //         RenderResourceInit::Eager(res),
-    //         self.world,
-    //         self.render_device,
-    //     );
-    //     self.graph.next_id += 1;
-    //     Some(RenderHandle::new(next_id))
-    // }
-
-    // pub fn new_bind_group<M, D: RenderData<M>, B: AsBindGroup>(
-    //     &mut self,
-    //     dependencies: impl IntoRenderData<M, Data = D>,
-    //     node: impl FnOnce(NodeContext<'_, M, D>, &RenderDevice) -> B + Send + Sync + 'static,
-    // ) -> RenderBindGroup {
-    //     todo!()
-    // }
 
     pub fn add_node(
         &mut self,

@@ -119,18 +119,18 @@ impl RenderResource for Sampler {
     type Store<'g> = CachedRenderStore<'g, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        todo!()
+        &graph.samplers
     }
 
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
-        todo!()
+        &mut graph.samplers
     }
 
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
+        Some(data)
     }
 
     fn from_descriptor(
@@ -138,7 +138,7 @@ impl RenderResource for Sampler {
         world: &World,
         render_device: &RenderDevice,
     ) -> Self::Data {
-        todo!()
+        render_device.create_sampler(&descriptor.0)
     }
 }
 
@@ -202,8 +202,8 @@ impl<'g> IntoRenderResource<'g> for RenderGraphSamplerDescriptor {
 
     fn into_render_resource(
         self,
-        world: &World,
-        render_device: &RenderDevice,
+        _world: &World,
+        _render_device: &RenderDevice,
     ) -> RenderResourceInit<'g, Self::Resource> {
         RenderResourceInit::FromDescriptor(self)
     }
@@ -214,8 +214,8 @@ impl<'g> IntoRenderResource<'g> for SamplerDescriptor<'static> {
 
     fn into_render_resource(
         self,
-        world: &World,
-        render_device: &RenderDevice,
+        _world: &World,
+        _render_device: &RenderDevice,
     ) -> RenderResourceInit<'g, Self::Resource> {
         RenderResourceInit::FromDescriptor(RenderGraphSamplerDescriptor(self))
     }
