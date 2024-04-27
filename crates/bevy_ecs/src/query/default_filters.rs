@@ -18,7 +18,7 @@ struct DefaultFilter {
 /// Each individual filter is only applied to queries that don't mention that component.
 ///
 /// These filters are only applied to queries initialized after updating this resource,
-/// it should most likely only be modifed before the app starts.
+/// it should most likely only be modified before the app starts.
 #[derive(Resource, Default)]
 pub struct DefaultQueryFilters(Vec<DefaultFilter>);
 
