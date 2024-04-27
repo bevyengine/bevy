@@ -29,8 +29,8 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, Si
 use resource::CachedRenderStore;
 
 use self::resource::{
-    IntoRenderDependencies, RenderDependencies, RenderResourceGeneration, RenderResourceId,
-    RenderResourceInit, RenderResourceMeta, ResourceTracker,
+    RenderDependencies, RenderResourceGeneration, RenderResourceId, RenderResourceMeta,
+    ResourceTracker,
 };
 
 // Roadmap:
@@ -57,20 +57,12 @@ pub struct RenderGraph<'g> {
     buffers: SimpleRenderStore<'g, Buffer>,
     render_pipelines: CachedRenderStore<'g, RenderPipeline>,
     compute_pipelines: CachedRenderStore<'g, ComputePipeline>,
-    //TODO:
+    //TODO:: store node graph here
 }
 
 impl<'g> RenderGraph<'g> {
-    pub(crate) fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
-    }
-
-    pub(crate) fn reset(&mut self) {
-        // self.next_id = 0;
-        // self.resource_descriptors.clear();
-        // self.nodes.clear();
-        //
-        // TODO: Remove unused resources
     }
 
     fn new_resource_id(&mut self) -> RenderResourceId {
@@ -87,17 +79,6 @@ impl<'g> RenderGraph<'g> {
         self
     }
 }
-
-// pub fn run_render_graph(
-//     mut render_graph: ResMut<RenderGraph>,
-//     render_device: &RenderDevice,
-//     render_queue: &RenderQueue,
-//     pipeline_cache: Res<PipelineCache>,
-// ) {
-//     render_graph.reset();
-//     //render_graph.build(render_device, &pipeline_cache);
-//     render_graph.run(render_device, render_queue);
-// }
 
 pub struct RenderGraphBuilder<'g> {
     graph: &'g mut RenderGraph<'g>,

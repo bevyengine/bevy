@@ -24,26 +24,26 @@ impl RenderResource for Texture {
     type Store<'g> = SimpleRenderStore<'g, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        todo!()
+        &graph.textures
     }
 
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
-        todo!()
+        &mut graph.textures
     }
 
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
+        Some(data)
     }
 
     fn from_descriptor(
         descriptor: &Self::Descriptor,
-        world: &World,
+        _world: &World,
         render_device: &RenderDevice,
     ) -> Self::Data {
-        todo!()
+        render_device.create_texture(descriptor)
     }
 }
 
