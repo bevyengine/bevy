@@ -670,10 +670,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 ..
             }),
             Some(physical_size),
+            Some(target_size),
         ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
+            camera.physical_target_size(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
@@ -700,6 +702,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         physical_size.x,
                         physical_size.y,
                     ),
+                    target_size,
                     color_grading: Default::default(),
                 })
                 .id();

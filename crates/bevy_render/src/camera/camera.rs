@@ -898,6 +898,7 @@ pub fn extract_cameras(
                         viewport_size.x,
                         viewport_size.y,
                     ),
+                    target_size,
                     color_grading,
                 },
                 visible_entities.clone(),

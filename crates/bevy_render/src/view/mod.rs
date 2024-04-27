@@ -24,7 +24,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -112,13 +112,19 @@ impl Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
-    // The view-projection matrix. When provided it is used instead of deriving it from
-    // `projection` and `transform` fields, which can be helpful in cases where numerical
-    // stability matters and there is a more direct way to derive the view-projection matrix.
+    /// The view-projection matrix. When provided it is used instead of deriving it from
+    /// `projection` and `transform` fields, which can be helpful in cases where numerical
+    /// stability matters and there is a more direct way to derive the view-projection matrix.
     pub view_projection: Option<Mat4>,
     pub hdr: bool,
-    // uvec4(origin.x, origin.y, width, height)
+    /// uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
+    /// The full size of the view's render target, as distinct from the `viewport`, which
+    /// is the subset of the render target that is actually being rendered to.
+    ///
+    /// In most cases, the viewport origin and size will be more relevant -- the target size
+    /// is only useful when directly indexing into the render target's buffers.
+    pub target_size: UVec2,
     pub color_grading: ColorGrading,
 }
 
@@ -176,6 +182,7 @@ pub struct ViewUniform {
     exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    target_size: UVec2,
     frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
@@ -400,6 +407,7 @@ pub fn prepare_view_uniforms(
     ) in &views
     {
         let viewport = extracted_view.viewport.as_vec4();
+        let target_size = extracted_view.target_size;
         let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;
 
@@ -438,6 +446,7 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
+                target_size,
                 frustum,
                 color_grading: extracted_view.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
