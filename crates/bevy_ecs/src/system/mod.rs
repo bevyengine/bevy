@@ -102,6 +102,7 @@
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
 mod adapter_system;
+mod builder;
 mod combinator;
 mod commands;
 mod exclusive_function_system;
@@ -117,6 +118,7 @@ mod system_registry;
 use std::{any::TypeId, borrow::Cow};
 
 pub use adapter_system::*;
+pub use builder::*;
 pub use combinator::*;
 pub use commands::*;
 pub use exclusive_function_system::*;

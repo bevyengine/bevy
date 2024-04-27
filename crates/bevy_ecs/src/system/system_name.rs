@@ -71,6 +71,7 @@ impl<'s> std::fmt::Display for SystemName<'s> {
 unsafe impl SystemParam for SystemName<'_> {
     type State = Cow<'static, str>;
     type Item<'w, 's> = SystemName<'s>;
+    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.name.clone()

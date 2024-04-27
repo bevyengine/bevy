@@ -388,13 +388,13 @@ pub struct FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
 {
-    func: F,
-    param_state: Option<<F::Param as SystemParam>::State>,
-    system_meta: SystemMeta,
-    world_id: Option<WorldId>,
-    archetype_generation: ArchetypeGeneration,
+    pub(crate) func: F,
+    pub(crate) param_state: Option<<F::Param as SystemParam>::State>,
+    pub(crate) system_meta: SystemMeta,
+    pub(crate) world_id: Option<WorldId>,
+    pub(crate) archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    pub(crate) marker: PhantomData<fn() -> Marker>,
 }
 
 // De-initializes the cloned system.
@@ -517,9 +517,17 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
-        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
+        if let Some(id) = self.world_id {
+            assert_eq!(
+                id,
+                world.id(),
+                "System built with a different world than the one it was added to.",
+            );
+        } else {
+            self.world_id = Some(world.id());
+            self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+            self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
+        }
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {

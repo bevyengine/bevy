@@ -255,6 +255,7 @@ unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
+    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
