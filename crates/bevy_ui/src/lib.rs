@@ -1,5 +1,10 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
@@ -48,8 +53,12 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::RenderApp;
+use bevy_render::{
+    view::{check_visibility, VisibilitySystems},
+    RenderApp,
+};
 use bevy_transform::TransformSystem;
+use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
@@ -92,6 +101,10 @@ struct AmbiguousWithTextSystem;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2DLayout;
 
+/// A convenient alias for `With<Node>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithNode = With<Node>;
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
@@ -111,6 +124,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
+            .register_type::<BorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
@@ -123,6 +137,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.before(UiSystem::Layout),
                 apply_deferred
                     .after(update_target_camera_system)
@@ -148,17 +163,15 @@ impl Plugin for UiPlugin {
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
+                widget::update_image_content_size_system
+                    .before(UiSystem::Layout)
+                    .in_set(AmbiguousWithTextSystem)
+                    .in_set(AmbiguousWithUpdateText2DLayout),
                 (
-                    widget::update_image_content_size_system
-                        .before(UiSystem::Layout)
-                        .in_set(AmbiguousWithTextSystem)
-                        .in_set(AmbiguousWithUpdateText2DLayout),
-                    (
-                        texture_slice::compute_slices_on_asset_event,
-                        texture_slice::compute_slices_on_image_change,
-                    ),
+                    texture_slice::compute_slices_on_asset_event,
+                    texture_slice::compute_slices_on_image_change,
                 )
-                    .chain(),
+                    .after(UiSystem::Layout),
             ),
         );
 
@@ -169,7 +182,7 @@ impl Plugin for UiPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

@@ -43,37 +43,48 @@ pub trait BoundingVolume: Sized {
     fn merge(&self, other: &Self) -> Self;
 
     /// Increases the size of the bounding volume in each direction by the given amount.
-    fn grow(&self, amount: Self::HalfSize) -> Self;
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self;
 
     /// Decreases the size of the bounding volume in each direction by the given amount.
-    fn shrink(&self, amount: Self::HalfSize) -> Self;
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self;
+
+    /// Scale the size of the bounding volume around its center by the given amount
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self;
 
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
-    fn transformed_by(mut self, translation: Self::Translation, rotation: Self::Rotation) -> Self {
+    fn transformed_by(
+        mut self,
+        translation: impl Into<Self::Translation>,
+        rotation: impl Into<Self::Rotation>,
+    ) -> Self {
         self.transform_by(translation, rotation);
         self
     }
 
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
-    fn transform_by(&mut self, translation: Self::Translation, rotation: Self::Rotation) {
+    fn transform_by(
+        &mut self,
+        translation: impl Into<Self::Translation>,
+        rotation: impl Into<Self::Rotation>,
+    ) {
         self.rotate_by(rotation);
         self.translate_by(translation);
     }
 
     /// Translates the bounding volume by the given translation.
-    fn translated_by(mut self, translation: Self::Translation) -> Self {
+    fn translated_by(mut self, translation: impl Into<Self::Translation>) -> Self {
         self.translate_by(translation);
         self
     }
 
     /// Translates the bounding volume by the given translation.
-    fn translate_by(&mut self, translation: Self::Translation);
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>);
 
     /// Rotates the bounding volume around the origin by the given rotation.
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger than the original.
-    fn rotated_by(mut self, rotation: Self::Rotation) -> Self {
+    fn rotated_by(mut self, rotation: impl Into<Self::Rotation>) -> Self {
         self.rotate_by(rotation);
         self
     }
@@ -82,7 +93,7 @@ pub trait BoundingVolume: Sized {
     ///
     /// The result is a combination of the original volume and the rotated volume,
     /// so it is guaranteed to be either the same size or larger than the original.
-    fn rotate_by(&mut self, rotation: Self::Rotation);
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>);
 }
 
 /// A trait that generalizes intersection tests against a volume.

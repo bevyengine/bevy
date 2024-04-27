@@ -47,7 +47,9 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 
     /// Adds `NewE` to the list of events listened to by this observer.
-    /// Observers that listen to multiple types of events can no longer access the typed event data.
+    /// After calling this function the observer will no longer have access to typed event data
+    /// to prevent accessing the data as the incorrect type.
+    /// Observing the same event multiple times has no effect.
     pub fn on_event<NewE: 'static>(&mut self) -> &mut ObserverBuilder<'w, ()> {
         let event = self
             .commands
@@ -65,7 +67,9 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 
     /// Add `events` to the list of events listened to by this observer.
-    /// Observers that listen to multiple types of events can no longer access the typed event data.
+    /// After calling this function the observer will no longer have access to typed event data
+    /// to prevent accessing the data as the incorrect type.
+    /// Observing the same event multiple times has no effect.
     pub fn on_event_ids(
         &mut self,
         events: impl IntoIterator<Item = ComponentId>,
@@ -76,6 +80,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
     }
 
     /// Add [`ComponentId`] in `T` to the list of components listened to by this observer.
+    /// For examples an `OnRemove` observer would trigger when any component in `B` was removed.
     pub fn components<B: Bundle>(&mut self) -> &mut Self {
         B::get_component_ids(self.commands.components(), &mut |id| {
             self.descriptor.components.push(id.unwrap_or_else(|| {

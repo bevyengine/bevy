@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 use libloading::{Library, Symbol};
 use std::ffi::OsStr;
 use thiserror::Error;

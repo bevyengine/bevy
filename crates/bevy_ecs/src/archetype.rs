@@ -115,7 +115,10 @@ pub(crate) enum ComponentStatus {
 }
 
 pub(crate) struct AddBundle {
+    /// The target archetype after the bundle is added to the source archetype
     pub archetype_id: ArchetypeId,
+    /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
+    /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
     pub added: Vec<ComponentId>,
 }
@@ -289,8 +292,12 @@ impl ArchetypeEntity {
     }
 }
 
+/// Internal metadata for an [`Entity`] getting removed from an [`Archetype`].
 pub(crate) struct ArchetypeSwapRemoveResult {
+    /// If the [`Entity`] was not the last in the [`Archetype`], it gets removed by swapping it out
+    /// with the last entity in the archetype. In that case, this field contains the swapped entity.
     pub(crate) swapped_entity: Option<Entity>,
+    /// The [`TableRow`] where the removed entity's components are stored.
     pub(crate) table_row: TableRow,
 }
 
@@ -621,7 +628,7 @@ impl Archetype {
 ///
 /// This is used in archetype update methods to limit archetype updates to the
 /// ones added since the last time the method ran.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ArchetypeGeneration(ArchetypeId);
 
 impl ArchetypeGeneration {

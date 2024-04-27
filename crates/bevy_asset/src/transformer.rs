@@ -1,5 +1,5 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{BoxedFuture, CowArc, HashMap};
+use bevy_utils::{ConditionalSendFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
@@ -25,7 +25,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
         &'a self,
         asset: TransformedAsset<Self::AssetInput>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
+    ) -> impl ConditionalSendFuture<Output = Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
 }
 
 /// An [`Asset`] (and any "sub assets") intended to be transformed

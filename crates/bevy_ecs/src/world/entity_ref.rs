@@ -350,6 +350,16 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get()
     }
 
+    /// Consumes `self` and gets access to the component of type `T` with the
+    /// world `'w` lifetime for the current entity.
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_borrow<T: Component>(self) -> Option<&'w T> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.0.get() }
+    }
+
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
@@ -359,11 +369,31 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_ref()
     }
 
+    /// Consumes `self` and gets access to the component of type `T` with world
+    /// `'w` lifetime for the current entity, including change detection information
+    /// as a [`Ref<'w>`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_ref<T: Component>(self) -> Option<Ref<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.0.get_ref() }
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_mut() }
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
         unsafe { self.0.get_mut() }
     }
 
@@ -398,6 +428,19 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_by_id(component_id)
     }
 
+    /// Consumes `self` and gets the component of the given [`ComponentId`] with
+    /// world `'w` lifetime from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_borrow`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn into_borrow_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        // SAFETY:
+        // consuming `self` ensures that no references exist to this entity's components.
+        unsafe { self.0.get_by_id(component_id) }
+    }
+
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
@@ -412,6 +455,25 @@ impl<'w> EntityMut<'w> {
         // - `&mut self` ensures that no references exist to this entity's components.
         // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
         unsafe { self.0.get_mut_by_id(component_id) }
+    }
+
+    /// Consumes `self` and gets a [`MutUntyped<'w>`] of the component of the given [`ComponentId`]
+    /// with world `'w` lifetime from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::into_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn into_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+        // SAFETY:
+        // consuming `self` ensures that no references exist to this entity's components.
+        unsafe { self.0.get_mut_by_id(component_id) }
+    }
+}
+
+impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    fn from(value: &'w mut EntityMut<'_>) -> Self {
+        value.reborrow()
     }
 }
 
@@ -585,6 +647,15 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get()
     }
 
+    /// Consumes `self` and gets access to the component of type `T` with
+    /// the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_borrow<T: Component>(self) -> Option<&'w T> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.into_unsafe_entity_cell().get() }
+    }
+
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
@@ -594,12 +665,31 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_ref()
     }
 
+    /// Consumes `self` and gets access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_ref<T: Component>(self) -> Option<Ref<'w, T>> {
+        EntityRef::from(self).get_ref()
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.as_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Consumes `self` and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -633,6 +723,18 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_by_id(component_id)
     }
 
+    /// Consumes `self` and gets the component of the given [`ComponentId`] with
+    /// with world `'w` lifetime from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_borrow`] where
+    /// possible and only use this in cases where the actual component types are not
+    /// known at compile time.**
+    #[inline]
+    pub fn into_borrow_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.into_unsafe_entity_cell().get_by_id(component_id) }
+    }
+
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get_mut`] where possible and only
@@ -647,6 +749,19 @@ impl<'w> EntityWorldMut<'w> {
         // - `&mut self` ensures that no references exist to this entity's components.
         // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
         unsafe { self.as_unsafe_entity_cell().get_mut_by_id(component_id) }
+    }
+
+    /// Consumes `self` and gets a [`MutUntyped<'w>`] of the component with the world `'w` lifetime
+    /// of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn into_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+        // SAFETY:
+        // consuming `self` ensures that no references exist to this entity's components.
+        unsafe { self.into_unsafe_entity_cell().get_mut_by_id(component_id) }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -930,16 +1045,18 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Remove the components of `bundle` from `entity`.
     ///
-    /// SAFETY: The components in `bundle_info` must exist.
+    /// SAFETY:
+    /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
+        // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
         let bundle_info = world.bundles.get_unchecked(bundle);
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
-        // and components in `bundle_info` must exist due to this functions safety invariants.
+        // and components in `bundle_info` must exist due to this function's safety invariants.
         let new_archetype_id = remove_bundle_from_archetype(
             &mut world.archetypes,
             &mut world.storages,
@@ -947,6 +1064,7 @@ impl<'w> EntityWorldMut<'w> {
             &world.observers,
             location.archetype_id,
             bundle_info,
+            // components from the bundle that are not present on the entity are ignored
             true,
         )
         .expect("intersections should always return a result");
@@ -1022,8 +1140,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.init_info::<T>(components, storages);
 
-        // SAFETY: Components exist in `bundle_info` because `Bundles::init_info`
-        // initializes a: EntityLocation `BundleInfo` containing all components of the bundle type `T`.
+        // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info) };
 
         self
@@ -1049,9 +1166,29 @@ impl<'w> EntityWorldMut<'w> {
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
-        // SAFETY: Components exist in `remove_bundle` because `Bundles::init_dynamic_info`
-        // initializes a `BundleInfo` containing all components in the to_remove Bundle.
+        // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe { self.remove_bundle(remove_bundle) };
+        self
+    }
+
+    /// Removes a dynamic [`Component`] from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_component_info(components, component_id);
+
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
         self
     }
 
@@ -2692,6 +2829,22 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[test]
+    fn entity_mut_remove_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn(TestComponent(42));
+        entity.remove_by_id(test_component_id);
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![] as Vec<&TestComponent>);
+
+        // remove non-existent component does not panic
+        world.spawn_empty().remove_by_id(test_component_id);
     }
 
     #[derive(Component)]

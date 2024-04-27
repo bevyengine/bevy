@@ -3,7 +3,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
+use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()

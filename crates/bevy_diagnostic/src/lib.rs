@@ -1,5 +1,11 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
@@ -18,7 +24,7 @@ pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 #[cfg(feature = "sysinfo_plugin")]
-pub use system_information_diagnostics_plugin::SystemInformationDiagnosticsPlugin;
+pub use system_information_diagnostics_plugin::{SystemInfo, SystemInformationDiagnosticsPlugin};
 
 use bevy_app::prelude::*;
 
@@ -27,12 +33,11 @@ use bevy_app::prelude::*;
 pub struct DiagnosticsPlugin;
 
 impl Plugin for DiagnosticsPlugin {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<DiagnosticsStore>();
+
         #[cfg(feature = "sysinfo_plugin")]
-        _app.init_resource::<DiagnosticsStore>().add_systems(
-            Startup,
-            system_information_diagnostics_plugin::internal::log_system_info,
-        );
+        app.init_resource::<system_information_diagnostics_plugin::SystemInfo>();
     }
 }
 

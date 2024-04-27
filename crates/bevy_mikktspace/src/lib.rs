@@ -6,6 +6,11 @@
 )]
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 use glam::{Vec2, Vec3};
 
@@ -62,6 +67,7 @@ pub trait Geometry {
 ///
 /// Returns `false` if the geometry is unsuitable for tangent generation including,
 /// but not limited to, lack of vertices.
+#[allow(unsafe_code)]
 pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }

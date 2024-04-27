@@ -10,6 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
 # Sets the permissions to allow deploying to Github pages.
@@ -37,8 +38,11 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
@@ -49,6 +53,9 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
+        env:
+          # needs to be in sync with [package.metadata.docs.rs]
+          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
         run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       #  This adds the following:

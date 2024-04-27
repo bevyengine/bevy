@@ -109,7 +109,7 @@ fn setup(world: &mut World) {
                     let Some(mut entity) = commands.get_entity(source) else {
                         return;
                     };
-                    println!("Boom! {:?} exploded.", source);
+                    println!("Boom! {:?} exploded.", source.index());
                     entity.despawn();
                     let mine = query.get(source).unwrap();
                     // Fire another event to cascade into other mines.
