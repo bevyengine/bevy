@@ -123,7 +123,7 @@ pub struct ExtractedView {
     /// is the subset of the render target that is actually being rendered to.
     ///
     /// In most cases, the viewport origin and size will be more relevant -- the target size
-    /// is only useful when directly indexing into the render target's buffers.
+    /// is mainly useful in specific cases such as directly indexing into the render target's buffers.
     pub target_size: UVec2,
     pub color_grading: ColorGrading,
 }
