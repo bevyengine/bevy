@@ -442,6 +442,6 @@ impl RenderAssetBytesPerFrame {
 
     // check if any bytes remain available for writing this frame
     fn exhausted(&self) -> bool {
-        self.available == 0
+        self.max_bytes.is_some() && self.available == 0
     }
 }
