@@ -50,7 +50,7 @@ fn setup(world: &mut World) {
     world.init_component::<TriggerMines>();
     world.init_component::<Explode>();
 
-    // Observers are triggered when a certain event it fired, each event is represented by a component type.
+    // Observers are triggered when a certain event is fired, each event is represented by a component type.
     // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as closures.
     world.observer(
         |observer: Observer<TriggerMines>,
@@ -129,6 +129,7 @@ struct SpatialIndex {
     map: HashMap<(i32, i32), HashSet<Entity>>,
 }
 
+/// Cell size has to be bigger than any `TriggerMine::radius`
 const CELL_SIZE: f32 = 64.0;
 
 impl SpatialIndex {

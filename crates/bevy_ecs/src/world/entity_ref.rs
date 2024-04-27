@@ -1273,10 +1273,10 @@ impl<'w> EntityWorldMut<'w> {
         let observer = ObserverBuilder::new(self.world.commands())
             .source(self.entity)
             .run(IntoObserverSystem::into_system(callback));
-        self.world
-            .ecs_event(AttachObserver(observer))
-            .entity(self.entity)
-            .emit();
+        self.world.commands().add(AttachObserver {
+            target: self.entity,
+            observer,
+        });
         self
     }
 }

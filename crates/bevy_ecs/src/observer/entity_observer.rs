@@ -1,27 +1,22 @@
 use super::*;
 use crate::component::{ComponentHooks, StorageType};
 
-/// Component to signify an entity observer being attached to an entity
-/// Can be modelled by parent-child relationship if/when that is enforced
-pub(crate) struct AttachObserver(pub(crate) Entity);
+/// Command to attach an entity observer to an entity
+pub(crate) struct AttachObserver {
+    pub(crate) target: Entity,
+    pub(crate) observer: Entity,
+}
 
-impl Component for AttachObserver {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-
-    // When `AttachObserver` is inserted onto an event add it to `ObservedBy`
-    // or insert `ObservedBy` if it doesn't exist
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_insert(|mut world, entity, _| {
-            let attached_observer = world.get::<AttachObserver>(entity).unwrap().0;
-            if let Some(mut observed_by) = world.get_mut::<ObservedBy>(entity) {
-                observed_by.0.push(attached_observer);
-            } else {
-                world
-                    .commands()
-                    .entity(entity)
-                    .insert(ObservedBy(vec![attached_observer]));
-            }
-        });
+impl Command for AttachObserver {
+    fn apply(self, world: &mut World) {
+        if let Some(mut target) = world.get_entity_mut(self.target) {
+            let mut observed_by = target
+                .entry::<ObservedBy>()
+                .or_insert_with(|| ObservedBy(vec![]));
+            observed_by.0.push(self.observer);
+        } else {
+            world.despawn(self.observer);
+        }
     }
 }
 
