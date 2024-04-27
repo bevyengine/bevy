@@ -5,7 +5,8 @@ use crate::{
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
+        default_filters::DefaultQueryFilters, Access, DebugCheckedUnwrap, FilteredAccess,
+        QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -194,6 +195,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
+        if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
+            default_filters.apply(&mut component_access);
+        }
+
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -218,13 +223,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
 
+        let mut component_access = builder.access().clone();
+
+        if let Some(default_filters) = builder.world().get_resource::<DefaultQueryFilters>() {
+            default_filters.apply(&mut component_access);
+        }
+
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
             fetch_state,
             filter_state,
-            component_access: builder.access().clone(),
+            component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
@@ -1657,8 +1668,12 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::world::FilteredEntityRef;
-    use crate::{component::Component, prelude::*, query::QueryEntityError};
+    use crate::{
+        component::Component,
+        prelude::*,
+        query::{DefaultQueryFilters, QueryEntityError},
+        world::FilteredEntityRef,
+    };
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {
@@ -2029,5 +2044,33 @@ mod tests {
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+    }
+
+    #[test]
+    fn query_respects_default_filters() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0)));
+        world.spawn((B(0), C(0)));
+        world.spawn(C(0));
+
+        let b = world.component_id::<B>().unwrap();
+        let c = world.component_id::<C>().unwrap();
+
+        let mut default_filters = DefaultQueryFilters::default();
+        default_filters.with(b);
+        default_filters.without(c);
+        world.insert_resource(default_filters);
+
+        // With<B>, Without<C> only matches the first entity
+        let mut query = QueryState::<()>::new(&mut world);
+        assert_eq!(1, query.iter(&world).count());
+
+        // With<B>, With<C> only matches the second entity
+        let mut query = QueryState::<(), With<C>>::new(&mut world);
+        assert_eq!(1, query.iter(&world).count());
+
+        // Without<B> only matches the last entity
+        let mut query = QueryState::<Has<C>, Without<B>>::new(&mut world);
+        assert_eq!(1, query.iter(&world).count());
     }
 }

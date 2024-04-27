@@ -2,6 +2,7 @@
 
 mod access;
 mod builder;
+mod default_filters;
 mod error;
 mod fetch;
 mod filter;
@@ -13,6 +14,7 @@ mod world_query;
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
+pub use default_filters::DefaultQueryFilters;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
