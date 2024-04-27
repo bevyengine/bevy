@@ -5,7 +5,7 @@ use crate::{
     render_graph_v2::{seal, RenderGraph},
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-        ComputePipelineDescriptor, RenderPipeline, RenderPipelineDescriptor,
+        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
         SpecializedComputePipeline, SpecializedMeshPipeline, SpecializedRenderPipeline,
     },
     renderer::RenderDevice,
@@ -21,26 +21,28 @@ impl RenderResource for RenderPipeline {
     type Store<'g> = CachedRenderStore<'g, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        todo!()
+        &graph.render_pipelines
     }
 
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
-        todo!()
+        &mut graph.render_pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+        world.resource::<PipelineCache>().get_render_pipeline(*data)
     }
 
     fn from_descriptor(
         descriptor: &Self::Descriptor,
         world: &World,
-        render_device: &RenderDevice,
+        _render_device: &RenderDevice,
     ) -> Self::Data {
-        todo!()
+        world
+            .resource::<PipelineCache>()
+            .queue_render_pipeline(descriptor.clone())
     }
 }
 
@@ -64,26 +66,30 @@ impl RenderResource for ComputePipeline {
     type Store<'g> = CachedRenderStore<'g, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        todo!()
+        &graph.compute_pipelines
     }
 
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
-        todo!()
+        &mut graph.compute_pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+        world
+            .resource::<PipelineCache>()
+            .get_compute_pipeline(*data)
     }
 
     fn from_descriptor(
         descriptor: &Self::Descriptor,
         world: &World,
-        render_device: &RenderDevice,
+        _render_device: &RenderDevice,
     ) -> Self::Data {
-        todo!()
+        world
+            .resource::<PipelineCache>()
+            .queue_compute_pipeline(descriptor.clone())
     }
 }
 

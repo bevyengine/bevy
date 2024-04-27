@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-    render_deps, CachedRenderStore, IntoRenderResource, RenderDependencies, RenderHandle,
-    RenderResource, RenderResourceInit, RenderResourceMeta, SimpleRenderStore, WriteRenderResource,
+    render_deps, CachedRenderStore, IntoRenderResource, RenderHandle, RenderResource,
+    RenderResourceInit, RenderResourceMeta, SimpleRenderStore, WriteRenderResource,
 };
 
 impl seal::Super for Texture {}
@@ -48,8 +48,6 @@ impl RenderResource for Texture {
 }
 
 impl WriteRenderResource for Texture {}
-
-// impl RetainedRenderResource for Texture {}
 
 impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
     type Resource = Texture;

@@ -12,25 +12,25 @@ use super::{CachedRenderStore, RenderResource};
 impl seal::Super for BindGroupLayout {}
 
 impl RenderResource for BindGroupLayout {
-    type Descriptor = Box<[BindGroupLayoutEntry]>;
+    type Descriptor = (&'static str, &'static [BindGroupLayoutEntry]);
 
     type Data = BindGroupLayout;
 
     type Store<'g> = CachedRenderStore<'g, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        todo!()
+        &graph.bind_group_layouts
     }
 
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
-        todo!()
+        &mut graph.bind_group_layouts
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
+        Some(data)
     }
 
     fn from_descriptor(
@@ -38,6 +38,6 @@ impl RenderResource for BindGroupLayout {
         world: &World,
         render_device: &RenderDevice,
     ) -> Self::Data {
-        todo!()
+        render_device.create_bind_group_layout(descriptor.0, descriptor.1)
     }
 }

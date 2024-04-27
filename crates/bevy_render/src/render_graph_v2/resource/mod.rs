@@ -365,12 +365,6 @@ pub struct RenderResourceId {
 
 pub type RenderResourceGeneration = u16;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub(super) enum RenderResourceStorageType {
-    Owned,
-    Borrowed,
-}
-
 pub struct RenderHandle<'a, R: RenderResource> {
     id: RenderResourceId,
     // deps: DependencySet,
@@ -403,18 +397,9 @@ impl<'a, R: RenderResource> RenderHandle<'a, R> {
     pub(super) fn new(id: RenderResourceId) -> Self {
         Self {
             id,
-            // deps: Default::default(),
             data: PhantomData,
         }
     }
-
-    // pub(super) fn new_with_deps(id: RenderResourceId, deps: DependencySet) -> Self {
-    //     Self {
-    //         id,
-    //         deps,
-    //         data: PhantomData,
-    //     }
-    // }
 
     pub(super) fn id(&self) -> RenderResourceId {
         self.id
@@ -434,18 +419,16 @@ pub struct RenderDependencies<'g> {
 
 impl<'g> RenderDependencies<'g> {
     fn add(&mut self, dependency: impl Into<RenderDependency<'g>>) -> &mut Self {
-        // let deps = resource.into_render_dependency(seal::Token);
-        // for dep in deps {
-        //     match dep.usage {
-        //         RenderResourceUsage::Read => self.reads.insert(dep.id),
-        //         RenderResourceUsage::Write => self.writes.insert(dep.id),
-        //     }
-        // }
-        // RenderRef {
-        //     id: dep.id,
-        //     data: PhantomData,
-        // }
-        todo!()
+        let dep: RenderDependency = dependency.into();
+        match dep.usage {
+            RenderResourceUsage::Read => {
+                self.reads.insert(dep.id);
+            }
+            RenderResourceUsage::Write => {
+                self.writes.insert(dep.id);
+            }
+        }
+        self
     }
 
     fn of(dependencies: impl IntoRenderDependencies<'g>) -> Self {
@@ -454,15 +437,15 @@ impl<'g> RenderDependencies<'g> {
         new
     }
 
-    pub(super) fn iter_reads<'a>(&'a self) -> impl Iterator<Item = RenderResourceId> + 'a {
+    pub(super) fn iter_reads(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.reads.iter().copied()
     }
 
-    pub(super) fn iter_writes<'a>(&'a self) -> impl Iterator<Item = RenderResourceId> + 'a {
+    pub(super) fn iter_writes(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.writes.iter().copied()
     }
 
-    pub(super) fn iter<'a>(&'a self) -> impl Iterator<Item = RenderResourceId> + 'a {
+    pub(super) fn iter(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.iter_reads().chain(self.iter_writes())
     }
 }
@@ -515,6 +498,7 @@ impl<'g, T: Into<RenderDependency<'g>>> IntoRenderDependencies<'g> for T {
 
 macro_rules! impl_into_render_dependencies {
     ($(($T: ident, $t: ident)),*) => {
+        #[allow(unused_variables)]
         impl <'g, $($T: IntoRenderDependencies<'g>),*> IntoRenderDependencies<'g> for ($($T,)*) {
             fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
                 let ($($t,)*) = self;
