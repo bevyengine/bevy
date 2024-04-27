@@ -25,9 +25,7 @@
 //! We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    ecs::schedule::ReportExecutionOrderAmbiguities,
-    log::LogPlugin,
+    app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
     utils::Duration,
 };
@@ -52,7 +50,7 @@ struct Score {
 //
 
 // This resource holds information about the game:
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct GameState {
     current_round: usize,
     total_players: usize,
@@ -60,6 +58,7 @@ struct GameState {
 }
 
 // This resource provides rules for our "game".
+#[derive(Resource)]
 struct GameRules {
     winning_score: usize,
     max_rounds: usize,
@@ -88,7 +87,7 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 
 // This system updates the score for each entity with the "Player" and "Score" component.
 fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in query.iter_mut() {
+    for (player, mut score) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             score.value += 1;
@@ -114,7 +113,7 @@ fn score_check_system(
     mut game_state: ResMut<GameState>,
     query: Query<(&Player, &Score)>,
 ) {
-    for (player, score) in query.iter() {
+    for (player, score) in &query {
         if score.value == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }
@@ -130,18 +129,18 @@ fn game_over_system(
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
-        println!("{} won the game!", player);
-        app_exit_events.send(AppExit);
+        println!("{player} won the game!");
+        app_exit_events.send(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     }
 }
 
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
 // "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_startup_system(startup_system)      Normal:  app.add_system(normal_system)
+// app.add_systems(Startup, startup_system)      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -185,7 +184,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn_bundle((
+        commands.spawn((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
@@ -199,7 +198,7 @@ fn new_player_system(
 // If you really need full, immediate read/write access to the world or resources, you can use an
 // "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance.
+// should generally be avoided if you want to maximize parallelism.
 #[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
@@ -211,9 +210,10 @@ fn exclusive_player_system(world: &mut World) {
     };
     // Randomly add a new player
     if should_add_player {
-        world.spawn().insert_bundle((
+        println!("Player {} has joined the game!", total_players + 1);
+        world.spawn((
             Player {
-                name: format!("Player {}", total_players),
+                name: format!("Player {}", total_players + 1),
             },
             Score { value: 0 },
         ));
@@ -224,22 +224,26 @@ fn exclusive_player_system(world: &mut World) {
 }
 
 // Sometimes systems need to be stateful. Bevy's ECS provides the `Local` system parameter
-// for this case. A `Local<T>` refers to a value owned by the system of type `T`, which is automatically
-// initialized using `T`'s `FromWorld`* implementation. In this system's `Local` (`counter`), `T` is `u32`.
+// for this case. A `Local<T>` refers to a value of type `T` that is owned by the system.
+// This value is automatically initialized using `T`'s `FromWorld`* implementation upon the system's initialization upon the system's initialization.
+// In this system's `Local` (`counter`), `T` is `u32`.
 // Therefore, on the first turn, `counter` has a value of 0.
 //
 // *: `FromWorld` is a trait which creates a value using the contents of the `World`.
 // For any type which is `Default`, like `u32` in this example, `FromWorld` creates the default value.
 fn print_at_end_round(mut counter: Local<u32>) {
     *counter += 1;
-    println!("In stage 'Last' for the {}th time", *counter);
+    println!("In set 'Last' for the {}th time", *counter);
     // Print an empty line between rounds
     println!();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-enum MyStage {
+/// A group of related system sets, used for controlling the order of systems. Systems can be
+/// added to any number of sets.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+enum MySet {
     BeforeRound,
+    Round,
     AfterRound,
 }
 
@@ -250,91 +254,66 @@ fn main() {
     App::new()
         // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
-        // Some systems are configured by adding their settings as a resource.
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
-        // that :) The plugin below runs our app's "system schedule" once every 5 seconds
-        // (configured above).
-        .add_plugin(ScheduleRunnerPlugin::default())
-        // Startup systems run exactly once BEFORE all other systems. These are generally used for
+        // that :) The plugin below runs our app's "system schedule" once every 5 seconds.
+        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
+        // `Startup` systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
-        .add_system(print_message_system)
+        .add_systems(Startup, startup_system)
+        // `Update` systems run once every update. These are generally used for "real-time app logic"
+        .add_systems(Update, print_message_system)
         // SYSTEM EXECUTION ORDER
         //
-        // Each system belongs to a `Stage`, which controls the execution strategy and broad order
-        // of the systems within each tick. Startup stages (which startup systems are
-        // registered in) will always complete before ordinary stages begin,
-        // and every system in a stage must complete before the next stage advances.
-        // Once every stage has concluded, the main loop is complete and begins again.
+        // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
+        // of the systems within each tick. The `Startup` schedule holds
+        // startup systems, which are run a single time before `Update` runs. `Update` runs once per app update,
+        // which is generally one "frame" or one "tick".
         //
-        // By default, all systems run in parallel, except when they require mutable access to a
+        // By default, all systems in a `Schedule` run in parallel, except when they require mutable access to a
         // piece of data. This is efficient, but sometimes order matters.
         // For example, we want our "game over" system to execute after all other systems to ensure
         // we don't accidentally run the game for an extra round.
         //
-        // Rather than splitting each of your systems into separate stages, you should force an
-        // explicit ordering between them by giving the relevant systems a label with
-        // `.label`, then using the `.before` or `.after` methods. Systems will not be
-        // scheduled until all of the systems that they have an "ordering dependency" on have
+        // You can force an explicit ordering between systems using the `.before` or `.after` methods.
+        // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have
         // completed.
-        //
-        // Doing that will, in just about all cases, lead to better performance compared to
-        // splitting systems between stages, because it gives the scheduling algorithm more
-        // opportunities to run systems in parallel.
-        // Stages are still necessary, however: end of a stage is a hard sync point
-        // (meaning, no systems are running) where `Commands` issued by systems are processed.
-        // This is required because commands can perform operations that are incompatible with
-        // having systems in flight, such as spawning or deleting entities,
-        // adding or removing resources, etc.
-        //
-        // add_system(system) adds systems to the UPDATE stage by default
-        // However we can manually specify the stage if we want to. The following is equivalent to
-        // add_system(score_system)
-        .add_system_to_stage(CoreStage::Update, score_system)
-        // There are other `CoreStages`, such as `Last` which runs at the very end of each run.
-        .add_system_to_stage(CoreStage::Last, print_at_end_round)
-        // We can also create new stages. Here is what our games stage order will look like:
+        // There are other schedules, such as `Last` which runs at the very end of each run.
+        .add_systems(Last, print_at_end_round)
+        // We can also create new system sets, and order them relative to other system sets.
+        // Here is what our games execution order will look like:
         // "before_round": new_player_system, new_round_system
-        // "update": print_message_system, score_system
+        // "round": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .add_stage_before(
-            CoreStage::Update,
-            MyStage::BeforeRound,
-            SystemStage::parallel(),
+        .configure_sets(
+            Update,
+            // chain() will ensure sets run in the order they are listed
+            (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
         )
-        .add_stage_after(
-            CoreStage::Update,
-            MyStage::AfterRound,
-            SystemStage::parallel(),
+        // The add_systems function is powerful. You can define complex system configurations with ease!
+        .add_systems(
+            Update,
+            (
+                // These `BeforeRound` systems will run before `Round` systems, thanks to the chained set configuration
+                (
+                    // You can also chain systems! new_round_system will run first, followed by new_player_system
+                    (new_round_system, new_player_system).chain(),
+                    exclusive_player_system,
+                )
+                    // All of the systems in the tuple above will be added to this set
+                    .in_set(MySet::BeforeRound),
+                // This `Round` system will run after the `BeforeRound` systems thanks to the chained set configuration
+                score_system.in_set(MySet::Round),
+                // These `AfterRound` systems will run after the `Round` systems thanks to the chained set configuration
+                (
+                    score_check_system,
+                    // In addition to chain(), you can also use `before(system)` and `after(system)`. This also works
+                    // with sets!
+                    game_over_system.after(score_check_system),
+                )
+                    .in_set(MySet::AfterRound),
+            ),
         )
-        .add_system_to_stage(MyStage::BeforeRound, new_round_system)
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            new_player_system.after(new_round_system),
-        )
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-            // The following will not compile.
-            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-            exclusive_player_system.exclusive_system(),
-        )
-        .add_system_to_stage(MyStage::AfterRound, score_check_system)
-        .add_system_to_stage(
-            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
-            // To do this we use either `.before` or `.after` to describe the order we want the relationship
-            // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            MyStage::AfterRound,
-            game_over_system.after(score_check_system),
-        )
-        // We can check our systems for execution order ambiguities by examining the output produced
-        // in the console by using the `LogPlugin` and adding the following Resource to our App :)
-        // Be aware that not everything reported by this checker is a potential problem, you'll have
-        // to make that judgement yourself.
-        .add_plugin(LogPlugin::default())
-        .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();
 }

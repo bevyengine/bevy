@@ -1,10 +1,10 @@
 [package]
 name = "bevy_core_pipeline"
-version = "0.8.0-dev"
+version = "0.14.0-dev"
 edition = "2021"
 authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
+  "Bevy Contributors <bevyengine@gmail.com>",
+  "Carter Anderson <mcanders1@gmail.com>",
 ]
 description = "Provides a core render pipeline for Bevy Engine."
 homepage = "https://bevyengine.org"
@@ -13,18 +13,34 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+dds = ["bevy_render/dds"]
 trace = []
+webgl = []
+webgpu = []
+tonemapping_luts = ["bevy_render/ktx2", "bevy_render/zstd"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.8.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 serde = { version = "1", features = ["derive"] }
+bitflags = "2.3"
+radsort = "0.1"
+nonmax = "0.5"
 
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

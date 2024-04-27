@@ -5,7 +5,7 @@ use bevy::{prelude::*, render::camera::ScalingMode};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -16,10 +16,10 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
-            scale: 3.0,
-            scaling_mode: ScalingMode::FixedVertical(2.0),
+            // 6 world units per window height.
+            scaling_mode: ScalingMode::FixedVertical(6.0),
             ..default()
         }
         .into(),
@@ -28,38 +28,38 @@ fn setup(
     });
 
     // plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cubes
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(1.5, 0.5, 1.5),
         ..default()
     });
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(1.5, 0.5, -1.5),
         ..default()
     });
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(-1.5, 0.5, 1.5),
         ..default()
     });
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(-1.5, 0.5, -1.5),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(3.0, 8.0, 5.0),
         ..default()
     });

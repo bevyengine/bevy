@@ -5,13 +5,18 @@ use std::io::Read;
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_color::Srgba;
+use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
+    TextureViewDimension,
+};
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
@@ -20,18 +25,21 @@ pub fn ktx2_buffer_to_image(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
-    let ktx2 = ktx2::Reader::new(buffer).map_err(|err| {
-        TextureError::InvalidData(format!("Failed to parse ktx2 file: {:?}", err))
-    })?;
+    let ktx2 = ktx2::Reader::new(buffer)
+        .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
     let Header {
         pixel_width: width,
         pixel_height: height,
         pixel_depth: depth,
         layer_count,
+        face_count,
         level_count,
         supercompression_scheme,
         ..
     } = ktx2.header();
+    let layer_count = layer_count.max(1);
+    let face_count = face_count.max(1);
+    let depth = depth.max(1);
 
     // Handle supercompression
     let mut levels = Vec::new();
@@ -44,8 +52,7 @@ pub fn ktx2_buffer_to_image(
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, _level, err
+                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
@@ -54,20 +61,18 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, _level, err
+                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
                 }
                 _ => {
                     return Err(TextureError::SuperDecompressionError(format!(
-                        "Unsupported supercompression scheme: {:?}",
-                        supercompression_scheme
+                        "Unsupported supercompression scheme: {supercompression_scheme:?}",
                     )));
                 }
             }
@@ -80,25 +85,59 @@ pub fn ktx2_buffer_to_image(
     let texture_format = ktx2_get_texture_format(&ktx2, is_srgb).or_else(|error| match error {
         // Transcode if needed and supported
         TextureError::FormatRequiresTranscodingError(transcode_format) => {
-            let mut transcoded = Vec::new();
+            let mut transcoded = vec![Vec::default(); levels.len()];
             let texture_format = match transcode_format {
-                TranscodeFormat::Rgb8 => {
+                TranscodeFormat::R8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in &levels {
-                        let n_pixels = (original_width * original_height) as usize;
-
-                        let mut rgba = vec![255u8; n_pixels * 4];
-                        for i in 0..n_pixels {
-                            rgba[i * 4] = level_data[i * 3];
-                            rgba[i * 4 + 1] = level_data[i * 3 + 1];
-                            rgba[i * 4 + 2] = level_data[i * 3 + 2];
-                        }
-                        transcoded.push(rgba);
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
                         original_height = (original_height / 2).max(1);
+                    }
+
+                    TextureFormat::R8Unorm
+                }
+                TranscodeFormat::Rg8UnormSrgb => {
+                    let (mut original_width, mut original_height) = (width, height);
+
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
+
+                        // Next mip dimensions are half the current, minimum 1x1
+                        original_width = (original_width / 2).max(1);
+                        original_height = (original_height / 2).max(1);
+                    }
+
+                    TextureFormat::Rg8Unorm
+                }
+                TranscodeFormat::Rgb8 => {
+                    let mut rgba = vec![255u8; width as usize * height as usize * 4];
+                    for (level, level_data) in levels.iter().enumerate() {
+                        let n_pixels = (width as usize >> level).max(1) * (height as usize >> level).max(1);
+
+                        let mut offset = 0;
+                        for _layer in 0..layer_count {
+                            for _face in 0..face_count {
+                                for i in 0..n_pixels {
+                                    rgba[i * 4] = level_data[offset];
+                                    rgba[i * 4 + 1] = level_data[offset + 1];
+                                    rgba[i * 4 + 2] = level_data[offset + 2];
+                                    offset += 3;
+                                }
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels * 4]);
+                            }
+                        }
                     }
 
                     if is_srgb {
@@ -111,41 +150,54 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let (mut original_width, mut original_height) = (width, height);
-                    let (block_width_pixels, block_height_pixels) = (4, 4);
+                    let texture_format_info = texture_format;
+                    let (block_width_pixels, block_height_pixels) = (
+                        texture_format_info.block_dimensions().0,
+                        texture_format_info.block_dimensions().1,
+                    );
+                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+                    let block_bytes = texture_format_info.block_copy_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
-                        let slice_parameters = SliceParametersUastc {
-                            num_blocks_x: ((original_width + block_width_pixels - 1)
-                                / block_width_pixels)
-                                .max(1),
-                            num_blocks_y: ((original_height + block_height_pixels - 1)
-                                / block_height_pixels)
-                                .max(1),
-                            has_alpha: false,
-                            original_width,
-                            original_height,
-                        };
+                        let (level_width, level_height) = (
+                            (width >> level as u32).max(1),
+                            (height >> level as u32).max(1),
+                        );
+                        let (num_blocks_x, num_blocks_y) = (
+                            ((level_width + block_width_pixels - 1) / block_width_pixels) .max(1),
+                            ((level_height + block_height_pixels - 1) / block_height_pixels) .max(1),
+                        );
+                        let level_bytes = (num_blocks_x * num_blocks_y * block_bytes) as usize;
 
-                        transcoder
-                            .transcode_slice(
-                                level_data,
-                                slice_parameters,
-                                DecodeFlags::HIGH_QUALITY,
-                                transcode_block_format,
-                            )
-                            .map(|transcoded_level| transcoded.push(transcoded_level))
-                            .map_err(|error| {
-                                TextureError::SuperDecompressionError(format!(
-                                    "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
-                                    level, transcode_block_format, error
-                                ))
-                            })?;
-
-                        // Next mip dimensions are half the current, minimum 1x1
-                        original_width = (original_width / 2).max(1);
-                        original_height = (original_height / 2).max(1);
+                        let mut offset = 0;
+                        for _layer in 0..layer_count {
+                            for _face in 0..face_count {
+                                // NOTE: SliceParametersUastc does not implement Clone nor Copy so
+                                // it has to be created per use
+                                let slice_parameters = SliceParametersUastc {
+                                    num_blocks_x,
+                                    num_blocks_y,
+                                    has_alpha: false,
+                                    original_width: level_width,
+                                    original_height: level_height,
+                                };
+                                transcoder
+                                    .transcode_slice(
+                                        &level_data[offset..(offset + level_bytes)],
+                                        slice_parameters,
+                                        DecodeFlags::HIGH_QUALITY,
+                                        transcode_block_format,
+                                    )
+                                    .map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level))
+                                    .map_err(|error| {
+                                        TextureError::SuperDecompressionError(format!(
+                                            "Failed to transcode mip level {level} from UASTC to {transcode_block_format:?}: {error:?}",
+                                        ))
+                                    })?;
+                                offset += level_bytes;
+                            }
+                        }
                     }
                     texture_format
                 }
@@ -173,21 +225,58 @@ pub fn ktx2_buffer_to_image(
     })?;
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
-            "Format not supported by this GPU: {:?}",
-            texture_format
+            "Format not supported by this GPU: {texture_format:?}",
         )));
+    }
+
+    // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
+    let texture_format_info = texture_format;
+    let (block_width_pixels, block_height_pixels) = (
+        texture_format_info.block_dimensions().0 as usize,
+        texture_format_info.block_dimensions().1 as usize,
+    );
+    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+    let block_bytes = texture_format_info.block_copy_size(None).unwrap() as usize;
+
+    let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
+    for (level, level_data) in levels.iter().enumerate() {
+        let (level_width, level_height, level_depth) = (
+            (width as usize >> level).max(1),
+            (height as usize >> level).max(1),
+            (depth as usize >> level).max(1),
+        );
+        let (num_blocks_x, num_blocks_y) = (
+            ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
+            ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
+        );
+        let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
+
+        let mut index = 0;
+        for _layer in 0..layer_count {
+            for _face in 0..face_count {
+                let offset = index * level_bytes;
+                wgpu_data[index].extend_from_slice(&level_data[offset..(offset + level_bytes)]);
+                index += 1;
+            }
+        }
     }
 
     // Assign the data and fill in the rest of the metadata now the possible
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = levels.into_iter().flatten().collect::<Vec<_>>();
+    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>();
     image.texture_descriptor.size = Extent3d {
         width,
         height,
-        depth_or_array_layers: if layer_count > 1 { layer_count } else { depth }.max(1),
-    };
+        depth_or_array_layers: if layer_count > 1 || face_count > 1 {
+            layer_count * face_count
+        } else {
+            depth
+        }
+        .max(1),
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = level_count;
     image.texture_descriptor.dimension = if depth > 1 {
         TextureDimension::D3
@@ -196,6 +285,24 @@ pub fn ktx2_buffer_to_image(
     } else {
         TextureDimension::D1
     };
+    let mut dimension = None;
+    if face_count == 6 {
+        dimension = Some(if layer_count > 1 {
+            TextureViewDimension::CubeArray
+        } else {
+            TextureViewDimension::Cube
+        });
+    } else if layer_count > 1 {
+        dimension = Some(TextureViewDimension::D2Array);
+    } else if depth > 1 {
+        dimension = Some(TextureViewDimension::D3);
+    }
+    if dimension.is_some() {
+        image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension,
+            ..default()
+        });
+    }
     Ok(image)
 }
 
@@ -206,7 +313,7 @@ pub fn get_transcoded_formats(
     is_srgb: bool,
 ) -> (TranscoderBlockFormat, TextureFormat) {
     match data_format {
-        DataFormat::R8 => {
+        DataFormat::Rrr => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC4, TextureFormat::Bc4RUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -218,7 +325,7 @@ pub fn get_transcoded_formats(
                 (TranscoderBlockFormat::RGBA32, TextureFormat::R8Unorm)
             }
         }
-        DataFormat::Rg8 => {
+        DataFormat::Rrrg | DataFormat::Rg => {
             if supported_compressed_formats.contains(CompressedImageFormats::BC) {
                 (TranscoderBlockFormat::BC5, TextureFormat::Bc5RgUnorm)
             } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
@@ -232,17 +339,20 @@ pub fn get_transcoded_formats(
         }
         // NOTE: Rgba16Float should be transcoded to BC6H/ASTC_HDR. Neither are supported by
         // basis-universal, nor is ASTC_HDR supported by wgpu
-        DataFormat::Rgb8 | DataFormat::Rgba8 | DataFormat::Rgba16Float => {
+        DataFormat::Rgb | DataFormat::Rgba => {
             // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
             // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
             // transcoding speed and quality.
             if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
                 (
                     TranscoderBlockFormat::ASTC_4x4,
-                    if is_srgb {
-                        TextureFormat::Astc4x4RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc4x4RgbaUnorm
+                    TextureFormat::Astc {
+                        block: AstcBlock::B4x4,
+                        channel: if is_srgb {
+                            AstcChannel::UnormSrgb
+                        } else {
+                            AstcChannel::Unorm
+                        },
                     },
                 )
             } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
@@ -289,7 +399,7 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
         if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
             let basic_data_format_descriptor =
                 BasicDataFormatDescriptor::parse(data_format_descriptor.data)
-                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {:?}", err)))?;
+                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
             let sample_information = basic_data_format_descriptor
                 .sample_information()
                 .collect::<Vec<_>>();
@@ -433,8 +543,7 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 1-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 1-channel format: {v}",
                             )));
                         }
                     }
@@ -516,8 +625,7 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 2-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 2-channel format: {v}",
                             )));
                         }
                     }
@@ -752,16 +860,14 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 4-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 4-channel format: {v}",
                             )));
                         }
                     }
                 }
                 v => {
                     return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Unsupported channel count for RGBSDA format: {}",
-                        v
+                        "Unsupported channel count for RGBSDA format: {v}",
                     )));
                 }
             }
@@ -877,16 +983,14 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for XYZW 4-channel format: {}",
-                                v
+                                "Unsupported sample bit length for XYZW 4-channel format: {v}",
                             )));
                         }
                     }
                 }
                 v => {
                     return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Unsupported channel count for XYZW format: {}",
-                        v
+                        "Unsupported channel count for XYZW format: {v}",
                     )));
                 }
             }
@@ -931,7 +1035,7 @@ pub fn ktx2_dfd_to_texture_format(
             if sample_information[0].lower == 0 {
                 TextureFormat::Bc6hRgbUfloat
             } else {
-                TextureFormat::Bc6hRgbSfloat
+                TextureFormat::Bc6hRgbFloat
             }
         }
         Some(ColorModel::BC7) => {
@@ -1011,164 +1115,39 @@ pub fn ktx2_dfd_to_texture_format(
             }
             v => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "Unsupported channel count for ETC2 format: {}",
-                    v
+                    "Unsupported channel count for ETC2 format: {v}",
                 )));
             }
         },
-        Some(ColorModel::ASTC) => match data_format_descriptor.texel_block_dimensions[0] {
-            4 => match data_format_descriptor.texel_block_dimensions[1] {
-                4 => {
-                    if is_srgb {
-                        TextureFormat::Astc4x4RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc4x4RgbaUnorm
-                    }
-                }
+        Some(ColorModel::ASTC) => TextureFormat::Astc {
+            block: match (
+                data_format_descriptor.texel_block_dimensions[0],
+                data_format_descriptor.texel_block_dimensions[1],
+            ) {
+                (4, 4) => AstcBlock::B4x4,
+                (5, 4) => AstcBlock::B5x4,
+                (5, 5) => AstcBlock::B5x5,
+                (6, 5) => AstcBlock::B6x5,
+                (8, 5) => AstcBlock::B8x5,
+                (8, 8) => AstcBlock::B8x8,
+                (10, 5) => AstcBlock::B10x5,
+                (10, 6) => AstcBlock::B10x6,
+                (10, 8) => AstcBlock::B10x8,
+                (10, 10) => AstcBlock::B10x10,
+                (12, 10) => AstcBlock::B12x10,
+                (12, 12) => AstcBlock::B12x12,
                 d => {
                     return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
+                        "Invalid ASTC dimension: {} x {}",
+                        d.0, d.1
                     )))
                 }
             },
-            5 => match data_format_descriptor.texel_block_dimensions[1] {
-                4 => {
-                    if is_srgb {
-                        TextureFormat::Astc5x4RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc5x4RgbaUnorm
-                    }
-                }
-                5 => {
-                    if is_srgb {
-                        TextureFormat::Astc5x5RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc5x5RgbaUnorm
-                    }
-                }
-                d => {
-                    return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
-                    )))
-                }
+            channel: if is_srgb {
+                AstcChannel::UnormSrgb
+            } else {
+                AstcChannel::Unorm
             },
-            6 => match data_format_descriptor.texel_block_dimensions[1] {
-                5 => {
-                    if is_srgb {
-                        TextureFormat::Astc6x5RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc6x5RgbaUnorm
-                    }
-                }
-                6 => {
-                    if is_srgb {
-                        TextureFormat::Astc6x6RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc6x6RgbaUnorm
-                    }
-                }
-                d => {
-                    return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
-                    )))
-                }
-            },
-            8 => match data_format_descriptor.texel_block_dimensions[1] {
-                5 => {
-                    if is_srgb {
-                        TextureFormat::Astc8x5RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc8x5RgbaUnorm
-                    }
-                }
-                6 => {
-                    if is_srgb {
-                        TextureFormat::Astc8x6RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc8x6RgbaUnorm
-                    }
-                }
-                8 => {
-                    if is_srgb {
-                        TextureFormat::Astc8x8RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc8x8RgbaUnorm
-                    }
-                }
-                d => {
-                    return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
-                    )))
-                }
-            },
-            10 => match data_format_descriptor.texel_block_dimensions[1] {
-                5 => {
-                    if is_srgb {
-                        TextureFormat::Astc10x5RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc10x5RgbaUnorm
-                    }
-                }
-                6 => {
-                    if is_srgb {
-                        TextureFormat::Astc10x6RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc10x6RgbaUnorm
-                    }
-                }
-                8 => {
-                    if is_srgb {
-                        TextureFormat::Astc10x8RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc10x8RgbaUnorm
-                    }
-                }
-                10 => {
-                    if is_srgb {
-                        TextureFormat::Astc10x10RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc10x10RgbaUnorm
-                    }
-                }
-                d => {
-                    return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
-                    )))
-                }
-            },
-            12 => match data_format_descriptor.texel_block_dimensions[1] {
-                10 => {
-                    if is_srgb {
-                        TextureFormat::Astc12x10RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc12x10RgbaUnorm
-                    }
-                }
-                12 => {
-                    if is_srgb {
-                        TextureFormat::Astc12x12RgbaUnormSrgb
-                    } else {
-                        TextureFormat::Astc12x12RgbaUnorm
-                    }
-                }
-                d => {
-                    return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Invalid ASTC y-dimension: {}",
-                        d
-                    )))
-                }
-            },
-            d => {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "Invalid ASTC x-dimension: {}",
-                    d
-                )))
-            }
         },
         Some(ColorModel::ETC1S) => {
             return Err(TextureError::FormatRequiresTranscodingError(
@@ -1187,18 +1166,17 @@ pub fn ktx2_dfd_to_texture_format(
         }
         Some(ColorModel::UASTC) => {
             return Err(TextureError::FormatRequiresTranscodingError(
-                TranscodeFormat::Uastc(match sample_information.len() {
-                    1 => DataFormat::R8,
-                    2 => DataFormat::Rg8,
-                    3 => DataFormat::Rgb8,
-                    4 => {
-                        if sample_information[0].bit_length == 8 {
-                            DataFormat::Rgba8
-                        } else {
-                            DataFormat::Rgba16Float
-                        }
+                TranscodeFormat::Uastc(match sample_information[0].channel_type {
+                    0 => DataFormat::Rgb,
+                    3 => DataFormat::Rgba,
+                    4 => DataFormat::Rrr,
+                    5 => DataFormat::Rrrg,
+                    6 => DataFormat::Rg,
+                    channel_type => {
+                        return Err(TextureError::UnsupportedTextureFormat(format!(
+                            "Invalid KTX2 UASTC channel type: {channel_type}",
+                        )))
                     }
-                    _ => DataFormat::Rgba8,
                 }),
             ));
         }
@@ -1223,10 +1201,9 @@ pub fn ktx2_format_to_texture_format(
     Ok(match ktx2_format {
         ktx2::Format::R8_UNORM | ktx2::Format::R8_SRGB => {
             if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
-                )));
+                return Err(TextureError::FormatRequiresTranscodingError(
+                    TranscodeFormat::R8UnormSrgb,
+                ));
             }
             TextureFormat::R8Unorm
         }
@@ -1235,16 +1212,20 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8_SINT => TextureFormat::R8Sint,
         ktx2::Format::R8G8_UNORM | ktx2::Format::R8G8_SRGB => {
             if is_srgb {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
-                )));
+                return Err(TextureError::FormatRequiresTranscodingError(
+                    TranscodeFormat::Rg8UnormSrgb,
+                ));
             }
             TextureFormat::Rg8Unorm
         }
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
         ktx2::Format::R8G8_SINT => TextureFormat::Rg8Sint,
+        ktx2::Format::R8G8B8_UNORM | ktx2::Format::R8G8B8_SRGB => {
+            return Err(TextureError::FormatRequiresTranscodingError(
+                TranscodeFormat::Rgb8,
+            ));
+        }
         ktx2::Format::R8G8B8A8_UNORM | ktx2::Format::R8G8B8A8_SRGB => {
             if is_srgb {
                 TextureFormat::Rgba8UnormSrgb
@@ -1328,7 +1309,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::BC5_UNORM_BLOCK => TextureFormat::Bc5RgUnorm,
         ktx2::Format::BC5_SNORM_BLOCK => TextureFormat::Bc5RgSnorm,
         ktx2::Format::BC6H_UFLOAT_BLOCK => TextureFormat::Bc6hRgbUfloat,
-        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbSfloat,
+        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbFloat,
         ktx2::Format::BC7_UNORM_BLOCK | ktx2::Format::BC7_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb
@@ -1362,108 +1343,182 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::EAC_R11G11_UNORM_BLOCK => TextureFormat::EacRg11Unorm,
         ktx2::Format::EAC_R11G11_SNORM_BLOCK => TextureFormat::EacRg11Snorm,
         ktx2::Format::ASTC_4x4_UNORM_BLOCK | ktx2::Format::ASTC_4x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc4x4RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc4x4RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B4x4,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_5x4_UNORM_BLOCK | ktx2::Format::ASTC_5x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc5x4RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc5x4RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B5x4,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_5x5_UNORM_BLOCK | ktx2::Format::ASTC_5x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc5x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc5x5RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B5x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_6x5_UNORM_BLOCK | ktx2::Format::ASTC_6x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc6x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc6x5RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B6x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_6x6_UNORM_BLOCK | ktx2::Format::ASTC_6x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc6x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc6x6RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B6x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x5_UNORM_BLOCK | ktx2::Format::ASTC_8x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x5RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B8x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x6_UNORM_BLOCK | ktx2::Format::ASTC_8x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x6RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B8x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x8_UNORM_BLOCK | ktx2::Format::ASTC_8x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc8x8RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc8x8RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B8x8,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x5_UNORM_BLOCK | ktx2::Format::ASTC_10x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x5RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x5RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B10x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x6_UNORM_BLOCK | ktx2::Format::ASTC_10x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x6RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x6RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B10x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x8_UNORM_BLOCK | ktx2::Format::ASTC_10x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x8RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x8RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B10x8,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x10_UNORM_BLOCK | ktx2::Format::ASTC_10x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc10x10RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc10x10RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B10x10,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_12x10_UNORM_BLOCK | ktx2::Format::ASTC_12x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc12x10RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc12x10RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B12x10,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_12x12_UNORM_BLOCK | ktx2::Format::ASTC_12x12_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc12x12RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc12x12RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B12x12,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         _ => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                ktx2_format
+                "{ktx2_format:?}"
             )))
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::texture::CompressedImageFormats;
+
+    use super::ktx2_buffer_to_image;
+
+    #[test]
+    fn test_ktx_levels() {
+        // R8UnormSrgb textture with 4x4 pixels data and 3 levels of mipmaps
+        let buffer = vec![
+            0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 10, 0x1a, 10, 0x0f, 0, 0, 0, 1,
+            0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,
+            0, 0, 0x98, 0, 0, 0, 0x2c, 0, 0, 0, 0xc4, 0, 0, 0, 0x5c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0x28, 1, 0, 0, 0, 0, 0, 0, 0x10, 0, 0, 0, 0, 0, 0, 0, 0x10,
+            0, 0, 0, 0, 0, 0, 0, 0x24, 1, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0,
+            0, 0, 0, 0x20, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0x2c, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0x28, 0, 1, 1, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0x12, 0, 0, 0, 0x4b, 0x54, 0x58,
+            0x6f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0, 0x72, 0x64, 0, 0,
+            0, 0x10, 0, 0, 0, 0x4b, 0x54, 0x58, 0x73, 0x77, 0x69, 0x7a, 0x7a, 0x6c, 0x65, 0, 0x72,
+            0x72, 0x72, 0x31, 0, 0x2c, 0, 0, 0, 0x4b, 0x54, 0x58, 0x77, 0x72, 0x69, 0x74, 0x65,
+            0x72, 0, 0x74, 0x6f, 0x6b, 0x74, 0x78, 0x20, 0x76, 0x34, 0x2e, 0x33, 0x2e, 0x30, 0x7e,
+            0x32, 0x38, 0x20, 0x2f, 0x20, 0x6c, 0x69, 0x62, 0x6b, 0x74, 0x78, 0x20, 0x76, 0x34,
+            0x2e, 0x33, 0x2e, 0x30, 0x7e, 0x31, 0, 0x4a, 0, 0, 0, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a,
+            0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a,
+            0x4a,
+        ];
+        let supported_compressed_formats = CompressedImageFormats::empty();
+        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true);
+        assert!(result.is_ok());
+    }
 }

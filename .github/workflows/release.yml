@@ -9,9 +9,10 @@ env:
 
 jobs:
   ci:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install cargo-release
         run: cargo install cargo-release
@@ -41,16 +42,15 @@ jobs:
             --dependent-version upgrade \
             --exclude ci \
             --exclude errors \
-            --exclude bevy-ios-example \
-            --exclude spancmp \
+            --exclude bevy_mobile_example \
             --exclude build-wasm-example
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v6
         with:
           delete-branch: true
           base: "main"
           title: "Preparing Next Release"
           body: |
-            Preparing next release
-            This PR has been auto-generated
+            Preparing next release. This PR has been auto-generated.
+            UI tests have not been automatically bumped to the latest version, please fix them manually.

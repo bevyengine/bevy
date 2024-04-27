@@ -1,0 +1,20 @@
+error[E0599]: no function or associated item named `this_function_does_not_exist` found for struct `Config` in the current scope
+   --> tests/example_tests/import.rs:5:21
+    |
+5   |     let _ = Config::this_function_does_not_exist();
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function or associated item not found in `Config`
+    |
+note: if you're trying to build a new `Config` consider using one of the following associated functions:
+      Config::rustc
+      Config::cargo
+   --> $RUSTUP_HOME/.cargo/git/checkouts/ui_test-2b82183a391bb05c/680bb08/src/config.rs:63:5
+    |
+63  |     pub fn rustc(root_dir: impl Into<PathBuf>) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+108 |     pub fn cargo(root_dir: impl Into<PathBuf>) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0599`.

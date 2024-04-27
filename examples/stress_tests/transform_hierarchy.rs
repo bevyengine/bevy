@@ -179,19 +179,20 @@ fn main() {
         }
     };
 
-    println!("\n{:#?}", cfg);
+    println!("\n{cfg:#?}");
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins(MinimalPlugins)
-        .add_plugin(TransformPlugin::default())
-        .add_startup_system(setup)
-        .add_system(update)
+        .add_plugins((MinimalPlugins, TransformPlugin))
+        .add_systems(Startup, setup)
+        // Updating transforms *must* be done before `PostUpdate`
+        // or the hierarchy will momentarily be in an invalid state.
+        .add_systems(Update, update)
         .run();
 }
 
 /// test configuration
-#[derive(Debug, Clone)]
+#[derive(Resource, Debug, Clone)]
 struct Cfg {
     /// which test case should be inserted
     test_case: TestCase,
@@ -240,11 +241,11 @@ struct UpdateFilter {
 
 /// update component with some per-component value
 #[derive(Component)]
-struct Update(f32);
+struct UpdateValue(f32);
 
 /// update positions system
-fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
-    for (mut t, mut u) in query.iter_mut() {
+fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
+    for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
         set_translation(&mut t.translation, u.0);
     }
@@ -257,9 +258,12 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut cam = Camera2dBundle::default();
+
     cam.transform.translation.z = 100.0;
-    commands.spawn_bundle(cam);
+    commands.spawn(cam);
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -314,7 +318,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
         }
     };
 
-    println!("\n{:#?}", result);
+    println!("\n{result:#?}");
 }
 
 /// overview of the inserted hierarchy
@@ -364,13 +368,7 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(
-        commands
-            .spawn()
-            .insert(root_transform)
-            .insert(GlobalTransform::default())
-            .id(),
-    );
+    ents.push(commands.spawn(TransformBundle::from(root_transform)).id());
 
     let mut result = InsertResult::default();
     let mut rng = rand::thread_rng();
@@ -396,14 +394,14 @@ fn spawn_tree(
 
         // insert child
         let child_entity = {
-            let mut cmd = commands.spawn();
+            let mut cmd = commands.spawn_empty();
 
             // check whether or not to update this node
             let update = (rng.gen::<f32>() <= update_filter.probability)
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
-                cmd.insert(Update(sep));
+                cmd.insert(UpdateValue(sep));
                 result.active_nodes += 1;
             }
 
@@ -416,7 +414,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(transform).insert(GlobalTransform::default());
+            cmd.insert(TransformBundle::from(transform));
 
             cmd.id()
         };

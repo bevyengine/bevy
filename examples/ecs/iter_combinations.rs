@@ -1,31 +1,16 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
-use rand::{thread_rng, Rng};
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
+use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
-        .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies)
-                .with_system(integrate),
-        )
-        .add_system(look_at_star)
         .insert_resource(ClearColor(Color::BLACK))
+        .add_systems(Startup, generate_bodies)
+        .add_systems(FixedUpdate, (interact_bodies, integrate))
+        .add_systems(Update, look_at_star)
         .run();
 }
 
@@ -43,7 +28,6 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    #[bundle]
     pbr: PbrBundle,
     mass: Mass,
     last_pos: LastPos,
@@ -51,19 +35,19 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
+    time: Res<Time<Fixed>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Icosphere {
-        radius: 1.0,
-        subdivisions: 3,
-    }));
+    let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;
@@ -74,10 +58,10 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
+            * rng.gen_range(0.2f32..1.0).cbrt()
             * 15.;
 
-        commands.spawn_bundle(BodyBundle {
+        commands.spawn(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
                     translation: position,
@@ -85,14 +69,11 @@ fn generate_bodies(
                     ..default()
                 },
                 mesh: mesh.clone(),
-                material: materials.add(
-                    Color::rgb(
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                        rng.gen_range(color_range.clone()),
-                    )
-                    .into(),
-                ),
+                material: materials.add(Color::srgb(
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                )),
                 ..default()
             },
             mass: Mass(mass_value),
@@ -103,7 +84,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME as f32,
+                    ) * time.timestep().as_secs_f32(),
             ),
         });
     }
@@ -111,29 +92,27 @@ fn generate_bodies(
     // add bigger "star" body in the center
     let star_radius = 1.;
     commands
-        .spawn_bundle(BodyBundle {
-            pbr: PbrBundle {
-                transform: Transform::from_scale(Vec3::splat(star_radius)),
-                mesh: meshes.add(Mesh::from(shape::Icosphere {
-                    radius: 1.0,
-                    subdivisions: 5,
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::ORANGE_RED,
-                    emissive: (Color::ORANGE_RED * 2.),
+        .spawn((
+            BodyBundle {
+                pbr: PbrBundle {
+                    transform: Transform::from_scale(Vec3::splat(star_radius)),
+                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
+                    material: materials.add(StandardMaterial {
+                        base_color: ORANGE_RED.into(),
+                        emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
+                        ..default()
+                    }),
                     ..default()
-                }),
+                },
+                mass: Mass(500.0),
                 ..default()
             },
-            mass: Mass(500.0),
-            ..default()
-        })
-        .insert(Star)
+            Star,
+        ))
         .with_children(|p| {
-            p.spawn_bundle(PointLightBundle {
+            p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
-                    intensity: 400.0,
                     range: 100.0,
                     radius: star_radius,
                     ..default()
@@ -141,7 +120,7 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -152,7 +131,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
         iter.fetch_next()
     {
-        let delta = transform2.translation - transform1.translation;
+        let delta = transform2.translation() - transform1.translation();
         let distance_sq: f32 = delta.length_squared();
 
         let f = GRAVITY_CONSTANT / distance_sq;
@@ -162,14 +141,13 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     }
 }
 
-fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
-    for (mut acceleration, mut transform, mut last_pos) in query.iter_mut() {
+fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
+    let dt_sq = time.delta_seconds() * time.delta_seconds();
+    for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 
-        let new_pos =
-            transform.translation + transform.translation - last_pos.0 + acceleration.0 * dt_sq;
+        let new_pos = transform.translation * 2.0 - last_pos.0 + acceleration.0 * dt_sq;
         acceleration.0 = Vec3::ZERO;
         last_pos.0 = transform.translation;
         transform.translation = new_pos;

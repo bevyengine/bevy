@@ -1,8 +1,8 @@
 //! Shows multiple transformations of objects.
 
-use bevy::prelude::*;
-
 use std::f32::consts::PI;
+
+use bevy::{color::palettes::basic::YELLOW, prelude::*};
 
 // A struct for additional data of for a moving cube.
 #[derive(Component)]
@@ -24,10 +24,16 @@ struct Center {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(move_cube)
-        .add_system(rotate_cube)
-        .add_system(scale_down_sphere_proportional_to_cube_travel_distance)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                move_cube,
+                rotate_cube,
+                scale_down_sphere_proportional_to_cube_travel_distance,
+            )
+                .chain(),
+        )
         .run();
 }
 
@@ -38,59 +44,57 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Add an object (sphere) for visualizing scaling.
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere {
-                radius: 3.0,
-                subdivisions: 32,
-            })),
-            material: materials.add(Color::YELLOW.into()),
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
+            material: materials.add(Color::from(YELLOW)),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
-        })
-        .insert(Center {
+        },
+        Center {
             max_size: 1.0,
             min_size: 0.1,
             scale_factor: 0.05,
-        });
+        },
+    ));
 
     // Add the cube to visualize rotation and translation.
     // This cube will circle around the center_sphere
     // by changing its rotation each frame and moving forward.
     // Define a start transform for an orbiting cube, that's away from our central object (sphere)
     // and rotate it so it will be able to move around the sphere and not towards it.
-    let angle_90 = PI / 2.0;
-    let mut cube_spawn = Transform::from_translation(Vec3::Z * -10.0);
-    cube_spawn.rotation = Quat::from_rotation_y(angle_90);
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+    let cube_spawn =
+        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::WHITE),
             transform: cube_spawn,
             ..default()
-        })
-        .insert(CubeState {
+        },
+        CubeState {
             start_pos: cube_spawn.translation,
             move_speed: 2.0,
             turn_speed: 0.2,
-        });
+        },
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::ONE * 3.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }
 
 // This system will move the cube forward.
 fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
         transform.translation += forward * cube.move_speed * timer.delta_seconds();
@@ -107,13 +111,13 @@ fn rotate_cube(
 ) {
     // Calculate the point to circle around. (The position of the center_sphere)
     let mut center: Vec3 = Vec3::ZERO;
-    for sphere in center_spheres.iter() {
+    for sphere in &center_spheres {
         center += sphere.translation;
     }
     // Update the rotation of the cube(s).
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
-        let look_at_sphere = transform.looking_at(center, transform.local_y());
+        let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
         // when looking a the sphere,  with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.
@@ -132,11 +136,11 @@ fn scale_down_sphere_proportional_to_cube_travel_distance(
     // First we need to calculate the length of between
     // the current position of the orbiting cube and the spawn position.
     let mut distances = 0.0;
-    for (cube_transform, cube_state) in cubes.iter() {
+    for (cube_transform, cube_state) in &cubes {
         distances += (cube_state.start_pos - cube_transform.translation).length();
     }
     // Now we use the calculated value to scale the sphere in the center accordingly.
-    for (mut transform, center) in centers.iter_mut() {
+    for (mut transform, center) in &mut centers {
         // Calculate the new size from the calculated distances and the centers scale_factor.
         // Since we want to have the sphere at its max_size at the cubes spawn location we start by
         // using the max_size as start value and subtract the distances scaled by a scaling factor.

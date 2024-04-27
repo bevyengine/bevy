@@ -1,54 +1,68 @@
-use crate::container_attributes::ReflectTraits;
-use proc_macro2::Ident;
-use syn::parse::{Parse, ParseStream};
-use syn::token::{Paren, Where};
-use syn::{parenthesized, Generics};
+use crate::container_attributes::ContainerAttributes;
+use crate::derive_data::ReflectTraitToImpl;
+use crate::type_path::CustomPathDef;
+use syn::parse::ParseStream;
+use syn::token::Paren;
+use syn::{parenthesized, Attribute, Generics, Path};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///
+///
+///
 /// This takes the form:
 ///
-/// ```ignore
+/// ```ignore (Method expecting TokenStream is better represented with raw tokens)
 /// // Standard
-/// foo(TraitA, TraitB)
+/// ::my_crate::foo::Bar(TraitA, TraitB)
 ///
 /// // With generics
-/// foo<T1: Bar, T2>(TraitA, TraitB)
+/// ::my_crate::foo::Bar<T1: Bar, T2>(TraitA, TraitB)
 ///
 /// // With generics and where clause
-/// foo<T1, T2> where T1: Bar (TraitA, TraitB)
+/// ::my_crate::foo::Bar<T1, T2> where T1: Bar (TraitA, TraitB)
+///
+/// // With a custom path (not with impl_from_reflect_value)
+/// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
 pub(crate) struct ReflectValueDef {
-    pub type_name: Ident,
+    #[allow(dead_code)]
+    pub attrs: Vec<Attribute>,
+    pub type_path: Path,
     pub generics: Generics,
-    pub traits: Option<ReflectTraits>,
+    pub traits: Option<ContainerAttributes>,
+    pub custom_path: Option<CustomPathDef>,
 }
 
-impl Parse for ReflectValueDef {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let type_ident = input.parse::<Ident>()?;
-        let generics = input.parse::<Generics>()?;
-        let mut lookahead = input.lookahead1();
-        let mut where_clause = None;
-        if lookahead.peek(Where) {
-            where_clause = Some(input.parse()?);
-            lookahead = input.lookahead1();
-        }
+impl ReflectValueDef {
+    pub fn parse_reflect(input: ParseStream) -> syn::Result<Self> {
+        Self::parse(input, ReflectTraitToImpl::Reflect)
+    }
+
+    pub fn parse_from_reflect(input: ParseStream) -> syn::Result<Self> {
+        Self::parse(input, ReflectTraitToImpl::FromReflect)
+    }
+
+    fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+
+        let custom_path = CustomPathDef::parse_parenthesized(input)?;
+
+        let type_path = Path::parse_mod_style(input)?;
+        let mut generics = input.parse::<Generics>()?;
+        generics.where_clause = input.parse()?;
 
         let mut traits = None;
-        if lookahead.peek(Paren) {
+        if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(content.parse::<ReflectTraits>()?);
+            traits = Some(ContainerAttributes::parse_terminated(&content, trait_)?);
         }
-
         Ok(ReflectValueDef {
-            type_name: type_ident,
-            generics: Generics {
-                where_clause,
-                ..generics
-            },
+            attrs,
+            type_path,
+            generics,
             traits,
+            custom_path,
         })
     }
 }

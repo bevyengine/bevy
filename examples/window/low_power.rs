@@ -3,10 +3,9 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
-use std::time::Duration;
-
 use bevy::{
     prelude::*,
+    utils::Duration,
     window::{PresentMode, RequestRedraw},
     winit::WinitSettings,
 };
@@ -17,30 +16,36 @@ fn main() {
         .insert_resource(WinitSettings::game())
         // Power-saving reactive rendering for applications.
         .insert_resource(WinitSettings::desktop_app())
-        // You can also customize update behavior with the fields of [`WinitConfig`]
+        // You can also customize update behavior with the fields of [`WinitSettings`]
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_millis(10),
+                wait: Duration::from_millis(10),
             },
-            ..default()
-        })
-        // Turn off vsync to maximize CPU/GPU usage
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
-            ..default()
         })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes)
-        .add_system(test_setup::rotate_cube)
-        .add_system(test_setup::update_text)
-        .add_system(update_winit)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                // Turn off vsync to maximize CPU/GPU usage
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_systems(Startup, test_setup::setup)
+        .add_systems(
+            Update,
+            (
+                test_setup::cycle_modes,
+                test_setup::rotate_cube,
+                test_setup::update_text,
+                update_winit,
+            ),
+        )
         .run();
 }
 
-#[derive(Debug)]
+#[derive(Resource, Debug)]
 enum ExampleMode {
     Game,
     Application,
@@ -56,13 +61,16 @@ fn update_winit(
     use ExampleMode::*;
     *winit_config = match *mode {
         Game => {
-            // In the default `WinitConfig::game()` mode:
+            // In the default `WinitSettings::game()` mode:
             //   * When focused: the event loop runs as fast as possible
-            //   * When not focused: the event loop runs as fast as possible
+            //   * When not focused: the app will update when the window is directly interacted with
+            //     (e.g. the mouse hovers over a visible part of the out of focus window), a
+            //     [`RequestRedraw`] event is received, or one sixtieth of a second has passed
+            //     without the app updating (60 Hz refresh rate max).
             WinitSettings::game()
         }
         Application => {
-            // While in `WinitConfig::desktop_app()` mode:
+            // While in `WinitSettings::desktop_app()` mode:
             //   * When focused: the app will update any time a winit event (e.g. the window is
             //     moved/resized, the mouse moves, a button is pressed, etc.), a [`RequestRedraw`]
             //     event is received, or after 5 seconds if the app has not updated.
@@ -75,7 +83,7 @@ fn update_winit(
         ApplicationWithRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
             // frame regardless of any user input. For example, your application might use
-            // `WinitConfig::desktop_app()` to reduce power use, but UI animations need to play even
+            // `WinitSettings::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
             event.send(RequestRedraw);
             WinitSettings::desktop_app()
@@ -87,14 +95,18 @@ fn update_winit(
 /// demonstrated features.
 pub(crate) mod test_setup {
     use crate::ExampleMode;
-    use bevy::{prelude::*, window::RequestRedraw};
+    use bevy::{
+        color::palettes::basic::{LIME, YELLOW},
+        prelude::*,
+        window::RequestRedraw,
+    };
 
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
-        mouse_button_input: Res<Input<KeyCode>>,
+        button_input: Res<ButtonInput<KeyCode>>,
     ) {
-        if mouse_button_input.just_pressed(KeyCode::Space) {
+        if button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
                 ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
@@ -111,10 +123,9 @@ pub(crate) mod test_setup {
         time: Res<Time>,
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
-        for mut transform in cube_transform.iter_mut() {
-            let t = time.seconds_since_startup() as f32;
-            *transform =
-                transform.with_rotation(Quat::from_rotation_x(t) * Quat::from_rotation_y(t));
+        for mut transform in &mut cube_transform {
+            transform.rotate_x(time.delta_seconds());
+            transform.rotate_local_y(time.delta_seconds());
         }
     }
 
@@ -132,8 +143,9 @@ pub(crate) mod test_setup {
             ExampleMode::Application => "desktop_app(), reactive",
             ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
         };
-        query.get_single_mut().unwrap().sections[1].value = mode.to_string();
-        query.get_single_mut().unwrap().sections[3].value = format!("{}", *frame);
+        let mut text = query.single_mut();
+        text.sections[1].value = mode.to_string();
+        text.sections[3].value = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -142,80 +154,61 @@ pub(crate) mod test_setup {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,
-        asset_server: Res<AssetServer>,
     ) {
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-                ..default()
-            })
-            .insert(Rotator);
-        commands.spawn_bundle(PointLightBundle {
-            point_light: PointLight {
-                intensity: 1500.0,
-                shadows_enabled: true,
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
                 ..default()
             },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+            Rotator,
+        ));
+
+        commands.spawn(DirectionalLightBundle {
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
-        commands.spawn_bundle(Camera3dBundle {
+        commands.spawn(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
         event.send(RequestRedraw);
-        commands
-            .spawn_bundle(TextBundle {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        top: Val::Px(5.0),
-                        left: Val::Px(5.0),
+        commands.spawn((
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Press space bar to cycle modes\n",
+                    TextStyle {
+                        font_size: 50.0,
                         ..default()
                     },
+                ),
+                TextSection::from_style(TextStyle {
+                    font_size: 50.0,
+                    color: LIME.into(),
                     ..default()
-                },
-                text: Text {
-                    sections: vec![
-                        TextSection {
-                            value: "Press spacebar to cycle modes\n".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::WHITE,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::GREEN,
-                            },
-                        },
-                        TextSection {
-                            value: "\nFrame: ".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                    ],
-                    alignment: TextAlignment::default(),
-                },
+                }),
+                TextSection::new(
+                    "\nFrame: ",
+                    TextStyle {
+                        font_size: 50.0,
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font_size: 50.0,
+                    color: YELLOW.into(),
+                    ..default()
+                }),
+            ])
+            .with_style(Style {
+                align_self: AlignSelf::FlexStart,
+                position_type: PositionType::Absolute,
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
-            })
-            .insert(ModeText);
+            }),
+            ModeText,
+        ));
     }
 }

@@ -1,26 +1,22 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{
-    math::{const_vec2, Vec3Swizzles},
-    prelude::*,
-    time::FixedTimestep,
-};
+use bevy::prelude::*;
 
-const TIME_STEP: f32 = 1.0 / 60.0;
-const BOUNDS: Vec2 = const_vec2!([1200.0, 640.0]);
+const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(player_movement_system)
-                .with_system(snap_to_player_system)
-                .with_system(rotate_to_player_system),
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
+        .add_systems(Startup, setup)
+        .add_systems(
+            FixedUpdate,
+            (
+                player_movement_system,
+                snap_to_player_system,
+                rotate_to_player_system,
+            ),
         )
-        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -48,9 +44,9 @@ struct RotateToPlayer {
 ///
 /// The Bevy coordinate system is the same for 2D and 3D, in terms of 2D this means that:
 ///
-/// * X axis goes from left to right (+X points right)
-/// * Y axis goes from bottom to top (+Y point up)
-/// * Z axis goes from far to near (+Z points towards you, out of the screen)
+/// * `X` axis goes from left to right (`+X` points right)
+/// * `Y` axis goes from bottom to top (`+Y` point up)
+/// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
 /// The origin is at the center of the screen.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -59,62 +55,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
 
     // player controlled ship
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: ship_handle,
             ..default()
-        })
-        .insert(Player {
-            movement_speed: 500.0,                  // metres per second
+        },
+        Player {
+            movement_speed: 500.0,                  // meters per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
-        });
+        },
+    ));
 
     // enemy that snaps to face the player spawns on the bottom and left
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_a_handle.clone(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
             ..default()
-        })
-        .insert(SnapToPlayer);
-    commands
-        .spawn_bundle(SpriteBundle {
+        },
+        SnapToPlayer,
+    ));
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_a_handle,
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
             ..default()
-        })
-        .insert(SnapToPlayer);
+        },
+        SnapToPlayer,
+    ));
 
     // enemy that rotates to face the player enemy spawns on the top and right
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_b_handle.clone(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
             ..default()
-        })
-        .insert(RotateToPlayer {
+        },
+        RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
-        });
-    commands
-        .spawn_bundle(SpriteBundle {
+        },
+    ));
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_b_handle,
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
             ..default()
-        })
-        .insert(RotateToPlayer {
+        },
+        RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second
-        });
+        },
+    ));
 }
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&Player, &mut Transform)>,
 ) {
     let (ship, mut transform) = query.single_mut();
@@ -122,27 +124,27 @@ fn player_movement_system(
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
 
-    if keyboard_input.pressed(KeyCode::Left) {
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
         rotation_factor += 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
         rotation_factor -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Up) {
+    if keyboard_input.pressed(KeyCode::ArrowUp) {
         movement_factor += 1.0;
     }
 
-    // create the change in rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    let rotation_delta = Quat::from_rotation_z(rotation_factor * ship.rotation_speed * TIME_STEP);
-    // update the ship rotation with our rotation delta
-    transform.rotation *= rotation_delta;
+    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
+    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_seconds());
 
-    // get the ship's forward vector by applying the current rotation to the ships initial facing vector
+    // get the ship's forward vector by applying the current rotation to the ships initial facing
+    // vector
     let movement_direction = transform.rotation * Vec3::Y;
-    // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let movement_distance = movement_factor * ship.movement_speed * TIME_STEP;
+    // get the distance the ship will move based on direction, the ship's movement speed and delta
+    // time
+    let movement_distance = movement_factor * ship.movement_speed * time.delta_seconds();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
@@ -162,13 +164,13 @@ fn snap_to_player_system(
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
-    for mut enemy_transform in query.iter_mut() {
+    for mut enemy_transform in &mut query {
         // get the vector from the enemy ship to the player ship in 2D and normalize it.
         let to_player = (player_translation - enemy_transform.translation.xy()).normalize();
 
         // get the quaternion to rotate from the initial enemy facing direction to the direction
         // facing the player
-        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, Vec3::from((to_player, 0.0)));
+        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
 
         // rotate the enemy to face the player
         enemy_transform.rotation = rotate_to_player;
@@ -181,8 +183,8 @@ fn snap_to_player_system(
 /// if not, which way to rotate to face the player. The dot product on two unit length vectors
 /// will return a value between -1.0 and +1.0 which tells us the following about the two vectors:
 ///
-/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them
-///   is 0 degrees.
+/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them is
+///   0 degrees.
 /// * If the result is 0.0 the vectors are perpendicular, the angle between them is 90 degrees.
 /// * If the result is -1.0 the vectors are parallel but pointing in opposite directions, the angle
 ///   between them is 180 degrees.
@@ -197,6 +199,7 @@ fn snap_to_player_system(
 /// floating point precision loss, so it pays to clamp your dot product value before calling
 /// `acos`.
 fn rotate_to_player_system(
+    time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
@@ -204,7 +207,7 @@ fn rotate_to_player_system(
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
-    for (config, mut enemy_transform) in query.iter_mut() {
+    for (config, mut enemy_transform) in &mut query {
         // get the enemy ship forward vector in 2D (already unit length)
         let enemy_forward = (enemy_transform.rotation * Vec3::Y).xy();
 
@@ -241,13 +244,10 @@ fn rotate_to_player_system(
         let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
 
         // calculate angle of rotation with limit
-        let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
-
-        // get the quaternion to rotate from the current enemy facing direction towards the
-        // direction facing the player
-        let rotation_delta = Quat::from_rotation_z(rotation_angle);
+        let rotation_angle =
+            rotation_sign * (config.rotation_speed * time.delta_seconds()).min(max_angle);
 
         // rotate the enemy to face the player
-        enemy_transform.rotation *= rotation_delta;
+        enemy_transform.rotate_z(rotation_angle);
     }
 }

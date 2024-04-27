@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -24,32 +24,40 @@ pub struct A {
     z: HashMap<String, f32>,
 }
 
-/// Deriving reflect on a unit struct will implement `Reflect` and `Struct` traits
+/// Deriving reflect on a unit struct will implement the `Reflect` and `Struct` traits
 #[derive(Reflect)]
 pub struct B;
 
-/// Deriving reflect on a tuple struct will implement `Reflect` and `TupleStruct` traits
+/// Deriving reflect on a tuple struct will implement the `Reflect` and `TupleStruct` traits
 #[derive(Reflect)]
 pub struct C(usize);
 
+/// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
+#[derive(Reflect)]
+enum D {
+    A,
+    B(usize),
+    C { value: f32 },
+}
+
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::hash()`, `Reflect::partial_eq()`, and
-/// `Reflect::serialize()`. You can force these implementations to use the actual trait
+/// These are exposed via methods like `Reflect::reflect_hash()`, `Reflect::reflect_partial_eq()`, and
+/// `Reflect::serializable()`. You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq)]
+#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
 #[reflect(Hash, Serialize, PartialEq)]
-pub struct D {
+pub struct E {
     x: usize,
 }
 
-/// By default, deriving with Reflect assumes the type is a "struct". You can tell reflect to treat
-/// your type as a "value type" by using the `reflect_value` attribute instead of `reflect`. It is
-/// generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
-/// traits on `reflect_value` types to ensure that these values behave as expected when nested
-/// underneath Reflect-ed structs.
-#[derive(Reflect, Copy, Clone, PartialEq, Serialize, Deserialize)]
+/// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
+/// You can tell reflect to treat your type instead as a "value type" by using the `reflect_value`
+/// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)
+/// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
+/// that these values behave as expected when nested underneath Reflect-ed structs.
+#[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub enum E {
+enum F {
     X,
     Y,
 }
@@ -82,6 +90,9 @@ fn setup() {
         // with fields via their indices. Tuple is automatically implemented for tuples of
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
+        // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait allows you
+        // to interact with the current variant and its fields (if it has any)
+        ReflectRef::Enum(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.

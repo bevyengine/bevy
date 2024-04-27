@@ -1,48 +1,54 @@
 name: validation jobs
 
 on:
+  merge_group:
+  pull_request:
   push:
     branches:
-      - staging
-      - trying
       - main
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 env:
   CARGO_TERM_COLOR: always
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build-and-install-on-iOS:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             target
           key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
-        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
       - name: Build and install iOS app in iOS Simulator.
-        run: cd examples/ios && make install
+        run: cd examples/mobile && make install
 
   build-android:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      
-      - uses: actions/cache@v3
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -51,30 +57,30 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
-      
-      - name: Uninstall android-31
-        run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
-      
+
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
-      
+
       - name: Install Cargo APK
         run: cargo install --force cargo-apk
-      
-      - name: Build APK
-        run: cargo apk build --example android
 
-  run-examples-on-windows:
-    runs-on: windows-latest
+      - name: Build APK
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
+
+  run-examples-linux-vulkan:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - uses: actions/cache@v3
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
+      - name: Install additional Linux dependencies for Vulkan
+        run: |
+          sudo add-apt-repository ppa:kisak/turtle -y
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -82,35 +88,99 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
-
+          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build bevy
+        # this uses the same command as when running the example to ensure build is reused
         run: |
-          cargo build --features "bevy_ci_testing"
+          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+      - name: Run examples
+        run: |
+          for example in .github/example-run/*.ron; do
+            example_name=`basename $example .ron`
+            echo -n $example_name > last_example_run
+            echo "running $example_name - "`date`
+            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            sleep 10
+            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
+              mkdir screenshots-$example_name
+              mv screenshot-*.png screenshots-$example_name/
+            fi
+          done
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
+      - name: save traces
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-traces-linux
+          path: traces
+      - name: save screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-linux
+          path: screenshots
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: example-run-linux
+          path: example-run/
 
+  run-examples-on-windows-dx12:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build bevy
+        shell: bash
+        # this uses the same command as when running the example to ensure build is reused
+        run: |
+          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
+            echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
             sleep 10
+            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
+              mkdir screenshots-$example_name
+              mv screenshot-*.png screenshots-$example_name/
+            fi
           done
+          mkdir traces && mv trace*.json traces/
+          mkdir screenshots && mv screenshots-* screenshots/
+      - name: save traces
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-traces-windows
+          path: traces
+      - name: save screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-windows
+          path: screenshots
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        with:
+          name: example-run-windows
+          path: example-run/
 
   run-examples-on-wasm:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           target: wasm32-unknown-unknown
-          override: true
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -124,7 +194,7 @@ jobs:
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
@@ -148,10 +218,97 @@ jobs:
           # start a webserver
           python3 -m http.server --directory examples/wasm &
 
-          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test shapes lighting text_debug breakout
+          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
 
       - name: Save screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: screenshots-wasm
           path: .github/start-wasm-example/screenshot-*.png
+
+  build-without-default-features:
+    if: ${{ github.event_name == 'merge_group' }}
+    timeout-minutes: 30
+    strategy:
+      max-parallel: 1
+      matrix:
+        crate: [bevy_ecs, bevy_reflect, bevy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Build
+        run: cargo build -p ${{ matrix.crate }} --no-default-features
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  build-without-default-features-status:
+    if: |
+      always() &&
+      github.event_name == 'merge_group'
+    needs: build-without-default-features
+    runs-on: ubuntu-latest
+    steps:
+      - name: Successful
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
+        run: exit 0
+      - name: Failing
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
+  check-unused-dependencies:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Installs cargo-udeps
+        run: cargo install --force cargo-udeps
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Run cargo udeps
+        run: cargo udeps
+
+  check-example-showcase-patches-still-work:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Apply patches
+        run: |
+          CODE=0
+          for patch in tools/example-showcase/*.patch; do
+            # Try applying the patch, logging an error if it fails.
+            git apply --ignore-whitespace $patch || { echo "::error::$patch failed to apply."; CODE=1; }
+          done
+          exit $CODE
+      - name: Build with patches
+        run: cargo build

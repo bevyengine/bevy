@@ -1,6 +1,6 @@
 [package]
 name = "bevy_macro_utils"
-version = "0.8.0-dev"
+version = "0.14.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,6 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-toml = "0.5.8"
-syn = "1.0"
+toml_edit = { version = "0.22.7", default-features = false, features = [
+  "parse",
+] }
+syn = "2.0"
 quote = "1.0"
+proc-macro2 = "1.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

@@ -1,0 +1,30 @@
+name: Action on PR labeled
+
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+
+permissions:
+  pull-requests: 'write'
+
+jobs:
+  comment-on-breaking-change-label:
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'C-Breaking-Change' && !contains(github.event.pull_request.body, '## Migration Guide')
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `It looks like your PR is a breaking change, but you didn't provide a migration guide.
+
+              Could you add some context on what users should update when this change get released in a new version of Bevy?
+              It will be used to help writing the migration guide for the version. Putting it after a \`## Migration Guide\` will help it get automatically picked up by our tooling.`
+            })

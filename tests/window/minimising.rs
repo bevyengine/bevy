@@ -1,25 +1,27 @@
 //! A test to confirm that `bevy` allows minimising the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "Minimising".into(),
-            ..Default::default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_system(minimise_automatically)
-        .add_startup_system(setup_3d)
-        .add_startup_system(setup_2d)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Minimising".into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_systems(Startup, (setup_3d, setup_2d))
+        .add_systems(Update, minimise_automatically)
         .run();
 }
 
-fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
+fn minimise_automatically(mut windows: Query<&mut Window>, mut frames: Local<u32>) {
     if *frames == 60 {
-        windows.get_primary_mut().unwrap().set_minimized(true);
+        let mut window = windows.single_mut();
+        window.set_minimized(true);
     } else {
         *frames += 1;
     }
@@ -32,22 +34,21 @@ fn setup_3d(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
             shadows_enabled: true,
             ..default()
         },
@@ -55,7 +56,7 @@ fn setup_3d(
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -63,21 +64,19 @@ fn setup_3d(
 
 /// A simple 2d scene, taken from the `rect` example
 fn setup_2d(mut commands: Commands) {
-    commands.spawn_bundle(Camera2dBundle {
+    commands.spawn(Camera2dBundle {
         camera: Camera {
             // render the 2d camera after the 3d camera
-            priority: 1,
-            ..default()
-        },
-        camera_2d: Camera2d {
+            order: 1,
             // do not use a clear color
             clear_color: ClearColorConfig::None,
+            ..default()
         },
         ..default()
     });
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
+            color: Color::srgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 50.0)),
             ..default()
         },

@@ -1,0 +1,5 @@
+contact_links:
+  - name: Question
+    url: https://github.com/bevyengine/bevy/discussions/categories/q-a
+    about: Questions about how to use or contribute to Bevy belong in Github Discussions.
+      You can use the search to check if someone already answered your question!

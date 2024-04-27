@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ptr"
-version = "0.8.0-dev"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Utilities for working with untyped pointers in a more safe way"
 homepage = "https://bevyengine.org"
@@ -9,3 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "no_std"]
 
 [dependencies]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

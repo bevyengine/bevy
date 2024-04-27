@@ -1,0 +1,49 @@
+error[E0502]: cannot borrow `query` as immutable because it is also borrowed as mutable
+ --> tests/ui/query_to_readonly.rs:9:18
+  |
+8 |     for _ in query.iter_mut() {
+  |              ----------------
+  |              |
+  |              mutable borrow occurs here
+  |              mutable borrow later used here
+9 |         for _ in query.to_readonly().iter() {}
+  |                  ^^^^^ immutable borrow occurs here
+
+error[E0502]: cannot borrow `query` as mutable because it is also borrowed as immutable
+  --> tests/ui/query_to_readonly.rs:15:18
+   |
+14 |     for _ in query.to_readonly().iter() {
+   |              --------------------------
+   |              |
+   |              immutable borrow occurs here
+   |              immutable borrow later used here
+15 |         for _ in query.iter_mut() {}
+   |                  ^^^^^^^^^^^^^^^^ mutable borrow occurs here
+
+error[E0502]: cannot borrow `query` as immutable because it is also borrowed as mutable
+  --> tests/ui/query_to_readonly.rs:41:30
+   |
+38 |         let mut mut_foo = query.single_mut();
+   |                           ----- mutable borrow occurs here
+...
+41 |         let readonly_query = query.to_readonly();
+   |                              ^^^^^ immutable borrow occurs here
+...
+46 |         *mut_foo = Foo;
+   |          ------- mutable borrow later used here
+
+error[E0502]: cannot borrow `query` as mutable because it is also borrowed as immutable
+  --> tests/ui/query_to_readonly.rs:58:27
+   |
+54 |         let readonly_query = query.to_readonly();
+   |                              ----- immutable borrow occurs here
+...
+58 |         let mut mut_foo = query.single_mut();
+   |                           ^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+...
+61 |         println!("{ref_foo:?}");
+   |                   ----------- immutable borrow later used here
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0502`.

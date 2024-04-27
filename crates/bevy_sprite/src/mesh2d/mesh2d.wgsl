@@ -1,71 +1,76 @@
-#import bevy_sprite::mesh2d_view_bindings
-#import bevy_sprite::mesh2d_bindings
+#import bevy_sprite::{
+    mesh2d_functions as mesh_functions,
+    mesh2d_vertex_output::VertexOutput,
+    mesh2d_view_bindings::view,
+}
+
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
 
 struct Vertex {
-    [[location(0)]] position: vec3<f32>;
-    [[location(1)]] normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    @builtin(instance_index) instance_index: u32,
+#ifdef VERTEX_POSITIONS
+    @location(0) position: vec3<f32>,
+#endif
+#ifdef VERTEX_NORMALS
+    @location(1) normal: vec3<f32>,
+#endif
+#ifdef VERTEX_UVS
+    @location(2) uv: vec2<f32>,
+#endif
 #ifdef VERTEX_TANGENTS
-    [[location(3)]] tangent: vec4<f32>;
+    @location(3) tangent: vec4<f32>,
 #endif
 #ifdef VERTEX_COLORS
-    [[location(4)]] colors: vec4<f32>;
+    @location(4) color: vec4<f32>,
 #endif
 };
 
-struct VertexOutput {
-    [[builtin(position)]] clip_position: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
-#endif
-#ifdef VERTEX_COLORS
-    [[location(4)]] colors: vec4<f32>;
-#endif
-};
-
-[[stage(vertex)]]
+@vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
     var out: VertexOutput;
+#ifdef VERTEX_UVS
     out.uv = vertex.uv;
-    out.world_position = world_position;
-    out.clip_position = view.view_proj * world_position;
-    out.world_normal = mat3x3<f32>(
-        mesh.inverse_transpose_model[0].xyz,
-        mesh.inverse_transpose_model[1].xyz,
-        mesh.inverse_transpose_model[2].xyz
-    ) * vertex.normal;
+#endif
+
+#ifdef VERTEX_POSITIONS
+    var model = mesh_functions::get_model_matrix(vertex.instance_index);
+    out.world_position = mesh_functions::mesh2d_position_local_to_world(
+        model,
+        vec4<f32>(vertex.position, 1.0)
+    );
+    out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
+#endif
+
+#ifdef VERTEX_NORMALS
+    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal, vertex.instance_index);
+#endif
+
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = vec4<f32>(
-        mat3x3<f32>(
-            mesh.model[0].xyz,
-            mesh.model[1].xyz,
-            mesh.model[2].xyz
-        ) * vertex.tangent.xyz,
-        vertex.tangent.w
+    out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
+        model,
+        vertex.tangent
     );
 #endif
+
 #ifdef VERTEX_COLORS
-    out.colors = vertex.colors;
+    out.color = vertex.color;
 #endif
     return out;
 }
 
-struct FragmentInput {
-    [[builtin(front_facing)]] is_front: bool;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+@fragment
+fn fragment(
+    in: VertexOutput,
+) -> @location(0) vec4<f32> {
+#ifdef VERTEX_COLORS
+    var color = in.color;
+#ifdef TONEMAP_IN_SHADER
+    color = tonemapping::tone_mapping(color, view.color_grading);
 #endif
-};
-
-[[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+    return color;
+#else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+#endif
 }

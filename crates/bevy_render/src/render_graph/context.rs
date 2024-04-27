@@ -6,11 +6,14 @@ use bevy_ecs::entity::Entity;
 use std::borrow::Cow;
 use thiserror::Error;
 
-/// A command that signals the graph runner to run the sub graph corresponding to the `name`
+use super::{InternedRenderSubGraph, RenderSubGraph};
+
+/// A command that signals the graph runner to run the sub graph corresponding to the `sub_graph`
 /// with the specified `inputs` next.
 pub struct RunSubGraph {
-    pub name: Cow<'static, str>,
+    pub sub_graph: InternedRenderSubGraph,
     pub inputs: Vec<SlotValue>,
+    pub view_entity: Option<Entity>,
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
@@ -27,6 +30,11 @@ pub struct RenderGraphContext<'a> {
     inputs: &'a [SlotValue],
     outputs: &'a mut [Option<SlotValue>],
     run_sub_graphs: Vec<RunSubGraph>,
+    /// The `view_entity` associated with the render graph being executed
+    /// This is optional because you aren't required to have a `view_entity` for a node.
+    /// For example, compute shader nodes don't have one.
+    /// It should always be set when the [`RenderGraph`] is running on a View.
+    view_entity: Option<Entity>,
 }
 
 impl<'a> RenderGraphContext<'a> {
@@ -43,6 +51,7 @@ impl<'a> RenderGraphContext<'a> {
             inputs,
             outputs,
             run_sub_graphs: Vec::new(),
+            view_entity: None,
         }
     }
 
@@ -158,18 +167,31 @@ impl<'a> RenderGraphContext<'a> {
         Ok(())
     }
 
+    pub fn view_entity(&self) -> Entity {
+        self.view_entity.unwrap()
+    }
+
+    pub fn get_view_entity(&self) -> Option<Entity> {
+        self.view_entity
+    }
+
+    pub fn set_view_entity(&mut self, view_entity: Entity) {
+        self.view_entity = Some(view_entity);
+    }
+
     /// Queues up a sub graph for execution after the node has finished running.
     pub fn run_sub_graph(
         &mut self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl RenderSubGraph,
         inputs: Vec<SlotValue>,
+        view_entity: Option<Entity>,
     ) -> Result<(), RunSubGraphError> {
-        let name = name.into();
+        let name = name.intern();
         let sub_graph = self
             .graph
-            .get_sub_graph(&name)
-            .ok_or_else(|| RunSubGraphError::MissingSubGraph(name.clone()))?;
-        if let Some(input_node) = sub_graph.input_node() {
+            .get_sub_graph(name)
+            .ok_or(RunSubGraphError::MissingSubGraph(name))?;
+        if let Some(input_node) = sub_graph.get_input_node() {
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
                     if input_slot.slot_type != input_value.slot_type() {
@@ -193,7 +215,11 @@ impl<'a> RenderGraphContext<'a> {
             return Err(RunSubGraphError::SubGraphHasNoInputs(name));
         }
 
-        self.run_sub_graphs.push(RunSubGraph { name, inputs });
+        self.run_sub_graphs.push(RunSubGraph {
+            sub_graph: name,
+            inputs,
+            view_entity,
+        });
 
         Ok(())
     }
@@ -207,19 +233,19 @@ impl<'a> RenderGraphContext<'a> {
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum RunSubGraphError {
-    #[error("attempted to run sub-graph `{0}`, but it does not exist")]
-    MissingSubGraph(Cow<'static, str>),
-    #[error("attempted to pass inputs to sub-graph `{0}`, which has no input slots")]
-    SubGraphHasNoInputs(Cow<'static, str>),
+    #[error("attempted to run sub-graph `{0:?}`, but it does not exist")]
+    MissingSubGraph(InternedRenderSubGraph),
+    #[error("attempted to pass inputs to sub-graph `{0:?}`, which has no input slots")]
+    SubGraphHasNoInputs(InternedRenderSubGraph),
     #[error("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
-        graph_name: Cow<'static, str>,
+        graph_name: InternedRenderSubGraph,
     },
     #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
-        graph_name: Cow<'static, str>,
+        graph_name: InternedRenderSubGraph,
         slot_index: usize,
         label: SlotLabel,
         expected: SlotType,

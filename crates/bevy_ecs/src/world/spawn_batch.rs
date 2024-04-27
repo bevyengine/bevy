@@ -3,14 +3,19 @@ use crate::{
     entity::Entity,
     world::World,
 };
+use std::iter::FusedIterator;
 
+/// An iterator that spawns a series of entities and returns the [ID](Entity) of
+/// each spawned entity.
+///
+/// If this iterator is not fully exhausted, any remaining entities will be spawned when this type is dropped.
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
     I::Item: Bundle,
 {
     inner: I,
-    spawner: BundleSpawner<'w, 'w>,
+    spawner: BundleSpawner<'w>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -22,22 +27,15 @@ where
     pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
-        world.flush();
+        world.flush_entities();
+
+        let change_tick = world.change_tick();
 
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
-
-        let bundle_info = world
-            .bundles
-            .init_info::<I::Item>(&mut world.components, &mut world.storages);
         world.entities.reserve(length as u32);
-        let mut spawner = bundle_info.get_bundle_spawner(
-            &mut world.entities,
-            &mut world.archetypes,
-            &mut world.components,
-            &mut world.storages,
-            *world.change_tick.get_mut(),
-        );
+
+        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
 
         Self {
@@ -53,7 +51,11 @@ where
     I::Item: Bundle,
 {
     fn drop(&mut self) {
-        for _ in self {}
+        // Iterate through self in order to spawn remaining bundles.
+        for _ in &mut *self {}
+        // Apply any commands from those operations.
+        // SAFETY: `self.spawner` will be dropped immediately after this call.
+        unsafe { self.spawner.flush_commands() };
     }
 }
 
@@ -66,7 +68,7 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFE: bundle matches spawner type
+        // SAFETY: bundle matches spawner type
         unsafe { Some(self.spawner.spawn(bundle)) }
     }
 
@@ -83,4 +85,11 @@ where
     fn len(&self) -> usize {
         self.inner.len()
     }
+}
+
+impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
 }

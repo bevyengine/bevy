@@ -1,5 +1,11 @@
 # Bevy Reflect
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy_reflect)
+[![Downloads](https://img.shields.io/crates/d/bevy_reflect.svg)](https://crates.io/crates/bevy_reflect)
+[![Docs](https://docs.rs/bevy_reflect/badge.svg)](https://docs.rs/bevy_reflect/latest/bevy_reflect/)
+[![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
+
 This crate enables you to dynamically interact with Rust types:
 
 * Derive the Reflect traits
@@ -21,7 +27,7 @@ struct Foo {
     a: u32,
     b: Bar,
     c: Vec<i32>,
-    d: Vec<Bar>,
+    d: Vec<Baz>,
 }
 
 // this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
@@ -77,7 +83,7 @@ assert_eq!(value, 3.14);
 ```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
-    if let Ok(value) = value.downcast_ref::<u32>() {
+    if let Some(value) = value.downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
     }
 }
@@ -107,7 +113,7 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 ### Trait "reflection"
 
-Call a trait on a given &dyn Reflect reference without knowing the underlying type!
+Call a trait on a given `&dyn Reflect` reference without knowing the underlying type!
 
 ```rust ignore
 #[derive(Reflect)]
@@ -137,7 +143,7 @@ let reflect_value: Box<dyn Reflect> = Box::new(MyType {
 // don't know the type at compile time?
 
 // Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
-let mut type_registry = TypeRegistry::default()
+let mut type_registry = TypeRegistry::default();
 type_registry.register::<MyType>();
 
 // The #[reflect] attribute we put on our DoThing trait generated a new `ReflectDoThing` struct, which implements TypeData.
@@ -153,8 +159,8 @@ let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
-// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn MyType, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn MyType
+// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
+// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
 ```
 
 ## Why make this?

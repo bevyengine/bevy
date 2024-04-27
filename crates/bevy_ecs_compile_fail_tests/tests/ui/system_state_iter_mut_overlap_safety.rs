@@ -6,8 +6,8 @@ struct A(usize);
 
 fn main() {
     let mut world = World::default();
-    world.spawn().insert(A(1));
-    world.spawn().insert(A(2));
+    world.spawn(A(1));
+    world.spawn(A(2));
 
     let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
     {
@@ -16,6 +16,7 @@ fn main() {
         assert_eq!(
             // this should fail to compile due to the later use of mut_vec
             query.iter().collect::<Vec<&A>>(),
+            //~^ E0502
             vec![&A(1), &A(2)],
             "both components returned by iter of &mut"
         );

@@ -1,33 +1,63 @@
 //! Renders a lot of sprites to allow performance testing.
 //! See <https://github.com/bevyengine/bevy/pull/1492>
 //!
-//! It sets up many sprites in different sizes and rotations, and at different scales in the world,
-//! and moves the camera over them to see how well frustum culling works.
+//! This example sets up many sprites in different sizes, rotations, and scales in the world.
+//! It also moves the camera over them to see how well frustum culling works.
+//!
+//! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
+//! in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
+    color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
+const COLORS: [Color; 3] = [Color::Srgba(BLUE), Color::Srgba(WHITE), Color::Srgba(RED)];
+
+#[derive(Resource)]
+struct ColorTint(bool);
+
 fn main() {
     App::new()
+        .insert_resource(ColorTint(
+            std::env::args().nth(1).unwrap_or_default() == "--colored",
+        ))
         // Since this is also used as a benchmark, we want it to display performance data.
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(print_sprite_count)
-        .add_system(move_camera.after(print_sprite_count))
+        .add_plugins((
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    ..default()
+                }),
+                ..default()
+            }),
+        ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (print_sprite_count, move_camera.after(print_sprite_count)),
+        )
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);
@@ -39,10 +69,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
@@ -62,6 +90,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),
+                    color: if color_tint.0 {
+                        COLORS[rng.gen_range(0..3)]
+                    } else {
+                        Color::WHITE
+                    },
                     ..default()
                 },
                 ..default()
@@ -74,7 +107,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
+    camera_transform.rotate_z(time.delta_seconds() * 0.5);
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }
@@ -84,7 +117,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 
@@ -93,6 +126,6 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }

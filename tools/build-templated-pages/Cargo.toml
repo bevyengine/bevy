@@ -1,0 +1,22 @@
+[package]
+name = "build-templated-pages"
+edition = "2021"
+description = "Tool that checks and fixes undocumented features and examples"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+toml_edit = { version = "0.22.7", default-features = false, features = [
+  "parse",
+] }
+tera = "1.15"
+serde = { version = "1.0", features = ["derive"] }
+bitflags = "2.3"
+hashbrown = { version = "0.14", features = ["serde"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

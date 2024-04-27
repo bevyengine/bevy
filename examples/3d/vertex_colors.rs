@@ -5,7 +5,7 @@ use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -16,14 +16,14 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     // Assign vertex colors based on vertex positions
-    let mut colorful_cube = Mesh::from(shape::Cube { size: 1.0 });
+    let mut colorful_cube = Mesh::from(Cuboid::default());
     if let Some(VertexAttributeValues::Float32x3(positions)) =
         colorful_cube.attribute(Mesh::ATTRIBUTE_POSITION)
     {
@@ -33,27 +33,28 @@ fn setup(
             .collect();
         colorful_cube.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     }
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(colorful_cube),
         // This is the default color, but note that vertex colors are
         // multiplied by the base color, so you'll likely want this to be
         // white if using vertex colors.
-        material: materials.add(Color::rgb(1., 1., 1.).into()),
+        material: materials.add(Color::srgb(1., 1., 1.)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
-    // light
-    commands.spawn_bundle(PointLightBundle {
+
+    // Light
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    // camera
-    commands.spawn_bundle(Camera3dBundle {
+
+    // Camera
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

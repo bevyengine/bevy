@@ -1,39 +1,169 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use std::fmt::Debug;
+use crate::{
+    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
+};
+use bevy_reflect_derive::impl_type_path;
 use std::{
-    any::Any,
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
 
-/// A static-sized array of [`Reflect`] items.
+/// A trait used to power [array-like] operations via [reflection].
 ///
-/// This corresponds to types like `[T; N]` (arrays).
+/// This corresponds to true Rust arrays like `[T; N]`,
+/// but also to any fixed-size linear sequence types.
+/// It is expected that implementors of this trait uphold this contract
+/// and maintain a fixed size as returned by the [`Array::len`] method.
 ///
-/// Currently, this only supports arrays of up to 32 items. It can technically
-/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
-/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogeneous (i.e. all the same type).
 ///
+/// This trait has a blanket implementation over Rust arrays of up to 32 items.
+/// This implementation can technically contain more than 32,
+/// but the blanket [`GetTypeRegistration`] is only implemented up to the 32
+/// item limit due to a [limitation] on [`Deserialize`].
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Array};
+///
+/// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let field: &dyn Reflect = foo.get(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// ```
+///
+/// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
+/// [reflection]: crate
+/// [`List`]: crate::List
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
+/// [`Deserialize`]: ::serde::Deserialize
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;
+
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
-    /// Returns the number of elements in the collection.
+
+    /// Returns the number of elements in the array.
     fn len(&self) -> usize;
+
     /// Returns `true` if the collection contains no elements.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    /// Returns an iterator over the collection.
+
+    /// Returns an iterator over the array.
     fn iter(&self) -> ArrayIter;
 
+    /// Drain the elements of this array to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+
+    /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.type_name().to_string(),
+            represented_type: self.get_represented_type_info(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
+    }
+}
+
+/// A container for compile-time array info.
+#[derive(Clone, Debug)]
+pub struct ArrayInfo {
+    type_path: TypePathTable,
+    type_id: TypeId,
+    item_type_path: TypePathTable,
+    item_type_id: TypeId,
+    capacity: usize,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
+}
+
+impl ArrayInfo {
+    /// Create a new [`ArrayInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity`: The maximum capacity of the underlying array.
+    ///
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
+        Self {
+            type_path: TypePathTable::of::<TArray>(),
+            type_id: TypeId::of::<TArray>(),
+            item_type_path: TypePathTable::of::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
+            capacity,
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+
+    /// Sets the docstring for this array.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// The compile-time capacity of the array.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// A representation of the type path of the array.
+    ///
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the array.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
+    }
+
+    /// The [`TypeId`] of the array.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the array type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// A representation of the type path of the array item.
+    ///
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn item_type_path_table(&self) -> &TypePathTable {
+        &self.item_type_path
+    }
+
+    /// The [`TypeId`] of the array item.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the array item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
+    }
+
+    /// The docstring of this array, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -46,8 +176,9 @@ pub trait Array: Reflect {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
+#[derive(Debug)]
 pub struct DynamicArray {
-    pub(crate) name: String,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
 }
 
@@ -55,14 +186,14 @@ impl DynamicArray {
     #[inline]
     pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values,
         }
     }
 
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values: values
                 .into_iter()
                 .map(|field| Box::new(field) as Box<dyn Reflect>)
@@ -71,31 +202,49 @@ impl DynamicArray {
         }
     }
 
-    #[inline]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Sets the [type] to be represented by this `DynamicArray`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Array`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Array(_)),
+                "expected TypeInfo::Array but received: {:?}",
+                represented_type
+            );
+        }
 
-    #[inline]
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicArray {
+impl Reflect for DynamicArray {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.name.as_str()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
         self
     }
 
@@ -120,6 +269,11 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
+    }
+
+    #[inline]
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::Array(self)
     }
@@ -127,6 +281,11 @@ unsafe impl Reflect for DynamicArray {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
     }
 
     #[inline]
@@ -143,8 +302,15 @@ unsafe impl Reflect for DynamicArray {
         array_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicArray(")?;
+        array_debug(self, f)?;
+        write!(f, ")")
+    }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 
@@ -166,16 +332,18 @@ impl Array for DynamicArray {
 
     #[inline]
     fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
-            index: 0,
-        }
+        ArrayIter::new(self)
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values.into_vec()
     }
 
     #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -185,10 +353,19 @@ impl Array for DynamicArray {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicArray);
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
-    pub(crate) array: &'a dyn Array,
-    pub(crate) index: usize,
+    array: &'a dyn Array,
+    index: usize,
+}
+
+impl<'a> ArrayIter<'a> {
+    /// Creates a new [`ArrayIter`].
+    #[inline]
+    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+        ArrayIter { array, index: 0 }
+    }
 }
 
 impl<'a> Iterator for ArrayIter<'a> {
@@ -213,8 +390,8 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
-    let mut hasher = crate::ReflectHasher::default();
-    std::any::Any::type_id(array).hash(&mut hasher);
+    let mut hasher = reflect_hasher();
+    Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
         hasher.write_u64(value.reflect_hash()?);
@@ -246,13 +423,16 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
 /// are equal.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
-                if let Some(false) | None = a.reflect_partial_eq(b) {
-                    return Some(false);
+                let eq_result = a.reflect_partial_eq(b);
+                if let failed @ (Some(false) | None) = eq_result {
+                    return failed;
                 }
             }
         }

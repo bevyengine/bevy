@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, SystemState};
+use bevy_ecs::system::{ReadOnlySystemParam, SystemParam, SystemState};
 
 #[derive(Component)]
 struct Foo;
@@ -10,16 +10,15 @@ struct Mutable<'w, 's> {
 }
 
 fn main() {
-    // Ideally we'd use:
-    // let mut world = World::default();
-    // let state = SystemState::<Mutable>::new(&mut world);
-    // state.get(&world);
-    // But that makes the test show absolute paths
-    assert_readonly::<Mutable>();
+
+    let mut world = World::default();
+    let state = SystemState::<Mutable>::new(&mut world);
+    state.get(&world);
+    //~^ E0277
 }
 
-fn assert_readonly<P: SystemParam>()
+fn assert_readonly<P>()
 where
-    <P as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    P: ReadOnlySystemParam,
 {
 }

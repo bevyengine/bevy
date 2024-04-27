@@ -1,52 +1,40 @@
 //! Shows how to create systems that run every fixed timestep, rather than every tick.
 
-use bevy::{
-    prelude::*,
-    time::{FixedTimestep, FixedTimesteps},
-};
-
-const LABEL: &str = "my_fixed_timestep";
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(frame_update)
-        // add a new stage that runs twice a second
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(
-                    FixedTimestep::step(0.5)
-                        // labels are optional. they provide a way to access the current
-                        // FixedTimestep state from within a system
-                        .with_label(LABEL),
-                )
-                .with_system(fixed_update),
-        )
+        .add_systems(Update, frame_update)
+        // add our system to the fixed timestep schedule
+        .add_systems(FixedUpdate, fixed_update)
+        // configure our fixed timestep schedule to run twice a second
+        .insert_resource(Time::<Fixed>::from_seconds(0.5))
         .run();
 }
 
-fn frame_update(mut last_time: Local<f64>, time: Res<Time>) {
-    info!("update: {}", time.seconds_since_startup() - *last_time);
-    *last_time = time.seconds_since_startup();
+fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
+    // Default `Time` is `Time<Virtual>` here
+    info!(
+        "time since last frame_update: {}",
+        time.elapsed_seconds() - *last_time
+    );
+    *last_time = time.elapsed_seconds();
 }
 
-fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
+fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_time: Res<Time<Fixed>>) {
+    // Default `Time`is `Time<Fixed>` here
     info!(
-        "fixed_update: {}",
-        time.seconds_since_startup() - *last_time,
+        "time since last fixed_update: {}\n",
+        time.elapsed_seconds() - *last_time
     );
 
-    let fixed_timestep = fixed_timesteps.get(LABEL).unwrap();
+    info!("fixed timestep: {}\n", time.delta_seconds());
+    // If we want to see the overstep, we need to access `Time<Fixed>` specifically
     info!(
-        "  overstep_percentage: {}",
-        fixed_timestep.overstep_percentage()
+        "time accrued toward next fixed_update: {}\n",
+        fixed_time.overstep().as_secs_f32()
     );
-
-    *last_time = time.seconds_since_startup();
+    *last_time = time.elapsed_seconds();
 }
