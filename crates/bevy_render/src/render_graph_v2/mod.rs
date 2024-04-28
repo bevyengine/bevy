@@ -44,7 +44,7 @@ use self::resource::{
 // 8. Documentation, write an example, and cleanup
 
 #[derive(Resource, Default)]
-struct RenderGraphPersistentResources {
+pub struct RenderGraphPersistentResources {
     dummy: (),
     bind_group_layouts: CachedRenderStorePersistentResources<BindGroupLayout>,
     samplers: CachedRenderStorePersistentResources<Sampler>,
@@ -108,11 +108,13 @@ impl<'g> RenderGraphBuilder<'g> {
             RenderResourceInit::DependentResource(deps, _, _) => Some(deps.clone()),
             _ => None,
         });
-        <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token).insert(
-            <R::Resource as RenderResource>::get_persistent_store_mut(
-                &mut self.persistent_resources,
-                seal::Token,
-            ),
+        let store = <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token);
+        let persistent_store = <R::Resource as RenderResource>::get_persistent_store_mut(
+            self.persistent_resources,
+            seal::Token,
+        );
+        store.insert(
+            persistent_store,
             id,
             resource,
             self.world,

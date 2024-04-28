@@ -27,17 +27,17 @@ impl RenderResource for BindGroupLayout {
         &mut graph.bind_group_layouts
     }
 
-    fn get_persistent_store(
+    fn get_persistent_store<'g>(
         persistent_resources: &RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &persistent_resources.bind_group_layouts
     }
 
     fn get_persistent_store_mut<'g>(
         persistent_resources: &mut RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &mut persistent_resources.bind_group_layouts
     }
 

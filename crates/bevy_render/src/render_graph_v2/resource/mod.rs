@@ -90,14 +90,14 @@ pub trait RenderResource: seal::Super + 'static {
         _: seal::Token,
     ) -> &'a mut Self::Store<'g>;
 
-    fn get_persistent_store(
+    fn get_persistent_store<'g>(
         persistent_resources: &RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore;
+    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore;
     fn get_persistent_store_mut<'g>(
         persistent_resources: &mut RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore;
+    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
     fn from_descriptor(

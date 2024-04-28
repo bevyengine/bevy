@@ -33,17 +33,17 @@ impl RenderResource for RenderPipeline {
         &mut graph.render_pipelines
     }
 
-    fn get_persistent_store(
+    fn get_persistent_store<'g>(
         persistent_resources: &RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &persistent_resources.render_pipelines
     }
 
     fn get_persistent_store_mut<'g>(
         persistent_resources: &mut RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &mut persistent_resources.render_pipelines
     }
 
@@ -92,17 +92,17 @@ impl RenderResource for ComputePipeline {
         &mut graph.compute_pipelines
     }
 
-    fn get_persistent_store(
+    fn get_persistent_store<'g>(
         persistent_resources: &RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &persistent_resources.compute_pipelines
     }
 
     fn get_persistent_store_mut<'g>(
         persistent_resources: &mut RenderGraphPersistentResources,
         _: seal::Token,
-    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
         &mut persistent_resources.compute_pipelines
     }
 
