@@ -7,6 +7,7 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
+    query::DefaultQueryFilters,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
@@ -94,6 +95,7 @@ impl Default for App {
         let mut app = App::empty();
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
+        app.init_resource::<DefaultQueryFilters>();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
         app.add_plugins(MainSchedulePlugin);
