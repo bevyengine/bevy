@@ -17,7 +17,7 @@ macro_rules! impl_into_function {
         // === Owned Return === //
         impl<$($Arg,)* R, F> $crate::func::IntoFunction<fn($($Arg),*) -> R> for F
         where
-            $($Arg: $crate::func::args::FromArg + $crate::TypePath,)*
+            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             R: $crate::func::IntoReturn,
             F: FnMut($($Arg),*) -> R + 'static,
             F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'static,
@@ -46,10 +46,10 @@ macro_rules! impl_into_function {
                     #[allow(unused_mut)]
                     let mut _index = 0;
                     vec![
-                        $($crate::func::args::ArgInfo::new::<$Arg>($crate::func::args::ArgId::Index({
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
                             _index += 1;
                             _index - 1
-                        })),)*
+                        }),)*
                     ]
                 })
             }
@@ -59,8 +59,9 @@ macro_rules! impl_into_function {
         impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&Receiver, $($Arg),*) -> (R,)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a Receiver: $crate::func::args::GetOwnership,
             R: $crate::Reflect,
-            $($Arg: $crate::func::args::FromArg + $crate::TypePath,)*
+            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'static,
             F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'static,
         {
@@ -90,11 +91,11 @@ macro_rules! impl_into_function {
                     #[allow(unused_mut)]
                     let mut _index = 1;
                     vec![
-                        $crate::func::args::ArgInfo::new::<&Receiver>($crate::func::args::ArgId::Index(0)),
-                        $($crate::func::args::ArgInfo::new::<$Arg>($crate::func::args::ArgId::Index({
+                        $crate::func::args::ArgInfo::new::<&Receiver>(0),
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
                             _index += 1;
                             _index - 1
-                        })),)*
+                        }),)*
                     ]
                 })
             }
@@ -104,8 +105,9 @@ macro_rules! impl_into_function {
         impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&mut Receiver, $($Arg),*) -> (R,)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
             R: $crate::Reflect,
-            $($Arg: $crate::func::args::FromArg + $crate::TypePath,)*
+            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'static,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'static,
         {
@@ -135,11 +137,11 @@ macro_rules! impl_into_function {
                     #[allow(unused_mut)]
                     let mut _index = 1;
                     vec![
-                        $crate::func::args::ArgInfo::new::<&mut Receiver>($crate::func::args::ArgId::Index(0)),
-                        $($crate::func::args::ArgInfo::new::<$Arg>($crate::func::args::ArgId::Index({
+                        $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
                             _index += 1;
                             _index - 1
-                        })),)*
+                        }),)*
                     ]
                 })
             }

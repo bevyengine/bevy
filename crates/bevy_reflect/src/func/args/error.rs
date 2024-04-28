@@ -2,7 +2,7 @@ use alloc::borrow::Cow;
 
 use thiserror::Error;
 
-use crate::func::args::info::{ArgId, Ownership};
+use crate::func::args::{ArgId, Ownership};
 
 #[derive(Debug, Error, PartialEq)]
 pub enum ArgError {

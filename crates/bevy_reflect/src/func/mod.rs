@@ -51,6 +51,7 @@ mod tests {
         }
 
         crate::func::args::impl_from_arg!(Foo);
+        crate::func::args::impl_get_ownership!(Foo);
         crate::func::return_type::impl_into_return!(Foo);
 
         let foo_a = Foo(25);

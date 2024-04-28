@@ -1,23 +1,48 @@
 use alloc::borrow::Cow;
-use core::fmt::{Display, Formatter};
+
+use crate::func::args::{GetOwnership, Ownership};
 use crate::TypePath;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArgInfo {
-    id: ArgId,
+    index: usize,
+    name: Option<Cow<'static, str>>,
+    ownership: Ownership,
     type_path: &'static str,
 }
 
 impl ArgInfo {
-    pub fn new<T: TypePath>(id: ArgId) -> Self {
+    pub fn new<T: TypePath + GetOwnership>(index: usize) -> Self {
         Self {
-            id,
+            index,
+            name: None,
+            ownership: T::ownership(),
             type_path: T::type_path(),
         }
     }
 
-    pub fn id(&self) -> &ArgId {
-        &self.id
+    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn ownership(&self) -> Ownership {
+        self.ownership
+    }
+
+    pub fn id(&self) -> ArgId {
+        self.name
+            .clone()
+            .map(ArgId::Name)
+            .unwrap_or_else(|| ArgId::Index(self.index))
     }
 
     pub fn type_path(&self) -> &'static str {
@@ -29,21 +54,4 @@ impl ArgInfo {
 pub enum ArgId {
     Index(usize),
     Name(Cow<'static, str>),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Ownership {
-    Ref,
-    Mut,
-    Owned,
-}
-
-impl Display for Ownership {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Ref => write!(f, "reference"),
-            Self::Mut => write!(f, "mutable reference"),
-            Self::Owned => write!(f, "owned"),
-        }
-    }
 }
