@@ -6,8 +6,6 @@ use naga::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-use crate::compose::util::expression_eq;
-
 #[derive(Debug, Default)]
 pub struct DerivedModule<'a> {
     shader: Option<&'a Module>,
@@ -602,7 +600,7 @@ impl<'a> DerivedModule<'a> {
                 new_expressions.borrow_mut().fetch_if_or_append(
                     expr,
                     self.map_span(span),
-                    expression_eq,
+                    |lhs, rhs| lhs == rhs,
                 )
             } else {
                 new_expressions
