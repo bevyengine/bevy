@@ -27,6 +27,7 @@ use bevy_ecs::{
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, SimpleRenderStore};
 
 use resource::CachedRenderStore;
+use wgpu::CommandEncoder;
 
 use self::resource::{
     RenderDependencies, RenderResourceGeneration, RenderResourceId, RenderResourceInit,
@@ -138,7 +139,10 @@ impl<'g> RenderGraphBuilder<'g> {
     pub fn add_node(
         &mut self,
         dependencies: RenderDependencies<'g>,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue) + Send + Sync + 'g,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder)
+            + Send
+            + Sync
+            + 'g,
     ) -> &mut Self {
         self.graph.write_resources(&dependencies);
         todo!();
@@ -204,11 +208,11 @@ impl<'g> NodeContext<'g> {
 }
 
 impl<'g> NodeContext<'g> {
-    pub fn world_resource<R: Resource>(&'g self) -> &'g R {
+    pub fn world_resource<R: Resource>(&self) -> &R {
         self.world.resource()
     }
 
-    pub fn get_world_resource<R: Resource>(&'g self) -> Option<&'g R> {
+    pub fn get_world_resource<R: Resource>(&self) -> Option<&'g R> {
         self.world.get_resource()
     }
 
@@ -216,15 +220,15 @@ impl<'g> NodeContext<'g> {
         self.view_entity.id()
     }
 
-    pub fn view_contains<C: Component>(&'g self) -> bool {
+    pub fn view_contains<C: Component>(&self) -> bool {
         self.view_entity.contains::<C>()
     }
 
-    pub fn view_get<C: Component>(&'g self) -> Option<&'g C> {
+    pub fn view_get<C: Component>(&self) -> Option<&'g C> {
         self.view_entity.get()
     }
 
-    pub fn view_get_ref<C: Component>(&'g self) -> Option<Ref<'g, C>> {
+    pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
         self.view_entity.get_ref()
     }
 
