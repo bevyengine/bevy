@@ -206,6 +206,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Modify Sprite](../examples/asset/modify_sprite.rs) | Demonstrates changing sprite texture and color at runtime
 
 ## Async Tasks
 
