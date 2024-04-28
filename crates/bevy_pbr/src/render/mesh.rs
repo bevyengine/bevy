@@ -460,6 +460,8 @@ pub struct RenderMeshInstanceGpuBuilder {
     /// (MSB: most significant bit; LSB: least significant bit.)
     /// ```
     pub lightmap_uv_rect: UVec2,
+    /// The index of the previous mesh input.
+    pub previous_input_index: Option<NonMaxU32>,
     /// Various flags.
     pub mesh_flags: MeshFlags,
 }
@@ -660,27 +662,14 @@ impl RenderMeshInstanceGpuBuilder {
         self,
         entity: Entity,
         render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
-        prev_render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut BufferVec<MeshInputUniform>,
     ) -> usize {
-        let previous_input_index = if self
-            .shared
-            .flags
-            .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
-        {
-            prev_render_mesh_instances
-                .get(&entity)
-                .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
-        } else {
-            None
-        };
-
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
             transform: self.transform.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
-            previous_input_index: match previous_input_index {
+            previous_input_index: match self.previous_input_index {
                 Some(previous_input_index) => previous_input_index.into(),
                 None => u32::MAX,
             },
@@ -827,7 +816,9 @@ pub fn extract_meshes_for_cpu_building(
 
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
-        render_mesh_instances.extend(queue.drain(..));
+        for (entity, render_mesh_instance) in queue.drain(..) {
+            render_mesh_instances.insert_unique_unchecked(entity, render_mesh_instance);
+        }
     }
 }
 
@@ -843,7 +834,6 @@ pub fn extract_meshes_for_gpu_building(
     >,
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: Local<Parallel<RenderMeshInstanceGpuQueue>>,
-    mut prev_render_mesh_instances: Local<RenderMeshInstancesGpu>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -865,6 +855,15 @@ pub fn extract_meshes_for_gpu_building(
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(any_gpu_culling);
     }
+
+    // Collect render mesh instances. Build up the uniform buffer.
+    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
+    else {
+        panic!(
+            "`extract_meshes_for_gpu_building` should only be called if we're \
+            using GPU `MeshUniform` building"
+        );
+    };
 
     meshes_query.par_iter().for_each_init(
         || render_mesh_instance_queues.borrow_local_mut(),
@@ -901,11 +900,23 @@ pub fn extract_meshes_for_gpu_building(
 
             let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
 
+            let previous_input_index = if shared
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
+            {
+                render_mesh_instances
+                    .get(&entity)
+                    .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
+            } else {
+                None
+            };
+
             let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
                 shared,
                 transform: (&transform.affine()).into(),
                 lightmap_uv_rect,
                 mesh_flags,
+                previous_input_index,
             };
 
             queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
@@ -913,34 +924,25 @@ pub fn extract_meshes_for_gpu_building(
     );
 
     collect_meshes_for_gpu_building(
-        &mut render_mesh_instances,
+        render_mesh_instances,
         &mut batched_instance_buffers,
         &mut mesh_culling_data_buffer,
         &mut render_mesh_instance_queues,
-        &mut prev_render_mesh_instances,
     );
 }
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
 fn collect_meshes_for_gpu_building(
-    render_mesh_instances: &mut RenderMeshInstances,
+    render_mesh_instances: &mut RenderMeshInstancesGpu,
     batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
         MeshUniform,
         MeshInputUniform,
     >,
     mesh_culling_data_buffer: &mut MeshCullingDataBuffer,
     render_mesh_instance_queues: &mut Parallel<RenderMeshInstanceGpuQueue>,
-    prev_render_mesh_instances: &mut RenderMeshInstancesGpu,
 ) {
     // Collect render mesh instances. Build up the uniform buffer.
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
-    else {
-        panic!(
-            "`collect_render_mesh_instances_for_gpu_building` should only be called if we're \
-            using GPU `MeshUniform` building"
-        );
-    };
 
     let gpu_preprocessing::BatchedInstanceBuffers {
         ref mut current_input_buffer,
@@ -950,7 +952,6 @@ fn collect_meshes_for_gpu_building(
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
-    mem::swap(render_mesh_instances, prev_render_mesh_instances);
 
     // Build the [`RenderMeshInstance`]s and [`MeshInputUniform`]s.
     render_mesh_instances.clear();
@@ -965,7 +966,6 @@ fn collect_meshes_for_gpu_building(
                     mesh_instance_builder.add_to(
                         entity,
                         render_mesh_instances,
-                        prev_render_mesh_instances,
                         current_input_buffer,
                     );
                 }
@@ -975,7 +975,6 @@ fn collect_meshes_for_gpu_building(
                     let instance_data_index = mesh_instance_builder.add_to(
                         entity,
                         render_mesh_instances,
-                        prev_render_mesh_instances,
                         current_input_buffer,
                     );
                     let culling_data_index = mesh_culling_builder.add_to(mesh_culling_data_buffer);
