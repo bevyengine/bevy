@@ -1,17 +1,17 @@
 #import bevy_pbr::meshlet_bindings::{
-    meshlet_thread_meshlet_ids,
+    cluster_count,
     meshlet_bounding_spheres,
-    meshlet_thread_instance_ids,
     meshlet_instance_uniforms,
     meshlet_second_pass_candidates,
-    depth_pyramid,
-    view,
-    previous_view,
-    should_cull_instance,
-    meshlet_is_second_pass_candidate,
     meshlets,
     draw_indirect_args,
     draw_triangle_buffer,
+    depth_pyramid,
+    view,
+    previous_view,
+    get_cluster_metadata,
+    should_cull_instance,
+    cluster_is_second_pass_candidate,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -29,21 +29,23 @@ fn cull_meshlets(
 ) {
     // Calculate the cluster ID for this thread
     let cluster_id = local_invocation_id.x + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
-    if cluster_id >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
+    if cluster_id >= cluster_count { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
-    if !meshlet_is_second_pass_candidate(cluster_id) { return; }
+    if !cluster_is_second_pass_candidate(cluster_id) { return; }
 #endif
 
-    // Check for instance culling
-    let instance_id = meshlet_thread_instance_ids[cluster_id];
+    // Find instance and meshlet IDs
+    let metadata = get_cluster_metadata(cluster_id);
+    let instance_id = metadata.instance_id;
+    let meshlet_id = metadata.meshlet_id;
+
 #ifdef MESHLET_FIRST_CULLING_PASS
     if should_cull_instance(instance_id) { return; }
 #endif
 
     // Calculate world-space culling bounding sphere for the cluster
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
     let model = affine3_to_square(instance_uniform.model);
     let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
@@ -52,7 +54,6 @@ fn cull_meshlets(
 
 #ifdef MESHLET_FIRST_CULLING_PASS
     // Frustum culling
-    // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
         if dot(view.frustum[i], culling_bounding_sphere_center) + culling_bounding_sphere_radius <= 0.0 {
             return;

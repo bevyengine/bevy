@@ -91,17 +91,14 @@ pub fn extract_meshlet_meshes(
     }
 
     for (
-        instance_index,
-        (
-            instance,
-            handle,
-            transform,
-            previous_transform,
-            render_layers,
-            not_shadow_receiver,
-            not_shadow_caster,
-        ),
-    ) in instances_query.iter().enumerate()
+        instance,
+        handle,
+        transform,
+        previous_transform,
+        render_layers,
+        not_shadow_receiver,
+        not_shadow_caster,
+    ) in &instances_query
     {
         // Skip instances with an unloaded MeshletMesh asset
         if asset_server.is_managed(handle.id())
@@ -117,7 +114,6 @@ pub fn extract_meshlet_meshes(
             not_shadow_caster,
             handle,
             &mut assets,
-            instance_index as u32,
         );
 
         // Build a MeshUniform for each instance
@@ -235,12 +231,12 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_queue,
     );
     upload_storage_buffer(
-        &mut gpu_scene.thread_instance_ids,
+        &mut gpu_scene.instance_meshlet_counts_prefix_sum,
         &render_device,
         &render_queue,
     );
     upload_storage_buffer(
-        &mut gpu_scene.thread_meshlet_ids,
+        &mut gpu_scene.instance_meshlet_slice_starts,
         &render_device,
         &render_queue,
     );
@@ -465,9 +461,12 @@ pub fn prepare_meshlet_view_bind_groups(
 
     for (view_entity, view_resources, view_depth) in &views {
         let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene
+                .instance_meshlet_counts_prefix_sum
+                .binding()
+                .unwrap(),
+            gpu_scene.instance_meshlet_slice_starts.binding().unwrap(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
             view_resources
@@ -491,9 +490,12 @@ pub fn prepare_meshlet_view_bind_groups(
         );
 
         let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene
+                .instance_meshlet_counts_prefix_sum
+                .binding()
+                .unwrap(),
+            gpu_scene.instance_meshlet_slice_starts.binding().unwrap(),
             gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
             view_resources
@@ -539,12 +541,15 @@ pub fn prepare_meshlet_view_bind_groups(
             .collect();
 
         let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            gpu_scene
+                .instance_meshlet_counts_prefix_sum
+                .binding()
+                .unwrap(),
+            gpu_scene.instance_meshlet_slice_starts.binding().unwrap(),
             gpu_scene.meshlets.binding(),
             gpu_scene.indices.binding(),
             gpu_scene.vertex_ids.binding(),
             gpu_scene.vertex_data.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_resources
@@ -581,12 +586,15 @@ pub fn prepare_meshlet_view_bind_groups(
             .map(|visibility_buffer| {
                 let entries = BindGroupEntries::sequential((
                     &visibility_buffer.default_view,
-                    gpu_scene.thread_meshlet_ids.binding().unwrap(),
+                    gpu_scene
+                        .instance_meshlet_counts_prefix_sum
+                        .binding()
+                        .unwrap(),
+                    gpu_scene.instance_meshlet_slice_starts.binding().unwrap(),
                     gpu_scene.meshlets.binding(),
                     gpu_scene.indices.binding(),
                     gpu_scene.vertex_ids.binding(),
                     gpu_scene.vertex_data.binding(),
-                    gpu_scene.thread_instance_ids.binding().unwrap(),
                     gpu_scene.instance_uniforms.binding().unwrap(),
                 ));
                 render_device.create_bind_group(
@@ -629,8 +637,8 @@ pub struct MeshletGpuScene {
     /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
-    thread_instance_ids: StorageBuffer<Vec<u32>>,
-    thread_meshlet_ids: StorageBuffer<Vec<u32>>,
+    instance_meshlet_counts_prefix_sum: StorageBuffer<Vec<u32>>,
+    instance_meshlet_slice_starts: StorageBuffer<Vec<u32>>,
     second_pass_candidates_buffer: Option<Buffer>,
     previous_depth_pyramids: EntityHashMap<TextureView>,
     visibility_buffer_draw_triangle_buffer: Option<Buffer>,
@@ -675,14 +683,14 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_instance_material_ids"));
                 buffer
             },
-            thread_instance_ids: {
+            instance_meshlet_counts_prefix_sum: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_thread_instance_ids"));
+                buffer.set_label(Some("meshlet_instance_meshlet_counts_prefix_sum"));
                 buffer
             },
-            thread_meshlet_ids: {
+            instance_meshlet_slice_starts: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_thread_meshlet_ids"));
+                buffer.set_label(Some("meshlet_instance_meshlet_slice_starts"));
                 buffer
             },
             second_pass_candidates_buffer: None,
@@ -784,8 +792,8 @@ impl MeshletGpuScene {
             .for_each(|b| b.get_mut().clear());
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
-        self.thread_instance_ids.get_mut().clear();
-        self.thread_meshlet_ids.get_mut().clear();
+        self.instance_meshlet_counts_prefix_sum.get_mut().clear();
+        self.instance_meshlet_slice_starts.get_mut().clear();
         // TODO: Remove unused entries for view_instance_visibility and previous_depth_pyramids
     }
 
@@ -796,7 +804,6 @@ impl MeshletGpuScene {
         not_shadow_caster: bool,
         handle: &Handle<MeshletMesh>,
         assets: &mut Assets<MeshletMesh>,
-        instance_index: u32,
     ) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
@@ -833,11 +840,6 @@ impl MeshletGpuScene {
             )
         };
 
-        // Append instance data for this frame
-        self.instances
-            .push((instance, render_layers, not_shadow_caster));
-        self.instance_material_ids.get_mut().push(0);
-
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
         let ([_, _, _, meshlets_slice, _], triangle_count) = self
             .meshlet_mesh_slices
@@ -848,14 +850,19 @@ impl MeshletGpuScene {
         let meshlets_slice = (meshlets_slice.start as u32 / size_of::<Meshlet>() as u32)
             ..(meshlets_slice.end as u32 / size_of::<Meshlet>() as u32);
 
+        // Append instance data for this frame
+        self.instances
+            .push((instance, render_layers, not_shadow_caster));
+        self.instance_material_ids.get_mut().push(0);
+        self.instance_meshlet_counts_prefix_sum
+            .get_mut()
+            .push(self.scene_meshlet_count);
+        self.instance_meshlet_slice_starts
+            .get_mut()
+            .push(meshlets_slice.start);
+
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_triangle_count += triangle_count;
-
-        // Append per-cluster data for this frame
-        self.thread_instance_ids
-            .get_mut()
-            .extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
-        self.thread_meshlet_ids.get_mut().extend(meshlets_slice);
     }
 
     /// Get the depth value for use with the material depth texture for a given [`Material`] asset.

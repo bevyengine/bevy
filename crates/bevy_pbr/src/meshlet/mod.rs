@@ -74,6 +74,8 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{
         check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
         Visibility, VisibilitySystems,
@@ -105,7 +107,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// This plugin does not work on the WebGL2 backend.
+/// This plugin does not work on WASM.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/meshlet/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
@@ -168,6 +170,15 @@ impl Plugin for MeshletPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if !render_app
+            .world()
+            .resource::<RenderDevice>()
+            .features()
+            .contains(WgpuFeatures::PUSH_CONSTANTS)
+        {
+            return;
+        }
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(

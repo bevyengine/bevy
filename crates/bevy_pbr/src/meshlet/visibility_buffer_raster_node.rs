@@ -104,6 +104,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             previous_view_offset,
             culling_first_pipeline,
             culling_workgroups,
+            meshlet_view_resources.scene_meshlet_count,
         );
         raster_pass(
             true,
@@ -130,6 +131,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             previous_view_offset,
             culling_second_pipeline,
             culling_workgroups,
+            meshlet_view_resources.scene_meshlet_count,
         );
         raster_pass(
             false,
@@ -192,6 +194,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 previous_view_offset,
                 culling_first_pipeline,
                 culling_workgroups,
+                meshlet_view_resources.scene_meshlet_count,
             );
             raster_pass(
                 true,
@@ -218,6 +221,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 previous_view_offset,
                 culling_second_pipeline,
                 culling_workgroups,
+                meshlet_view_resources.scene_meshlet_count,
             );
             raster_pass(
                 false,
@@ -251,18 +255,20 @@ fn cull_pass(
     previous_view_offset: &PreviousViewUniformOffset,
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
+    cluster_count: u32,
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some(label),
         timestamp_writes: None,
     });
+    cull_pass.set_pipeline(culling_pipeline);
+    cull_pass.set_push_constants(0, &cluster_count.to_le_bytes());
     cull_pass.set_bind_group(
         0,
         culling_bind_group,
         &[view_offset.offset, previous_view_offset.offset],
     );
-    cull_pass.set_pipeline(culling_pipeline);
     cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
 }
 
@@ -327,12 +333,12 @@ fn raster_pass(
         draw_pass.set_camera_viewport(viewport);
     }
 
+    draw_pass.set_render_pipeline(visibility_buffer_raster_pipeline);
     draw_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer_raster,
         &[view_offset.offset],
     );
-    draw_pass.set_render_pipeline(visibility_buffer_raster_pipeline);
     draw_pass.draw_indirect(visibility_buffer_draw_indirect_args, 0);
 }
 
@@ -363,8 +369,8 @@ fn downsample_depth(
         };
 
         let mut downsample_pass = render_context.begin_tracked_render_pass(downsample_pass);
-        downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth[i], &[]);
         downsample_pass.set_render_pipeline(downsample_depth_pipeline);
+        downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth[i], &[]);
         downsample_pass.draw(0..3, 0..1);
     }
 
@@ -400,8 +406,8 @@ fn copy_material_depth_pass(
             copy_pass.set_camera_viewport(viewport);
         }
 
-        copy_pass.set_bind_group(0, copy_material_depth_bind_group, &[]);
         copy_pass.set_render_pipeline(copy_material_depth_pipeline);
+        copy_pass.set_bind_group(0, copy_material_depth_bind_group, &[]);
         copy_pass.draw(0..3, 0..1);
     }
 }
