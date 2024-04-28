@@ -247,6 +247,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cull_pass(
     label: &'static str,
     render_context: &mut RenderContext,
