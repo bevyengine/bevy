@@ -1,4 +1,4 @@
-use std::{any::type_name, marker::PhantomData};
+use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -36,7 +36,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
         } else {
             bevy_utils::error_once!(format!(
                 "Render app does not exist when adding `extract_resource` for <{}>.",
-                type_name::<R>()
+                std::any::type_name::<R>()
             ));
         }
     }
