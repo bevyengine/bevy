@@ -24,10 +24,10 @@ impl Debug for Function {
 impl Function {
     pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
         func: F,
-        args: Vec<ArgInfo>,
+        info: FunctionInfo,
     ) -> Self {
         Self {
-            info: FunctionInfo::new(args),
+            info,
             func: Box::new(func),
         }
     }

@@ -1,15 +1,21 @@
-use crate::func::args::ArgInfo;
+use crate::func::args::{ArgInfo, GetOwnership, Ownership};
+use crate::TypePath;
 use alloc::borrow::Cow;
 
 #[derive(Debug)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
     args: Vec<ArgInfo>,
+    return_info: ReturnInfo,
 }
 
 impl FunctionInfo {
     pub fn new(args: Vec<ArgInfo>) -> Self {
-        Self { name: None, args }
+        Self {
+            name: None,
+            args,
+            return_info: ReturnInfo::new::<()>(),
+        }
     }
 
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -22,7 +28,35 @@ impl FunctionInfo {
         self
     }
 
+    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
+        self.return_info = return_info;
+        self
+    }
+
     pub fn args(&self) -> &[ArgInfo] {
         &self.args
+    }
+}
+
+#[derive(Debug)]
+pub struct ReturnInfo {
+    type_path: &'static str,
+    ownership: Ownership,
+}
+
+impl ReturnInfo {
+    pub fn new<T: TypePath + GetOwnership>() -> Self {
+        Self {
+            type_path: T::type_path(),
+            ownership: T::ownership(),
+        }
+    }
+
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
+    }
+
+    pub fn ownership(&self) -> Ownership {
+        self.ownership
     }
 }

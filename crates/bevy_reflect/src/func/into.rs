@@ -18,12 +18,23 @@ macro_rules! impl_into_function {
         impl<$($Arg,)* R, F> $crate::func::IntoFunction<fn($($Arg),*) -> R> for F
         where
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            R: $crate::func::IntoReturn,
+            R: $crate::func::IntoReturn + $crate::func::args::GetOwnership + $crate::TypePath,
             F: FnMut($($Arg),*) -> R + 'static,
             F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'static,
         {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!($($Arg)*);
+
+                let info = $crate::func::FunctionInfo::new({
+                    #[allow(unused_mut)]
+                    let mut _index = 0;
+                    vec![
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
+                            _index += 1;
+                            _index - 1
+                        }),)*
+                    ]
+                }).with_return_info($crate::func::ReturnInfo::new::<R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {
@@ -42,16 +53,7 @@ macro_rules! impl_into_function {
                         _info.args().get(_index - 1).expect("argument index out of bounds")
                     })?,)*);
                     Ok((self)($($arg,)*).into_return())
-                }, {
-                    #[allow(unused_mut)]
-                    let mut _index = 0;
-                    vec![
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                })
+                }, info)
             }
         }
 
@@ -60,13 +62,26 @@ macro_rules! impl_into_function {
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a Receiver: $crate::func::args::GetOwnership,
-            R: $crate::Reflect,
+            R: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a R: $crate::func::args::GetOwnership,
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'static,
             F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'static,
         {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
+
+                let info = $crate::func::FunctionInfo::new({
+                    #[allow(unused_mut)]
+                    let mut _index = 1;
+                    vec![
+                        $crate::func::args::ArgInfo::new::<&Receiver>(0),
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
+                            _index += 1;
+                            _index - 1
+                        }),)*
+                    ]
+                }).with_return_info($crate::func::ReturnInfo::new::<&R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {
@@ -87,17 +102,7 @@ macro_rules! impl_into_function {
                         _info.args().get(_index - 1).expect("argument index out of bounds")
                     })?,)*);
                     Ok($crate::func::Return::Ref((self)(receiver, $($arg,)*)))
-                }, {
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    vec![
-                        $crate::func::args::ArgInfo::new::<&Receiver>(0),
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                })
+                }, info)
             }
         }
 
@@ -106,13 +111,26 @@ macro_rules! impl_into_function {
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
-            R: $crate::Reflect,
+            R: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a mut R: $crate::func::args::GetOwnership,
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'static,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'static,
         {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
+
+                let info = $crate::func::FunctionInfo::new({
+                    #[allow(unused_mut)]
+                    let mut _index = 1;
+                    vec![
+                        $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
+                        $($crate::func::args::ArgInfo::new::<$Arg>({
+                            _index += 1;
+                            _index - 1
+                        }),)*
+                    ]
+                }).with_return_info($crate::func::ReturnInfo::new::<&mut R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {
@@ -133,17 +151,7 @@ macro_rules! impl_into_function {
                         _info.args().get(_index - 1).expect("argument index out of bounds")
                     })?,)*);
                     Ok($crate::func::Return::Mut((self)(receiver, $($arg,)*)))
-                }, {
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    vec![
-                        $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                })
+                }, info)
             }
         }
     };
