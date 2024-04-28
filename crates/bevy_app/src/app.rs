@@ -209,15 +209,15 @@ impl App {
         let mut overall_plugins_state = match self.main_mut().plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.main_mut().plugins);
-                for plugin in &plugins.registry {
+                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+                for plugin in &plugins {
                     // plugins installed to main need to see all sub-apps
                     if !plugin.ready(self) {
                         state = PluginsState::Adding;
                         break;
                     }
                 }
-                self.main_mut().plugins = plugins;
+                self.main_mut().plugin_registry = plugins;
                 state
             }
             state => state,
@@ -235,12 +235,12 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugins);
-        for plugin in &plugins.registry {
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
             plugin.finish(self);
         }
         let main = self.main_mut();
-        main.plugins = plugins;
+        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
     }
@@ -249,12 +249,12 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugins);
-        for plugin in &plugins.registry {
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
             plugin.cleanup(self);
         }
         let main = self.main_mut();
-        main.plugins = plugins;
+        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
     }
@@ -490,8 +490,7 @@ impl App {
         if plugin.is_unique()
             && !self
                 .main_mut()
-                .plugins
-                .names
+                .plugin_names
                 .insert(plugin.name().to_string())
         {
             Err(AppError::DuplicatePlugin {
@@ -501,10 +500,9 @@ impl App {
 
         // Reserve position in the plugin registry. If the plugin adds more plugins,
         // they'll all end up in insertion order.
-        let index = self.main().plugins.registry.len();
+        let index = self.main().plugin_registry.len();
         self.main_mut()
-            .plugins
-            .registry
+            .plugin_registry
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
@@ -515,7 +513,7 @@ impl App {
             resume_unwind(payload);
         }
 
-        self.main_mut().plugins.registry[index] = plugin;
+        self.main_mut().plugin_registry[index] = plugin;
         Ok(self)
     }
 
@@ -1008,6 +1006,18 @@ mod tests {
         }
     }
 
+    struct PluginE;
+
+    impl Plugin for PluginE {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            if app.is_plugin_added::<PluginA>() {
+                panic!("cannot run if PluginA is already registered");
+            }
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1076,6 +1086,15 @@ mod tests {
 
         app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world().entities().len(), 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_is_plugin_added_works_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginE);
+        app.finish();
     }
 
     #[test]
