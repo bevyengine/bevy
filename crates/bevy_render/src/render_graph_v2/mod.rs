@@ -12,15 +12,14 @@ use std::borrow::Cow;
 
 use crate::{
     render_resource::{
-        BindGroupLayout, Buffer, ComputePipeline, PipelineCache, RenderPipeline, Sampler, Texture,
-        TextureView,
+        BindGroupLayout, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Res, ResMut, Resource},
+    system::Resource,
     world::{EntityRef, Ref, World},
 };
 
@@ -30,8 +29,8 @@ use resource::CachedRenderStore;
 use wgpu::CommandEncoder;
 
 use self::resource::{
-    RenderDependencies, RenderResourceGeneration, RenderResourceId, RenderResourceInit,
-    RenderResourceMeta, ResourceTracker,
+    CachedRenderStorePersistentResources, RenderDependencies, RenderResourceGeneration,
+    RenderResourceId, RenderResourceInit, RenderResourceMeta, ResourceTracker,
 };
 
 // Roadmap:
@@ -45,7 +44,13 @@ use self::resource::{
 // 8. Documentation, write an example, and cleanup
 
 #[derive(Resource, Default)]
-struct RenderGraphPersistentResources {}
+struct RenderGraphPersistentResources {
+    dummy: (),
+    bind_group_layouts: CachedRenderStorePersistentResources<BindGroupLayout>,
+    samplers: CachedRenderStorePersistentResources<Sampler>,
+    render_pipelines: CachedRenderStorePersistentResources<RenderPipeline>,
+    compute_pipelines: CachedRenderStorePersistentResources<ComputePipeline>,
+}
 
 #[derive(Default)]
 pub struct RenderGraph<'g> {
@@ -87,6 +92,7 @@ impl<'g> RenderGraph<'g> {
 
 pub struct RenderGraphBuilder<'g> {
     graph: &'g mut RenderGraph<'g>,
+    persistent_resources: &'g mut RenderGraphPersistentResources,
     world: &'g World,
     view_entity: EntityRef<'g>,
     render_device: &'g RenderDevice,
@@ -103,6 +109,10 @@ impl<'g> RenderGraphBuilder<'g> {
             _ => None,
         });
         <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token).insert(
+            <R::Resource as RenderResource>::get_persistent_store_mut(
+                &mut self.persistent_resources,
+                seal::Token,
+            ),
             id,
             resource,
             self.world,

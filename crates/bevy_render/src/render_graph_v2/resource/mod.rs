@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 use crate::renderer::RenderDevice;
 
-use super::{seal, NodeContext, RenderGraph};
+use super::{seal, NodeContext, RenderGraph, RenderGraphPersistentResources};
 
 pub mod bind_group;
 pub mod buffer;
@@ -83,13 +83,21 @@ pub trait RenderResource: seal::Super + 'static {
     type Descriptor: Send + Sync + 'static;
     type Data: Send + Sync + Clone + 'static;
     type Store<'g>: RenderStore<'g, Self>;
-    // type PersistentStore: RenderStore<'static, Self>;
 
     fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g>;
     fn get_store_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         _: seal::Token,
     ) -> &'a mut Self::Store<'g>;
+
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore;
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore;
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self>;
     fn from_descriptor(
@@ -100,34 +108,27 @@ pub trait RenderResource: seal::Super + 'static {
 }
 
 pub trait RenderStore<'g, R: RenderResource>: seal::Super {
+    type PersistentStore: Send + Sync + 'static;
+
     fn insert(
         &mut self,
-        key: RenderResourceId,
+        persistent_store: &mut Self::PersistentStore,
+        id: RenderResourceId,
         data: RenderResourceInit<'g, R>,
         world: &World,
         render_device: &RenderDevice,
     );
 
-    fn get<'a: 'g>(
+    fn get<'a>(
         &'a self,
         world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<'g, R>>;
+        id: RenderResourceId,
+    ) -> Option<&'a RenderResourceMeta<'g, R>>
+    where
+        'g: 'a;
 }
 
-// pub trait RetainedRenderStore<R: RenderResource>: WriteRenderStore<R> {
-//     fn retain(&mut self, key: u16, label: InternedRenderLabel);
-//
-//     fn get_retained(&mut self, label: InternedRenderLabel) -> Option<RenderResourceMeta<R>>;
-// }
-
 pub trait WriteRenderResource: RenderResource {}
-
-// pub trait RetainedRenderResource: WriteRenderResource
-// where
-//     <Self as RenderResource>::Store: RetainedRenderStore<Self>,
-// {
-// }
 
 pub struct RenderResourceMeta<'g, R: RenderResource> {
     pub descriptor: Option<R::Descriptor>,
@@ -158,15 +159,16 @@ pub enum RenderResourceInit<'g, R: RenderResource> {
 
 pub struct SimpleRenderStore<'g, R: RenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
-    // resources_to_retain: HashMap<RenderResourceId, InternedRenderLabel>,
-    // retained_resources: HashMap<InternedRenderLabel, RenderResourceMeta<R>>,
 }
 
 impl<'g, R: RenderResource> seal::Super for SimpleRenderStore<'g, R> {}
 
 impl<'g, R: RenderResource> RenderStore<'g, R> for SimpleRenderStore<'g, R> {
+    type PersistentStore = ();
+
     fn insert(
         &mut self,
+        (): &mut Self::PersistentStore,
         id: RenderResourceId,
         data: RenderResourceInit<R>,
         world: &World,
@@ -187,11 +189,14 @@ impl<'g, R: RenderResource> RenderStore<'g, R> for SimpleRenderStore<'g, R> {
         // }
     }
 
-    fn get<'a: 'g>(
+    fn get<'a>(
         &'a self,
-        _world: &'g World,
+        world: &'a World,
         id: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<'g, R>> {
+    ) -> Option<&'a RenderResourceMeta<'g, R>>
+    where
+        'g: 'a,
+    {
         self.resources.get(&id)
     }
 }
@@ -206,27 +211,25 @@ impl<'g, R: RenderResource> Default for SimpleRenderStore<'g, R> {
         }
     }
 }
-pub struct CachedRenderStore<'g, R: RenderResource>
-where
-    R::Descriptor: Clone + Hash + Eq,
-{
+pub struct CachedRenderStore<'g, R: RenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
-    //queued_resources: HashMap<RenderResourceId, DeferredResourceInit<R>>,
-    //cached_resources: HashMap<R::Descriptor, RenderResourceMeta<'g, R>>, //TODO: switch to using
-    //separate persistent store type
 }
 
-impl<'g, R: RenderResource> seal::Super for CachedRenderStore<'g, R> where
-    R::Descriptor: Clone + Hash + Eq
-{
+pub struct CachedRenderStorePersistentResources<R: RenderResource> {
+    cached_resources: HashMap<R::Descriptor, RenderResourceMeta<'static, R>>,
 }
+
+impl<'g, R: RenderResource> seal::Super for CachedRenderStore<'g, R> {}
 
 impl<'g, R: RenderResource> RenderStore<'g, R> for CachedRenderStore<'g, R>
 where
     R::Descriptor: Clone + Hash + Eq,
 {
+    type PersistentStore = CachedRenderStorePersistentResources<R>;
+
     fn insert(
         &mut self,
+        persistent_resources: &mut Self::PersistentStore,
         id: RenderResourceId,
         data: RenderResourceInit<R>,
         world: &World,
@@ -262,23 +265,31 @@ where
         todo!()
     }
 
-    fn get<'a: 'g>(
+    fn get<'a>(
         &'a self,
         world: &'a World,
-        key: RenderResourceId,
-    ) -> Option<&'a RenderResourceMeta<'g, R>> {
-        todo!()
+        id: RenderResourceId,
+    ) -> Option<&'a RenderResourceMeta<'g, R>>
+    where
+        'g: 'a,
+    {
+        self.resources.get(&id)
     }
 }
 
-impl<'g, R: RenderResource> Default for CachedRenderStore<'g, R>
-where
-    R::Descriptor: Clone + Hash + Eq,
-{
+impl<'g, R: RenderResource> Default for CachedRenderStore<'g, R> {
     fn default() -> Self {
         Self {
             resources: Default::default(),
             // cached_resources: Default::default(),
+        }
+    }
+}
+
+impl<R: RenderResource> Default for CachedRenderStorePersistentResources<R> {
+    fn default() -> Self {
+        Self {
+            cached_resources: Default::default(),
         }
     }
 }

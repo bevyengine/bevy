@@ -2,13 +2,14 @@ use bevy_ecs::world::World;
 use wgpu::BufferDescriptor;
 
 use crate::{
-    render_graph_v2::{seal, RenderGraph},
+    render_graph_v2::{seal, RenderGraph, RenderGraphPersistentResources},
     render_resource::Buffer,
     renderer::RenderDevice,
 };
 
 use super::{
-    IntoRenderResource, RenderResource, RenderResourceInit, SimpleRenderStore, WriteRenderResource,
+    IntoRenderResource, RenderResource, RenderResourceInit, RenderStore, SimpleRenderStore,
+    WriteRenderResource,
 };
 
 impl seal::Super for Buffer {}
@@ -27,6 +28,20 @@ impl RenderResource for Buffer {
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
         &mut graph.buffers
+    }
+
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.dummy
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.dummy
     }
 
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {

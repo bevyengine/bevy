@@ -3,7 +3,7 @@ use bevy_math::FloatOrd;
 use std::{borrow::Cow, hash::Hash};
 
 use crate::{
-    render_graph_v2::{seal, RenderGraph, RenderGraphBuilder},
+    render_graph_v2::{seal, RenderGraph, RenderGraphBuilder, RenderGraphPersistentResources},
     render_resource::{
         ImageDataLayout, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView,
         TextureViewDescriptor,
@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     render_deps, CachedRenderStore, IntoRenderResource, RenderHandle, RenderResource,
-    RenderResourceInit, RenderResourceMeta, SimpleRenderStore, WriteRenderResource,
+    RenderResourceInit, RenderResourceMeta, RenderStore, SimpleRenderStore, WriteRenderResource,
 };
 
 impl seal::Super for Texture {}
@@ -32,6 +32,20 @@ impl RenderResource for Texture {
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
         &mut graph.textures
+    }
+
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.dummy
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.dummy
     }
 
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
@@ -98,6 +112,20 @@ impl RenderResource for TextureView {
         todo!()
     }
 
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.dummy
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.dummy
+    }
+
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
         todo!()
     }
@@ -129,6 +157,19 @@ impl RenderResource for Sampler {
         &mut graph.samplers
     }
 
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.samplers
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.samplers
+    }
     fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
         Some(data)
     }

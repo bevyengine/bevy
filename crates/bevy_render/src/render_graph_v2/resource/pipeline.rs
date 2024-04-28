@@ -2,7 +2,7 @@ use bevy_ecs::{system::Resource, world::World};
 
 use crate::{
     mesh::MeshVertexBufferLayoutRef,
-    render_graph_v2::{seal, RenderGraph},
+    render_graph_v2::{seal, RenderGraph, RenderGraphPersistentResources},
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
         ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
@@ -11,7 +11,9 @@ use crate::{
     renderer::RenderDevice,
 };
 
-use super::{CachedRenderStore, IntoRenderResource, RenderResource, RenderResourceInit};
+use super::{
+    CachedRenderStore, IntoRenderResource, RenderResource, RenderResourceInit, RenderStore,
+};
 
 impl seal::Super for RenderPipeline {}
 
@@ -29,6 +31,20 @@ impl RenderResource for RenderPipeline {
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
         &mut graph.render_pipelines
+    }
+
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.render_pipelines
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.render_pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
@@ -74,6 +90,20 @@ impl RenderResource for ComputePipeline {
         _: seal::Token,
     ) -> &'a mut Self::Store<'g> {
         &mut graph.compute_pipelines
+    }
+
+    fn get_persistent_store(
+        persistent_resources: &RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &<Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &persistent_resources.compute_pipelines
+    }
+
+    fn get_persistent_store_mut<'g>(
+        persistent_resources: &mut RenderGraphPersistentResources,
+        _: seal::Token,
+    ) -> &mut <Self::Store<'static> as RenderStore<'static, Self>>::PersistentStore {
+        &mut persistent_resources.compute_pipelines
     }
 
     fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
