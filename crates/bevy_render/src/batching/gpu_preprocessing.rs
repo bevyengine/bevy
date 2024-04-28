@@ -169,13 +169,13 @@ pub struct PreprocessWorkItem {
 /// an array. If we pad out `ArrayIndirectParameters` by copying the
 /// `first_instance` field into the padding, then the resulting union structure
 /// will always have a read-only copy of `first_instance` in the final word. We
-/// take advantage of this in the shader to eliminate branching.
+/// take advantage of this in the shader to reduce branching.
 #[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct IndirectParameters {
     /// For `ArrayIndirectParameters`, `vertex_count`; for
     /// `ElementIndirectParameters`, `index_count`.
-    pub data0: u32,
+    pub vertex_or_index_count: u32,
 
     /// The number of instances we're going to draw.
     ///
@@ -187,7 +187,7 @@ pub struct IndirectParameters {
 
     /// For `ArrayIndirectParameters`, `first_instance`; for
     /// `ElementIndirectParameters`, `base_vertex`.`
-    pub data1: u32,
+    pub base_vertex_or_first_instance: u32,
 
     /// For `ArrayIndirectParameters`, this is padding; for
     /// `ElementIndirectParameters`, this is `first_instance`.
@@ -403,7 +403,10 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 phase.items[current_index].entity(),
             );
 
-            // Unpack that index and metadata.
+            // Unpack that index and metadata. Note that it's possible for index
+            // and/or metadata to not be present, which signifies that this
+            // entity is unbatchable. In that case, we break the batch here and
+            // otherwise ignore the phase item.
             let (current_input_index, current_meta);
             match current_batch_input_index {
                 Some((input_index, Some(current_compare_data))) => {

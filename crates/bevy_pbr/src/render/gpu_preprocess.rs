@@ -37,6 +37,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
+use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -93,13 +94,15 @@ pub struct PreprocessPipeline {
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 
-/// Specifies variants of the mesh preprocessing shader.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PreprocessPipelineKey {
-    /// Whether GPU culling is in use.
-    ///
-    /// This `#define`'s `GPU_CULLING` in the shader.
-    pub gpu_culling: bool,
+bitflags! {
+    /// Specifies variants of the mesh preprocessing shader.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct PreprocessPipelineKey: u8 {
+        /// Whether GPU culling is in use.
+        ///
+        /// This `#define`'s `GPU_CULLING` in the shader.
+        const GPU_CULLING = 1;
+    }
 }
 
 /// The compute shader bind group for the mesh uniform building pass.
@@ -255,7 +258,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         let mut shader_defs = vec![];
-        if key.gpu_culling {
+        if key.contains(PreprocessPipelineKey::GPU_CULLING) {
             shader_defs.push("INDIRECT".into());
             shader_defs.push("FRUSTUM_CULLING".into());
         }
@@ -264,7 +267,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             label: Some(
                 format!(
                     "mesh preprocessing ({})",
-                    if key.gpu_culling {
+                    if key.contains(PreprocessPipelineKey::GPU_CULLING) {
                         "GPU culling"
                     } else {
                         "direct"
@@ -345,12 +348,12 @@ pub fn prepare_preprocess_pipelines(
     preprocess_pipelines.direct.prepare(
         &pipeline_cache,
         &mut pipelines,
-        PreprocessPipelineKey { gpu_culling: false },
+        PreprocessPipelineKey::empty(),
     );
     preprocess_pipelines.gpu_culling.prepare(
         &pipeline_cache,
         &mut pipelines,
-        PreprocessPipelineKey { gpu_culling: true },
+        PreprocessPipelineKey::GPU_CULLING,
     );
 }
 

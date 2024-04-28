@@ -88,22 +88,6 @@ struct IndirectParameters {
 // The view data, including the view matrix.
 @group(0) @binding(6) var<uniform> view: View;
 
-// Returns true if the view frustum intersects a sphere, specified in world
-// space.
-fn view_frustum_intersects_sphere(sphere_center_3: vec3<f32>, sphere_radius: f32) -> bool {
-    let sphere_center_4 = vec4(sphere_center_3, 1.0);
-    for (var i = 0; i < 5; i += 1) {
-        if (!maths::sphere_is_inside_frustum_plane(
-            view.frustum[i],
-            sphere_center_4,
-            sphere_radius
-        )) {
-            return false;
-        }
-    }
-    return true;
-}
-
 // Returns true if the view frustum intersects an oriented bounding box (OBB).
 //
 // `aabb_center.w` should be 1.0.
@@ -128,7 +112,8 @@ fn view_frustum_intersects_obb(
         );
 
         // Check the frustum plane.
-        if (!maths::sphere_is_inside_frustum_plane(plane_normal, aabb_center, relative_radius)) {
+        if (!maths::sphere_intersects_plane_half_space(
+                plane_normal, aabb_center, relative_radius)) {
             return false;
         }
     }
@@ -158,15 +143,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
     let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
-    // Do a quick sphere-based frustum cull.
-    let sphere_center = model * vec4(aabb_center, 1.0);
-    let sphere_radius = length(maths::mat4x4_to_mat3x3(model) * aabb_half_extents);
-    if (!view_frustum_intersects_sphere(sphere_center.xyz, sphere_radius)) {
-        return;
-    }
-
-    // Do the more expensive OBB-based frustum cull.
-    if (!view_frustum_intersects_obb(model, sphere_center, aabb_half_extents)) {
+    // Do an OBB-based frustum cull.
+    let model_center = model * vec4(aabb_center, 1.0);
+    if (!view_frustum_intersects_obb(model, model_center, aabb_half_extents)) {
         return;
     }
 #endif

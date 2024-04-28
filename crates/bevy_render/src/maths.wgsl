@@ -75,10 +75,10 @@ fn orthonormalize(z_unnormalized: vec3<f32>, up: vec3<f32>) -> mat3x3<f32> {
 // `sphere_center.w` should be 1.0.
 //
 // This is used for frustum culling.
-fn sphere_is_inside_frustum_plane(
-    frustum_plane: vec4<f32>,
+fn sphere_intersects_plane_half_space(
+    plane: vec4<f32>,
     sphere_center: vec4<f32>,
     sphere_radius: f32
 ) -> bool {
-    return dot(frustum_plane, sphere_center) + sphere_radius > 0.0;
+    return dot(plane, sphere_center) + sphere_radius > 0.0;
 }

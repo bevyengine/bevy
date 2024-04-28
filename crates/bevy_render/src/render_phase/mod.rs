@@ -469,12 +469,12 @@ impl UnbatchableBinnedEntityIndexSet {
         match self {
             UnbatchableBinnedEntityIndexSet::NoEntities => {
                 if indices.extra_index.is_dynamic_offset() {
-                    // This is the first entity we've seen, and we're on WebGL 2.
-                    // Initialize an array.
+                    // This is the first entity we've seen, and we don't have
+                    // compute shaders. Initialize an array.
                     *self = UnbatchableBinnedEntityIndexSet::Dense(vec![indices]);
                 } else {
-                    // This is the first entity we've seen, and we're not on WebGL
-                    // 2. Initialize the fast path.
+                    // This is the first entity we've seen, and we have compute
+                    // shaders. Initialize the fast path.
                     *self = UnbatchableBinnedEntityIndexSet::Sparse {
                         instance_range: indices.instance_index..indices.instance_index + 1,
                         first_indirect_parameters_index: indices

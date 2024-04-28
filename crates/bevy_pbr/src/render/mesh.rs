@@ -517,6 +517,7 @@ impl RenderMeshInstanceShared {
 
     /// Returns true if this entity is eligible to participate in automatic
     /// batching.
+    #[inline]
     pub fn should_batch(&self) -> bool {
         self.flags
             .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
@@ -1246,21 +1247,24 @@ fn get_batch_indirect_parameters_index(
     let mesh_instance = mesh_instances.get(&entity)?;
     let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
 
+    // Note that `IndirectParameters` covers both of these structures, even
+    // though they actually have distinct layouts. See the comment above that
+    // type for more information.
     let indirect_parameters = match mesh.buffer_info {
         GpuBufferInfo::Indexed {
             count: index_count, ..
         } => IndirectParameters {
-            data0: index_count,
+            vertex_or_index_count: index_count,
             instance_count: 0,
             first_vertex: 0,
-            data1: 0,
+            base_vertex_or_first_instance: 0,
             first_instance: instance_index,
         },
         GpuBufferInfo::NonIndexed => IndirectParameters {
-            data0: mesh.vertex_count,
+            vertex_or_index_count: mesh.vertex_count,
             instance_count: 0,
             first_vertex: 0,
-            data1: instance_index,
+            base_vertex_or_first_instance: instance_index,
             first_instance: instance_index,
         },
     };
