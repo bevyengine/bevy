@@ -54,7 +54,7 @@ fn cull_meshlets(
     // Frustum culling
     // TODO: Faster method from https://vkguide.dev/docs/gpudriven/compute_culling/#frustum-culling-function
     for (var i = 0u; i < 6u; i++) {
-        if dot(view.frustum[i], culling_bounding_sphere_center) <= -culling_bounding_sphere_radius {
+        if dot(view.frustum[i], culling_bounding_sphere_center) + culling_bounding_sphere_radius <= 0.0 {
             return;
         }
     }
