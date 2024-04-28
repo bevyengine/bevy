@@ -108,7 +108,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin does not work on the WebGL2 backend.
 ///
-/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/meshlet/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
+/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
