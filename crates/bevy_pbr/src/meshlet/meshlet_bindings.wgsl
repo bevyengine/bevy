@@ -72,7 +72,6 @@ fn should_cull_instance(instance_id: u32) -> bool {
 }
 
 fn meshlet_is_second_pass_candidate(cluster_id: u32) -> bool {
-    // TODO: Does this read need to be an atomicLoad?
     let packed_candidates = meshlet_second_pass_candidates[cluster_id / 32u];
     let bit_offset = cluster_id % 32u;
     return bool(extractBits(packed_candidates, bit_offset, 1u));
