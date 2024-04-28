@@ -7,10 +7,7 @@ use bevy::{
     color::palettes::css::*,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    render::{
-        camera::{Exposure, PhysicalCameraParameters},
-        view::GpuCulling,
-    },
+    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -272,13 +269,11 @@ fn setup(
     );
 
     // camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            exposure: Exposure::from_physical_camera(**parameters),
-            ..default()
-        })
-        .insert(GpuCulling);
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        exposure: Exposure::from_physical_camera(**parameters),
+        ..default()
+    });
 }
 
 fn update_exposure(

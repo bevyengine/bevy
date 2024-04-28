@@ -12,7 +12,7 @@ use bevy::{
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
-    render::{render_resource::TextureFormat, view::GpuCulling},
+    render::render_resource::TextureFormat,
 };
 
 fn main() {
@@ -65,7 +65,6 @@ fn setup(
         MotionVectorPrepass,
         DeferredPrepass,
         Fxaa::default(),
-        GpuCulling,
     ));
 
     commands.spawn(DirectionalLightBundle {
