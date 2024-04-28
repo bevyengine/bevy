@@ -15,9 +15,21 @@ pub struct Function {
 
 impl Debug for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Function")
-            .field("info", &self.info)
-            .finish()
+        let name = self.info.name().unwrap_or("_");
+        write!(f, "Function(fn {name}(")?;
+
+        for (index, arg) in self.info.args().iter().enumerate() {
+            let name = arg.name().unwrap_or("_");
+            let ty = arg.type_path();
+            write!(f, "{name}: {ty}")?;
+
+            if index + 1 < self.info.args().len() {
+                write!(f, ", ")?;
+            }
+        }
+
+        let ret = self.info.return_info().type_path();
+        write!(f, ") -> {ret})")
     }
 }
 

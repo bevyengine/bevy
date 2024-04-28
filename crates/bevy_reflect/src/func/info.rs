@@ -33,8 +33,16 @@ impl FunctionInfo {
         self
     }
 
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
     pub fn args(&self) -> &[ArgInfo] {
         &self.args
+    }
+
+    pub fn return_info(&self) -> &ReturnInfo {
+        &self.return_info
     }
 }
 
