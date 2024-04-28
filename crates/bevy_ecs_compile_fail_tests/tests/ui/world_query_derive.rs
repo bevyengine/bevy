@@ -6,6 +6,7 @@ struct Foo;
 
 #[derive(QueryData)]
 struct MutableUnmarked {
+    //~v E0277
     a: &'static mut Foo,
 }
 
@@ -17,7 +18,6 @@ struct MutableMarked {
 
 #[derive(QueryData)]
 struct NestedMutableUnmarked {
+    //~v E0277
     a: MutableMarked,
 }
-
-fn main() {}

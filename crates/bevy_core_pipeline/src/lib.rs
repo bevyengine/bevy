@@ -16,6 +16,7 @@ pub mod deferred;
 pub mod dof;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod prepass;
 mod skybox;
@@ -55,6 +56,7 @@ use crate::{
     dof::DepthOfFieldPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
+    motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
@@ -91,6 +93,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                MotionBlurPlugin,
                 DepthOfFieldPlugin,
             ));
     }

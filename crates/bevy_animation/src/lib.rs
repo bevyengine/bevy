@@ -255,6 +255,12 @@ impl AnimationClip {
         &self.curves
     }
 
+    #[inline]
+    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    pub fn curves_mut(&mut self) -> &mut AnimationCurves {
+        &mut self.curves
+    }
+
     /// Gets the curves for a single animation target.
     ///
     /// Returns `None` if this clip doesn't animate the target.
@@ -266,10 +272,27 @@ impl AnimationClip {
         self.curves.get(&target_id)
     }
 
+    /// Gets mutable references of the curves for a single animation target.
+    ///
+    /// Returns `None` if this clip doesn't animate the target.
+    #[inline]
+    pub fn curves_for_target_mut(
+        &mut self,
+        target_id: AnimationTargetId,
+    ) -> Option<&'_ mut Vec<VariableCurve>> {
+        self.curves.get_mut(&target_id)
+    }
+
     /// Duration of the clip, represented in seconds.
     #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
+    }
+
+    /// Set the duration of the clip in seconds.
+    #[inline]
+    pub fn set_duration(&mut self, duration_sec: f32) {
+        self.duration = duration_sec;
     }
 
     /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an

@@ -26,6 +26,7 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Taa,
+        MotionBlur,
         Bloom,
         DepthOfField,
         Tonemapping,
