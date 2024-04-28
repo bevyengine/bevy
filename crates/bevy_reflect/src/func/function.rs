@@ -1,20 +1,28 @@
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::error::FuncError;
 use crate::func::info::FunctionInfo;
-use crate::Reflect;
+use crate::func::return_type::Return;
 use alloc::borrow::Cow;
+use core::fmt::{Debug, Formatter};
 use std::ops::DerefMut;
 
-// TODO: Support reference return types
-pub type FunctionResult = Result<Option<Box<dyn Reflect>>, FuncError>;
+pub type FunctionResult<'a> = Result<Return<'a>, FuncError>;
 
 pub struct Function {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult + 'static>,
+    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>,
+}
+
+impl Debug for Function {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Function")
+            .field("info", &self.info)
+            .finish()
+    }
 }
 
 impl Function {
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult + 'static>(
+    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
         func: F,
         args: Vec<ArgInfo>,
     ) -> Self {
@@ -34,7 +42,7 @@ impl Function {
         self
     }
 
-    pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult {
+    pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func.deref_mut())(args, &self.info)
     }
 }

@@ -1,6 +1,7 @@
 use crate::func::args::ArgInfo;
 use alloc::borrow::Cow;
 
+#[derive(Debug)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
     args: Vec<ArgInfo>,

@@ -2,13 +2,14 @@ pub use error::*;
 pub use function::*;
 pub use info::*;
 pub use into::*;
+pub use return_type::*;
 
 pub mod args;
 mod error;
 mod function;
 mod info;
 mod into;
-mod utils;
+mod return_type;
 
 #[cfg(test)]
 mod tests {
@@ -26,7 +27,7 @@ mod tests {
 
         let mut func = add.into_function();
         let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
-        let result = func.call(args).unwrap().unwrap();
+        let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
     }
 
@@ -34,7 +35,7 @@ mod tests {
     fn should_create_dynamic_closure() {
         let mut func = (|a: i32, b: i32| a + b).into_function();
         let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
-        let result = func.call(args).unwrap().unwrap();
+        let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
     }
 
@@ -50,13 +51,14 @@ mod tests {
         }
 
         crate::func::args::impl_from_arg!(Foo);
+        crate::func::return_type::impl_into_return!(Foo);
 
         let foo_a = Foo(25);
         let foo_b = Foo(75);
 
         let mut func = Foo::add.into_function();
         let args = ArgList::default().push_ref(&foo_a).push_ref(&foo_b);
-        let result = func.call(args).unwrap().unwrap();
+        let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<Foo>(), Some(&Foo(100)));
     }
 
@@ -68,7 +70,7 @@ mod tests {
 
         let mut func = foo.into_function();
         let args = ArgList::default();
-        let result = func.call(args).unwrap().unwrap();
+        let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(
             result.downcast_ref::<String>(),
             Some(&String::from("Hello, World!"))
@@ -82,7 +84,39 @@ mod tests {
         let mut func = foo.into_function();
         let args = ArgList::default().push_owned(123_i32);
         let result = func.call(args).unwrap();
-        assert!(result.is_none());
+        assert!(result.is_unit());
+    }
+
+    #[test]
+    fn should_allow_reference_return() {
+        fn foo<'a>(value: &'a i32, _: String, _: &bool) -> &'a i32 {
+            value
+        }
+
+        let value: i32 = 123;
+        let mut func = foo.into_function();
+        let args = ArgList::default()
+            .push_ref(&value)
+            .push_owned(String::from("Hello, World!"))
+            .push_ref(&true);
+        let result = func.call(args).unwrap().unwrap_ref();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&123));
+    }
+
+    #[test]
+    fn should_allow_mutable_reference_return() {
+        fn foo<'a>(value: &'a mut i32, _: String, _: &bool) -> &'a mut i32 {
+            value
+        }
+
+        let mut value: i32 = 123;
+        let mut func = foo.into_function();
+        let args = ArgList::default()
+            .push_mut(&mut value)
+            .push_owned(String::from("Hello, World!"))
+            .push_ref(&true);
+        let result = func.call(args).unwrap().unwrap_mut();
+        assert_eq!(result.downcast_mut::<i32>(), Some(&mut 123));
     }
 
     #[test]
