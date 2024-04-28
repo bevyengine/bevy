@@ -33,6 +33,11 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
+        } else {
+            bevy_utils::error_once!(
+                "Render app did not exist when trying to add `extract_resource` for <{}>.",
+                std::any::type_name::<R>()
+            );
         }
     }
 }
