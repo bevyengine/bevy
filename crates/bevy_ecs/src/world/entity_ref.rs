@@ -4,7 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap},
+    query::{Access, DebugCheckedUnwrap, QueryData, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -152,6 +152,17 @@ impl<'w> EntityRef<'w> {
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_by_id(component_id) }
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+        self.get_components::<Q>().unwrap()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_components::<Q>() }
     }
 }
 
@@ -346,6 +357,28 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         self.as_readonly().get()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+        self.get_components::<Q>().unwrap()
+    }
+
+    /// Returns components for the current entity that match the query `Q`.
+    pub fn components_mut<Q: QueryData>(&mut self) -> Q::Item<'_> {
+        self.get_components_mut::<Q>().unwrap()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// Returns components for the current entity that match the query `Q`.
+    pub fn get_components_mut<Q: QueryData>(&mut self) -> Option<Q::Item<'_>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -1770,7 +1803,7 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.access.reads_and_writes()
     }
 
@@ -2024,7 +2057,7 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.access.reads_and_writes()
     }
 
@@ -2917,5 +2950,25 @@ mod tests {
         fn incompatible_system(_: Query<EntityMut>, _: Query<&mut A>) {}
 
         assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    fn get_components() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct X(usize);
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct Y(usize);
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        assert_eq!(
+            Some((&X(7), &Y(10))),
+            world.entity(e1).get_components::<(&X, &Y)>()
+        );
+        assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
+        assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
     }
 }
