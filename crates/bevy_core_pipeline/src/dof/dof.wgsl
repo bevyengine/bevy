@@ -49,7 +49,17 @@ struct DepthOfFieldParams {
     /// This value is nonphysical but is useful for avoiding pathologically-slow
     /// behavior.
     max_circle_of_confusion_diameter: f32,
+
+    /// The depth value that we clamp distant objects to. See the comment in
+    /// [`DepthOfFieldSettings`] for more information.
     max_depth: f32,
+
+    /// Padding.
+    pad_a: u32,
+    /// Padding.
+    pad_b: u32,
+    /// Padding.
+    pad_c: u32,
 }
 
 // The first bokeh pass outputs to two render targets. We declare them here.
@@ -66,7 +76,7 @@ struct DualOutput {
 // functions (e.g. `depth_ndc_to_view_z`).
 @group(0) @binding(0) var<uniform> view: View;
 
-// The depth texture for the main view. This nee
+// The depth texture for the main view.
 #ifdef MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
 #else
@@ -160,12 +170,14 @@ fn gaussian_blur(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec
     // TODO: We could take better advantage of the texture filtering hardware
     // here in order to effectively process two texels at once, by sampling in
     // between texels at exactly the right position.
-    var sum = textureSample(color_texture_a, color_texture_sampler, uv).rgb;
+    var sum = textureSampleLevel(color_texture_a, color_texture_sampler, uv, 0.0).rgb;
     var weight_sum = 1.0;
     for (var i = 1; i <= support; i += 1) {
         let weight = exp(exp_factor * f32(i) * f32(i));
-        sum += (textureSample(color_texture_a, color_texture_sampler, uv + offset * f32(i)).rgb +
-                textureSample(color_texture_a, color_texture_sampler, uv - offset * f32(i)).rgb) *
+        sum += (textureSampleLevel(
+                    color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb +
+                textureSampleLevel(
+                    color_texture_a, color_texture_sampler, uv - offset * f32(i), 0.0).rgb) *
                 weight;
         weight_sum += weight * 2.0;
     }
@@ -191,7 +203,8 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
     for (var i = 0; i <= support; i += 1) {
-        sum += textureSample(color_texture_a, color_texture_sampler, uv + offset * f32(i)).rgb;
+        sum += textureSampleLevel(
+            color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
@@ -216,7 +229,8 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
     for (var i = 0; i <= support; i += 1) {
-        sum += textureSample(color_texture_b, color_texture_sampler, uv + offset * f32(i)).rgb;
+        sum += textureSampleLevel(
+            color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);

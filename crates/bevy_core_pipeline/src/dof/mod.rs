@@ -158,6 +158,13 @@ pub struct DepthOfFieldUniform {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfFieldSettings`] for more information.
     max_depth: f32,
+
+    /// Padding.
+    pad_a: u32,
+    /// Padding.
+    pad_b: u32,
+    /// Padding.
+    pad_c: u32,
 }
 
 /// A key that uniquely identifies depth of field pipelines.
@@ -811,6 +818,9 @@ impl ExtractComponent for DepthOfFieldSettings {
                     / (dof_settings.sensor_height * dof_settings.aperture_f_stops),
                 max_circle_of_confusion_diameter: dof_settings.max_circle_of_confusion_diameter,
                 max_depth: dof_settings.max_depth,
+                pad_a: 0,
+                pad_b: 0,
+                pad_c: 0,
             },
         ))
     }
