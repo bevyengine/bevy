@@ -476,6 +476,7 @@
 mod array;
 mod fields;
 mod from_reflect;
+pub mod func;
 mod list;
 mod map;
 mod path;
