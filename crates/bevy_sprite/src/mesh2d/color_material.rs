@@ -1,7 +1,7 @@
-use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
+use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
+use bevy_color::{Alpha, Color, LinearRgba};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -46,6 +46,7 @@ impl Plugin for ColorMaterialPlugin {
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
     pub color: Color,
+    pub alpha_mode: AlphaMode2d,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -56,6 +57,8 @@ impl Default for ColorMaterial {
         ColorMaterial {
             color: Color::WHITE,
             texture: None,
+            // TODO should probably default to AlphaMask once supported?
+            alpha_mode: AlphaMode2d::Blend,
         }
     }
 }
@@ -64,6 +67,11 @@ impl From<Color> for ColorMaterial {
     fn from(color: Color) -> Self {
         ColorMaterial {
             color,
+            alpha_mode: if color.alpha() < 1.0 {
+                AlphaMode2d::Blend
+            } else {
+                AlphaMode2d::Opaque
+            },
             ..Default::default()
         }
     }
@@ -82,9 +90,9 @@ impl From<Handle<Image>> for ColorMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
-        const TEXTURE           = 1 << 0;
-        const NONE              = 0;
-        const UNINITIALIZED     = 0xFFFF;
+        const TEXTURE       = 1 << 0;
+        const NONE          = 0;
+        const UNINITIALIZED = 0xFFFF;
     }
 }
 
@@ -112,6 +120,10 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
         COLOR_MATERIAL_SHADER_HANDLE.into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        self.alpha_mode
     }
 }
 
