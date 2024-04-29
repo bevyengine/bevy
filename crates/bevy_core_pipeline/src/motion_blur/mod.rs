@@ -98,7 +98,7 @@ pub struct MotionBlur {
     /// Setting this to `3` will result in `3 * 2 + 1 = 7` samples. Setting this to `0` is
     /// equivalent to disabling motion blur.
     pub samples: u32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     // WebGL2 structs must be 16 byte aligned.
     pub _webgl2_padding: bevy_math::Vec2,
 }
@@ -108,7 +108,7 @@ impl Default for MotionBlur {
         Self {
             shutter_angle: 0.5,
             samples: 1,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding: Default::default(),
         }
     }
