@@ -3,9 +3,9 @@ use bitflags::bitflags;
 /// Trait for preparing a subcommand to be run.
 pub trait Prepare {
     /// A method that returns a list of [`PreparedCommand`]s to be run for a given shell and flags.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// # use crate::{Flag, Prepare, PreparedCommand};
     /// # use argh::FromArgs;
@@ -14,7 +14,7 @@ pub trait Prepare {
     /// #[derive(FromArgs)]
     /// #[argh(subcommand, name = "check")]
     /// struct CheckCommand {}
-    /// 
+    ///
     /// impl Prepare for CheckCommand {
     ///     fn prepare<'a>(&self, sh: &'a Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
     ///         vec![PreparedCommand::new::<Self>(
@@ -57,11 +57,11 @@ pub struct PreparedCommand<'a> {
 
 impl<'a> PreparedCommand<'a> {
     /// Creates a new [`PreparedCommand`] from a [`Cmd`] and a failure message.
-    /// 
+    ///
     /// The other fields of [`PreparedCommand`] are filled in with their default values.
-    /// 
+    ///
     /// For more information about creating a [`Cmd`], please see the [`cmd!`](xshell::cmd) macro.
-    /// 
+    ///
     /// [`Cmd`]: xshell::Cmd
     pub fn new<T: argh::SubCommand>(
         command: xshell::Cmd<'a>,
