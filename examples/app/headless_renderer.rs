@@ -91,7 +91,7 @@ fn setup(
         &mut images,
         &render_device,
         &mut scene_controller,
-        // pre_roll_frames should be big enought for full scene render,
+        // pre_roll_frames should be big enough for full scene render,
         // but the bigger it is, the longer example will run.
         // To visualize stages of scene rendering change this param to 0
         // and change AppConfig::single_image to false in main
@@ -100,7 +100,7 @@ fn setup(
         // 2. Few black box images
         // 3. Fully rendered scene images
         // Exact number depends on device speed, device load and scene size
-        30,
+        40,
         "main_scene".into(),
     );
 
@@ -499,9 +499,6 @@ mod frame_capture {
         ) {
             if let SceneState::Render(n) = scene_controller.state {
                 if n < 1 {
-                    use rand::Rng;
-                    let mut rng = rand::thread_rng();
-
                     // We don't want to block the main world on this,
                     // so we use try_recv which attempts to receive without blocking
                     let mut image_data = Vec::new();
@@ -525,8 +522,12 @@ mod frame_capture {
                             info!("Saving image to: {images_dir:?}");
                             std::fs::create_dir_all(&images_dir).unwrap();
 
-                            let number = rng.gen::<u128>();
-                            let image_path = images_dir.join(format!("{number:032X}.png"));
+                            let mut number = 0;
+                            let mut image_path = images_dir.join(format!("{number:03}.png"));
+                            while image_path.exists() {
+                                number += 1;
+                                image_path = images_dir.join(format!("{number:03}.png"));
+                            }
                             if let Err(e) = img.save(image_path) {
                                 panic!("Failed to save image: {}", e);
                             };
