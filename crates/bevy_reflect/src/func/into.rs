@@ -25,16 +25,18 @@ macro_rules! impl_into_function {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!($($Arg)*);
 
-                let info = $crate::func::FunctionInfo::new({
-                    #[allow(unused_mut)]
-                    let mut _index = 0;
-                    vec![
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                }).with_return_info($crate::func::ReturnInfo::new::<R>());
+                let info = $crate::func::FunctionInfo::new()
+                    .with_args({
+                        #[allow(unused_mut)]
+                        let mut _index = 0;
+                        vec![
+                            $($crate::func::args::ArgInfo::new::<$Arg>({
+                                _index += 1;
+                                _index - 1
+                            }),)*
+                        ]
+                    })
+                    .with_return_info($crate::func::ReturnInfo::new::<R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {
@@ -71,17 +73,19 @@ macro_rules! impl_into_function {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
-                let info = $crate::func::FunctionInfo::new({
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    vec![
-                        $crate::func::args::ArgInfo::new::<&Receiver>(0),
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                }).with_return_info($crate::func::ReturnInfo::new::<&R>());
+                let info = $crate::func::FunctionInfo::new()
+                    .with_args({
+                        #[allow(unused_mut)]
+                        let mut _index = 1;
+                        vec![
+                            $crate::func::args::ArgInfo::new::<&Receiver>(0),
+                            $($crate::func::args::ArgInfo::new::<$Arg>({
+                                _index += 1;
+                                _index - 1
+                            }),)*
+                        ]
+                    })
+                    .with_return_info($crate::func::ReturnInfo::new::<&R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {
@@ -120,17 +124,19 @@ macro_rules! impl_into_function {
             fn into_function(mut self) -> $crate::func::Function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
-                let info = $crate::func::FunctionInfo::new({
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    vec![
-                        $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
-                        $($crate::func::args::ArgInfo::new::<$Arg>({
-                            _index += 1;
-                            _index - 1
-                        }),)*
-                    ]
-                }).with_return_info($crate::func::ReturnInfo::new::<&mut R>());
+                let info = $crate::func::FunctionInfo::new()
+                    .with_args({
+                        #[allow(unused_mut)]
+                        let mut _index = 1;
+                        vec![
+                            $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
+                            $($crate::func::args::ArgInfo::new::<$Arg>({
+                                _index += 1;
+                                _index - 1
+                            }),)*
+                        ]
+                    })
+                    .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
 
                 $crate::func::Function::new(move |args, _info| {
                     if args.len() != COUNT {

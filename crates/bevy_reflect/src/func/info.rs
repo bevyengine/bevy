@@ -10,10 +10,10 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
-    pub fn new(args: Vec<ArgInfo>) -> Self {
+    pub fn new() -> Self {
         Self {
             name: None,
-            args,
+            args: Vec::new(),
             return_info: ReturnInfo::new::<()>(),
         }
     }
@@ -43,6 +43,12 @@ impl FunctionInfo {
 
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info
+    }
+}
+
+impl Default for FunctionInfo {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
