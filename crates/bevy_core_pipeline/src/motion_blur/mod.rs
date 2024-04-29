@@ -109,7 +109,7 @@ impl Default for MotionBlur {
             shutter_angle: 0.5,
             samples: 1,
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            _webgl2_padding: bevy_math::Vec2::default(),
+            _webgl2_padding: Default::default(),
         }
     }
 }
