@@ -34,7 +34,7 @@
 pub use error::*;
 pub use function::*;
 pub use info::*;
-pub use into::*;
+pub use into_function::*;
 pub use return_type::*;
 
 pub use args::{Arg, ArgError, ArgList};
@@ -43,7 +43,7 @@ pub mod args;
 mod error;
 mod function;
 mod info;
-mod into;
+mod into_function;
 mod return_type;
 
 #[cfg(test)]
