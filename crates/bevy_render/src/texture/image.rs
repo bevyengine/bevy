@@ -839,6 +839,11 @@ impl RenderAsset for GpuImage {
         image.asset_usage
     }
 
+    #[inline]
+    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
+        Some(image.data.len())
+    }
+
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::SourceAsset,

@@ -41,7 +41,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
     /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
-    /// Callers should avoid using this function as if it were a a parallel version
+    /// Callers should avoid using this function as if it were a parallel version
     /// of [`Iterator::fold`].
     ///
     /// # Example

@@ -58,7 +58,8 @@ use bevy_render::{
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, SortedPhaseItem, SortedRenderPhase,
+        DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
+        SortedRenderPhase,
     },
     render_resource::{
         BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
@@ -70,7 +71,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
-use nonmax::NonMaxU32;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -183,8 +183,9 @@ pub struct Opaque3d {
     pub representative_entity: Entity,
     /// The ranges of instances.
     pub batch_range: Range<u32>,
-    /// The dynamic offset.
-    pub dynamic_offset: Option<NonMaxU32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 /// Data that must be identical in order to batch meshes together.
@@ -229,14 +230,12 @@ impl PhaseItem for Opaque3d {
         &mut self.batch_range
     }
 
-    #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
-    #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -248,13 +247,13 @@ impl BinnedPhaseItem for Opaque3d {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3d {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -270,7 +269,7 @@ pub struct AlphaMask3d {
     pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -295,13 +294,13 @@ impl PhaseItem for AlphaMask3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -313,13 +312,13 @@ impl BinnedPhaseItem for AlphaMask3d {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -337,7 +336,7 @@ pub struct Transmissive3d {
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transmissive3d {
@@ -373,13 +372,13 @@ impl PhaseItem for Transmissive3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -411,7 +410,7 @@ pub struct Transparent3d {
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transparent3d {
@@ -436,13 +435,13 @@ impl PhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 

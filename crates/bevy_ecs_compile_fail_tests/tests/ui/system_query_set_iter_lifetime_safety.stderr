@@ -21,3 +21,7 @@ error[E0499]: cannot borrow `queries` as mutable more than once at a time
 ...
 29 |     b.0 = a.0;
    |           --- first borrow later used here
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0499`.
