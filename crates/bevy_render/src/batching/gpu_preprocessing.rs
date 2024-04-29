@@ -186,7 +186,7 @@ pub struct IndirectParameters {
     pub first_vertex: u32,
 
     /// For `ArrayIndirectParameters`, `first_instance`; for
-    /// `ElementIndirectParameters`, `base_vertex`.`
+    /// `ElementIndirectParameters`, `base_vertex`.
     pub base_vertex_or_first_instance: u32,
 
     /// For `ArrayIndirectParameters`, this is padding; for
