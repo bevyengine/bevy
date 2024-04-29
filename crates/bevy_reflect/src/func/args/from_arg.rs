@@ -1,7 +1,15 @@
 use crate::func::args::{Arg, ArgError, ArgInfo};
 
+/// A trait for types that can be created from an [`Arg`].
 pub trait FromArg {
+    /// The type of the item created from the argument.
+    ///
+    /// This should almost always be the same as `Self`, but with the lifetime `'a`.
     type Item<'a>;
+
+    /// Creates an item from an argument.
+    ///
+    /// The argument must be of the expected type and ownership.
     fn from_arg<'a>(arg: Arg<'a>, info: &ArgInfo) -> Result<Self::Item<'a>, ArgError>;
 }
 

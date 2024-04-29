@@ -1,8 +1,43 @@
+//! Reflection-based dynamic functions.
+//!
+//! This module provides a way to pass around and call functions dynamically
+//! using the [`Function`] type.
+//!
+//! Many simple functions and closures can be automatically converted to [`Function`]
+//! using the [`IntoFunction`] trait.
+//!
+//! Once the [`Function`] is created, it can be called with a set of arguments provided
+//! via an [`ArgList`].
+//!
+//! This returns a [`FunctionResult`] containing the [`Return`] value,
+//! which can be used to extract a [`Reflect`] trait object.
+//!
+//!
+//! # Example
+//!
+//! ```
+//! # use bevy_reflect::func::args::ArgList;
+//! # use bevy_reflect::func::{Function, FunctionResult, IntoFunction, Return};
+//! fn add(a: i32, b: i32) -> i32 {
+//!   a + b
+//! }
+//!
+//! let mut func: Function = add.into_function();
+//! let args: ArgList = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+//! let result: FunctionResult = func.call(args);
+//! let value: Return = result.unwrap();
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
+//! ```
+//!
+//! [`Reflect`]: crate::Reflect
+
 pub use error::*;
 pub use function::*;
 pub use info::*;
 pub use into::*;
 pub use return_type::*;
+
+pub use args::{Arg, ArgError, ArgList};
 
 pub mod args;
 mod error;

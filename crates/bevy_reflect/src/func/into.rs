@@ -1,7 +1,82 @@
 use crate::func::function::Function;
 use bevy_utils::all_tuples;
 
+/// A trait for types that can be converted into a [`Function`].
+///
+/// # Blanket Implementation
+///
+/// This trait has a blanket implementation that covers many functions, closures, and methods.
+/// And though it works for many cases, it does have some limitations.
+///
+/// ## Arguments
+///
+/// Firstly, the function signature may only have up to 15 arguments
+/// (or 16 if the first argument is a mutable/immutable reference).
+/// Each argument must implement [`FromArg`], [`GetOwnership`], and [`TypePath`].
+///
+///
+/// ```compile_fail
+/// # use bevy_reflect::func::IntoFunction;
+/// fn too_many_args(
+///   arg01: i32,
+///   arg02: i32,
+///   arg03: i32,
+///   arg04: i32,
+///   arg05: i32,
+///   arg06: i32,
+///   arg07: i32,
+///   arg08: i32,
+///   arg09: i32,
+///   arg10: i32,
+///   arg11: i32,
+///   arg12: i32,
+///   arg13: i32,
+///   arg14: i32,
+///   arg15: i32,
+///   arg16: i32,
+/// ) {
+///   // ...
+/// }
+///
+/// too_many_args.into_function();
+/// ```
+///
+/// ## Return Type
+///
+/// Secondly, the allowed return type is dependent on the first argument of the function:
+/// - If the first argument is an immutable reference,
+/// then the return type may be either an owned type, a static reference type, or a reference type
+/// bound to the lifetime of the first argument.
+/// - If the first argument is a mutable reference,
+/// then the return type may be either an owned type, a static reference type, or be a mutable reference type
+/// bound to the lifetime of the first argument.
+/// - If the first argument is an owned type,
+/// then the return type may be either an owned type or a static reference type.
+///
+/// If the return type is either an owned type or a static reference type,
+/// then it must implement [`IntoReturn`].
+/// Otherwise, it must implement [`GetOwnership`], [`TypePath`], and [`Reflect`].
+///
+/// ```
+/// # use bevy_reflect::func::IntoFunction;
+/// fn owned_return(arg: i32) -> i32 { arg * 2 }
+/// fn ref_return(arg: &i32) -> &i32 { arg }
+/// fn mut_return(arg: &mut i32) -> &mut i32 { arg }
+/// fn static_return(arg: i32) -> &'static i32 { &123 }
+///
+/// owned_return.into_function();
+/// ref_return.into_function();
+/// mut_return.into_function();
+/// static_return.into_function();
+/// ```
+///
+/// [`FromArg`]: crate::func::args::FromArg
+/// [`GetOwnership`]: crate::func::args::GetOwnership
+/// [`TypePath`]: crate::TypePath
+/// [`IntoReturn`]: crate::func::IntoReturn
+/// [`Reflect`]: crate::Reflect
 pub trait IntoFunction<T> {
+    /// Converts [`Self`] into a [`Function`].
     fn into_function(self) -> Function;
 }
 

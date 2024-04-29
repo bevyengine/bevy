@@ -1,6 +1,9 @@
 use crate::func::args::{ArgError, ArgInfo, Ownership};
 use crate::Reflect;
 
+/// Represents an argument that can be passed to a dynamic [`Function`].
+///
+/// [`Function`]: crate::func::Function
 pub enum Arg<'a> {
     Owned(Box<dyn Reflect>),
     Ref(&'a dyn Reflect),
@@ -8,6 +11,7 @@ pub enum Arg<'a> {
 }
 
 impl<'a> Arg<'a> {
+    /// Returns `Ok(T)` if the argument is [`Arg::Owned`].
     pub fn take_owned<T: Reflect>(self, info: &ArgInfo) -> Result<T, ArgError> {
         match self {
             Arg::Owned(arg) => arg.take().map_err(|arg| ArgError::UnexpectedType {
@@ -27,6 +31,8 @@ impl<'a> Arg<'a> {
             }),
         }
     }
+
+    /// Returns `Ok(&T)` if the argument is [`Arg::Ref`].
     pub fn take_ref<T: Reflect>(self, info: &ArgInfo) -> Result<&'a T, ArgError> {
         match self {
             Arg::Owned(_) => Err(ArgError::InvalidOwnership {
@@ -47,6 +53,7 @@ impl<'a> Arg<'a> {
         }
     }
 
+    /// Returns `Ok(&mut T)` if the argument is [`Arg::Mut`].
     pub fn take_mut<T: Reflect>(self, info: &ArgInfo) -> Result<&'a mut T, ArgError> {
         match self {
             Arg::Owned(_) => Err(ArgError::InvalidOwnership {

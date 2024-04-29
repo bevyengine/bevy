@@ -1,13 +1,19 @@
 use core::fmt::{Display, Formatter};
 
+/// A trait for getting the ownership of a type.
 pub trait GetOwnership {
+    /// Returns the ownership of [`Self`].
     fn ownership() -> Ownership;
 }
 
+/// The ownership of a type.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Ownership {
+    /// The type is a reference (i.e. `&T`).
     Ref,
+    /// The type is a mutable reference (i.e. `&mut T`).
     Mut,
+    /// The type is owned (i.e. `T`).
     Owned,
 }
 
