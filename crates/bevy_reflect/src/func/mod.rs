@@ -26,7 +26,7 @@ mod tests {
         }
 
         let mut func = add.into_function();
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
     }
@@ -34,7 +34,7 @@ mod tests {
     #[test]
     fn should_create_dynamic_closure() {
         let mut func = (|a: i32, b: i32| a + b).into_function();
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
     }
@@ -58,7 +58,7 @@ mod tests {
         let foo_b = Foo(75);
 
         let mut func = Foo::add.into_function();
-        let args = ArgList::default().push_ref(&foo_a).push_ref(&foo_b);
+        let args = ArgList::new().push_ref(&foo_a).push_ref(&foo_b);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<Foo>(), Some(&Foo(100)));
     }
@@ -70,7 +70,7 @@ mod tests {
         }
 
         let mut func = foo.into_function();
-        let args = ArgList::default();
+        let args = ArgList::new();
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(
             result.downcast_ref::<String>(),
@@ -83,7 +83,7 @@ mod tests {
         fn foo(_: i32) {}
 
         let mut func = foo.into_function();
-        let args = ArgList::default().push_owned(123_i32);
+        let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args).unwrap();
         assert!(result.is_unit());
     }
@@ -96,7 +96,7 @@ mod tests {
 
         let value: i32 = 123;
         let mut func = foo.into_function();
-        let args = ArgList::default()
+        let args = ArgList::new()
             .push_ref(&value)
             .push_owned(String::from("Hello, World!"))
             .push_ref(&true);
@@ -112,7 +112,7 @@ mod tests {
 
         let mut value: i32 = 123;
         let mut func = foo.into_function();
-        let args = ArgList::default()
+        let args = ArgList::new()
             .push_mut(&mut value)
             .push_owned(String::from("Hello, World!"))
             .push_ref(&true);
@@ -125,7 +125,7 @@ mod tests {
         fn foo(_: i32) {}
 
         let mut func = foo.into_function();
-        let args = ArgList::default();
+        let args = ArgList::new();
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -141,7 +141,7 @@ mod tests {
         fn foo() {}
 
         let mut func = foo.into_function();
-        let args = ArgList::default().push_owned(123_i32);
+        let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -157,7 +157,7 @@ mod tests {
         fn foo(_: i32) {}
 
         let mut func = foo.into_function();
-        let args = ArgList::default().push_owned(123_u32);
+        let args = ArgList::new().push_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -174,7 +174,7 @@ mod tests {
         fn foo(_: &i32) {}
 
         let mut func = foo.into_function();
-        let args = ArgList::default().push_owned(123_i32);
+        let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),

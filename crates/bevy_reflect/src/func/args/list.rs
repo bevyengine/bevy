@@ -5,6 +5,10 @@ use crate::Reflect;
 pub struct ArgList<'a>(Vec<Arg<'a>>);
 
 impl<'a> ArgList<'a> {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
     pub fn push(mut self, arg: Arg<'a>) -> Self {
         self.0.push(arg);
         self
