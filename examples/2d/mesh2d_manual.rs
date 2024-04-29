@@ -13,7 +13,10 @@ use bevy::{
     render::{
         mesh::{GpuMesh, Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
+        render_phase::{
+            AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+            SortedRenderPhase,
+        },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -392,7 +395,7 @@ pub fn queue_colored_mesh2d(
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
                     batch_range: 0..1,
-                    dynamic_offset: None,
+                    extra_index: PhaseItemExtraIndex::NONE,
                 });
             }
         }
