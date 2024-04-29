@@ -359,7 +359,7 @@ mod frame_capture {
         pub struct CaptureFramePlugin;
         impl Plugin for CaptureFramePlugin {
             fn build(&self, app: &mut App) {
-                println!("Adding CaptureFramePlugin");
+                info!("Adding CaptureFramePlugin");
                 app.add_systems(PostUpdate, update);
             }
         }
@@ -483,7 +483,7 @@ mod frame_capture {
 
                             let images_dir =
                                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
-                            println!("Saving image to: {images_dir:?}");
+                            info!("Saving image to: {images_dir:?}");
                             std::fs::create_dir_all(&images_dir).unwrap();
 
                             let number = rng.gen::<u128>();
