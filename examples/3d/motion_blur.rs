@@ -10,7 +10,7 @@ fn main() {
     let mut app = App::new();
 
     // MSAA and Motion Blur together are not compatible on WebGL
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     app.insert_resource(Msaa::Off);
 
     app.add_plugins(DefaultPlugins)
