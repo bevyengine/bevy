@@ -26,11 +26,11 @@ fn setup_camera(mut commands: Commands) {
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
         MotionBlurBundle {
-            #[allow(clippy::needless_update)]
             motion_blur: MotionBlur {
                 shutter_angle: 1.0,
                 samples: 2,
-                ..default()
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             ..default()
         },
