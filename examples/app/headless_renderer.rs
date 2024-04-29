@@ -183,10 +183,8 @@ mod frame_capture {
                 // This blocks until the buffer is mapped
                 r.recv().expect("Failed to receive the map_async message");
 
-                // This could fail on app exit, if Main world clears resources while Render world still renders
-                sender
-                    .send(buffer_slice.get_mapped_range().to_vec())
-                    .expect("Failed to send data to main world");
+                // This could fail on app exit, if Main world clears resources (including receiver) while Render world still renders
+                let _ = sender.send(buffer_slice.get_mapped_range().to_vec());
 
                 // We need to make sure all `BufferView`'s are dropped before we do what we're about
                 // to do.
