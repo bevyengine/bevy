@@ -1,20 +1,20 @@
 use bitflags::bitflags;
 
 /// Trait for preparing a subcommand to be run.
-pub(crate) trait Prepare {
+pub trait Prepare {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>>;
 }
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub(crate) struct Flag: u32 {
+    pub struct Flag: u32 {
         /// Forces certain checks to continue running even if they hit an error.
         const KEEP_GOING = 1 << 0;
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct PreparedCommand<'a> {
+pub struct PreparedCommand<'a> {
     /// The name of the command.
     pub name: &'static str,
 

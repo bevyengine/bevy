@@ -4,7 +4,7 @@ use argh::FromArgs;
 
 /// The CI command line tool for Bevy.
 #[derive(FromArgs)]
-pub(crate) struct CI {
+pub struct CI {
     #[argh(subcommand)]
     command: Option<Commands>,
 
