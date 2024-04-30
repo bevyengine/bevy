@@ -10,6 +10,14 @@ use bitflags::bitflags;
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;
 
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
+}
+
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
@@ -28,6 +36,11 @@ pub struct StandardMaterial {
     ///
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
+
+    /// The UV channel to use for the [`StandardMaterial::base_color_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub base_color_channel: UvChannel,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
@@ -73,6 +86,11 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
+    /// The UV channel to use for the [`StandardMaterial::emissive_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub emissive_channel: UvChannel,
+
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
     ///
@@ -113,6 +131,11 @@ pub struct StandardMaterial {
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`.
     pub metallic: f32,
+
+    /// The UV channel to use for the [`StandardMaterial::metallic_roughness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub metallic_roughness_channel: UvChannel,
 
     /// Metallic and roughness maps, stored as a single texture.
     ///
@@ -170,6 +193,12 @@ pub struct StandardMaterial {
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::diffuse_transmission_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub diffuse_transmission_channel: UvChannel,
+
     /// A map that modulates diffuse transmission via its alpha channel. Multiplied by [`StandardMaterial::diffuse_transmission`]
     /// to obtain the final result.
     ///
@@ -205,6 +234,12 @@ pub struct StandardMaterial {
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::specular_transmission_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub specular_transmission_channel: UvChannel,
+
     /// A map that modulates specular transmission via its red channel. Multiplied by [`StandardMaterial::specular_transmission`]
     /// to obtain the final result.
     ///
@@ -227,6 +262,12 @@ pub struct StandardMaterial {
     #[doc(alias = "volume")]
     #[doc(alias = "thin_walled")]
     pub thickness: f32,
+
+    /// The UV channel to use for the [`StandardMaterial::thickness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub thickness_channel: UvChannel,
 
     /// A map that modulates thickness via its green channel. Multiplied by [`StandardMaterial::thickness`]
     /// to obtain the final result.
@@ -294,6 +335,11 @@ pub struct StandardMaterial {
     #[doc(alias = "extinction_color")]
     pub attenuation_color: Color,
 
+    /// The UV channel to use for the [`StandardMaterial::normal_map_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub normal_map_channel: UvChannel,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -322,6 +368,11 @@ pub struct StandardMaterial {
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
+
+    /// The UV channel to use for the [`StandardMaterial::occlusion_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub occlusion_channel: UvChannel,
 
     /// Specifies the level of exposure to ambient light.
     ///
@@ -607,13 +658,16 @@ impl Default for StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
             base_color: Color::WHITE,
+            base_color_channel: UvChannel::Uv0,
             base_color_texture: None,
             emissive: Color::BLACK,
+            emissive_channel: UvChannel::Uv0,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
             // Metallic should generally be set to 0.0 or 1.0.
             metallic: 0.0,
+            metallic_roughness_channel: UvChannel::Uv0,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
@@ -621,17 +675,25 @@ impl Default for StandardMaterial {
             reflectance: 0.5,
             diffuse_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
+            diffuse_transmission_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_transmission_textures")]
             diffuse_transmission_texture: None,
             specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_transmission_textures")]
             specular_transmission_texture: None,
             thickness: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
+            occlusion_channel: UvChannel::Uv0,
             occlusion_texture: None,
+            normal_map_channel: UvChannel::Uv0,
             normal_map_texture: None,
             clearcoat: 0.0,
             clearcoat_perceptual_roughness: 0.5,
@@ -706,6 +768,14 @@ bitflags::bitflags! {
         const CLEARCOAT_TEXTURE          = 1 << 14;
         const CLEARCOAT_ROUGHNESS_TEXTURE = 1 << 15;
         const CLEARCOAT_NORMAL_TEXTURE   = 1 << 16;
+        const BASE_COLOR_UV              = 1 << 17;
+        const EMISSIVE_UV                = 1 << 18;
+        const METALLIC_ROUGHNESS_UV      = 1 << 19;
+        const OCCLUSION_UV               = 1 << 20;
+        const SPECULAR_TRANSMISSION_UV   = 1 << 21;
+        const THICKNESS_UV               = 1 << 22;
+        const DIFFUSE_TRANSMISSION_UV    = 1 << 23;
+        const NORMAL_MAP_UV              = 1 << 24;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -786,15 +856,27 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
+            if self.base_color_channel != UvChannel::Uv0 {
+                flags |= StandardMaterialFlags::BASE_COLOR_UV;
+            }
         }
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
+            if self.emissive_channel != UvChannel::Uv0 {
+                flags |= StandardMaterialFlags::EMISSIVE_UV;
+            }
         }
         if self.metallic_roughness_texture.is_some() {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
+            if self.metallic_roughness_channel != UvChannel::Uv0 {
+                flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_UV;
+            }
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
+            if self.occlusion_channel != UvChannel::Uv0 {
+                flags |= StandardMaterialFlags::OCCLUSION_UV;
+            }
         }
         if self.double_sided {
             flags |= StandardMaterialFlags::DOUBLE_SIDED;
@@ -812,12 +894,21 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         {
             if self.specular_transmission_texture.is_some() {
                 flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
+                if self.specular_transmission_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_UV;
+                }
             }
             if self.thickness_texture.is_some() {
                 flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
+                if self.thickness_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::THICKNESS_UV;
+                }
             }
             if self.diffuse_transmission_texture.is_some() {
                 flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
+                if self.diffuse_transmission_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_UV;
+                }
             }
         }
 
@@ -851,6 +942,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             }
             if self.flip_normal_map_y {
                 flags |= StandardMaterialFlags::FLIP_NORMAL_MAP_Y;
+            }
+            if self.normal_map_channel != UvChannel::Uv0 {
+                flags |= StandardMaterialFlags::NORMAL_MAP_UV;
             }
         }
         // NOTE: 0.5 is from the glTF default - do we want this?
