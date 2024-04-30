@@ -8,7 +8,7 @@ use bevy_render::{
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -67,6 +67,30 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh prepass fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh deferred fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     /// Specialization for the base material is applied before this function is called.
@@ -104,6 +128,19 @@ pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub extension: E,
 }
 
+impl<B, E> Default for ExtendedMaterial<B, E>
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
+{
+    fn default() -> Self {
+        Self {
+            base: B::default(),
+            extension: E::default(),
+        }
+    }
+}
+
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
@@ -115,7 +152,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
@@ -207,6 +244,30 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     fn deferred_fragment_shader() -> ShaderRef {
         match E::deferred_fragment_shader() {
             ShaderRef::Default => B::deferred_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_prepass_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_prepass_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_deferred_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_deferred_fragment_shader(),
             specified => specified,
         }
     }

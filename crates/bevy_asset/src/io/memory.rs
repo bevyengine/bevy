@@ -1,8 +1,9 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::{BoxedFuture, HashMap};
-use futures_io::AsyncRead;
+use bevy_utils::HashMap;
+use futures_io::{AsyncRead, AsyncSeek};
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
+use std::io::SeekFrom;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -236,63 +237,88 @@ impl AsyncRead for DataReader {
     }
 }
 
+impl AsyncSeek for DataReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let result = match pos {
+            SeekFrom::Start(offset) => offset.try_into(),
+            SeekFrom::End(offset) => self
+                .data
+                .value()
+                .len()
+                .try_into()
+                .map(|len: i64| len - offset),
+            SeekFrom::Current(offset) => self
+                .bytes_read
+                .try_into()
+                .map(|bytes_read: i64| bytes_read + offset),
+        };
+
+        if let Ok(new_pos) = result {
+            if new_pos < 0 {
+                Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seek position is out of range",
+                )))
+            } else {
+                self.bytes_read = new_pos as _;
+
+                Poll::Ready(Ok(new_pos as _))
+            }
+        } else {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        }
+    }
+}
+
 impl AssetReader for MemoryAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_asset(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_asset(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_metadata(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.root
+            .get_metadata(path)
+            .map(|data| {
+                let reader: Box<Reader> = Box::new(DataReader {
+                    data,
+                    bytes_read: 0,
+                });
+                reader
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_dir(path)
-                .map(|dir| {
-                    let stream: Box<PathStream> = Box::new(DirStream::new(dir));
-                    stream
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.root
+            .get_dir(path)
+            .map(|dir| {
+                let stream: Box<PathStream> = Box::new(DirStream::new(dir));
+                stream
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        Box::pin(async move { Ok(self.root.get_dir(path).is_some()) })
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        Ok(self.root.get_dir(path).is_some())
     }
 }
 

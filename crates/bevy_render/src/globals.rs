@@ -9,7 +9,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use bevy_time::Time;
 
 pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(17924628719070609599);
@@ -21,7 +21,7 @@ impl Plugin for GlobalsPlugin {
         load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
         app.register_type::<GlobalsUniform>();
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
@@ -45,7 +45,7 @@ fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
 /// Contains global values useful when writing shaders.
 /// Currently only contains values related to time.
 #[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType)]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub struct GlobalsUniform {
     /// The time since startup in seconds.
     /// Wraps to 0 after 1 hour.

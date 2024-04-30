@@ -39,9 +39,13 @@ ios_simulator = []
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
+  "serialize",
+  "wgpu-types",
+] }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
@@ -58,12 +62,14 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # rendering
-image = { version = "0.24", default-features = false }
+image = { version = "0.25", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
-# It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
+# It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
+# When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
+# and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
 wgpu = { version = "0.19.3", default-features = false, features = [
   "wgsl",
   "dx12",
@@ -75,13 +81,12 @@ wgpu = { version = "0.19.3", default-features = false, features = [
 naga = { version = "0.19", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5", features = ["derive"] }
+bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-thread_local = "1.1"
 thiserror = "1.0"
 futures-lite = "2.0.1"
 hexasphere = "10.0"
-ddsfile = { version = "0.5.0", optional = true }
+ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
@@ -117,8 +122,12 @@ web-sys = { version = "0.3.67", features = [
 ] }
 wasm-bindgen = "0.2"
 
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = "0.6.0"
+
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true

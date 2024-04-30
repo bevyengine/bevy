@@ -15,6 +15,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -55,10 +56,9 @@ impl Plugin for BloomPlugin {
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
@@ -86,10 +86,9 @@ impl Plugin for BloomPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<BloomDownsamplingPipeline>()
             .init_resource::<BloomUpsamplingPipeline>();
@@ -155,6 +154,9 @@ impl ViewNode for BloomNode {
         };
 
         render_context.command_encoder().push_debug_group("bloom");
+
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "bloom");
 
         // First downsample pass
         {
@@ -275,6 +277,7 @@ impl ViewNode for BloomNode {
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
+        time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 
         Ok(())

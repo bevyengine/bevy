@@ -10,7 +10,7 @@ use bevy_sprite::{ImageScaleMode, TextureAtlas, TextureAtlasLayout, TextureSlice
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-use crate::{CalculatedClip, ExtractedUiNode, Node, UiImage};
+use crate::{CalculatedClip, ExtractedUiNode, Node, NodeType, UiImage};
 
 /// Component storing texture slices for image nodes entities with a tiled or sliced  [`ImageScaleMode`]
 ///
@@ -68,6 +68,9 @@ impl ComputedTextureSlices {
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
+                border: [0.; 4],
+                border_radius: [0.; 4],
+                node_type: NodeType::Rect,
             }
         })
     }
@@ -174,7 +177,7 @@ pub(crate) fn compute_slices_on_asset_event(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }
@@ -210,7 +213,7 @@ pub(crate) fn compute_slices_on_image_change(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }

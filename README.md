@@ -96,7 +96,7 @@ This [list][cargo_features] outlines the different cargo features supported by B
 
 Bevy is the result of the hard work of many people. A huge thanks to all Bevy contributors, the many open source projects that have come before us, the [Rust gamedev ecosystem](https://arewegameyet.rs/), and the many libraries we build on.
 
-A huge thanks to Bevy's [generous sponsors](https://bevyengine.org). Bevy will always be free and open source, but it isn't free to make. Please consider [sponsoring our work](https://bevyengine.org/community/donate/) if you like what we're building.
+A huge thanks to Bevy's [generous sponsors](https://bevyengine.org). Bevy will always be free and open source, but it isn't free to make. Please consider [sponsoring our work](https://bevyengine.org/donate/) if you like what we're building.
 
 <!-- This next line need to stay exactly as is. It is required for BrowserStack sponsorship. -->
 This project is tested with BrowserStack.

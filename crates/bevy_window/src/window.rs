@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
@@ -227,7 +229,7 @@ pub struct Window {
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
     /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
-    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
     ///
@@ -259,6 +261,26 @@ pub struct Window {
     ///
     /// - **Android / Wayland / Web:** Unsupported.
     pub visible: bool,
+    /// Sets whether the window should be shown in the taskbar.
+    ///
+    /// If `true`, the window will not appear in the taskbar.
+    /// If `false`, the window will appear in the taskbar.
+    ///
+    /// Note that this will only take effect on window creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub skip_taskbar: bool,
+    /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
+    ///
+    /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
+    ///
+    /// See [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`].
+    ///
+    /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
+    /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
+    pub desired_maximum_frame_latency: Option<NonZeroU32>,
 }
 
 impl Default for Window {
@@ -287,6 +309,8 @@ impl Default for Window {
             canvas: None,
             window_theme: None,
             visible: true,
+            skip_taskbar: false,
+            desired_maximum_frame_latency: None,
         }
     }
 }
@@ -913,11 +937,11 @@ pub enum MonitorSelection {
 #[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
-    /// Chooses FifoRelaxed -> Fifo based on availability.
+    /// Chooses [`FifoRelaxed`](Self::FifoRelaxed) -> [`Fifo`](Self::Fifo) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
-    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+    /// Chooses [`Immediate`](Self::Immediate) -> [`Mailbox`](Self::Mailbox) -> [`Fifo`](Self::Fifo) (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
@@ -930,7 +954,7 @@ pub enum PresentMode {
     ///
     /// No tearing will be observed.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on all platforms.
     ///
@@ -947,7 +971,7 @@ pub enum PresentMode {
     ///
     /// Tearing will be observed if frames last more than one vblank as the front buffer.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on AMD on Vulkan.
     ///

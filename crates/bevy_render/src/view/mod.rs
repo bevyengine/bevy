@@ -11,13 +11,15 @@ use crate::{
         ManualTextureViews, MipBias, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::{Image, Shader},
+    prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, TextureCache},
+    texture::{
+        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage, TextureCache,
+    },
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -55,14 +57,14 @@ impl Plugin for ViewPlugin {
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ViewUniforms>().add_systems(
                 Render,
                 (
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<Image>)
+                        .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
@@ -90,7 +92,7 @@ impl Plugin for ViewPlugin {
 #[derive(
     Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
 )]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -205,6 +207,12 @@ pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
     pub destination: &'a TextureView,
 }
+
+#[derive(Component)]
+pub struct GpuCulling;
+
+#[derive(Component)]
+pub struct NoCpuCulling;
 
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
@@ -460,7 +468,7 @@ struct MainTargetTextures {
 pub fn prepare_view_targets(
     mut commands: Commands,
     windows: Res<ExtractedWindows>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     msaa: Res<Msaa>,
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,

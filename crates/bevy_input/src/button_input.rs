@@ -41,9 +41,9 @@ use bevy_ecs::schedule::State;
 ///
 /// | **[`ButtonInput`] operations**          | **Computational complexity** |
 /// |-----------------------------------|------------------------------------|
-/// | [`ButtonInput::any_just_pressed`]       | *O*(m*n)                     |
-/// | [`ButtonInput::any_just_released`]      | *O*(m*n)                     |
-/// | [`ButtonInput::any_pressed`]            | *O*(m*n)                     |
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m)~                      |
+/// | [`ButtonInput::any_just_released`]      | *O*(m)~                      |
+/// | [`ButtonInput::any_pressed`]            | *O*(m)~                      |
 /// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
 /// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
 /// | [`ButtonInput::get_pressed`]            | *O*(n)                       |
@@ -66,6 +66,81 @@ use bevy_ecs::schedule::State;
 /// focus switches from one Bevy window to another (for example because a new window was just spawned).
 ///
 /// `ButtonInput<GamepadButton>` is independent of window focus.
+///
+/// ## Examples
+///
+/// Reading and checking against the current set of pressed buttons:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
+///         )
+///         .run();
+/// }
+///
+/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
+///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
+///     println!("Mouse: {:?}", mouse.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
+///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
+///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
+///         && keyboard.pressed(KeyCode::KeyL)
+///     {
+///         println!("On Windows this opens LinkedIn.");
+///     } else {
+///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
+///     }
+/// }
+/// ```
+///
+/// Accepting input from multiple devices:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
+/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             something_used.run_if(
+///                 input_just_pressed(KeyCode::KeyE)
+///                     .or_else(input_just_pressed(GamepadButton::new(
+///                         Gamepad::new(0),
+///                         GamepadButtonType::West,
+///                     ))),
+///             ),
+///         )
+///         .run();
+/// }
+///
+/// fn something_used() {
+///     println!("Generic use-ish button pressed.");
+/// }
+/// ```
 ///
 /// ## Note
 ///
@@ -143,12 +218,14 @@ where
         self.just_released.extend(self.pressed.drain());
     }
 
-    /// Returns `true` if the `input` has just been pressed.
+    /// Returns `true` if the `input` has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
-    /// Returns `true` if any item in `inputs` has just been pressed.
+    /// Returns `true` if any item in `inputs` has been pressed during the current frame.
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
@@ -160,7 +237,9 @@ where
         self.just_pressed.remove(&input)
     }
 
-    /// Returns `true` if the `input` has just been released.
+    /// Returns `true` if the `input` has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
@@ -207,11 +286,15 @@ where
     }
 
     /// An iterator visiting every just pressed input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
     /// An iterator visiting every just released input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
