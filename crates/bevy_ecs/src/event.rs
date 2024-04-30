@@ -11,6 +11,8 @@ use crate::{
 };
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -34,6 +36,7 @@ pub trait Event: Send + Sync + 'static {}
 /// sent to the point it was processed. `EventId`s increase montonically by send order.
 ///
 /// [`World`]: crate::world::World
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
@@ -93,6 +96,7 @@ impl<E: Event> Hash for EventId<E> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 struct EventInstance<E: Event> {
     pub event_id: EventId<E>,
     pub event: E,
@@ -171,6 +175,7 @@ struct EventInstance<E: Event> {
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
 #[derive(Debug, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
@@ -393,6 +398,7 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 struct EventSequence<E: Event> {
     events: Vec<EventInstance<E>>,
     start_event_count: usize,
