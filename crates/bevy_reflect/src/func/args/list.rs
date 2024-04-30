@@ -59,6 +59,11 @@ impl<'a> ArgList<'a> {
         self.push(Arg::Owned(arg))
     }
 
+    /// Pop the last argument from the list, if there is one.
+    pub fn pop(&mut self) -> Option<Arg<'a>> {
+        self.0.pop()
+    }
+
     /// Returns the number of arguments in the list.
     pub fn len(&self) -> usize {
         self.0.len()
