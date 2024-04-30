@@ -14,7 +14,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -137,7 +137,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
+        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
             let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
@@ -265,7 +265,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
+        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
             let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };

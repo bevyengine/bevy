@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Checks that the benches compile.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "bench-check")]
-pub(crate) struct BenchCheckCommand {}
+pub struct BenchCheckCommand {}
 
 impl Prepare for BenchCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
