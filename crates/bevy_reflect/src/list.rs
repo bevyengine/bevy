@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 
+use crate::func::macros::impl_function_traits;
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -369,6 +370,7 @@ impl Reflect for DynamicList {
 }
 
 impl_type_path!((in bevy_reflect) DynamicList);
+impl_function_traits!(DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

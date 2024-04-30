@@ -44,6 +44,7 @@ mod error;
 mod function;
 mod info;
 mod into_function;
+pub(crate) mod macros;
 mod return_type;
 
 #[cfg(test)]
@@ -84,10 +85,6 @@ mod tests {
                 Foo(self.0 + other.0)
             }
         }
-
-        crate::func::args::impl_from_arg!(Foo);
-        crate::func::args::impl_get_ownership!(Foo);
-        crate::func::return_type::impl_into_return!(Foo);
 
         let foo_a = Foo(25);
         let foo_b = Foo(75);

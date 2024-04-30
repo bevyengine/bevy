@@ -70,46 +70,66 @@ impl IntoReturn for () {
     }
 }
 
-// TODO: Move this into the `Reflect` derive
 macro_rules! impl_into_return {
-    ($name: ty) => {
-        impl IntoReturn for $name {
-            fn into_return<'a>(self) -> Return<'a> {
-                Return::Owned(Box::new(self))
+    (
+        $name: ty
+        $(;
+            <
+                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
+            >
+        )?
+        $(
+            [
+                $(const $N: ident : $size: ident),*
+            ]
+        )?
+        $(
+            where
+                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+        )?
+    ) => {
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::IntoReturn for $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+                $crate::func::Return::Owned(Box::new(self))
             }
         }
 
-        impl IntoReturn for &'static $name {
-            fn into_return<'a>(self) -> Return<'a> {
-                Return::Ref(self)
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::IntoReturn for &'static $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+                $crate::func::Return::Ref(self)
             }
         }
 
-        impl IntoReturn for &'static mut $name {
-            fn into_return<'a>(self) -> Return<'a> {
-                Return::Mut(self)
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::IntoReturn for &'static mut $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+                $crate::func::Return::Mut(self)
             }
         }
     };
 }
 
 pub(crate) use impl_into_return;
-
-impl_into_return!(bool);
-impl_into_return!(char);
-impl_into_return!(f32);
-impl_into_return!(f64);
-impl_into_return!(i8);
-impl_into_return!(i16);
-impl_into_return!(i32);
-impl_into_return!(i64);
-impl_into_return!(i128);
-impl_into_return!(isize);
-impl_into_return!(u8);
-impl_into_return!(u16);
-impl_into_return!(u32);
-impl_into_return!(u64);
-impl_into_return!(u128);
-impl_into_return!(usize);
-impl_into_return!(String);
-impl_into_return!(&'static str);

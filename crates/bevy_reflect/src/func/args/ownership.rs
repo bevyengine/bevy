@@ -27,22 +27,61 @@ impl Display for Ownership {
     }
 }
 
-// TODO: Move this into the `Reflect` derive
 macro_rules! impl_get_ownership {
-    ($name: ty) => {
-        impl $crate::func::args::GetOwnership for $name {
+    (
+        $name: ty
+        $(;
+            <
+                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
+            >
+        )?
+        $(
+            [
+                $(const $N: ident : $size: ident),*
+            ]
+        )?
+        $(
+            where
+                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+        )?
+    ) => {
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::args::GetOwnership for $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
             fn ownership() -> $crate::func::args::Ownership {
                 $crate::func::args::Ownership::Owned
             }
         }
 
-        impl<'a> $crate::func::args::GetOwnership for &'a $name {
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::args::GetOwnership for &'_ $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
             fn ownership() -> $crate::func::args::Ownership {
                 $crate::func::args::Ownership::Ref
             }
         }
 
-        impl<'a> $crate::func::args::GetOwnership for &'a mut $name {
+        impl <
+            $($($T $(: $T1 $(+ $T2)*)?),*)?
+            $(, $(const $N : $size),*)?
+        > $crate::func::args::GetOwnership for &'_ mut $name
+        $(
+            where
+                $($U $(: $U1 $(+ $U2)*)?),*
+        )?
+        {
             fn ownership() -> $crate::func::args::Ownership {
                 $crate::func::args::Ownership::Mut
             }
@@ -51,23 +90,3 @@ macro_rules! impl_get_ownership {
 }
 
 pub(crate) use impl_get_ownership;
-
-impl_get_ownership!(());
-impl_get_ownership!(bool);
-impl_get_ownership!(char);
-impl_get_ownership!(f32);
-impl_get_ownership!(f64);
-impl_get_ownership!(i8);
-impl_get_ownership!(i16);
-impl_get_ownership!(i32);
-impl_get_ownership!(i64);
-impl_get_ownership!(i128);
-impl_get_ownership!(isize);
-impl_get_ownership!(u8);
-impl_get_ownership!(u16);
-impl_get_ownership!(u32);
-impl_get_ownership!(u64);
-impl_get_ownership!(u128);
-impl_get_ownership!(usize);
-impl_get_ownership!(String);
-impl_get_ownership!(&'static str);

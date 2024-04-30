@@ -135,7 +135,7 @@ macro_rules! impl_into_function {
         }
 
         // === Ref Return === //
-        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&Receiver, $($Arg),*) -> (R,)> for F
+        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&Receiver, $($Arg),*) -> fn(&R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a Receiver: $crate::func::args::GetOwnership,
@@ -186,7 +186,7 @@ macro_rules! impl_into_function {
         }
 
         // === Mut Return === //
-        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&mut Receiver, $($Arg),*) -> (R,)> for F
+        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&mut Receiver, $($Arg),*) -> fn(&mut R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
