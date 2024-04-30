@@ -715,7 +715,7 @@ pub fn queue_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            dynamic_offset: None,
+                            extra_index: PhaseItemExtraIndex::NONE,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         let bin_key = Opaque3dBinKey {
@@ -739,7 +739,7 @@ pub fn queue_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            dynamic_offset: None,
+                            extra_index: PhaseItemExtraIndex::NONE,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         let bin_key = OpaqueNoLightmap3dBinKey {
@@ -764,7 +764,7 @@ pub fn queue_material_meshes<M: Material>(
                         pipeline: pipeline_id,
                         distance,
                         batch_range: 0..1,
-                        dynamic_offset: None,
+                        extra_index: PhaseItemExtraIndex::NONE,
                     });
                 }
             }

@@ -16,13 +16,12 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
-    camera::{
-        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    },
+    camera::{Camera, CameraProjection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
+
+use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
@@ -240,12 +239,8 @@ pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
-    /// Label for the [`update_frusta<OrthographicProjection>`] system.
-    UpdateOrthographicFrusta,
-    /// Label for the [`update_frusta<PerspectiveProjection>`] system.
-    UpdatePerspectiveFrusta,
-    /// Label for the [`update_frusta<Projection>`] system.
-    UpdateProjectionFrusta,
+    /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
+    UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
@@ -262,13 +257,7 @@ impl Plugin for VisibilityPlugin {
 
         app.configure_sets(
             PostUpdate,
-            (
-                CalculateBounds,
-                UpdateOrthographicFrusta,
-                UpdatePerspectiveFrusta,
-                UpdateProjectionFrusta,
-                VisibilityPropagate,
-            )
+            (CalculateBounds, UpdateFrusta, VisibilityPropagate)
                 .before(CheckVisibility)
                 .after(TransformSystem::TransformPropagate),
         )
@@ -276,24 +265,6 @@ impl Plugin for VisibilityPlugin {
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<Projection>
-                    .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility::<WithMesh>.in_set(CheckVisibility),
             ),
@@ -321,9 +292,7 @@ pub fn calculate_bounds(
 
 /// Updates [`Frustum`].
 ///
-/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
-/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
-/// [`VisibilitySystems::UpdateOrthographicFrusta`].
+/// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<
         (&GlobalTransform, &T, &mut Frustum),
@@ -432,6 +401,7 @@ pub fn check_visibility<QF>(
         &Frustum,
         Option<&RenderLayers>,
         &Camera,
+        Has<NoCpuCulling>,
     )>,
     mut visible_aabb_query: Query<
         (
@@ -452,7 +422,7 @@ pub fn check_visibility<QF>(
 {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in &mut view_query {
         if !camera.is_active {
             continue;
         }
@@ -494,7 +464,7 @@ pub fn check_visibility<QF>(
                 }
 
                 // If we have an aabb, do frustum culling
-                if !no_frustum_culling {
+                if !no_frustum_culling && !no_cpu_culling {
                     if let Some(model_aabb) = maybe_model_aabb {
                         let model = transform.affine();
                         let model_sphere = Sphere {

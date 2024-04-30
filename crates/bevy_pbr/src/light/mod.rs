@@ -1323,7 +1323,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
-                // this not not guaranteed to be small enough due to overlapped tiles, but
+                // this is not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
                 let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;

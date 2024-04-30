@@ -19,6 +19,7 @@ exclude = [
   "crates/bevy_ecs_compile_fail_tests",
   "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_compile_test_utils",
 ]
 members = [
   "crates/*",
@@ -765,6 +766,17 @@ name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "tonemapping"
