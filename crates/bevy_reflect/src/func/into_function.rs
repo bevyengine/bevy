@@ -134,7 +134,7 @@ macro_rules! impl_into_function {
             }
         }
 
-        // === Ref Return === //
+        // === Ref Receiver + Ref Return === //
         impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&Receiver, $($Arg),*) -> fn(&R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
@@ -185,7 +185,7 @@ macro_rules! impl_into_function {
             }
         }
 
-        // === Mut Return === //
+        // === Mut Receiver + Mut Return === //
         impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&mut Receiver, $($Arg),*) -> fn(&mut R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
@@ -232,6 +232,57 @@ macro_rules! impl_into_function {
                         _info.args().get(_index - 1).expect("argument index out of bounds")
                     })?,)*);
                     Ok($crate::func::Return::Mut((self)(receiver, $($arg,)*)))
+                }, info)
+            }
+        }
+
+        // === Mut Receiver + Ref Return === //
+        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&mut Receiver, $($Arg),*) -> fn(&mut R) -> &R> for F
+        where
+            Receiver: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
+            R: $crate::Reflect + $crate::TypePath,
+            for<'a> &'a mut R: $crate::func::args::GetOwnership,
+            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
+            F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a R + 'env,
+            F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
+        {
+            fn into_function(mut self) -> $crate::func::Function<'env> {
+                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+
+                let info = $crate::func::FunctionInfo::new()
+                    .with_args({
+                        #[allow(unused_mut)]
+                        let mut _index = 1;
+                        vec![
+                            $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
+                            $($crate::func::args::ArgInfo::new::<$Arg>({
+                                _index += 1;
+                                _index - 1
+                            }),)*
+                        ]
+                    })
+                    .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
+
+                $crate::func::Function::new(move |args, _info| {
+                    if args.len() != COUNT {
+                        return Err($crate::func::error::FuncError::ArgCount {
+                            expected: COUNT,
+                            received: args.len(),
+                        });
+                    }
+
+                    let [receiver, $($arg,)*] = args.take().try_into().ok().expect("invalid number of arguments");
+
+                    let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
+
+                    #[allow(unused_mut)]
+                    let mut _index = 1;
+                    let ($($arg,)*) = ($($Arg::from_arg($arg, {
+                        _index += 1;
+                        _info.args().get(_index - 1).expect("argument index out of bounds")
+                    })?,)*);
+                    Ok($crate::func::Return::Ref((self)(receiver, $($arg,)*)))
                 }, info)
             }
         }
