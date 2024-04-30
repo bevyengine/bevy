@@ -46,6 +46,8 @@ pub use bevy_math as math;
 pub use bevy_pbr as pbr;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
+#[cfg(feature = "bevy_remote")]
+pub use bevy_remote as remote;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]

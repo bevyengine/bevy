@@ -68,6 +68,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_remote",
   "multi_threaded",
   "png",
   "hdr",
@@ -157,6 +158,9 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Enable the Bevy Remote Protocol
+bevy_remote = ["bevy_internal/bevy_remote"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -351,6 +355,7 @@ rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "2.0.1"
@@ -358,6 +363,11 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
 
 [[example]]
 name = "hello_world"
@@ -3115,6 +3125,28 @@ doc-scrape-examples = true
 name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "client"
+path = "examples/remote/client.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.client]
+name = "client"
+description = "A simple command line client that can control Bevy apps via the BRP"
+category = "Remote Protocol"
+wasm = true
+
+[[example]]
+name = "server"
+path = "examples/remote/server.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.server]
+name = "server"
+description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
 wasm = true
 
 [profile.wasm-release]

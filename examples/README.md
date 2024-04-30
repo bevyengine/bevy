@@ -53,6 +53,7 @@ git checkout v0.4.0
   - [Input](#input)
   - [Math](#math)
   - [Reflection](#reflection)
+  - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [State](#state)
@@ -334,6 +335,13 @@ Example | Description
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Trait Reflection](../examples/reflection/trait_reflection.rs) | Allows reflection with trait objects
+
+## Remote Protocol
+
+Example | Description
+--- | ---
+[client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
+[server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
 ## Scene
 
