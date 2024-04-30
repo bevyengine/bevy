@@ -388,6 +388,40 @@ mod tests {
         assert!(is_root_node_pair_valid(&ui_surface.taffy, root_node_pair));
     }
 
+    #[test]
+    fn test_helper_methods() {
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let style = Style::default();
+
+        ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, root_node_entity, &style, None);
+
+        // assign root node to camera
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        assert_eq!(
+            get_associated_camera_entity(&ui_surface, root_node_entity),
+            Some(camera_entity)
+        );
+        assert_eq!(
+            get_associated_camera_entity(&ui_surface, Entity::from_raw(2)),
+            None
+        );
+
+        let root_node_pair = get_root_node_pair(&ui_surface, root_node_entity);
+        assert!(root_node_pair.is_some());
+        assert_eq!(
+            Some(root_node_pair.unwrap().user_root_node).as_ref(),
+            ui_surface.entity_to_taffy.get(&root_node_entity)
+        );
+
+        assert_eq!(
+            get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity),
+            root_node_pair
+        );
+    }
+
     #[allow(unreachable_code)]
     #[test]
     fn test_remove_camera_entities() {
