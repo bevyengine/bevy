@@ -2,6 +2,7 @@
 
 #import bevy_pbr::{
     pbr_functions,
+    pbr_functions::SampleBias,
     pbr_bindings,
     pbr_types,
     prepass_utils,
@@ -79,14 +80,13 @@ fn pbr_input_from_standard_material(
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
 
-    // Unpack `ddx_uv` and `ddy_uv` so that we can call `sample_texture` later.
-    // If this isn't a meshlet shader, just come up with placeholders.
+    // Fill in the sample bias so we can sample from textures.
+    var bias: SampleBias;
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    let ddx_uv = in.ddx_uv;
-    let ddy_uv = in.ddy_uv;
+    bias.ddx_uv = in.ddx_uv;
+    bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-    let ddx_uv = vec2<f32>(0.0);
-    let ddy_uv = vec2<f32>(0.0);
+    bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
 #ifdef VERTEX_UVS
@@ -119,9 +119,7 @@ fn pbr_input_from_standard_material(
             pbr_bindings::base_color_texture,
             pbr_bindings::base_color_sampler,
             uv,
-            ddx_uv,
-            ddy_uv,
-            view.mip_bias
+            bias,
         );
 
 #ifdef ALPHA_TO_COVERAGE
@@ -159,9 +157,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::emissive_texture,
                 pbr_bindings::emissive_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).rgb, 1.0);
         }
 #endif
@@ -177,9 +173,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::metallic_roughness_texture,
                 pbr_bindings::metallic_roughness_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             );
             // Sampling from GLTF standard channels for now
             metallic *= metallic_roughness.b;
@@ -198,9 +192,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::clearcoat_texture,
                 pbr_bindings::clearcoat_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).r;
         }
 #endif  // PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
@@ -215,9 +207,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::clearcoat_roughness_texture,
                 pbr_bindings::clearcoat_roughness_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).g;
         }
 #endif  // PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
@@ -230,9 +220,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::specular_transmission_texture,
                 pbr_bindings::specular_transmission_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).r;
         }
 #endif
@@ -245,9 +233,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::thickness_texture,
                 pbr_bindings::thickness_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).g;
         }
 #endif
@@ -267,9 +253,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::diffuse_transmission_texture,
                 pbr_bindings::diffuse_transmission_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).a;
         }
 #endif
@@ -283,9 +267,7 @@ fn pbr_input_from_standard_material(
                 pbr_bindings::occlusion_texture,
                 pbr_bindings::occlusion_sampler,
                 uv,
-                ddx_uv,
-                ddy_uv,
-                view.mip_bias
+                bias,
             ).r;
         }
 #endif
@@ -315,9 +297,7 @@ fn pbr_input_from_standard_material(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
             uv,
-            ddx_uv,
-            ddy_uv,
-            view.mip_bias
+            bias,
         ).rgb;
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
@@ -344,9 +324,7 @@ fn pbr_input_from_standard_material(
             pbr_bindings::clearcoat_normal_texture,
             pbr_bindings::clearcoat_normal_sampler,
             uv,
-            ddx_uv,
-            ddy_uv,
-            view.mip_bias
+            bias,
         ).rgb;
 
         pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(

@@ -3,7 +3,9 @@
 #import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::lighting::{F_Schlick_vec, LayerLightingInput, LightingInput}
+#import bevy_pbr::lighting::{
+    F_Schlick_vec, LayerLightingInput, LightingInput, LAYER_BASE, LAYER_CLEARCOAT
+}
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -22,14 +24,15 @@ struct EnvironmentMapRadiances {
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    input: ptr<function, LayerLightingInput>,
+    input: ptr<function, LightingInput>,
+    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     // Unpack.
-    let perceptual_roughness = (*input).perceptual_roughness;
-    let N = (*input).N;
-    let R = (*input).R;
+    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
+    let N = (*input).layers[layer].N;
+    let R = (*input).layers[layer].R;
 
     var radiances: EnvironmentMapRadiances;
 
@@ -73,14 +76,15 @@ fn compute_radiances(
 #else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    input: ptr<function, LayerLightingInput>,
+    input: ptr<function, LightingInput>,
+    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
     // Unpack.
-    let perceptual_roughness = (*input).perceptual_roughness;
-    let N = (*input).N;
-    let R = (*input).R;
+    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
+    let N = (*input).layers[layer].N;
+    let R = (*input).layers[layer].R;
 
     var radiances: EnvironmentMapRadiances;
 
@@ -121,23 +125,20 @@ fn environment_map_light(
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
     // Unpack.
-    let roughness = (*input).base.roughness;
+    let roughness = (*input).layers[LAYER_BASE].roughness;
     let diffuse_color = (*input).diffuse_color;
-    let NdotV = (*input).base.NdotV;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F_ab = (*input).F_ab;
     let F0 = (*input).F0_;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    let clearcoat_NdotV = (*input).clearcoat.NdotV;
+    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
     let clearcoat_strength = (*input).clearcoat_strength;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
 
-    // We have to copy `base` here to work around a Naga issue:
-    // <https://github.com/gfx-rs/wgpu/issues/5593>.
-    var base = (*input).base;
-    let radiances = compute_radiances(&base, world_position, found_diffuse_indirect);
+    let radiances = compute_radiances(input, LAYER_BASE, world_position, found_diffuse_indirect);
     if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
@@ -180,10 +181,8 @@ fn environment_map_light(
     let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
     let inv_Fc = 1.0 - Fc;
 
-    // We have to copy `clearcoat` here to work around Naga bug
-    // <https://github.com/gfx-rs/wgpu/issues/5593>.
-    var clearcoat = (*input).clearcoat;
-    let clearcoat_radiances = compute_radiances(&clearcoat, world_position, found_diffuse_indirect);
+    let clearcoat_radiances = compute_radiances(
+        input, LAYER_CLEARCOAT, world_position, found_diffuse_indirect);
 
     // Composite the clearcoat layer on top of the existing one.
     // These formulas are from Filament:

@@ -6,6 +6,9 @@
     mesh_view_bindings as view_bindings,
 }
 
+const LAYER_BASE: u32 = 0;
+const LAYER_CLEARCOAT: u32 = 1;
+
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -43,12 +46,12 @@
 // Input to a lighting function for a single layer (either the base layer or the
 // clearcoat layer).
 struct LayerLightingInput {
-    // The normal vector ⋅ the view vector.
-    NdotV: f32,
     // The normal vector.
     N: vec3<f32>,
     // The reflected vector.
     R: vec3<f32>,
+    // The normal vector ⋅ the view vector.
+    NdotV: f32,
 
     // The perceptual roughness of the layer.
     perceptual_roughness: f32,
@@ -59,8 +62,11 @@ struct LayerLightingInput {
 // Input to a lighting function (`point_light`, `spot_light`,
 // `directional_light`).
 struct LightingInput {
-    // Lighting input specific to the base (non-clearcoat) layer.
-    base: LayerLightingInput,
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    layers: array<LayerLightingInput, 2>,
+#else   // STANDARD_MATERIAL_CLEARCOAT
+    layers: array<LayerLightingInput, 1>,
+#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // The world-space position.
     P: vec3<f32>,
@@ -82,8 +88,6 @@ struct LightingInput {
     F_ab: vec2<f32>,
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    // Lighting input specific to the clearcoat layer.
-    clearcoat: LayerLightingInput,
     // The strength of the clearcoat layer.
     clearcoat_strength: f32,
 #endif  // STANDARD_MATERIAL_CLEARCOAT
@@ -188,14 +192,15 @@ fn derive_lighting_input(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> DerivedLig
 
 // Returns L in the `xyz` components and the specular intensity in the `w` component.
 fn compute_specular_layer_values_for_point_light(
-    input: ptr<function, LayerLightingInput>,
+    input: ptr<function, LightingInput>,
+    layer: u32,
     V: vec3<f32>,
     light_to_frag: vec3<f32>,
     light_position_radius: f32,
 ) -> vec4<f32> {
     // Unpack.
-    let R = (*input).R;
-    let a = (*input).roughness;
+    let R = (*input).layers[layer].R;
+    let a = (*input).layers[layer].roughness;
 
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
@@ -218,8 +223,8 @@ fn specular(
     specular_intensity: f32,
 ) -> vec3<f32> {
     // Unpack.
-    let roughness = (*input).base.roughness;
-    let NdotV = (*input).base.NdotV;
+    let roughness = (*input).layers[LAYER_BASE].roughness;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
     let F_ab = (*input).F_ab;
     let H = (*derived_input).H;
@@ -248,13 +253,13 @@ fn specular(
 //
 // <https://google.github.io/filament/Filament.html#listing_clearcoatbrdf>
 fn specular_clearcoat(
-    input: ptr<function, LayerLightingInput>,
+    input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
     clearcoat_strength: f32,
     specular_intensity: f32,
 ) -> vec2<f32> {
     // Unpack.
-    let roughness = (*input).roughness;
+    let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
     let H = (*derived_input).H;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -289,8 +294,8 @@ fn Fd_Burley(
     derived_input: ptr<function, DerivedLightingInput>,
 ) -> f32 {
     // Unpack.
-    let roughness = (*input).base.roughness;
-    let NdotV = (*input).base.NdotV;
+    let roughness = (*input).layers[LAYER_BASE].roughness;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let NdotL = (*derived_input).NdotL;
     let LdotH = (*derived_input).LdotH;
 
@@ -333,7 +338,7 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
     let P = (*input).P;
-    let N = (*input).base.N;
+    let N = (*input).layers[LAYER_BASE].N;
     let V = (*input).V;
 
     let light = &view_bindings::point_lights.data[light_id];
@@ -343,10 +348,9 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
 
     // Base layer
 
-    // We have to copy `base` here to avoid a bug in Naga.
-    var base_layer = (*input).base;
     let specular_L_intensity = compute_specular_layer_values_for_point_light(
-        &base_layer,
+        input,
+        LAYER_BASE,
         V,
         light_to_frag,
         (*light).position_radius.w,
@@ -360,17 +364,15 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Unpack.
-    let clearcoat_N = (*input).clearcoat.N;
+    let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
     let clearcoat_strength = (*input).clearcoat_strength;
 
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
-    //
-    // We have to copy `clearcoat` here to avoid a bug in Naga.
-    var clearcoat_layer = (*input).clearcoat;
     let clearcoat_specular_L_intensity = compute_specular_layer_values_for_point_light(
-        &clearcoat_layer,
+        input,
+        LAYER_CLEARCOAT,
         V,
         light_to_frag,
         (*light).position_radius.w,
@@ -381,7 +383,7 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     // Calculate the specular light.
     let clearcoat_specular_intensity = clearcoat_specular_L_intensity.w;
     let Fc_Frc = specular_clearcoat(
-        &clearcoat_layer,
+        input,
         &clearcoat_specular_derived_input,
         clearcoat_strength,
         clearcoat_specular_intensity
@@ -450,10 +452,10 @@ fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
 fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
-    let NdotV = (*input).base.NdotV;
-    let N = (*input).base.N;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
+    let N = (*input).layers[LAYER_BASE].N;
     let V = (*input).V;
-    let roughness = (*input).base.roughness;
+    let roughness = (*input).layers[LAYER_BASE].roughness;
 
     let light = &view_bindings::lights.directional_lights[light_id];
 
@@ -465,9 +467,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     let specular_light = specular(input, &derived_input, 1.0);
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    // We have to copy `clearcoat` here to avoid a bug in Naga.
-    var clearcoat_layer = (*input).clearcoat;
-    let clearcoat_N = (*input).clearcoat.N;
+    let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
     let clearcoat_strength = (*input).clearcoat_strength;
 
     // Perform specular input calculations again for the clearcoat layer. We
@@ -476,7 +476,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, incident_light);
 
     let Fc_Frc =
-        specular_clearcoat(&clearcoat_layer, &derived_clearcoat_input, clearcoat_strength, 1.0);
+        specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, 1.0);
     let inv_Fc = 1.0 - Fc_Frc.r;
     let Frc = Fc_Frc.g;
 #endif  // STANDARD_MATERIAL_CLEARCOAT

@@ -6,6 +6,7 @@
     mesh_view_bindings as view_bindings,
     mesh_view_types,
     lighting,
+    lighting::{LAYER_BASE, LAYER_CLEARCOAT},
     transmission,
     clustered_forward as clustering,
     shadows,
@@ -28,6 +29,18 @@
 #endif
 
 #import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
+
+// Biasing info needed to sample from a texture when calling `sample_texture`.
+// How this is done depends on whether we're rendering meshlets or regular
+// meshes.
+struct SampleBias {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    ddx_uv: vec2<f32>,
+    ddy_uv: vec2<f32>,
+#else   // MESHLET_MESH_MATERIAL_PASS
+    mip_bias: f32,
+#endif  // MESHLET_MESH_MATERIAL_PASS
+}
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -62,14 +75,12 @@ fn sample_texture(
     texture: texture_2d<f32>,
     samp: sampler,
     uv: vec2<f32>,
-    ddx_uv: vec2<f32>,
-    ddy_uv: vec2<f32>,
-    mip_bias: f32
+    bias: SampleBias,
 ) -> vec4<f32> {
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    return textureSampleGrad(texture, samp, uv, ddx_uv, ddy_uv);
+    return textureSampleGrad(texture, samp, uv, bias.ddx_uv, bias.ddy_uv);
 #else
-    return textureSampleBias(texture, samp, uv, mip_bias);
+    return textureSampleBias(texture, samp, uv, bias.mip_bias);
 #endif
 }
 
@@ -215,44 +226,44 @@ fn apply_pbr_lighting(
 
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
-    lighting_input.base.NdotV = NdotV;
-    lighting_input.base.N = in.N;
-    lighting_input.base.R = R;
-    lighting_input.base.perceptual_roughness = perceptual_roughness;
-    lighting_input.base.roughness = roughness;
+    lighting_input.layers[LAYER_BASE].NdotV = NdotV;
+    lighting_input.layers[LAYER_BASE].N = in.N;
+    lighting_input.layers[LAYER_BASE].R = R;
+    lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
+    lighting_input.layers[LAYER_BASE].roughness = roughness;
     lighting_input.P = in.world_position.xyz;
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
     lighting_input.F0_ = F0;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    lighting_input.clearcoat.NdotV = clearcoat_NdotV;
-    lighting_input.clearcoat.N = clearcoat_N;
-    lighting_input.clearcoat.R = clearcoat_R;
-    lighting_input.clearcoat.perceptual_roughness = clearcoat_perceptual_roughness;
-    lighting_input.clearcoat.roughness = clearcoat_roughness;
+    lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
+    lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
+    lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
+    lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
+    lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
     lighting_input.clearcoat_strength = clearcoat;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // And do the same for transmissive if we need to.
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     var transmissive_lighting_input: lighting::LightingInput;
-    transmissive_lighting_input.base.NdotV = 1.0;
-    transmissive_lighting_input.base.N = -in.N;
-    transmissive_lighting_input.base.R = vec3(0.0);
-    transmissive_lighting_input.base.perceptual_roughness = 1.0;
-    transmissive_lighting_input.base.roughness = 1.0;
+    transmissive_lighting_input.layers[LAYER_BASE].NdotV = 1.0;
+    transmissive_lighting_input.layers[LAYER_BASE].N = -in.N;
+    transmissive_lighting_input.layers[LAYER_BASE].R = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_BASE].perceptual_roughness = 1.0;
+    transmissive_lighting_input.layers[LAYER_BASE].roughness = 1.0;
     transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.F0_ = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.0);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    transmissive_lighting_input.clearcoat.NdotV = 0.0;
-    transmissive_lighting_input.clearcoat.N = vec3(0.0);
-    transmissive_lighting_input.clearcoat.R = vec3(0.0);
-    transmissive_lighting_input.clearcoat.perceptual_roughness = 0.0;
-    transmissive_lighting_input.clearcoat.roughness = 0.0;
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -435,7 +446,7 @@ fn apply_pbr_lighting(
     // light in the call to `specular_transmissive_light()` below
     var specular_transmitted_environment_light = vec3<f32>(0.0);
 
-#ifdef STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
+#ifdef STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
     // and the following simplified values for the transmitted environment light contribution
     // approximation:
@@ -456,23 +467,23 @@ fn apply_pbr_lighting(
 
     var transmissive_environment_light_input: lighting::LightingInput;
     transmissive_environment_light_input.diffuse_color = vec3(1.0);
-    transmissive_environment_light_input.NdotV = 1.0;
+    transmissive_environment_light_input.layers[LAYER_BASE].NdotV = 1.0;
     transmissive_environment_light_input.P = in.world_position.xyz;
-    transmissive_environment_light_input.N = -in.N;
+    transmissive_environment_light_input.layers[LAYER_BASE].N = -in.N;
     transmissive_environment_light_input.V = in.V;
-    transmissive_environment_light_input.R = T;
-    transmissive_environment_light_input.perceptual_roughness = perceptual_roughness;
-    transmissive_environment_light_input.roughness = roughness;
+    transmissive_environment_light_input.layers[LAYER_BASE].R = T;
+    transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
+    transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
     transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
     transmissive_environment_light_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    // No clearcoat. (The rest of the clearcoat-related fields have no meaning.)
-    transmissive_environment_light_input.clearcoat = 0.0;
-    transmissive_environment_light_input.clearcoat_NdotV = 0.0;
-    transmissive_environment_light_input.clearcoat_N = in.N;
-    transmissive_environment_light_input.clearcoat_R = vec3(0.0);
-    transmissive_environment_light_input.clearcoat_perceptual_roughness = 0.0;
-    transmissive_environment_light_input.clearcoat_roughness = 0.0;
+    // No clearcoat.
+    transmissive_environment_light_input.clearcoat_strength = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].N = in.N;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     let transmitted_environment_light =
@@ -484,7 +495,7 @@ fn apply_pbr_lighting(
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
 #endif
-#endif // STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
+#endif // STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
 #else
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.

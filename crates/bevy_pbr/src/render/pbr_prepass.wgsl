@@ -4,6 +4,7 @@
     pbr_bindings::material,
     pbr_types,
     pbr_functions,
+    pbr_functions::SampleBias,
     prepass_io,
     mesh_view_bindings::view,
 }
@@ -52,23 +53,20 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
-        // Unpack `ddx_uv` and `ddy_uv` so that we can call `sample_texture`.
-        // If this isn't a meshlet shader, just come up with placeholders.
+    // Fill in the sample bias so we can sample from textures.
+    var bias: SampleBias;
 #ifdef MESHLET_MESH_MATERIAL_PASS
-        let ddx_uv = in.ddx_uv;
-        let ddy_uv = in.ddy_uv;
+    bias.ddx_uv = in.ddx_uv;
+    bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-        let ddx_uv = vec2<f32>(0.0);
-        let ddy_uv = vec2<f32>(0.0);
+    bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
         let Nt = pbr_functions::sample_texture(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
             in.uv,
-            ddx_uv,
-            ddy_uv,
-            view.mip_bias
+            bias,
         ).rgb;
 
         normal = pbr_functions::apply_normal_mapping(
