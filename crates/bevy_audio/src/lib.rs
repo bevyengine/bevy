@@ -51,7 +51,7 @@ pub use sinks::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, AssetServer};
-use bevy_ecs::{prelude::*, world::Command};
+use bevy_ecs::{prelude::*, system::EntityCommands, world::Command};
 use bevy_transform::TransformSystem;
 
 use audio_output::*;
@@ -124,16 +124,30 @@ pub struct AudioSpawnCommand<'a> {
     pub path: AssetPath<'a>,
     /// Sound playback settings
     pub settings: PlaybackSettings,
+    /// Entity to attach AudioBundle, if none it will spawn new entity
+    pub entity: Option<Entity>,
 }
 
 impl Command for AudioSpawnCommand<'static> {
     fn apply(self, world: &mut World) {
         let asset = world.get_resource::<AssetServer>().unwrap();
         let source = asset.load(&self.path);
-        world.spawn(AudioBundle {
-            source,
-            settings: self.settings,
-        });
+        match self.entity {
+            Some(e) => {
+                if let Some(mut entity) = world.get_entity_mut(e) {
+                    entity.insert(AudioBundle {
+                        source,
+                        settings: self.settings,
+                    });
+                }
+            }
+            None => {
+                world.spawn(AudioBundle {
+                    source,
+                    settings: self.settings,
+                });
+            }
+        }
     }
 }
 
@@ -159,6 +173,7 @@ impl<'w, 's> AudioSpawnCommandExt for Commands<'w, 's> {
         self.add(AudioSpawnCommand {
             path: path.into(),
             settings: Default::default(),
+            entity: None,
         });
     }
     fn play_sound_with_settings(
@@ -169,6 +184,31 @@ impl<'w, 's> AudioSpawnCommandExt for Commands<'w, 's> {
         self.add(AudioSpawnCommand {
             path: path.into().clone(),
             settings,
+            entity: None,
+        });
+    }
+}
+
+impl AudioSpawnCommandExt for EntityCommands<'_> {
+    fn play_sound(&mut self, path: impl Into<AssetPath<'static>>) {
+        let entity = Some(self.id());
+        self.commands().add(AudioSpawnCommand {
+            path: path.into(),
+            settings: Default::default(),
+            entity,
+        });
+    }
+
+    fn play_sound_with_settings(
+        &mut self,
+        path: impl Into<AssetPath<'static>>,
+        settings: PlaybackSettings,
+    ) {
+        let entity = Some(self.id());
+        self.commands().add(AudioSpawnCommand {
+            path: path.into().clone(),
+            settings,
+            entity,
         });
     }
 }
