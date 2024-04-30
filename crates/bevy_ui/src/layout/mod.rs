@@ -185,7 +185,7 @@ pub fn ui_layout_system(
                 ui_surface.upsert_node(&layout_context, entity, &style, measure);
             }
         } else {
-            ui_surface.upsert_node(entity, &Style::default(), &LayoutContext::default());
+            ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
         }
     }
     scale_factor_events.clear();
