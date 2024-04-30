@@ -9,6 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
 concurrency:
@@ -70,6 +71,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
+    # Explicity use MacOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 60
     steps:
@@ -216,7 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.20.8
+        uses: crate-ci/typos@v1.20.10
       - name: Typos info
         if: failure()
         run: |
@@ -228,6 +230,7 @@ jobs:
 
 
   run-examples-macos-metal:
+    # Explicity use MacOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -388,12 +391,13 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
       - name: get MSRV
+        id: msrv
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
-          echo "MSRV=$msrv" >> $GITHUB_ENV
+          echo "msrv=$msrv" >> $GITHUB_OUTPUT
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.MSRV }}
+          toolchain: ${{ steps.msrv.outputs.msrv }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Run cargo check

@@ -1,7 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -37,6 +37,8 @@ mod ssao;
 mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
+use std::marker::PhantomData;
+
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
@@ -95,7 +97,10 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{
+        CameraProjection, CameraUpdateSystem, OrthographicProjection, PerspectiveProjection,
+        Projection,
+    },
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
@@ -307,6 +312,9 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
+                PbrProjectionPlugin::<Projection>::default(),
+                PbrProjectionPlugin::<PerspectiveProjection>::default(),
+                PbrProjectionPlugin::<OrthographicProjection>::default(),
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -329,11 +337,7 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    (
-                        clear_directional_light_cascades,
-                        build_directional_light_cascades::<Projection>,
-                    )
-                        .chain()
+                    clear_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),
@@ -417,5 +421,23 @@ impl Plugin for PbrPlugin {
         render_app
             .init_resource::<ShadowSamplers>()
             .init_resource::<GlobalLightMeta>();
+    }
+}
+
+/// [`CameraProjection`] specific PBR functionality.
+pub struct PbrProjectionPlugin<T: CameraProjection + Component>(PhantomData<T>);
+impl<T: CameraProjection + Component> Plugin for PbrProjectionPlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            PostUpdate,
+            build_directional_light_cascades::<T>
+                .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                .after(clear_directional_light_cascades),
+        );
+    }
+}
+impl<T: CameraProjection + Component> Default for PbrProjectionPlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }

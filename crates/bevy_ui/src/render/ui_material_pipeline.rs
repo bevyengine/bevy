@@ -671,7 +671,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 entity.index(),
             ),
             batch_range: 0..0,
-            dynamic_offset: None,
+            extra_index: PhaseItemExtraIndex::NONE,
         });
     }
 }
