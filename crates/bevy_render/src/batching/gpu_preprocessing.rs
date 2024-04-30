@@ -303,7 +303,9 @@ where
 
     /// Metadata that can be used to determine whether an instance can be placed
     /// into this batch.
-    meta: BatchMeta<F::CompareData>,
+    ///
+    /// If `None`, the item inside is unbatchable.
+    meta: Option<BatchMeta<F::CompareData>>,
 }
 
 impl<F> SortedRenderBatch<F>
@@ -405,29 +407,22 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
             // Unpack that index and metadata. Note that it's possible for index
             // and/or metadata to not be present, which signifies that this
-            // entity is unbatchable. In that case, we break the batch here and
-            // otherwise ignore the phase item.
-            let (current_input_index, current_meta);
-            match current_batch_input_index {
-                Some((input_index, Some(current_compare_data))) => {
-                    current_input_index = Some(input_index);
-                    current_meta = Some(BatchMeta::new(
-                        &phase.items[current_index],
-                        current_compare_data,
-                    ));
-                }
-                _ => {
-                    current_input_index = None;
-                    current_meta = None;
-                }
+            // entity is unbatchable. In that case, we break the batch here.
+            let (mut current_input_index, mut current_meta) = (None, None);
+            if let Some((input_index, maybe_meta)) = current_batch_input_index {
+                current_input_index = Some(input_index);
+                current_meta =
+                    maybe_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
             }
 
             // Determine if this entity can be included in the batch we're
             // building up.
             let can_batch = batch.as_ref().is_some_and(|batch| {
-                current_meta
-                    .as_ref()
-                    .is_some_and(|current_meta| batch.meta == *current_meta)
+                // `None` for metadata indicates that the items are unbatchable.
+                match (&current_meta, &batch.meta) {
+                    (Some(current_meta), Some(batch_meta)) => current_meta == batch_meta,
+                    (_, _) => false,
+                }
             });
 
             // Make space in the data buffer for this instance.
@@ -442,23 +437,21 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 }
 
                 // Start a new batch.
-                batch = current_meta.map(|meta| {
-                    let indirect_parameters_index = if gpu_culling {
-                        GFBD::get_batch_indirect_parameters_index(
-                            &system_param_item,
-                            &mut indirect_parameters_buffer,
-                            current_entity,
-                            output_index,
-                        )
-                    } else {
-                        None
-                    };
-                    SortedRenderBatch {
-                        phase_item_start_index: current_index as u32,
-                        instance_start_index: output_index,
-                        indirect_parameters_index,
-                        meta,
-                    }
+                let indirect_parameters_index = if gpu_culling {
+                    GFBD::get_batch_indirect_parameters_index(
+                        &system_param_item,
+                        &mut indirect_parameters_buffer,
+                        current_entity,
+                        output_index,
+                    )
+                } else {
+                    None
+                };
+                batch = Some(SortedRenderBatch {
+                    phase_item_start_index: current_index as u32,
+                    instance_start_index: output_index,
+                    indirect_parameters_index,
+                    meta: current_meta,
                 });
             }
 
