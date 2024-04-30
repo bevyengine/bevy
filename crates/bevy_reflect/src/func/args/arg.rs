@@ -4,6 +4,7 @@ use crate::Reflect;
 /// Represents an argument that can be passed to a dynamic [`Function`].
 ///
 /// [`Function`]: crate::func::Function
+#[derive(Debug)]
 pub enum Arg<'a> {
     Owned(Box<dyn Reflect>),
     Ref(&'a dyn Reflect),

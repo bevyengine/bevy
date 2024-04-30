@@ -24,7 +24,7 @@ use crate::Reflect;
 /// ```
 ///
 /// [`Function`]: crate::func::Function
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ArgList<'a>(Vec<Arg<'a>>);
 
 impl<'a> ArgList<'a> {
