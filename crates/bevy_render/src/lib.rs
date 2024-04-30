@@ -52,6 +52,7 @@ pub mod prelude {
     };
 }
 
+use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
@@ -334,6 +335,7 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            BatchingPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
