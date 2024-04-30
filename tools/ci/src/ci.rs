@@ -4,9 +4,10 @@ use argh::FromArgs;
 
 /// The CI command line tool for Bevy.
 #[derive(FromArgs)]
-pub(crate) struct CI {
+pub struct CI {
     #[argh(subcommand)]
     command: Option<Commands>,
+
     /// continue running commands even if one fails
     #[argh(switch)]
     keep_going: bool,
@@ -16,7 +17,7 @@ impl CI {
     /// Runs the specified commands or all commands if none are specified.
     ///
     /// When run locally, results may differ from actual CI runs triggered by `.github/workflows/ci.yml`.
-    /// This is because the official CI runs latest stable, while local runs use whatever the default Rust is locally.
+    /// This is usually related to differing toolchains and configuration.
     pub fn run(self) {
         let sh = xshell::Shell::new().unwrap();
 
@@ -29,10 +30,13 @@ impl CI {
             // This will automatically move back to the original directory once dropped.
             let _subdir_hook = command.subdir.map(|path| sh.push_dir(path));
 
+            // Execute each command, checking if it returned an error.
             if command.command.envs(command.env_vars).run().is_err() {
                 let name = command.name;
                 let message = command.failure_message;
+
                 if self.keep_going {
+                    // We use bullet points here because there can be more than one error.
                     failures.push(format!("- {name}: {message}"));
                 } else {
                     failures.push(format!("{name}: {message}"));
@@ -41,8 +45,10 @@ impl CI {
             }
         }
 
+        // Log errors at the very end.
         if !failures.is_empty() {
             let failures = failures.join("\n");
+
             panic!(
                 "One or more CI commands failed:\n\
                 {failures}"

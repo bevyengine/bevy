@@ -52,6 +52,11 @@ fn inverse_affine3(affine: mat4x3<f32>) -> mat4x3<f32> {
     return mat4x3<f32>(inv_matrix3[0], inv_matrix3[1], inv_matrix3[2], -(inv_matrix3 * affine[3]));
 }
 
+// Extracts the upper 3x3 portion of a 4x4 matrix.
+fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
+    return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
+}
+
 // Creates an orthonormal basis given a Z vector and an up vector (which becomes
 // Y after orthonormalization).
 //
@@ -63,4 +68,17 @@ fn orthonormalize(z_unnormalized: vec3<f32>, up: vec3<f32>) -> mat3x3<f32> {
     let x_basis = normalize(cross(z_basis, up));
     let y_basis = cross(z_basis, x_basis);
     return mat3x3(x_basis, y_basis, z_basis);
+}
+
+// Returns true if any part of a sphere is on the positive side of a plane.
+//
+// `sphere_center.w` should be 1.0.
+//
+// This is used for frustum culling.
+fn sphere_intersects_plane_half_space(
+    plane: vec4<f32>,
+    sphere_center: vec4<f32>,
+    sphere_radius: f32
+) -> bool {
+    return dot(plane, sphere_center) + sphere_radius > 0.0;
 }

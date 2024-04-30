@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Runs the compile-fail tests.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "compile-fail")]
-pub(crate) struct CompileFailCommand {}
+pub struct CompileFailCommand {}
 
 impl Prepare for CompileFailCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {

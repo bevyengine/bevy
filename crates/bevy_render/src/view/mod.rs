@@ -496,6 +496,12 @@ impl From<ColorGrading> for ColorGradingUniform {
     }
 }
 
+#[derive(Component)]
+pub struct GpuCulling;
+
+#[derive(Component)]
+pub struct NoCpuCulling;
+
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
