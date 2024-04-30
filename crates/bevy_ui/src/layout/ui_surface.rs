@@ -1,7 +1,6 @@
 use std::fmt;
 
-use taffy::prelude::LayoutTree;
-use taffy::Taffy;
+use taffy::TaffyTree;
 
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::prelude::Resource;
@@ -11,28 +10,28 @@ use bevy_utils::default;
 use bevy_utils::tracing::warn;
 
 use crate::layout::convert;
-use crate::{LayoutContext, LayoutError, Style};
+use crate::{LayoutContext, LayoutError, Measure, NodeMeasure, Style};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
     // The implicit "viewport" node created by Bevy
-    pub(super) implicit_viewport_node: taffy::node::Node,
+    pub(super) implicit_viewport_node: taffy::NodeId,
     // The root (parentless) node specified by the user
-    pub(super) user_root_node: taffy::node::Node,
+    pub(super) user_root_node: taffy::NodeId,
 }
 
 #[derive(Resource)]
 pub struct UiSurface {
-    pub(super) entity_to_taffy: EntityHashMap<taffy::node::Node>,
-    pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::node::Node>>,
+    pub(super) entity_to_taffy: EntityHashMap<taffy::NodeId>,
+    pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::NodeId>>,
     pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,
-    pub(super) taffy: Taffy,
+    pub(super) taffy: TaffyTree<NodeMeasure>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<EntityHashMap<taffy::node::Node>>();
-    _assert_send_sync::<Taffy>();
+    _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
+    _assert_send_sync::<TaffyTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
 
@@ -47,7 +46,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let mut taffy = Taffy::new();
+        let mut taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
@@ -61,30 +60,55 @@ impl Default for UiSurface {
 impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
     /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        let mut added = false;
+    pub fn upsert_node(
+        &mut self,
+        layout_context: &LayoutContext,
+        entity: Entity,
+        style: &Style,
+        mut new_node_context: Option<NodeMeasure>,
+    ) {
         let taffy = &mut self.taffy;
-        let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
+
+        let mut added = false;
+        let taffy_node_id = *self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_leaf(convert::from_style(context, style)).unwrap()
+            if let Some(measure) = new_node_context.take() {
+                taffy
+                    .new_leaf_with_context(
+                        convert::from_style(layout_context, style, true),
+                        measure,
+                    )
+                    .unwrap()
+            } else {
+                taffy
+                    .new_leaf(convert::from_style(layout_context, style, false))
+                    .unwrap()
+            }
         });
 
         if !added {
-            self.taffy
-                .set_style(*taffy_node, convert::from_style(context, style))
+            let has_measure = if new_node_context.is_some() {
+                taffy
+                    .set_node_context(taffy_node_id, new_node_context)
+                    .unwrap();
+                true
+            } else {
+                taffy.get_node_context(taffy_node_id).is_some()
+            };
+
+            taffy
+                .set_style(
+                    taffy_node_id,
+                    convert::from_style(layout_context, style, has_measure),
+                )
                 .unwrap();
         }
     }
 
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
-    pub fn try_update_measure(
-        &mut self,
-        entity: Entity,
-        measure_func: taffy::node::MeasureFunc,
-    ) -> Option<()> {
+    pub fn update_node_context(&mut self, entity: Entity, context: NodeMeasure) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
-
-        self.taffy.set_measure(*taffy_node, Some(measure_func)).ok()
+        self.taffy.set_node_context(*taffy_node, Some(context)).ok()
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -115,9 +139,9 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
-    pub fn try_remove_measure(&mut self, entity: Entity) {
+    pub fn try_remove_node_context(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_measure(*taffy_node, None).unwrap();
+            self.taffy.set_node_context(*taffy_node, None).unwrap();
         }
     }
 
@@ -183,7 +207,30 @@ without UI components as a child of an entity with UI components, results may be
         };
         for root_nodes in camera_root_nodes {
             self.taffy
-                .compute_layout(root_nodes.implicit_viewport_node, available_space)
+                .compute_layout_with_measure(
+                    root_nodes.implicit_viewport_node,
+                    available_space,
+                    |known_dimensions: taffy::Size<Option<f32>>,
+                     available_space: taffy::Size<taffy::AvailableSpace>,
+                     _node_id: taffy::NodeId,
+                     context: Option<&mut NodeMeasure>|
+                     -> taffy::Size<f32> {
+                        context
+                            .map(|ctx| {
+                                let size = ctx.measure(
+                                    known_dimensions.width,
+                                    known_dimensions.height,
+                                    available_space.width,
+                                    available_space.height,
+                                );
+                                taffy::Size {
+                                    width: size.x,
+                                    height: size.y,
+                                }
+                            })
+                            .unwrap_or(taffy::Size::ZERO)
+                    },
+                )
                 .unwrap();
         }
     }
@@ -210,7 +257,7 @@ without UI components as a child of an entity with UI components, results may be
 
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
-    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, LayoutError> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
                 .layout(*taffy_node)

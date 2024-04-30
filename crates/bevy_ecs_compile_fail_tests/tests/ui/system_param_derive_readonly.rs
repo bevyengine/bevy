@@ -10,12 +10,11 @@ struct Mutable<'w, 's> {
 }
 
 fn main() {
-    // Ideally we'd use:
-    // let mut world = World::default();
-    // let state = SystemState::<Mutable>::new(&mut world);
-    // state.get(&world);
-    // But that makes the test show absolute paths
-    assert_readonly::<Mutable>();
+
+    let mut world = World::default();
+    let state = SystemState::<Mutable>::new(&mut world);
+    state.get(&world);
+    //~^ E0277
 }
 
 fn assert_readonly<P>()

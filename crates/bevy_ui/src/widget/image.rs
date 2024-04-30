@@ -1,4 +1,6 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
+use crate::{
+    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, UiImage, UiScale,
+};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
@@ -72,6 +74,7 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
+
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<
         (
@@ -100,10 +103,10 @@ pub fn update_image_content_size_system(
                 || content_size.is_added()
             {
                 image_size.size = size;
-                content_size.set(ImageMeasure {
+                content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
                     size: size.as_vec2() * combined_scale_factor,
-                });
+                }));
             }
         }
     }

@@ -139,6 +139,7 @@ Example | Description
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
+[Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations

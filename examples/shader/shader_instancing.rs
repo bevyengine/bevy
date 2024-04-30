@@ -15,8 +15,8 @@ use bevy::{
         mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+            RenderCommandResult, SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -144,7 +144,7 @@ fn queue_custom(
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
