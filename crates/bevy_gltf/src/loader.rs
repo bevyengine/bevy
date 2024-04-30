@@ -201,19 +201,35 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut linear_textures = HashSet::default();
 
+    // Gltf supports separate uv_map for each texture, but bevy doesn't
+    // That is why that indexes will be used for UV_0 map
+    // for every texture except lightmaps
+    let mut tex_coord = HashSet::default();
+
     for material in gltf.materials() {
         if let Some(texture) = material.normal_texture() {
             linear_textures.insert(texture.texture().index());
+            tex_coord.insert(texture.tex_coord());
         }
         if let Some(texture) = material.occlusion_texture() {
             linear_textures.insert(texture.texture().index());
+            tex_coord.insert(texture.tex_coord());
         }
         if let Some(texture) = material
             .pbr_metallic_roughness()
             .metallic_roughness_texture()
         {
             linear_textures.insert(texture.texture().index());
+            tex_coord.insert(texture.tex_coord());
         }
+        if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
+            tex_coord.insert(texture.tex_coord());
+        }
+    }
+
+    if tex_coord.is_empty() {
+        // At least default should work as expected
+        tex_coord.insert(0);
     }
 
     #[cfg(feature = "bevy_animation")]
@@ -437,6 +453,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     accessor,
                     &buffer_data,
                     &loader.custom_vertex_attributes,
+                    &tex_coord,
                 ) {
                     Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                     Err(err) => warn!("{}", err),

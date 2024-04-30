@@ -3,7 +3,7 @@ use bevy_render::{
     prelude::Mesh,
     render_resource::VertexFormat,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::{DataType, Dimensions},
     mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},
@@ -256,14 +256,21 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
+    tex_coord: &HashSet<u32>,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
         gltf::Semantic::Normals => Some((Mesh::ATTRIBUTE_NORMAL, ConversionMode::Any)),
         gltf::Semantic::Tangents => Some((Mesh::ATTRIBUTE_TANGENT, ConversionMode::Any)),
         gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba)),
-        gltf::Semantic::TexCoords(0) => Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord)),
-        gltf::Semantic::TexCoords(1) => Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord)),
+        gltf::Semantic::TexCoords(x) => Some((
+            if tex_coord.contains(x) {
+                Mesh::ATTRIBUTE_UV_0
+            } else {
+                Mesh::ATTRIBUTE_UV_1
+            },
+            ConversionMode::TexCoord,
+        )),
         gltf::Semantic::Joints(0) => {
             Some((Mesh::ATTRIBUTE_JOINT_INDEX, ConversionMode::JointIndex))
         }
