@@ -39,6 +39,7 @@ pub mod prelude {
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
         GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
+        AudioSpawnCommandExt,
     };
 }
 
@@ -52,8 +53,8 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp};
-use bevy_ecs::prelude::*;
+use bevy_asset::{Asset, AssetApp, AssetPath, AssetServer};
+use bevy_ecs::{prelude::*, world::Command};
 use bevy_transform::TransformSystem;
 
 use audio_output::*;
@@ -117,5 +118,49 @@ impl AddAudioSource for App {
             (play_queued_audio_system::<T>, cleanup_finished_audio::<T>).in_set(AudioPlaySet),
         );
         self
+    }
+}
+
+/// Command for playing a standard bevy audio asset
+pub struct AudioSpawnCommand<'a> {
+    /// Path to the sound asset
+    pub path: AssetPath<'a>,
+    /// Sound playback settings
+    pub settings: PlaybackSettings,
+}
+
+impl Command for AudioSpawnCommand<'static> {
+    fn apply(self, world: &mut World) {
+        // do whatever you want with `world` and `self.data` here
+        let asset = world.get_resource::<AssetServer>().unwrap();
+        let source = asset.load(&self.path);
+        world.spawn(AudioBundle {
+            source,
+            settings: self.settings,
+        });
+    }
+}
+
+/// Trait for playing sounds with commands
+pub trait AudioSpawnCommandExt {
+    /// Command for playing a standard bevy audio asset with default settings
+    fn play_sound(&mut self, data: impl Into<AssetPath<'static>>);
+
+    /// Command for playing a standard bevy audio asset with settings
+    fn play_sound_with_settings(&mut self, asset_id: impl Into<AssetPath<'static>>, settings: PlaybackSettings);
+}
+
+impl<'w, 's> AudioSpawnCommandExt for Commands<'w, 's> {
+    fn play_sound(&mut self, path: impl Into<AssetPath<'static>>) {
+        self.add(AudioSpawnCommand{
+            path: path.into(),
+            settings: Default::default()
+        });
+    }
+    fn play_sound_with_settings(&mut self, path: impl Into<AssetPath<'static>>, settings: PlaybackSettings) {
+        self.add(AudioSpawnCommand{
+            path: path.into().clone(),
+            settings
+        });
     }
 }
