@@ -75,8 +75,16 @@ static LMS_TO_RGB: Mat3 = mat3(
     vec3(-0.130646, 0.00353630, 1.0605344),
 );
 
-/// The
+/// The [CIE 1931] *xy* chromaticity coordinates of the [D65 white point].
+///
+/// [CIE 1931]: https://en.wikipedia.org/wiki/CIE_1931_color_space
+/// [D65 white point]: https://en.wikipedia.org/wiki/Standard_illuminant#D65_values
 static D65_XY: Vec2 = vec2(0.31272, 0.32903);
+
+/// The [D65 white point] in [LMS color space].
+///
+/// [LMS color space]: https://en.wikipedia.org/wiki/LMS_color_space
+/// [D65 white point]: https://en.wikipedia.org/wiki/Standard_illuminant#D65_values
 static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 
 pub struct ViewPlugin;
@@ -171,8 +179,10 @@ impl ExtractedView {
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
-/// Grading is applied just before/after tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity.
+/// Color grading is applied just before tonemapping for a given
+/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
+/// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
+/// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
 #[reflect(Component, Default)]
 pub struct ColorGrading {
@@ -296,7 +306,7 @@ pub struct ColorGradingSection {
     /// A linear luminance adjustment, mainly affecting the middle part of the
     /// range.
     ///
-    /// This is the *s* exponent in the standard [ASC CDL] formula for color
+    /// This is the *s* factor in the standard [ASC CDL] formula for color
     /// correction:
     ///
     ///     out = (i × s + o)ⁿ
