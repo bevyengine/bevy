@@ -36,19 +36,19 @@ pub type FunctionResult<'a> = Result<Return<'a>, FuncError>;
 /// ```
 ///
 /// [`IntoFunction`]: crate::func::IntoFunction
-pub struct Function {
+pub struct Function<'env> {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>,
+    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
 }
 
-impl Function {
+impl<'env> Function<'env> {
     /// Create a new dynamic [`Function`].
     ///
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
+    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -80,7 +80,42 @@ impl Function {
     }
 
     /// Call the function with the given arguments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{IntoFunction, ArgList};
+    /// fn add(left: i32, right: i32) -> i32 {
+    ///   left + right
+    /// }
+    ///
+    /// let mut func = add.into_function();
+    /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+    /// let result = func.call(args).unwrap().unwrap_owned();
+    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// ```
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
+        (self.func.deref_mut())(args, &self.info)
+    }
+
+    /// Call the function with the given arguments and consume the function.
+    ///
+    /// This is useful for closures that capture their environment.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{IntoFunction, ArgList};
+    /// let mut count = 0;
+    /// let increment = |amount: i32| {
+    ///   count += amount;
+    /// };
+    /// let increment_function = increment.into_function();
+    /// let args = ArgList::new().push_owned(5_i32);
+    /// increment_function.call_once(args).unwrap();
+    /// assert_eq!(count, 5);
+    /// ```
+    pub fn call_once<'a>(mut self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func.deref_mut())(args, &self.info)
     }
 }
@@ -90,7 +125,7 @@ impl Function {
 /// This takes the format: `Function(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
-impl Debug for Function {
+impl<'env> Debug for Function<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or("_");
         write!(f, "Function(fn {name}(")?;

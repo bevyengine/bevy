@@ -75,9 +75,9 @@ use bevy_utils::all_tuples;
 /// [`TypePath`]: crate::TypePath
 /// [`IntoReturn`]: crate::func::IntoReturn
 /// [`Reflect`]: crate::Reflect
-pub trait IntoFunction<T> {
+pub trait IntoFunction<'env, T> {
     /// Converts [`Self`] into a [`Function`].
-    fn into_function(self) -> Function;
+    fn into_function(self) -> Function<'env>;
 }
 
 // https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
@@ -90,14 +90,14 @@ macro_rules! count_tts {
 macro_rules! impl_into_function {
     ($(($Arg:ident, $arg:ident)),*) => {
         // === Owned Return === //
-        impl<$($Arg,)* R, F> $crate::func::IntoFunction<fn($($Arg),*) -> R> for F
+        impl<'env, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn($($Arg),*) -> R> for F
         where
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             R: $crate::func::IntoReturn + $crate::func::args::GetOwnership + $crate::TypePath,
-            F: FnMut($($Arg),*) -> R + 'static,
-            F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'static,
+            F: FnMut($($Arg),*) -> R + 'env,
+            F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function {
+            fn into_function(mut self) -> $crate::func::Function<'env> {
                 const COUNT: usize = count_tts!($($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -135,17 +135,17 @@ macro_rules! impl_into_function {
         }
 
         // === Ref Return === //
-        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&Receiver, $($Arg),*) -> fn(&R)> for F
+        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&Receiver, $($Arg),*) -> fn(&R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a Receiver: $crate::func::args::GetOwnership,
             R: $crate::Reflect + $crate::TypePath,
             for<'a> &'a R: $crate::func::args::GetOwnership,
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'static,
-            F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'static,
+            F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'env,
+            F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function {
+            fn into_function(mut self) -> $crate::func::Function<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -186,17 +186,17 @@ macro_rules! impl_into_function {
         }
 
         // === Mut Return === //
-        impl<Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<fn(&mut Receiver, $($Arg),*) -> fn(&mut R)> for F
+        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&mut Receiver, $($Arg),*) -> fn(&mut R)> for F
         where
             Receiver: $crate::Reflect + $crate::TypePath,
             for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
             R: $crate::Reflect + $crate::TypePath,
             for<'a> &'a mut R: $crate::func::args::GetOwnership,
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'static,
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'static,
+            F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'env,
+            F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function {
+            fn into_function(mut self) -> $crate::func::Function<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
