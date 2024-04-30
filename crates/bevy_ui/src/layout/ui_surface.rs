@@ -402,6 +402,7 @@ mod tests {
         assert!(ui_surface.taffy.is_root_node_pair_valid(root_node_pair));
     }
 
+    #[allow(unreachable_code)]
     #[test]
     fn test_remove_camera_entities() {
         let mut ui_surface = UiSurface::default();
@@ -441,7 +442,9 @@ mod tests {
         assert!(!ui_surface
             .camera_entity_to_taffy
             .contains_key(&camera_entity));
-        return; // TODO: can't pass the test if we continue - not implemented
+
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
+
         assert!(!ui_surface.camera_roots.contains_key(&camera_entity));
 
         // root node pair should be removed
@@ -449,6 +452,7 @@ mod tests {
         assert_eq!(root_node_pair, None);
     }
 
+    #[allow(unreachable_code)]
     #[test]
     fn test_remove_entities() {
         let mut ui_surface = UiSurface::default();
@@ -478,7 +482,8 @@ mod tests {
         ui_surface.remove_entities([root_node_entity]);
         assert!(!ui_surface.entity_to_taffy.contains_key(&root_node_entity));
 
-        return; // TODO: can't pass the test if we continue - not implemented
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
+
         assert!(!ui_surface
             .camera_entity_to_taffy
             .get(&camera_entity)
@@ -528,6 +533,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.parent(child_node), Some(parent_node));
     }
 
+    #[allow(unreachable_code)]
     #[test]
     fn test_set_camera_children() {
         let mut ui_surface = UiSurface::default();
@@ -586,7 +592,7 @@ mod tests {
         // clear camera's root nodes
         ui_surface.set_camera_children(camera_entity, Vec::<Entity>::new().into_iter());
 
-        return; // TODO: can't pass the test if we continue - not implemented
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
 
         assert!(
             !ui_surface
