@@ -20,10 +20,7 @@
 //! }
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
-//!     commands.spawn(AudioBundle {
-//!         source: asset_server.load("background_audio.ogg"),
-//!         settings: PlaybackSettings::LOOP,
-//!     });
+//!     commands.play_sound_with_settings("background_audio.ogg", PlaybackSettings::LOOP);
 //! }
 //! ```
 
@@ -37,9 +34,9 @@ mod sinks;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
-        AudioSpawnCommandExt,
+        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
+        AudioSpawnCommandExt, Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings,
+        SpatialAudioSink, SpatialListener,
     };
 }
 
@@ -131,7 +128,6 @@ pub struct AudioSpawnCommand<'a> {
 
 impl Command for AudioSpawnCommand<'static> {
     fn apply(self, world: &mut World) {
-        // do whatever you want with `world` and `self.data` here
         let asset = world.get_resource::<AssetServer>().unwrap();
         let source = asset.load(&self.path);
         world.spawn(AudioBundle {
@@ -143,24 +139,36 @@ impl Command for AudioSpawnCommand<'static> {
 
 /// Trait for playing sounds with commands
 pub trait AudioSpawnCommandExt {
-    /// Command for playing a standard bevy audio asset with default settings
+    /// Command for playing a standard bevy audio asset with default settings.
+    ///
+    /// Remember that if the sound asset is not already loaded, the sound will have delay before playing because it needs to load first.
     fn play_sound(&mut self, data: impl Into<AssetPath<'static>>);
 
-    /// Command for playing a standard bevy audio asset with settings
-    fn play_sound_with_settings(&mut self, asset_id: impl Into<AssetPath<'static>>, settings: PlaybackSettings);
+    /// Command for playing a standard bevy audio asset with settings.
+    ///
+    /// Remember that if the sound asset is not already loaded, the sound will have delay before playing because it needs to load first.
+    fn play_sound_with_settings(
+        &mut self,
+        asset_id: impl Into<AssetPath<'static>>,
+        settings: PlaybackSettings,
+    );
 }
 
 impl<'w, 's> AudioSpawnCommandExt for Commands<'w, 's> {
     fn play_sound(&mut self, path: impl Into<AssetPath<'static>>) {
-        self.add(AudioSpawnCommand{
+        self.add(AudioSpawnCommand {
             path: path.into(),
-            settings: Default::default()
+            settings: Default::default(),
         });
     }
-    fn play_sound_with_settings(&mut self, path: impl Into<AssetPath<'static>>, settings: PlaybackSettings) {
-        self.add(AudioSpawnCommand{
+    fn play_sound_with_settings(
+        &mut self,
+        path: impl Into<AssetPath<'static>>,
+        settings: PlaybackSettings,
+    ) {
+        self.add(AudioSpawnCommand {
             path: path.into().clone(),
-            settings
+            settings,
         });
     }
 }
