@@ -272,45 +272,6 @@ with UI components as a child of an entity without UI components, results may be
             Err(LayoutError::InvalidHierarchy)
         }
     }
-
-    #[cfg(test)]
-    /// Tries to get the associated camera entity by iterating over `camera_entity_to_taffy`
-    fn get_associated_camera_entity(&self, root_node_entity: Entity) -> Option<Entity> {
-        for (&camera_entity, root_node_map) in self.camera_entity_to_taffy.iter() {
-            if root_node_map.contains_key(&root_node_entity) {
-                return Some(camera_entity);
-            }
-        }
-        None
-    }
-
-    #[cfg(test)]
-    /// Tries to get the root node pair for a given root node entity
-    fn get_root_node_pair(&self, root_node_entity: Entity) -> Option<&RootNodePair> {
-        // If `get_associated_camera_entity_from_ui_entity` returns `None`,
-        // it's not also guaranteed for camera_roots to not contain a reference
-        // to the root nodes taffy node
-        //
-        // `camera_roots` could still theoretically contain a reference to entities taffy node
-        // unless other writes/reads are proven to be atomic in nature
-        // so if they are out of sync then something else is wrong
-        let camera_entity = self.get_associated_camera_entity(root_node_entity)?;
-        self.get_root_node_pair_exact(root_node_entity, camera_entity)
-    }
-
-    #[cfg(test)]
-    /// Tries to get the root node pair for a given root node entity with the specified camera entity
-    fn get_root_node_pair_exact(
-        &self,
-        root_node_entity: Entity,
-        camera_entity: Entity,
-    ) -> Option<&RootNodePair> {
-        let root_node_pairs = self.camera_roots.get(&camera_entity)?;
-        let root_node_taffy = self.entity_to_taffy.get(&root_node_entity)?;
-        root_node_pairs
-            .iter()
-            .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
-    }
 }
 
 #[cfg(test)]
@@ -343,6 +304,54 @@ mod tests {
         fn is_root_node_pair_valid(&self, root_node_pair: &RootNodePair) -> bool {
             self.parent(root_node_pair.user_root_node)
                 == Some(root_node_pair.implicit_viewport_node)
+        }
+    }
+
+    trait UiSurfaceTest {
+        fn get_associated_camera_entity(&self, root_node_entity: Entity) -> Option<Entity>;
+        fn get_root_node_pair(&self, root_node_entity: Entity) -> Option<&RootNodePair>;
+        fn get_root_node_pair_exact(
+            &self,
+            root_node_entity: Entity,
+            camera_entity: Entity,
+        ) -> Option<&RootNodePair>;
+    }
+
+    impl UiSurfaceTest for UiSurface {
+        /// Tries to get the associated camera entity by iterating over `camera_entity_to_taffy`
+        fn get_associated_camera_entity(&self, root_node_entity: Entity) -> Option<Entity> {
+            for (&camera_entity, root_node_map) in self.camera_entity_to_taffy.iter() {
+                if root_node_map.contains_key(&root_node_entity) {
+                    return Some(camera_entity);
+                }
+            }
+            None
+        }
+
+        /// Tries to get the root node pair for a given root node entity
+        fn get_root_node_pair(&self, root_node_entity: Entity) -> Option<&RootNodePair> {
+            // If `get_associated_camera_entity_from_ui_entity` returns `None`,
+            // it's not also guaranteed for camera_roots to not contain a reference
+            // to the root nodes taffy node
+            //
+            // `camera_roots` could still theoretically contain a reference to entities taffy node
+            // unless other writes/reads are proven to be atomic in nature
+            // so if they are out of sync then something else is wrong
+            let camera_entity = self.get_associated_camera_entity(root_node_entity)?;
+            self.get_root_node_pair_exact(root_node_entity, camera_entity)
+        }
+
+        /// Tries to get the root node pair for a given root node entity with the specified camera entity
+        fn get_root_node_pair_exact(
+            &self,
+            root_node_entity: Entity,
+            camera_entity: Entity,
+        ) -> Option<&RootNodePair> {
+            let root_node_pairs = self.camera_roots.get(&camera_entity)?;
+            let root_node_taffy = self.entity_to_taffy.get(&root_node_entity)?;
+            root_node_pairs
+                .iter()
+                .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
         }
     }
 
