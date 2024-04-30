@@ -8,7 +8,7 @@ pub(crate) fn impl_get_ownership(
 ) -> proc_macro2::TokenStream {
     let bevy_reflect = meta.bevy_reflect_path();
     let type_path = meta.type_path();
-    
+
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 

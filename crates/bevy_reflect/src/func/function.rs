@@ -115,7 +115,7 @@ impl<'env> Function<'env> {
     /// increment_function.call_once(args).unwrap();
     /// assert_eq!(count, 5);
     /// ```
-    pub fn call_once<'a>(mut self, args: ArgList<'a>) -> FunctionResult<'a> {
+    pub fn call_once(mut self, args: ArgList) -> FunctionResult {
         (self.func.deref_mut())(args, &self.info)
     }
 }
