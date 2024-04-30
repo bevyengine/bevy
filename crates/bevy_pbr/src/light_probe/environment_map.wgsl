@@ -120,6 +120,38 @@ fn compute_radiances(
 
 #endif  // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+
+// Adds the environment map light from the clearcoat layer to that of the base
+// layer.
+fn environment_map_light_clearcoat(
+    out: ptr<function, EnvironmentMapLight>,
+    input: ptr<function, LightingInput>,
+    found_diffuse_indirect: bool,
+) {
+    // Unpack.
+    let world_position = (*input).P;
+    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
+    let clearcoat_strength = (*input).clearcoat_strength;
+
+    // Calculate the Fresnel term `Fc` for the clearcoat layer.
+    // 0.04 is a hardcoded value for F0 from the Filament spec.
+    let clearcoat_F0 = vec3<f32>(0.04);
+    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
+    let inv_Fc = 1.0 - Fc;
+
+    let clearcoat_radiances = compute_radiances(
+        input, LAYER_CLEARCOAT, world_position, found_diffuse_indirect);
+
+    // Composite the clearcoat layer on top of the existing one.
+    // These formulas are from Filament:
+    // <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat>
+    (*out).diffuse *= inv_Fc;
+    (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
+}
+
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
 fn environment_map_light(
     input: ptr<function, LightingInput>,
     found_diffuse_indirect: bool,
@@ -130,10 +162,6 @@ fn environment_map_light(
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F_ab = (*input).F_ab;
     let F0 = (*input).F0_;
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
-    let clearcoat_strength = (*input).clearcoat_strength;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
@@ -171,25 +199,8 @@ fn environment_map_light(
 
     out.specular = FssEss * radiances.radiance;
 
-    // Clearcoat
-
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-
-    // Calculate the Fresnel term `Fc` for the clearcoat layer.
-    // 0.04 is a hardcoded value for F0 from the Filament spec.
-    let clearcoat_F0 = vec3<f32>(0.04);
-    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
-    let inv_Fc = 1.0 - Fc;
-
-    let clearcoat_radiances = compute_radiances(
-        input, LAYER_CLEARCOAT, world_position, found_diffuse_indirect);
-
-    // Composite the clearcoat layer on top of the existing one.
-    // These formulas are from Filament:
-    // <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat>
-    out.diffuse *= inv_Fc;
-    out.specular = out.specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
-
+    environment_map_light_clearcoat(&out, input, found_diffuse_indirect);
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     return out;
