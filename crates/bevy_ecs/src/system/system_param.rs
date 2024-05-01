@@ -21,6 +21,7 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    sync::Arc,
 };
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -433,6 +434,8 @@ impl_param_set!();
 ///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
+
+impl<T: Send + Sync + 'static> Resource for Arc<T> {}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
