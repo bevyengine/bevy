@@ -207,13 +207,15 @@ To start a working group:
 
 1. Decide what the working group is going to focus on. This should be tightly focused and achievable!
 2. Gather at least 3 people including yourself who are willing to be in the working group.
-3. Ping the `@Maintainer` role on Discord in #engine-dev announcing your mutual intent.
+3. Ping the `@Maintainer` role on Discord in #engine-dev announcing your mutual intent and a one or two sentence description of your plans.
 
-One of the maintainers will then create a forum channel for you, as a purely administrative task.
-Your next task is writing up a design doc: laying out the scope of work and general implementation strategy.
+The maintainers will briefly evaluate the proposal in consultation with the relevant SMEs and give you a thumbs up or down on whether this is something Bevy can and wants to explore right now.
+You don't need a concrete plan at this stage, just a sensible argument for both "why is this something that could be useful to Bevy" and "why there aren't any serious barriers in implementing this in the near future".
+If they're in favor, a maintainer will create a forum channel for you and you're off to the races.
 
+Your initial task is writing up a design doc: laying out the scope of work and general implementation strategy.
 Once that's ready, get a sign-off on the broad vision and goals from the appropriate SMEs and maintainers.
-This is the critical review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
+This is the primary review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
 
 With a sign-off in hand, post the design doc to [Github Discussions](https://github.com/bevyengine/bevy/discussions) for archival purposes and begin work on implementation.
 Post PRs that you need review on in the forum channel, ask for advice, and share the load.
