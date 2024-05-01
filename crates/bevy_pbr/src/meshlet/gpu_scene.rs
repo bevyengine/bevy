@@ -272,7 +272,7 @@ pub fn prepare_meshlet_per_frame_resources(
         }
     };
 
-    let needed_buffer_size = 4 * gpu_scene.scene_triangle_count as u64;
+    let needed_buffer_size = 4 * gpu_scene.scene_triangle_count;
     let visibility_buffer_draw_triangle_buffer =
         match &mut gpu_scene.visibility_buffer_draw_triangle_buffer {
             Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
