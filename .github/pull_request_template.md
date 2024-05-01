@@ -7,6 +7,12 @@
 
 - Describe the solution used to achieve the objective above.
 
+## Testing
+
+- Did you test these changes? If so, how have you tested them? Are there any parts that need more testing?
+- Is there anything people need to know when testing these changes?
+- If relevant, what platforms did you test these changes on, and are there any important ones you can't test?
+
 ---
 
 ## Changelog
