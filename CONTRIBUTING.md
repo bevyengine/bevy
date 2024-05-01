@@ -76,7 +76,7 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 
 ### Classifying PRs
 
-[Labels]((https://github.com/bevyengine/bevy/labels)) are our primary tool to organize work.
+[Labels](https://github.com/bevyengine/bevy/labels) are our primary tool to organize work.
 Each label has a prefix denoting its category:
 
 * **D:** Difficulty. In order, these are:
