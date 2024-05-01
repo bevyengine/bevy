@@ -155,7 +155,7 @@ We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issu
 
 There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently.
 
-### Closing PRs
+### Closing PRs and Issues
 
 From time to time, PRs are unsuitable to be merged in a way that cannot be readily fixed.
 Rather than leaving these PRs open in limbo indefinitely, they should simply be closed.
@@ -163,17 +163,22 @@ Rather than leaving these PRs open in limbo indefinitely, they should simply be 
 This might happen if:
 
 1. The PR is spam or malicious.
-2. The work is particularly low quality, and the author is resistant to coaching.
-3. The work adds features or abstraction of limited value, especially in a way that could easily be recreated outside of the engine.
-4. The work has been sitting in review for so long and accumulated so many conflicts that it would be simpler to redo it from scratch.
-5. The PR is pointlessly large, and should be broken into multiple smaller PRs for easier review.
+2. The work has already been done elsewhere or is otherwise fully obsolete.
+3. The work is particularly low quality, and the author is resistant to coaching.
+4. The work adds features or abstraction of limited value, especially in a way that could easily be recreated outside of the engine.
+5. The work has been sitting in review for so long and accumulated so many conflicts that it would be simpler to redo it from scratch.
+6. The PR is pointlessly large, and should be broken into multiple smaller PRs for easier review.
 
-There are four paths for PRs to be closed:
+PRs that are `S-Adopt-Me` should be left open, but only if they're genuinely more useful to rebase rather than simply use as a reference.
+
+There are several paths for PRs to be closed:
 
 1. Obviously, authors may close their own PRs for any reason at any time.
 2. If a PR is clearly spam or malicious, anyone with triage rights is encouraged to close out the PR and report it to Github.
-3. SMEs or maintainers may and are encouraged to unilaterally close PRs that fall into one or more of the remaining categories.
-4. In the case of PRs where some members of the community (other than the author) are in favor and some are opposed, any two relevant SMEs or maintainers may act in concert to close the PR.
+3. If the work has already been done elsewhere or otherwise obsoleted, anyone with triage rights is encourage to close out the PR with an explanatory comment.
+4. Anyone may nominate a PR for closure, by bringing it to the attention of the author and/or one of the SMEs / maintainers. Let them press the button, but this is generally well-received and helpful.
+5. SMEs or maintainers may and are encouraged to unilaterally close PRs that fall into one or more of the remaining categories.
+6. In the case of PRs where some members of the community (other than the author) are in favor and some are opposed, any two relevant SMEs or maintainers may act in concert to close the PR.
 
 When closing a PR, check if it has an issue linked.
 If it does not, you should strongly consider creating an issue and linking the now-closed PR to help make sure the previous work can be discovered and credited.
