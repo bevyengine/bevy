@@ -44,6 +44,7 @@ fn setup(
         meshes.add(Cylinder::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
+        meshes.add(Cone::default()),
     ];
 
     let num_shapes = shapes.len();

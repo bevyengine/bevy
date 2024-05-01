@@ -518,9 +518,25 @@ pub struct Cone {
     /// The height of the cone
     pub height: f32,
 }
+
+impl Default for Cone {
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            height: 1.0,
+        }
+    }
+}
+
 impl Primitive3d for Cone {}
 
 impl Cone {
+    /// Create a new `Cone` from a radius and full height
+    #[inline(always)]
+    pub const fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
+
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
     pub fn base(&self) -> Circle {
