@@ -189,6 +189,44 @@ Take a look at the sections that follow to pick a route (or five) that appeal to
 
 If you ever find yourself at a loss for what to do, or in need of mentorship or advice on how to contribute to Bevy, feel free to ask in [Discord] and one of our more experienced community members will be happy to help.
 
+### Join a working group
+
+Active initiatives in Bevy are organized into temporary working groups: choosing one of those and asking how to help can be a fantastic way to get up to speed and be immediately useful.
+
+Working groups are public, open-membership groups that work together to tackle a broad-but-scoped initiative.
+The work that they do is coordinated in a forum-channel on [Discord](https://discord.gg/bevy), although they also create issues and may use project boards for tangible work that needs to be done.
+
+There's no special requirements to be a member, and no formal membership list.
+Working groups are *spaces*, not clubs.
+
+### Start a working group
+
+When tackling a complex initiative, it can make things go much more smoothly to make friends and allies to help.
+
+To start a working group:
+
+1. Decide what the working group is going to focus on. This should be tightly focused and achievable!
+2. Gather at least 3 people including yourself who are willing to be in the working group.
+3. Ping the `@Maintainer` role on Discord in #engine-dev announcing your mutual intent.
+
+One of the maintainers will then create a forum channel for you, as a purely administrative task.
+Your next task is writing up a design doc: laying out the scope of work and general implementation strategy.
+
+Once that's ready, get a sign-off on the broad vision and goals from the appropriate SMEs and maintainers.
+This is the critical review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
+
+With a sign-off in hand, post the design doc to [Github Discussions](https://github.com/bevyengine/bevy/discussions) for archival purposes and begin work on implementation.
+Post PRs that you need review on in the forum channel, ask for advice and share the load.
+Controversial PRs are still `S-Controversial`, but with a sign-off-in-priniciple, things should go more smoothly.
+
+If work peters out and the initiative dies, maintainers can wind down working groups (in consultation with SMEs and the working group itself).
+This is normal and expected: projects fail for all sorts of reasons!
+However, it's important to both keep the number of working groups relatively small and ensure they're active:
+they serve a vital role in onboarding new contributors.
+
+Once your implementation work laid out in your initial design doc is complete, it's time to wind down the working group.
+Feel free to make another one though to tackle the next step in your grand vision!
+
 ### Battle-testing Bevy
 
 Ultimately, Bevy is a tool that's designed to help people make cool games.
