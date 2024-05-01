@@ -1,4 +1,4 @@
-use bevy_math::{primitives::Cone, Vec3};
+use bevy_math::primitives::Cone;
 use wgpu::PrimitiveTopology;
 
 use crate::{
