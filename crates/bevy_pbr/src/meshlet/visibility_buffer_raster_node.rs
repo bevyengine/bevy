@@ -260,6 +260,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
     }
 }
 
+// TODO: Reuse same compute pass as cull_pass
 fn fill_cluster_buffers_pass(
     render_context: &mut RenderContext,
     fill_cluster_buffers_bind_group: &BindGroup,
