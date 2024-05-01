@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTDOCFLAGS: --html-in-header header.html
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
@@ -57,8 +56,8 @@ jobs:
 
       - name: Build docs
         env:
-          # needs to be in sync with [package.metadata.docs.rs]
-          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs
+          # Needs to be in sync with [package.metadata.docs.rs], except for `--html-in-header`.
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --html-in-header header.html
         run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
       # This adds the following:
