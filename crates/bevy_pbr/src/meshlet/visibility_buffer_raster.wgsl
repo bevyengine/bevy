@@ -1,13 +1,14 @@
 #import bevy_pbr::{
     meshlet_bindings::{
+        meshlet_cluster_meshlet_ids,
         meshlets,
         meshlet_vertex_ids,
         meshlet_vertex_data,
+        meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_instance_material_ids,
         draw_triangle_buffer,
         view,
-        get_cluster_metadata,
         get_meshlet_index,
         unpack_meshlet_vertex,
     },
@@ -40,17 +41,15 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let packed_ids = draw_triangle_buffer[vertex_index / 3u];
     let cluster_id = packed_ids >> 6u;
     let triangle_id = extractBits(packed_ids, 0u, 6u);
-    let metadata = get_cluster_metadata(cluster_id);
-    let instance_id = metadata.instance_id;
-    let meshlet_id = metadata.meshlet_id;
-
-    let meshlet = meshlets[meshlet_id];
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
+    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
+    let meshlet = meshlets[meshlet_id];
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
-
+    let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
+
     let model = affine3_to_square(instance_uniform.model);
     let world_position = mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
     var clip_position = view.view_proj * vec4(world_position.xyz, 1.0);
