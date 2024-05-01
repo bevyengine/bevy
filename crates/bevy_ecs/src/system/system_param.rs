@@ -435,7 +435,7 @@ impl_param_set!();
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Resource: Send + Sync + 'static {}
 
-impl<T: Send + Sync + 'static> Resource for Arc<T> {}
+impl<T: Resource> Resource for Arc<T> {}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
