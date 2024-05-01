@@ -49,11 +49,10 @@ pub use bevy_utils::{
 pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
-use bevy_utils::tracing::Subscriber;
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -74,7 +73,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
-///             update_subscriber: None,
+///             custom_layer: |_| None,
 ///         }))
 ///         .run();
 /// }
@@ -112,23 +111,24 @@ pub struct LogPlugin {
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
 
-    /// Optionally apply extra transformations to the tracing subscriber,
-    /// such as adding [`Layer`](tracing_subscriber::layer::Layer)s.
+    /// Optionally add an extra [`Layer`] to the tracing subscriber
+    ///
+    /// (`Vec<Layer>` is also accepted, as it implements [`Layer`]).
     ///
     /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
     /// and the [`App`].
-    pub update_subscriber: Option<fn(&mut App, BoxedSubscriber) -> BoxedSubscriber>,
+    pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
 }
 
-/// Alias for a boxed [`Subscriber`].
-pub type BoxedSubscriber = Box<dyn Subscriber + Send + Sync + 'static>;
+/// A boxed [`Layer`] that can be used with [`LogPlugin`].
+pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
             filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
-            update_subscriber: None,
+            custom_layer: |_| None,
         }
     }
 }
@@ -146,11 +146,16 @@ impl Plugin for LogPlugin {
         }
 
         let finished_subscriber;
+        let subscriber = Registry::default();
+
+        // add optional layer provided by user
+        let subscriber = subscriber.with((self.custom_layer)(app));
+
         let default_filter = { format!("{},{}", self.level, self.filter) };
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
-        let subscriber = Registry::default().with(filter_layer);
+        let subscriber = subscriber.with(filter_layer);
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -200,12 +205,7 @@ impl Plugin for LogPlugin {
             let subscriber = subscriber.with(chrome_layer);
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
-
-            if let Some(update_subscriber) = self.update_subscriber {
-                finished_subscriber = update_subscriber(app, Box::new(subscriber));
-            } else {
-                finished_subscriber = Box::new(subscriber);
-            }
+            finished_subscriber = subscriber;
         }
 
         #[cfg(target_arch = "wasm32")]
