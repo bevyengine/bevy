@@ -2,63 +2,50 @@ use bevy_ecs::{system::Resource, world::World};
 
 use crate::{
     mesh::MeshVertexBufferLayoutRef,
-    render_graph_v2::{seal, RenderGraph, RenderGraphPersistentResources},
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{
-        CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+        ComputePipeline, ComputePipelineDescriptor, RenderPipeline, RenderPipelineDescriptor,
         SpecializedComputePipeline, SpecializedMeshPipeline, SpecializedRenderPipeline,
     },
-    renderer::RenderDevice,
 };
 
 use super::{
-    CachedRenderStore, IntoRenderResource, RenderResource, RenderResourceInit, RenderStore,
+    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, NewRenderResource, RenderHandle,
+    RenderResource,
 };
 
-impl seal::Super for RenderPipeline {}
-
 impl RenderResource for RenderPipeline {
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
+    }
+
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
+    }
+}
+
+impl DescribedRenderResource for RenderPipeline {
     type Descriptor = RenderPipelineDescriptor;
-    type Data = CachedRenderPipelineId;
-    type Store<'g> = CachedRenderStore<'g, Self>;
 
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.render_pipelines
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.render_pipelines
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.render_pipelines
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.render_pipelines
-    }
-
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        world.resource::<PipelineCache>().get_render_pipeline(*data)
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        world: &World,
-        _render_device: &RenderDevice,
-    ) -> Self::Data {
-        world
-            .resource::<PipelineCache>()
-            .queue_render_pipeline(descriptor.clone())
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
     }
 }
 
@@ -67,59 +54,44 @@ impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
 
     fn into_render_resource(
         self,
-        _world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(self)
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_resource(NewRenderResource::FromDescriptor(self))
     }
 }
 
-impl seal::Super for ComputePipeline {}
-
 impl RenderResource for ComputePipeline {
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
+    }
+
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
+    }
+}
+
+impl DescribedRenderResource for ComputePipeline {
     type Descriptor = ComputePipelineDescriptor;
-    type Data = CachedComputePipelineId;
-    type Store<'g> = CachedRenderStore<'g, Self>;
 
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.compute_pipelines
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.compute_pipelines
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.compute_pipelines
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.compute_pipelines
-    }
-
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        world
-            .resource::<PipelineCache>()
-            .get_compute_pipeline(*data)
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        world: &World,
-        _render_device: &RenderDevice,
-    ) -> Self::Data {
-        world
-            .resource::<PipelineCache>()
-            .queue_compute_pipeline(descriptor.clone())
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
     }
 }
 
@@ -128,10 +100,9 @@ impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
 
     fn into_render_resource(
         self,
-        _world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(self)
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }
 
@@ -144,10 +115,9 @@ impl<'g, P: SpecializedRenderPipeline + Resource> IntoRenderResource<'g>
 
     fn into_render_resource(
         self,
-        world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(world.resource::<P>().specialize(self.0))
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }
 
@@ -160,10 +130,9 @@ impl<'g, P: SpecializedComputePipeline + Resource> IntoRenderResource<'g>
 
     fn into_render_resource(
         self,
-        world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(world.resource::<P>().specialize(self.0))
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }
 
@@ -179,14 +148,8 @@ impl<'g, P: SpecializedMeshPipeline + Resource> IntoRenderResource<'g>
 
     fn into_render_resource(
         self,
-        world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(
-            world
-                .resource::<P>()
-                .specialize(self.1, &self.0)
-                .unwrap_or_else(|err| panic!("{}", err)),
-        )
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }

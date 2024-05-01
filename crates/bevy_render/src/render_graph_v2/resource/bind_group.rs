@@ -1,55 +1,98 @@
-use bevy_ecs::world::World;
-use wgpu::BindGroupLayoutEntry;
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, Label};
 
 use crate::{
-    render_graph_v2::{seal, RenderGraph, RenderGraphPersistentResources},
-    render_resource::BindGroupLayout,
-    renderer::RenderDevice,
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+    render_resource::{AsBindGroup, BindGroup, BindGroupLayout},
 };
 
-use super::{CachedRenderStore, RenderResource, RenderStore};
-
-impl seal::Super for BindGroupLayout {}
+use super::{
+    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderHandle, RenderResource,
+};
 
 impl RenderResource for BindGroupLayout {
-    type Descriptor = (&'static str, &'static [BindGroupLayoutEntry]);
-    type Data = BindGroupLayout;
-    type Store<'g> = CachedRenderStore<'g, Self>;
-
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.bind_group_layouts
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.bind_group_layouts
+    fn get_from_store<'a>(
+        context: &'a NodeContext<'a>,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        context.get_bind_group_layout(resource)
+    }
+}
+
+impl DescribedRenderResource for BindGroupLayout {
+    type Descriptor = Box<[BindGroupLayoutEntry]>;
+
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.bind_group_layouts
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
+    }
+}
+
+impl RenderResource for BindGroup {
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.bind_group_layouts
+    fn get_from_store<'a>(
+        context: &'a NodeContext<'a>,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
     }
+}
 
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        Some(data)
+pub struct RenderGraphBindGroup<'g, F: FnOnce(NodeContext<'g>) -> &'g [BindGroupEntry<'g>] + 'g> {
+    label: Label<'g>,
+    layout: RenderHandle<'g, BindGroupLayout>,
+    bind_group: F,
+}
+
+impl<'g, F: FnOnce(NodeContext<'g>) -> &'g [BindGroupEntry<'g>] + 'g> IntoRenderResource<'g>
+    for RenderGraphBindGroup<'g, F>
+{
+    type Resource = BindGroup;
+
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
+}
 
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        world: &World,
-        render_device: &RenderDevice,
-    ) -> Self::Data {
-        render_device.create_bind_group_layout(descriptor.0, descriptor.1)
+pub struct AsRenderGraphBindGroup<'g, T: AsBindGroup, F: FnOnce(NodeContext<'g>) -> T + 'g> {
+    label: Label<'g>,
+    bind_group: F,
+}
+
+impl<'g, T: AsBindGroup, F: FnOnce(NodeContext<'g>) -> T + 'g> IntoRenderResource<'g>
+    for AsRenderGraphBindGroup<'g, T, F>
+{
+    type Resource = BindGroup;
+
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }

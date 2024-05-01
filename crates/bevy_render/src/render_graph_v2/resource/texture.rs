@@ -1,185 +1,134 @@
-use bevy_ecs::world::World;
 use bevy_math::FloatOrd;
-use std::{borrow::Cow, hash::Hash};
+use std::hash::Hash;
+use wgpu::TextureUsages;
 
 use crate::{
-    render_graph_v2::{seal, RenderGraph, RenderGraphBuilder, RenderGraphPersistentResources},
-    render_resource::{
-        ImageDataLayout, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView,
-        TextureViewDescriptor,
-    },
-    renderer::RenderDevice,
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+    render_resource::{Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView},
 };
 
 use super::{
-    render_deps, CachedRenderStore, IntoRenderResource, RenderHandle, RenderResource,
-    RenderResourceInit, RenderResourceMeta, RenderStore, SimpleRenderStore, WriteRenderResource,
+    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, NewRenderResource, RenderHandle,
+    RenderResource, UsagesRenderResource, WriteRenderResource,
 };
 
-impl seal::Super for Texture {}
-
 impl RenderResource for Texture {
-    type Descriptor = TextureDescriptor<'static>;
-    type Data = Self;
-    type Store<'g> = SimpleRenderStore<'g, Self>;
-
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.textures
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.textures
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.dummy
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.dummy
-    }
-
-    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
-        Some(data)
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        _world: &World,
-        render_device: &RenderDevice,
-    ) -> Self::Data {
-        render_device.create_texture(descriptor)
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
     }
 }
 
 impl WriteRenderResource for Texture {}
+
+impl DescribedRenderResource for Texture {
+    type Descriptor = TextureDescriptor<'static>;
+
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
+    }
+
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
+    }
+}
+
+impl UsagesRenderResource for Texture {
+    type Usages = TextureUsages;
+
+    fn get_descriptor_mut<'a, 'g: 'a>(
+        graph: &'a mut RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a mut Self::Descriptor> {
+        todo!()
+    }
+
+    fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
+        descriptor.usage.contains(*usages)
+    }
+
+    fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
+        descriptor.usage.insert(usages);
+    }
+}
 
 impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
     type Resource = Texture;
 
     fn into_render_resource(
         self,
-        _world: &World,
-        render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        let tex = render_device.create_texture(&self);
-        let meta = RenderResourceMeta {
-            descriptor: Some(self),
-            resource: Cow::Owned(tex),
-        };
-        RenderResourceInit::Resource(meta)
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_resource(NewRenderResource::FromDescriptor(self))
     }
 }
-
-pub fn new_texture_with_data<'g>(
-    graph: &mut RenderGraphBuilder<'g>,
-    descriptor: TextureDescriptor<'static>,
-    data_layout: ImageDataLayout,
-    data: &'static [u8],
-) -> RenderHandle<'g, Texture> {
-    let size = descriptor.size;
-    let mut tex = graph.new_resource(descriptor);
-    graph.add_node(render_deps(&mut tex), move |ctx, _, queue, _| {
-        queue.write_texture(ctx.get(tex).as_image_copy(), data, data_layout, size);
-    });
-    tex
-}
-
-impl seal::Super for TextureView {}
 
 impl RenderResource for TextureView {
-    type Descriptor = TextureViewDescriptor<'static>;
-    type Data = Self;
-    type Store<'g> = SimpleRenderStore<'g, TextureView>;
-
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
         todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        todo!()
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.dummy
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.dummy
-    }
-
-    fn from_data<'a>(data: &'a Self::Data, world: &'a World) -> Option<&'a Self> {
-        todo!()
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        world: &World,
-        render_device: &RenderDevice,
-    ) -> Self::Data {
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
         todo!()
     }
 }
 
-impl seal::Super for Sampler {}
+impl WriteRenderResource for TextureView {}
 
 impl RenderResource for Sampler {
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
+    }
+
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
+    }
+}
+
+impl DescribedRenderResource for Sampler {
     type Descriptor = RenderGraphSamplerDescriptor;
-    type Data = Self;
-    type Store<'g> = CachedRenderStore<'g, Self>;
 
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.samplers
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.samplers
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.samplers
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.samplers
-    }
-    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
-        Some(data)
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        world: &World,
-        render_device: &RenderDevice,
-    ) -> Self::Data {
-        render_device.create_sampler(&descriptor.0)
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
     }
 }
 
@@ -243,10 +192,9 @@ impl<'g> IntoRenderResource<'g> for RenderGraphSamplerDescriptor {
 
     fn into_render_resource(
         self,
-        _world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(self)
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_resource(NewRenderResource::FromDescriptor(self))
     }
 }
 
@@ -255,9 +203,10 @@ impl<'g> IntoRenderResource<'g> for SamplerDescriptor<'static> {
 
     fn into_render_resource(
         self,
-        _world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(RenderGraphSamplerDescriptor(self))
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_resource(NewRenderResource::FromDescriptor(
+            RenderGraphSamplerDescriptor(self),
+        ))
     }
 }

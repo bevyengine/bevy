@@ -1,72 +1,79 @@
 use bevy_ecs::world::World;
-use wgpu::BufferDescriptor;
+use wgpu::{BufferDescriptor, BufferUsages};
 
 use crate::{
-    render_graph_v2::{seal, RenderGraph, RenderGraphPersistentResources},
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::Buffer,
-    renderer::RenderDevice,
 };
 
 use super::{
-    IntoRenderResource, RenderResource, RenderResourceInit, RenderStore, SimpleRenderStore,
-    WriteRenderResource,
+    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderHandle, RenderResource,
+    UsagesRenderResource, WriteRenderResource,
 };
 
-impl seal::Super for Buffer {}
-
 impl RenderResource for Buffer {
-    type Descriptor = BufferDescriptor<'static>;
-    type Data = Buffer;
-    type Store<'g> = SimpleRenderStore<'g, Self>;
-
-    fn get_store<'a, 'g: 'a>(graph: &'a RenderGraph<'g>, _: seal::Token) -> &'a Self::Store<'g> {
-        &graph.buffers
+    fn new_direct<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
     }
 
-    fn get_store_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
-        _: seal::Token,
-    ) -> &'a mut Self::Store<'g> {
-        &mut graph.buffers
-    }
-
-    fn get_persistent_store<'g>(
-        persistent_resources: &RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &<Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &persistent_resources.dummy
-    }
-
-    fn get_persistent_store_mut<'g>(
-        persistent_resources: &mut RenderGraphPersistentResources,
-        _: seal::Token,
-    ) -> &mut <Self::Store<'g> as RenderStore<'g, Self>>::PersistentStore {
-        &mut persistent_resources.dummy
-    }
-
-    fn from_data<'a>(data: &'a Self::Data, _world: &'a World) -> Option<&'a Self> {
-        Some(data)
-    }
-
-    fn from_descriptor(
-        descriptor: &Self::Descriptor,
-        _world: &World,
-        render_device: &RenderDevice,
-    ) -> Self::Data {
-        render_device.create_buffer(descriptor)
+    fn get_from_store<'a>(
+        context: &'a NodeContext,
+        resource: RenderHandle<'a, Self>,
+    ) -> Option<&'a Self> {
+        todo!()
     }
 }
 
 impl WriteRenderResource for Buffer {}
+
+impl DescribedRenderResource for Buffer {
+    type Descriptor = BufferDescriptor<'static>;
+
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Option<Self::Descriptor>,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        todo!()
+    }
+
+    fn get_descriptor<'g>(
+        graph: &RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'g Self::Descriptor> {
+        todo!()
+    }
+}
+
+impl UsagesRenderResource for Buffer {
+    type Usages = BufferUsages;
+
+    fn get_descriptor_mut<'a, 'g: 'a>(
+        graph: &'a mut RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a mut Self::Descriptor> {
+        todo!()
+    }
+
+    fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
+        descriptor.usage.contains(*usages)
+    }
+
+    fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
+        descriptor.usage.insert(usages)
+    }
+}
 
 impl<'g> IntoRenderResource<'g> for BufferDescriptor<'static> {
     type Resource = Buffer;
 
     fn into_render_resource(
         self,
-        _world: &World,
-        _render_device: &RenderDevice,
-    ) -> RenderResourceInit<'g, Self::Resource> {
-        RenderResourceInit::FromDescriptor(self)
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        todo!()
     }
 }

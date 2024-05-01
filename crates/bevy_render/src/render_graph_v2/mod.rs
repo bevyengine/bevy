@@ -1,18 +1,10 @@
-//mod build;
-//mod compute_pass;
 pub mod configurator;
 pub mod resource;
 
-mod seal {
-    pub trait Super: Sized + Send + Sync {}
-    pub struct Token;
-}
-
-use std::borrow::Cow;
-
 use crate::{
     render_resource::{
-        BindGroupLayout, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture, TextureView,
+        BindGroup, BindGroupLayout, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture,
+        TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
 };
@@ -23,14 +15,13 @@ use bevy_ecs::{
     world::{EntityRef, Ref, World},
 };
 
-use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderStore, SimpleRenderStore};
+use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
-use resource::CachedRenderStore;
 use wgpu::CommandEncoder;
 
 use self::resource::{
-    CachedRenderStorePersistentResources, RenderDependencies, RenderResourceGeneration,
-    RenderResourceId, RenderResourceInit, RenderResourceMeta, ResourceTracker,
+    ref_eq::RefEq, CachedResources, DescribedRenderResource, RenderDependencies,
+    RenderResourceGeneration, RenderResourceId, ResourceTracker, UsagesRenderResource,
 };
 
 // Roadmap:
@@ -45,28 +36,30 @@ use self::resource::{
 
 #[derive(Resource, Default)]
 pub struct RenderGraphPersistentResources {
-    dummy: (),
-    bind_group_layouts: CachedRenderStorePersistentResources<BindGroupLayout>,
-    samplers: CachedRenderStorePersistentResources<Sampler>,
-    render_pipelines: CachedRenderStorePersistentResources<RenderPipeline>,
-    compute_pipelines: CachedRenderStorePersistentResources<ComputePipeline>,
+    bind_group_layouts: CachedResources<BindGroupLayout>,
+    samplers: CachedResources<Sampler>,
+    render_pipelines: CachedResources<RenderPipeline>,
+    compute_pipelines: CachedResources<ComputePipeline>,
 }
 
-#[derive(Default)]
 pub struct RenderGraph<'g> {
     resources: ResourceTracker<'g>,
-    bind_group_layouts: CachedRenderStore<'g, BindGroupLayout>,
+    bind_group_layouts: RenderResources<'g, BindGroupLayout>,
     // bind_groups: RenderBindGroups,
-    textures: SimpleRenderStore<'g, Texture>,
-    views: SimpleRenderStore<'g, TextureView>,
-    samplers: CachedRenderStore<'g, Sampler>,
-    buffers: SimpleRenderStore<'g, Buffer>,
-    render_pipelines: CachedRenderStore<'g, RenderPipeline>,
-    compute_pipelines: CachedRenderStore<'g, ComputePipeline>,
+    textures: RenderResources<'g, Texture>,
+    // texture_views: SimpleRenderResourceStore<'g, TextureView>,
+    samplers: RenderResources<'g, Sampler>,
+    buffers: RenderResources<'g, Buffer>,
+    render_pipelines: RenderResources<'g, RenderPipeline>,
+    compute_pipelines: RenderResources<'g, ComputePipeline>,
     //TODO:: store node graph here
 }
 
 impl<'g> RenderGraph<'g> {
+    fn new() -> Self {
+        todo!()
+    }
+
     fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
     }
@@ -90,6 +83,8 @@ impl<'g> RenderGraph<'g> {
     }
 }
 
+impl<'g> RenderGraph<'g> {}
+
 pub struct RenderGraphBuilder<'g> {
     graph: &'g mut RenderGraph<'g>,
     persistent_resources: &'g mut RenderGraphPersistentResources,
@@ -103,58 +98,54 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         resource: R,
     ) -> RenderHandle<'g, R::Resource> {
-        let resource = resource.into_render_resource(self.world, self.render_device);
-        let id = self.graph.new_resource_id(match &resource {
-            RenderResourceInit::DependentResource(deps, _, _) => Some(deps.clone()),
-            _ => None,
-        });
-        let store = <R::Resource as RenderResource>::get_store_mut(self.graph, seal::Token);
-        let persistent_store = <R::Resource as RenderResource>::get_persistent_store_mut(
-            self.persistent_resources,
-            seal::Token,
-        );
-        store.insert(
-            persistent_store,
-            id,
-            resource,
-            self.world,
-            self.render_device,
-        );
-        RenderHandle::new(id)
+        R::into_render_resource(resource, self)
     }
 
-    pub fn import_resource<R: RenderResource>(
-        &mut self,
-        descriptor: Option<R::Descriptor>,
-        resource: &'g R::Data,
-    ) -> RenderHandle<'g, R> {
-        self.new_resource(RenderResourceMeta {
-            descriptor,
-            resource: Cow::Borrowed(resource),
-        })
+    pub fn import_resource<R: RenderResource>(&mut self, resource: &'g R) -> RenderHandle<'g, R> {
+        self.new_resource(RefEq::Borrowed(resource))
     }
 
-    pub fn get_descriptor_of<R: RenderResource>(
+    pub fn get_descriptor_of<R: DescribedRenderResource>(
         &self,
-        resource: RenderHandle<R>,
-    ) -> Option<&R::Descriptor> {
-        R::get_store(self.graph, seal::Token)
-            .get(self.world, resource.id())
-            .and_then(|meta| meta.descriptor.as_ref())
+        resource: RenderHandle<'g, R>,
+    ) -> Option<&'g R::Descriptor> {
+        R::get_descriptor(self.graph, resource)
     }
 
-    pub fn descriptor_of<R: RenderResource>(&self, resource: RenderHandle<R>) -> &R::Descriptor {
+    pub fn descriptor_of<R: DescribedRenderResource>(
+        &self,
+        resource: RenderHandle<'g, R>,
+    ) -> &'g R::Descriptor {
         self.get_descriptor_of(resource)
             .expect("No descriptor found for resource")
+    }
+
+    pub fn add_usages<R: UsagesRenderResource>(
+        &mut self,
+        resource: RenderHandle<'g, R>,
+        usages: R::Usages,
+    ) -> &mut Self {
+        let desc = R::get_descriptor_mut(self.graph, resource);
+        if let Some(desc) = desc {
+            R::add_usages(desc, usages);
+        } else {
+            let has_usages = R::get_descriptor(self.graph, resource)
+                .map(|desc| R::has_usages(desc, &usages))
+                .unwrap_or(true); //if no descriptor available, defer to wgpu to detect incorrect usage
+            if !has_usages {
+                panic!(
+                    "Descriptor for resource {:?} does not contain usages: {:?}",
+                    resource, usages
+                )
+            }
+        }
+        self
     }
 
     pub fn add_node(
         &mut self,
         dependencies: RenderDependencies<'g>,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder)
-            + Send
-            + Sync
-            + 'g,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g,
     ) -> &mut Self {
         self.graph.write_resources(&dependencies);
         todo!();
@@ -167,6 +158,14 @@ impl<'g> RenderGraphBuilder<'g> {
 
     pub fn limits(&self) -> wgpu::Limits {
         self.render_device.limits()
+    }
+
+    fn node_context(&'g self) -> NodeContext<'g> {
+        NodeContext {
+            graph: self.graph,
+            world: self.world,
+            view_entity: self.view_entity,
+        }
     }
 }
 
@@ -204,6 +203,7 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct NodeContext<'g> {
     graph: &'g RenderGraph<'g>,
     world: &'g World,
@@ -211,11 +211,67 @@ pub struct NodeContext<'g> {
 }
 
 impl<'g> NodeContext<'g> {
-    pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &'g R {
-        R::get_store(self.graph, seal::Token)
-            .get(self.world, resource.id())
-            .and_then(|meta| R::from_data(&meta.resource, self.world))
-            .expect("Unable to locate render graph resource")
+    pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
+        R::get_from_store(self, resource).expect("Unable to locate render graph resource")
+    }
+
+    pub fn get_descriptor<R: DescribedRenderResource>(
+        &self,
+        resource: RenderHandle<'g, R>,
+    ) -> Option<&R::Descriptor> {
+        R::get_descriptor(self.graph, resource)
+    }
+
+    pub fn descriptor<R: DescribedRenderResource>(
+        &self,
+        resource: RenderHandle<'g, R>,
+    ) -> &R::Descriptor {
+        self.get_descriptor(resource)
+            .expect("Resource does not have an associated descriptor")
+    }
+
+    fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
+        todo!()
+    }
+
+    fn get_texture_view(
+        &self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> Option<&TextureView> {
+        todo!()
+    }
+
+    fn get_sampler(&self, sampler: RenderHandle<'g, Sampler>) -> Option<&Sampler> {
+        todo!()
+    }
+
+    fn get_buffer(&self, buffer: RenderHandle<'g, Buffer>) -> Option<&Buffer> {
+        todo!()
+    }
+
+    fn get_render_pipeline(
+        &self,
+        render_pipeline: RenderHandle<'g, RenderPipeline>,
+    ) -> Option<&RenderPipeline> {
+        todo!()
+    }
+
+    fn get_compute_pipeline(
+        &self,
+        compute_pipeline: RenderHandle<'g, ComputePipeline>,
+    ) -> Option<&ComputePipeline> {
+        todo!()
+    }
+
+    fn get_bind_group_layout(
+        &self,
+        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
+    ) -> Option<&BindGroupLayout> {
+        todo!()
+    }
+
+    fn get_bind_group(&self, bind_group: RenderHandle<'g, BindGroup>) -> Option<&BindGroup> {
+        todo!()
     }
 }
 
