@@ -41,7 +41,7 @@ pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
-    #[reflect(ignore)]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     _marker: PhantomData<E>,
 }
 
