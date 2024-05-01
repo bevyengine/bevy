@@ -2,7 +2,7 @@ use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
-use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::mesh::Mesh;
 use bevy_render::{
     camera::Camera,
@@ -1052,6 +1052,10 @@ pub fn prepare_lights(
                                 point_light_shadow_map.size as u32,
                                 point_light_shadow_map.size as u32,
                             ),
+                            target_size: UVec2::new(
+                                point_light_shadow_map.size as u32,
+                                point_light_shadow_map.size as u32,
+                            ),
                             transform: view_translation * *view_rotation,
                             view_projection: None,
                             projection: cube_face_projection,
@@ -1110,6 +1114,10 @@ pub fn prepare_lights(
                             0,
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
+                        ),
+                        target_size: UVec2::new(
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
                         ),
                         transform: spot_view_transform,
                         projection: spot_projection,
@@ -1190,6 +1198,10 @@ pub fn prepare_lights(
                                 0,
                                 directional_light_shadow_map.size as u32,
                                 directional_light_shadow_map.size as u32,
+                            ),
+                            target_size: UVec2::new(
+                                point_light_shadow_map.size as u32,
+                                point_light_shadow_map.size as u32,
                             ),
                             transform: GlobalTransform::from(cascade.view_transform),
                             projection: cascade.projection,

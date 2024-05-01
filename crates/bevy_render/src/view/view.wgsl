@@ -19,6 +19,7 @@ struct View {
     exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
+    target_size: vec2u,
     frustum: array<vec4<f32>, 6>,
     color_grading: ColorGrading,
     mip_bias: f32,
