@@ -196,12 +196,12 @@ Active initiatives in Bevy are organized into temporary working groups: choosing
 Working groups are public, open-membership groups that work together to tackle a broad-but-scoped initiative.
 The work that they do is coordinated in a forum-channel on [Discord](https://discord.gg/bevy), although they also create issues and may use project boards for tangible work that needs to be done.
 
-There's no special requirements to be a member, and no formal membership list.
+There are no special requirements to be a member, and no formal membership list.
 Working groups are *spaces*, not clubs.
 
 ### Start a working group
 
-When tackling a complex initiative, it can make things go much more smoothly to make friends and allies to help.
+When tackling a complex initiative, friends and allies can make things go much more smoothly.
 
 To start a working group:
 
@@ -216,7 +216,7 @@ Once that's ready, get a sign-off on the broad vision and goals from the appropr
 This is the critical review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
 
 With a sign-off in hand, post the design doc to [Github Discussions](https://github.com/bevyengine/bevy/discussions) for archival purposes and begin work on implementation.
-Post PRs that you need review on in the forum channel, ask for advice and share the load.
+Post PRs that you need review on in the forum channel, ask for advice, and share the load.
 Controversial PRs are still `S-Controversial`, but with a sign-off-in-priniciple, things should go more smoothly.
 
 If work peters out and the initiative dies, maintainers can wind down working groups (in consultation with SMEs and the working group itself).
