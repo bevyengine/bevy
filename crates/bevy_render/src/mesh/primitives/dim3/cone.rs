@@ -1,4 +1,4 @@
-use bevy_math::primitives::Cone;
+use bevy_math::{primitives::Cone, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -67,17 +67,13 @@ impl ConeMeshBuilder {
         uvs.push([0.5, 0.5]);
 
         // Base circle vertices
-        for i in 0..resolution {
+        for i in 1..=resolution {
             let theta = i as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
 
             positions.push([self.cone.radius * cos, -half_height, self.cone.radius * sin]);
             normals.push([0.0, -1.0, 0.0]);
             uvs.push([0.5 * (cos + 1.0), 0.5 * (sin + 1.0)]);
-        }
-
-        // Indices for the base using fan triangulation
-        for i in 1..=resolution {
             indices.extend_from_slice(&[0, i, i % resolution + 1]);
         }
 
@@ -85,11 +81,13 @@ impl ConeMeshBuilder {
 
         // Tip of the cone
         positions.push([0.0, half_height, 0.0]);
-        normals.push([0.0, 1.0, 0.0]);
+        // The normal is zero, instead of 0.0, 1.0, 0.0 which causes bad lighting
+        normals.push([0.0, 0.0, 0.0]);
         uvs.push([0.5, 0.5]);
 
         // Cone vertices
-        for i in 0..resolution {
+        for i in 1..=resolution {
+            // vertex
             let theta = i as f32 * step_theta;
             let (sin, cos) = theta.sin_cos();
 
