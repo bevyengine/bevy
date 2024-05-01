@@ -2,8 +2,7 @@ name: Deploy Docs
 
 on:
   push:
-    branches:
-      - 'main'
+    branches: [main]
   # Allows running the action manually.
   workflow_dispatch:
 
@@ -13,15 +12,17 @@ env:
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
-# Sets the permissions to allow deploying to Github pages.
 permissions:
+  # Required to checkout repository.
   contents: read
+  # Required to deploy to Github Pages.
   pages: write
+  # Required to verify deployment originates from an appropriate source.
   id-token: write
 
-# Only allow one deployment to run at a time, however it will not cancel in-progress runs.
+# Only allow one deployment to run at a time, however it will not cancel any in-progress jobs.
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -34,8 +35,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@master
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          # We use unstable features when generating documentation.
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
       - name: Install Linux dependencies
@@ -44,10 +47,10 @@ jobs:
           wayland: true
           xkb: true
 
-      #  This does the following:
-      #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
-      #   - Adds a meta tag that forces Google not to index any page on the site.
-      - name: Pre-docs-build
+      # This does the following:
+      #  - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io.
+      #  - Adds a meta tag to header.html that forces Google not to index any page on the site.
+      - name: Prepare docs
         run: |
           sed -i.bak "s/icon.png/icon-docs-dev.png/" src/lib.rs
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
@@ -55,14 +58,15 @@ jobs:
       - name: Build docs
         env:
           # needs to be in sync with [package.metadata.docs.rs]
-          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs
         run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
 
-      #  This adds the following:
-      #   - A top level redirect to the bevy crate documentation
-      #   - A CNAME file for redirecting the docs domain to the API reference
-      #   - A robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
-      - name: Finalize documentation
+      # This adds the following:
+      #  - A top level redirect to the bevy crate documentation.
+      #  - A CNAME file for redirecting the dev-docs domain to the API reference.
+      #  - A robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
+      #  - It also removes a .lock file with invalid permissions.
+      - name: Finalize docs
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
