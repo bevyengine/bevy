@@ -292,6 +292,10 @@ It's okay to leave an approval even if you aren't 100% confident on all areas of
 When maintainers are evaluating the PR to be merged, they'll make sure that there's good coverage on all of the critical areas.
 If you can only check that the math is correct, and another reviewer can check everything *but* the math, we're in good shape!
 
+Similarly, if there are areas that would be *good* to fix but aren't severe, please consider leaving an approval.
+The author can address them immediately, or spin it out into follow-up issues or PRs.
+Large PRs are much more draining for both reviewers and authors, so try to push for a smaller scope with clearly tracked follow-ups.
+
 There are three main places you can check for things to review:
 
 1. Pull requests which are ready and in need of more reviews on [bevy](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+-label%3AS-Ready-For-Final-Review+-draft%3A%3Atrue+-label%3AS-Needs-RFC+-reviewed-by%3A%40me+-author%3A%40me).
