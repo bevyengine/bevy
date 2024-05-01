@@ -278,6 +278,7 @@ You don't need to be an Elder Rustacean to be useful here: anyone can catch miss
 If you have specific skills (e.g. advanced familiarity with `unsafe` code, rendering knowledge or web development experience) or personal experience with a problem, try to prioritize those areas to ensure we can get appropriate expertise where we need it.
 
 When you find (or make) a PR that you don't feel comfortable reviewing, but you *can* think of someone who does, consider using Github's "Request review" functionality (in the top-right of the PR screen) to bring the work to their attention.
+If they're not a Bevy Org member, you'll need to ping them in the thread directly: that's fine too!
 Almost everyone working on Bevy is a volunteer: this should be treated as a gentle nudge, rather than an assignment of work.
 Consider checking the Git history for appropriate reviewers, or ask on Discord for suggestions.
 
