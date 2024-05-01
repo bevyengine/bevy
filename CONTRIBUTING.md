@@ -285,7 +285,16 @@ Larger changes deserve a comment in the main thread, or a pull request to the or
 When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](#what-were-trying-to-build) for guidance.
 
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR.
-If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews). Anyone can leave reviews ... no special permissions are required!
+If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews).
+**Anyone** can and should leave reviews ... no special permissions are required!
+
+It's okay to leave an approval even if you aren't 100% confident on all areas of the PR: just be sure to note your limitations.
+When maintainers are evaluating the PR to be merged, they'll make sure that there's good coverage on all of the critical areas.
+If you can only check that the math is correct, and another reviewer can check everything *but* the math, we're in good shape!
+
+Similarly, if there are areas that would be *good* to fix but aren't severe, please consider leaving an approval.
+The author can address them immediately, or spin it out into follow-up issues or PRs.
+Large PRs are much more draining for both reviewers and authors, so try to push for a smaller scope with clearly tracked follow-ups.
 
 There are three main places you can check for things to review:
 
