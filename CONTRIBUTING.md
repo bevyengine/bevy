@@ -100,7 +100,7 @@ Each label has a prefix denoting its category:
 
 The rules for how PRs get merged depends on their classification by controversy and difficulty.
 More difficult PRs will require more careful review from experts,
-while more controversial PRS will require rewrites to reduce the costs involved and/or sign-off from Subject Matter Experts and Maintainers.
+while more controversial PRs will require rewrites to reduce the costs involved and/or sign-off from Subject Matter Experts and Maintainers.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
 It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for them to be reviewed together.
