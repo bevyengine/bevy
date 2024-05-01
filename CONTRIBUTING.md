@@ -166,6 +166,7 @@ This might happen if:
 2. The work is particularly low quality, and the author is resistant to coaching.
 3. The work adds features or abstraction of limited value, especially in a way that could easily be recreated outside of the engine.
 4. The work has been sitting in review for so long and accumulated so many conflicts that it would be simpler to redo it from scratch.
+5. The PR is pointlessly large, and should be broken into multiple smaller PRs for easier review.
 
 There are four paths for PRs to be closed:
 
