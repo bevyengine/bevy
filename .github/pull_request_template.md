@@ -9,8 +9,9 @@
 
 ## Testing
 
-- Did you test these changes? If so, how have you tested them? Are there any parts that need more testing?
-- Is there anything people need to know when testing these changes?
+- Did you test these changes? If so, how?
+- Are there any parts that need more testing?
+- How can other people (reviewers) test your changes? Is there anything specific they need to know?
 - If relevant, what platforms did you test these changes on, and are there any important ones you can't test?
 
 ---
