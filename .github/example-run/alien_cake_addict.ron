@@ -1,5 +1,5 @@
 (
     events: [
-        (300, "AppExit::Success"),
+        (300, AppExit),
     ]
 )

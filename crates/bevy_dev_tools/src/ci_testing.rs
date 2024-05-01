@@ -1,9 +1,7 @@
 //! Utilities for testing in CI environments.
 
 use bevy_app::{App, AppExit, Update};
-use bevy_ecs::{
-    entity::Entity, event::Event, prelude::Resource, query::With, system::Local, world::World,
-};
+use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::ScreenshotManager;
 use bevy_time::TimeUpdateStrategy;
 use bevy_utils::{
@@ -25,19 +23,32 @@ struct CiTestingConfig {
     setup: CiTestingSetup,
     /// Events to send, with their associated frame.
     #[serde(default)]
-    events: Vec<CiTestingEvent>,
+    events: Vec<CiTestingEventOnFrame>,
 }
 
 /// Setup for a test.
 #[derive(Deserialize, Default)]
 struct CiTestingSetup {
     /// The time in seconds to update for each frame.
-    pub frame_time: Option<f32>,
+    /// Set with the `TimeUpdateStrategy::ManualDuration(f32)` resource.
+    pub fixed_frame_time: Option<f32>,
 }
 
 /// An event to send at a given frame, used for CI testing.
-#[derive(Deserialize, Event)]
-pub struct CiTestingEvent(u32, String);
+#[derive(Deserialize)]
+pub struct CiTestingEventOnFrame(u32, CiTestingEvent);
+
+/// An event to send, used for CI testing.
+#[derive(Deserialize, Debug)]
+enum CiTestingEvent {
+    Screenshot,
+    AppExit,
+    Custom(String),
+}
+
+/// A custom event that can be configured from a configuration file for CI testing.
+#[derive(Event)]
+pub struct CiTestingCustomEvent(pub String);
 
 pub(crate) fn setup_app(app: &mut App) -> &mut App {
     #[cfg(not(target_arch = "wasm32"))]
@@ -56,14 +67,16 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
         ron::from_str(config).expect("error deserializing CI testing configuration file")
     };
 
-    if let Some(frame_time) = config.setup.frame_time {
+    if let Some(fixed_frame_time) = config.setup.fixed_frame_time {
         app.world_mut()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                frame_time,
+                fixed_frame_time,
             )));
     }
 
-    app.insert_resource(config).add_systems(Update, send_events);
+    app.add_event::<CiTestingCustomEvent>()
+        .insert_resource(config)
+        .add_systems(Update, send_events);
 
     app
 }
@@ -77,14 +90,14 @@ fn send_events(world: &mut World, mut current_frame: Local<u32>) {
         .partition(|event| event.0 == *current_frame);
     config.events = remaining;
 
-    for event in to_run {
-        debug!("Sending event: {}", event.1);
-        match event.1.as_str() {
-            "AppExit::Success" => {
+    for CiTestingEventOnFrame(_, event) in to_run {
+        debug!("Handling event: {:?}", event);
+        match event {
+            CiTestingEvent::AppExit => {
                 world.send_event(AppExit::Success);
-                info!("Exiting after {} frames. Test successful!", event.0);
+                info!("Exiting after {} frames. Test successful!", *current_frame);
             }
-            "Screenshot" => {
+            CiTestingEvent::Screenshot => {
                 let mut primary_window_query =
                     world.query_filtered::<Entity, With<PrimaryWindow>>();
                 let Ok(main_window) = primary_window_query.get_single(world) else {
@@ -96,14 +109,15 @@ fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                     warn!("Requesting screenshot, but ScreenshotManager is not available");
                     continue;
                 };
-                let path = format!("./screenshot-{}.png", event.0);
+                let path = format!("./screenshot-{}.png", *current_frame);
                 screenshot_manager
                     .save_screenshot_to_disk(main_window, path)
                     .unwrap();
-                info!("Took a screenshot at frame {}.", event.0);
+                info!("Took a screenshot at frame {}.", *current_frame);
             }
-            _ => {
-                world.send_event(event);
+            // Custom events are forwarded to the world.
+            CiTestingEvent::Custom(event_string) => {
+                world.send_event(CiTestingCustomEvent(event_string));
             }
         }
     }

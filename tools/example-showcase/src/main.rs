@@ -168,7 +168,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        br#"(setup: (frame_time: Some(0.05)), events: [(100, "Screenshot")])"#,
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -178,7 +178,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        br#"(setup: (frame_time: Some(0.05)), events: [(100, "Screenshot"), (250, "AppExit::Success")])"#,
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -186,8 +186,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(br#"(events: [(250, "AppExit::Success")])"#)
-                        .unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }

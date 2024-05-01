@@ -3,7 +3,7 @@
         frame_time: Some(0.03),
     ),
     events: [
-        (100, "Screenshot"),
-        (300, "AppExit::Success"),
+        (100, Screenshot),
+        (300, AppExit),
     ]
 )
