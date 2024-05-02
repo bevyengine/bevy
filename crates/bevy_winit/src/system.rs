@@ -11,7 +11,6 @@ use bevy_window::{
     RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
 };
 
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
@@ -78,13 +77,8 @@ pub fn create_windows<F: QueryFilter + 'static>(
             window: window.clone(),
         });
 
-        if let (Ok(window_handle), Ok(display_handle)) =
-            (winit_window.window_handle(), winit_window.display_handle())
-        {
-            commands.entity(entity).insert(RawHandleWrapper {
-                window_handle: window_handle.as_raw(),
-                display_handle: display_handle.as_raw(),
-            });
+        if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
+            commands.entity(entity).insert(handle_wrapper);
         }
 
         #[cfg(target_arch = "wasm32")]

@@ -185,7 +185,7 @@ impl AppSendEvent for Vec<WinitEvent> {
 /// [`UpdateMode`].
 struct WinitAppRunnerState {
     /// Current activity state of the app.
-    activity_state: ActivityState,
+    activity_state: UpdateState,
     /// Current update mode of the app.
     update_mode: UpdateMode,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
@@ -210,7 +210,7 @@ impl WinitAppRunnerState {
 impl Default for WinitAppRunnerState {
     fn default() -> Self {
         Self {
-            activity_state: ActivityState::NotYetStarted,
+            activity_state: UpdateState::NotYetStarted,
             update_mode: UpdateMode::Continuous,
             window_event_received: false,
             device_event_received: false,
@@ -223,7 +223,7 @@ impl Default for WinitAppRunnerState {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-enum ActivityState {
+enum UpdateState {
     NotYetStarted,
     Active,
     Suspended,
@@ -231,7 +231,7 @@ enum ActivityState {
     WillResume,
 }
 
-impl ActivityState {
+impl UpdateState {
     #[inline]
     fn is_active(&self) -> bool {
         match self {
@@ -389,8 +389,8 @@ fn handle_winit_event(
                 should_update = true;
             }
 
-            if runner_state.activity_state == ActivityState::WillSuspend {
-                runner_state.activity_state = ActivityState::Suspended;
+            if runner_state.activity_state == UpdateState::WillSuspend {
+                runner_state.activity_state = UpdateState::Suspended;
                 // Trigger one last update to enter the suspended state
                 should_update = true;
 
@@ -408,8 +408,8 @@ fn handle_winit_event(
                 }
             }
 
-            if runner_state.activity_state == ActivityState::WillResume {
-                runner_state.activity_state = ActivityState::Active;
+            if runner_state.activity_state == UpdateState::WillResume {
+                runner_state.activity_state = UpdateState::Active;
                 // Trigger the update to enter the active state
                 should_update = true;
                 // Trigger the next redraw ro refresh the screen immediately
@@ -423,7 +423,6 @@ fn handle_winit_event(
                         .world_mut()
                         .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                     if let Ok((entity, window)) = query.get_single(&app.world()) {
-                        use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
                         let window = window.clone();
 
                         let (
@@ -443,10 +442,7 @@ fn handle_winit_event(
                             &accessibility_requested,
                         );
 
-                        let wrapper = RawHandleWrapper {
-                            window_handle: winit_window.window_handle().unwrap().as_raw(),
-                            display_handle: winit_window.display_handle().unwrap().as_raw(),
-                        };
+                        let wrapper = RawHandleWrapper::new(winit_window);
 
                         app.world_mut().entity_mut(entity).insert(wrapper);
                     }
@@ -519,7 +515,7 @@ fn handle_winit_event(
             }
 
             if runner_state.redraw_requested
-                && runner_state.activity_state != ActivityState::Suspended
+                && runner_state.activity_state != UpdateState::Suspended
             {
                 let winit_windows = app.world().non_send_resource::<WinitWindows>();
                 for window in winit_windows.windows.values() {
@@ -767,14 +763,14 @@ fn handle_winit_event(
             winit_events.send(ApplicationLifetime::Suspended);
             // Mark the state as `WillSuspend`. This will let the schedule run one last time
             // before actually suspending to let the application react
-            runner_state.activity_state = ActivityState::WillSuspend;
+            runner_state.activity_state = UpdateState::WillSuspend;
         }
         Event::Resumed => {
             match runner_state.activity_state {
-                ActivityState::NotYetStarted => winit_events.send(ApplicationLifetime::Started),
+                UpdateState::NotYetStarted => winit_events.send(ApplicationLifetime::Started),
                 _ => winit_events.send(ApplicationLifetime::Resumed),
             }
-            runner_state.activity_state = ActivityState::WillResume;
+            runner_state.activity_state = UpdateState::WillResume;
         }
         Event::UserEvent(RequestRedraw) => {
             runner_state.redraw_requested = true;
