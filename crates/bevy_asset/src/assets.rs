@@ -557,6 +557,7 @@ impl<A: Asset> Assets<A> {
                     // an untracked load is in progress, refire the event for next frame
                     HandleDropResult::CantDropYet => {
                         assets.handle_provider.drop_sender.send(drop_event).unwrap();
+                        continue;
                     }
                     HandleDropResult::Dropped => (),
                 }
