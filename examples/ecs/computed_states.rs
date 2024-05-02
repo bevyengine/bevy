@@ -196,7 +196,7 @@ fn main() {
             Update,
             (toggle_turbo, movement).run_if(in_state(IsPaused::NotPaused)),
         )
-        // We can coninute setting things up, following all the same patterns used above and in the `states` example.
+        // We can continue setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
         .add_systems(
             OnExit(IsPaused::Paused),

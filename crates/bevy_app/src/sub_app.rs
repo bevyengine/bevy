@@ -326,7 +326,7 @@ impl SubApp {
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
         }
-        
+
         self
     }
 

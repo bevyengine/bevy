@@ -283,7 +283,7 @@ impl App {
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
-    /// 
+    ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
     /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
