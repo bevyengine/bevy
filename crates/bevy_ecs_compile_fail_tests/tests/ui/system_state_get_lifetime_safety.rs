@@ -18,11 +18,9 @@ impl State {
         let a1 = q1.get(entity).unwrap();
 
         let mut q2 = self.state_w.get_mut(world);
+        //~^ E0502
         let _ = q2.get_mut(entity).unwrap();
 
-        // this should fail to compile
         println!("{}", a1.0);
     }
 }
-
-fn main() {}

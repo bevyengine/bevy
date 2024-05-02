@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Checks that the project compiles using the nightly compiler with cfg checks enabled.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "cfg-check")]
-pub(crate) struct CfgCheckCommand {}
+pub struct CfgCheckCommand {}
 
 impl Prepare for CfgCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
