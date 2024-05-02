@@ -246,6 +246,7 @@ Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
+[Computed States](../examples/ecs/computed_states.rs) | Advanced state patterns using Computed States
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -263,6 +264,7 @@ Example | Description
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[Sub States](../examples/ecs/sub_states.rs) | Using Sub States for hierarchical state handling.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully

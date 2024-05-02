@@ -1693,6 +1693,28 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "sub_states"
+path = "examples/ecs/sub_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
