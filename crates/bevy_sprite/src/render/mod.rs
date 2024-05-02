@@ -19,8 +19,8 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
-        SortedRenderPhase, TrackedRenderPass,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -516,7 +516,7 @@ pub fn queue_sprites(
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }

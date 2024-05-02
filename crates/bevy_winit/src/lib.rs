@@ -43,6 +43,7 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::tracing::{error, trace, warn};
+#[allow(deprecated)]
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
@@ -474,6 +475,7 @@ fn handle_winit_event(
                     if event.state.is_pressed() {
                         if let Some(char) = &event.text {
                             let char = char.clone();
+                            #[allow(deprecated)]
                             winit_events.send(ReceivedCharacter { window, char });
                         }
                     }
@@ -698,7 +700,6 @@ fn handle_winit_event(
                         .world_mut()
                         .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(app.world()) {
-                    use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
                     let window = window.clone();
 
                     let (
@@ -718,10 +719,7 @@ fn handle_winit_event(
                         &accessibility_requested,
                     );
 
-                    let wrapper = RawHandleWrapper {
-                        window_handle: winit_window.window_handle().unwrap().as_raw(),
-                        display_handle: winit_window.display_handle().unwrap().as_raw(),
-                    };
+                    let wrapper = RawHandleWrapper::new(winit_window).unwrap();
 
                     app.world_mut().entity_mut(entity).insert(wrapper);
                 }
