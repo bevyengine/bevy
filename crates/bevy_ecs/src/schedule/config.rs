@@ -53,7 +53,7 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
 /// The configuration includes the node itself, scheduling metadata
 /// (hierarchy: in which sets is the node contained,
 /// dependencies: before/after which other nodes should this node run)
-/// and the run condition associated with this node.
+/// and the run conditions associated with this node.
 pub struct NodeConfig<T> {
     pub(crate) node: T,
     /// Hierarchy and dependency metadata for this node

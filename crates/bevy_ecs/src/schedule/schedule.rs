@@ -1418,6 +1418,7 @@ impl ScheduleGraph {
         }
     }
 
+    /// Updates the `SystemSchedule` from the `ScheduleGraph`.
     fn update_schedule(
         &mut self,
         schedule: &mut SystemSchedule,
