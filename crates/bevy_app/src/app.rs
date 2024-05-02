@@ -268,12 +268,8 @@ impl App {
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`]  so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_preludeschedule::<S>`][`bevy_ecs::schedule::run_enter_schedule::<S>`] in [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] with a
-    /// [`run_once`][`bevy_ecs::schedule::common_conditions::run_once`] condition to run the on enter schedule of the
-    /// initial state.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
@@ -287,14 +283,9 @@ impl App {
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] so that transitions happen before [`Update`](crate::Update) and
-    /// a instance of [`run_enter_schedule::<S>`][`bevy_ecs::schedule::run_enter_schedule::<S>`] in
-    /// [`ManualStateTransitions`][`bevy_ecs::schedule::ManualStateTransitions`] with a
-    /// [`run_once`][`bevy_ecs::prelude::run_once`] condition to run the on enter schedule of the
-    /// initial state.
+    /// 
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
