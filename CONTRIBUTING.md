@@ -86,17 +86,17 @@ Each label has a prefix denoting its category:
   * `D-Complex`: rewrites and unusually complex features
   * When applied to an issue, these labels reflect the estimated level of expertise (not time) required to fix the issue.
   * When applied to a PR, these labels reflect the estimated level of expertise required to *review* the PR.
-  * The `D-Domain-Expert` and `D-Domain-Agnostic` labels are modifiers, which describe if unusually high or low degrees of non-Rust knowledge are required.
+  * The `D-Domain-Expert` and `D-Domain-Agnostic` labels are modifiers, which describe if unusually high or low degrees of domain-specific knowledge are required.
 * **X:** Controversiality. In order, these are:
   * `X-Uncontroversial`: everyone should agree that this is a good idea
   * `X-Contentious`: there's real design thought needed to ensure that this is the right path forward
   * `X-Controversial`: there's active disagreement and/or large-scale architectural implications involved
-* **A:** Area (e.g. A-Animation, A-ECS, A-Rendering).
-* **C:** Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs).
-* **O:** Operating System (e.g. O-Linux, O-Web, O-Windows).
-* **P:** Priority (e.g. P-Critical, P-High)
+* **A:** Area (e.g. A-Animation, A-ECS, A-Rendering, ...).
+* **C:** Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs, ...).
+* **O:** Operating System (e.g. O-Linux, O-Web, O-Windows, ...).
+* **P:** Priority (e.g. P-Critical, P-High, ...)
   * Most work is not explicitly categorized by priority: volunteer work mostly occurs on an ad hoc basis depending on contributor interests
-* **S:** Status (e.g. S-Blocked, S-Needs-Review, S-Needs-Design).
+* **S:** Status (e.g. S-Blocked, S-Needs-Review, S-Needs-Design, ...).
 
 The rules for how PRs get merged depend on their classification by controversy and difficulty.
 More difficult PRs will require more careful review from experts,
