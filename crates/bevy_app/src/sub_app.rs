@@ -326,11 +326,7 @@ impl SubApp {
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
         }
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
-        // gracefully if they aren't present.
-
+        
         self
     }
 
@@ -345,10 +341,6 @@ impl SubApp {
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
         }
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
-        // gracefully if they aren't present.
 
         self
     }
