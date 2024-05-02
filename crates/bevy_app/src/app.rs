@@ -328,7 +328,7 @@ impl App {
         self
     }
 
-    /// Adds a system to the given schedule in this app's [`Schedules`].
+    /// Adds one or more systems to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///
