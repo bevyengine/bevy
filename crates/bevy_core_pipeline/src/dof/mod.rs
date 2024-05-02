@@ -29,10 +29,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
-    extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
-    },
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
