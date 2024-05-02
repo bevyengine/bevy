@@ -422,7 +422,9 @@ pub fn check_visibility<QF>(
 {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in &mut view_query {
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+        &mut view_query
+    {
         if !camera.is_active {
             continue;
         }
