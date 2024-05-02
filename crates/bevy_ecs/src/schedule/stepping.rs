@@ -16,6 +16,7 @@ use thiserror::Error;
 use bevy_utils::tracing::debug;
 
 use crate as bevy_ecs;
+use crate::schedule::{IntoSystemSet, SystemSet};
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -46,7 +47,7 @@ enum SystemBehavior {
     /// When [`Action::Waiting`] this system will not be run
     /// When [`Action::Step`] this system will be stepped
     /// When [`Action::Continue`] system execution will stop before executing
-    /// this system unless its the first system run when continuing
+    /// this system unless it's the first system run when continuing
     Break,
 
     /// When [`Action::Waiting`] this system will not be run
@@ -253,6 +254,25 @@ impl Stepping {
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         let type_id = system.system_type_id();
+        self.updates.push(Update::SetBehavior(
+            schedule.intern(),
+            SystemIdentifier::Type(type_id),
+            SystemBehavior::AlwaysRun,
+        ));
+
+        self
+    }
+
+    /// Ensure this system always runs when stepping is enabled
+    ///
+    /// Note: if the system is run multiple times in the [`Schedule`], this
+    /// will apply for all instances of the system.
+    pub fn always_run_set<Marker>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        system_set: impl IntoSystemSet<Marker>,
+    ) -> &mut Self {
+        let type_id = system_set.into_system_set().system_type().expect("the provided system set must be typed");
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),

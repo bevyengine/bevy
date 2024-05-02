@@ -345,6 +345,68 @@ impl Schedule {
         }
     }
 
+    /// Runs systems in this schedule on the `world`, using its current execution strategy.
+    /// Only include systems that are in the provided `system_set`.
+    pub(crate) fn run_system_set(&mut self, world: &mut World, system_set: impl SystemSet) {
+        #[cfg(feature = "trace")]
+            let _span = info_span!("schedule", name = ?self.label).entered();
+
+        world.check_change_ticks();
+
+        let system_set_id = self.graph.system_set_conditions
+
+        self.initialize(world)
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
+
+        let skipped = self
+            .graph
+            .system_set_ids
+            .get(&system_set.intern())
+            .copied()
+            .map(|system_set_node_id| {
+                // traverse the hierarchy graph to find all the systems that are included in the system set
+                let mut included_system_ids = FixedBitSet::with_capacity(self.systems_len());
+                let mut bfs = Bfs::new(self.graph().hierarchy.graph(), system_set_node_id);
+                while let Some(system_node_id) = bfs.next(self.graph().hierarchy.graph()) {
+                    if system_node_id.is_system() {
+                        included_system_ids.insert(system_node_id.index());
+                    }
+                }
+                // convert from system ids to system indices
+                let mut skipped_system_indices = FixedBitSet::with_capacity(self.systems_len());
+                self.executable
+                    .system_ids
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, system_id)| {
+                        if !included_system_ids.contains(system_id.index()) {
+                            skipped_system_indices.insert(index);
+                        }
+                    });
+                skipped_system_indices
+            });
+
+        #[cfg(not(feature = "bevy_debug_stepping"))]
+        self.executor
+            .run_with_skip(&mut self.executable, world, skipped.as_ref());
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            let skip_systems = match world.get_resource_mut::<Stepping>() {
+                None => None,
+                Some(mut stepping) => stepping.skipped_systems(self),
+            };
+            let to_skip = match (skip_systems, skipped) {
+                (Some(skip_systems), Some(skipped)) => Some(&skip_systems | &skipped),
+                (Some(skip_systems), None) => Some(skip_systems),
+                (None, Some(skipped)) => Some(skipped),
+                (None, None) => None,
+            };
+            self.executor
+                .run_with_skip(&mut self.executable, world, to_skip.as_ref());
+        }
+    }
+
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
     ///
