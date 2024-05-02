@@ -46,7 +46,7 @@ pub mod prelude {
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{Image, ImagePlugin, ViewTargetFormat},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
@@ -63,6 +63,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
+use texture::ViewTargetFormat;
 
 use crate::mesh::GpuMesh;
 use crate::renderer::WgpuWrapper;
@@ -224,6 +225,7 @@ struct FutureRendererResources(
                 RenderAdapterInfo,
                 RenderAdapter,
                 RenderInstance,
+                SupportedViewTargetFormats,
             )>,
         >,
     >,
@@ -245,13 +247,22 @@ impl Plugin for RenderPlugin {
 
         match &self.render_creation {
             RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
+                let device_features = device.features();
+
+                let view_formats = SupportedViewTargetFormats {
+                    is_rg11b10_renderable: device_features
+                        .contains(ViewTargetFormat::Rb11b10Float.required_features()),
+                };
+
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
                     device.clone(),
                     queue.clone(),
                     adapter_info.clone(),
                     adapter.clone(),
                     instance.clone(),
+                    view_formats,
                 ))));
+
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
@@ -293,7 +304,7 @@ impl Plugin for RenderPlugin {
                             ..Default::default()
                         };
 
-                        let (device, queue, adapter_info, render_adapter) =
+                        let (device, queue, adapter_info, render_adapter, view_formats) =
                             renderer::initialize_renderer(
                                 &instance,
                                 &settings,
@@ -310,6 +321,7 @@ impl Plugin for RenderPlugin {
                             adapter_info,
                             render_adapter,
                             RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+                            view_formats,
                         ));
                     };
                     // In wasm, spawn a task and detach it for execution
@@ -362,13 +374,14 @@ impl Plugin for RenderPlugin {
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
-            let (device, queue, adapter_info, render_adapter, instance) =
+            let (device, queue, adapter_info, render_adapter, instance, view_formats) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();
 
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone());
+                .insert_resource(render_adapter.clone())
+                .insert_resource(view_formats.clone());
 
             let render_app = app.sub_app_mut(RenderApp);
 
@@ -382,6 +395,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
+                .insert_resource(view_formats)
                 .insert_resource(adapter_info)
                 .add_systems(
                     Render,
@@ -498,4 +512,28 @@ fn apply_extract_commands(render_world: &mut World) {
             .unwrap()
             .apply_deferred(render_world);
     });
+}
+
+/// All [`ViewTargetFormat`]s supported by the current [`RenderDevice`]
+#[derive(Resource, Clone, Debug)]
+pub struct SupportedViewTargetFormats {
+    is_rg11b10_renderable: bool,
+}
+
+impl SupportedViewTargetFormats {
+    pub fn is_supported(&self, view_target_format: ViewTargetFormat) -> bool {
+        match view_target_format {
+            ViewTargetFormat::Rgba8UnormSrgb
+            | ViewTargetFormat::Rgba8Unorm
+            | ViewTargetFormat::R8Unorm
+            | ViewTargetFormat::Rg8Unorm
+            | ViewTargetFormat::Bgra8Unorm
+            | ViewTargetFormat::Bgra8UnormSrgb
+            | ViewTargetFormat::R16Float
+            | ViewTargetFormat::Rg16Float
+            | ViewTargetFormat::Rgb10a2Unorm
+            | ViewTargetFormat::Rgba16Float => true,
+            ViewTargetFormat::Rb11b10Float => self.is_rg11b10_renderable,
+        }
+    }
 }

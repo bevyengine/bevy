@@ -13,7 +13,9 @@ use crate::{
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
+    texture::ViewTargetFormat,
     view::{ExtractedWindows, ViewTarget},
+    SupportedViewTargetFormats,
 };
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
@@ -178,7 +180,13 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+) -> (
+    RenderDevice,
+    RenderQueue,
+    RenderAdapterInfo,
+    RenderAdapter,
+    SupportedViewTargetFormats,
+) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -200,6 +208,7 @@ pub async fn initialize_renderer(
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
+
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
@@ -347,6 +356,10 @@ pub async fn initialize_renderer(
         RenderQueue(queue),
         RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
         RenderAdapter(adapter),
+        SupportedViewTargetFormats {
+            is_rg11b10_renderable: features
+                .contains(ViewTargetFormat::Rb11b10Float.required_features()),
+        },
     )
 }
 

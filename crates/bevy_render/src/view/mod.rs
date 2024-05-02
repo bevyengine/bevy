@@ -18,7 +18,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage, TextureCache,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, TextureCache, ViewTargetFormat,
     },
     Render, RenderApp, RenderSet,
 };
@@ -116,7 +116,7 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub view_projection: Option<Mat4>,
-    pub hdr: bool,
+    pub target_format: ViewTargetFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -195,7 +195,7 @@ pub struct ViewUniformOffset {
 #[derive(Component)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
-    main_texture_format: TextureFormat,
+    main_texture_format: ViewTargetFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -215,8 +215,6 @@ pub struct GpuCulling;
 pub struct NoCpuCulling;
 
 impl ViewTarget {
-    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
@@ -300,14 +298,14 @@ impl ViewTarget {
     }
 
     #[inline]
-    pub fn main_texture_format(&self) -> TextureFormat {
+    pub fn main_texture_format(&self) -> ViewTargetFormat {
         self.main_texture_format
     }
 
-    /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
+    /// Returns `true` if the main texture is of a unclamped format.
     #[inline]
-    pub fn is_hdr(&self) -> bool {
-        self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
+    pub fn is_unclamped(&self) -> bool {
+        self.main_texture_format.is_unclamped()
     }
 
     /// The final texture this view will render to.
@@ -494,11 +492,7 @@ pub fn prepare_view_targets(
                     depth_or_array_layers: 1,
                 };
 
-                let main_texture_format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
+                let main_texture_format = view.target_format;
 
                 let clear_color = match camera.clear_color {
                     ClearColorConfig::Custom(color) => Some(color),
@@ -507,7 +501,7 @@ pub fn prepare_view_targets(
                 };
 
                 let (a, b, sampled, main_texture) = textures
-                    .entry((camera.target.clone(), view.hdr))
+                    .entry((camera.target.clone(), view.target_format))
                     .or_insert_with(|| {
                         let descriptor = TextureDescriptor {
                             label: None,
@@ -515,13 +509,10 @@ pub fn prepare_view_targets(
                             mip_level_count: 1,
                             sample_count: 1,
                             dimension: TextureDimension::D2,
-                            format: main_texture_format,
+                            format: main_texture_format.into(),
                             usage: texture_usage.0,
-                            view_formats: match main_texture_format {
-                                TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                                TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                                _ => &[],
-                            },
+                            // BEFORE_MERGE: Is this is okay? The previous implementation always returned a &[]
+                            view_formats: &[],
                         };
                         let a = texture_cache.get(
                             &render_device,
@@ -546,7 +537,7 @@ pub fn prepare_view_targets(
                                     mip_level_count: 1,
                                     sample_count: msaa.samples(),
                                     dimension: TextureDimension::D2,
-                                    format: main_texture_format,
+                                    format: main_texture_format.into(),
                                     usage: TextureUsages::RENDER_ATTACHMENT,
                                     view_formats: descriptor.view_formats,
                                 },

@@ -21,10 +21,9 @@ use bevy::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
             RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
-        texture::BevyDefault,
-        view::{ExtractedView, ViewTarget, VisibleEntities},
+        view::{ExtractedView, VisibleEntities},
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
@@ -156,10 +155,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.view_target_format().into();
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -368,7 +364,7 @@ pub fn queue_colored_mesh2d(
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_view_target_format(view.target_format);
 
         // Queue all entities visible to that view
         for visible_entity in visible_entities.iter::<WithMesh2d>() {

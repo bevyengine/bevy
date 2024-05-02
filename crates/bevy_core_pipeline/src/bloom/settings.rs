@@ -2,7 +2,9 @@ use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{AspectRatio, URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::{
+    extract_component::ExtractComponent, prelude::Camera, texture::ViewTargetFormat,
+};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -161,7 +163,7 @@ impl Default for BloomSettings {
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
-#[derive(Default, Clone, Reflect)]
+#[derive(Default, Clone, Copy, Reflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
@@ -183,11 +185,23 @@ pub enum BloomCompositeMode {
     Additive,
 }
 
+/// See [`BloomSettings`].
+#[derive(Component, Clone)]
+pub struct ExtractedBloomSettings {
+    pub intensity: f32,
+    pub low_frequency_boost: f32,
+    pub low_frequency_boost_curvature: f32,
+    pub high_pass_frequency: f32,
+    pub prefilter_settings: BloomPrefilterSettings,
+    pub composite_mode: BloomCompositeMode,
+    pub view_target_format: ViewTargetFormat,
+}
+
 impl ExtractComponent for BloomSettings {
     type QueryData = (&'static Self, &'static Camera);
 
     type QueryFilter = ();
-    type Out = (Self, BloomUniforms);
+    type Out = (ExtractedBloomSettings, BloomUniforms);
 
     fn extract_component((settings, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         match (
@@ -195,7 +209,7 @@ impl ExtractComponent for BloomSettings {
             camera.physical_viewport_size(),
             camera.physical_target_size(),
             camera.is_active,
-            camera.hdr,
+            camera.target_format.is_unclamped(),
         ) {
             (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
                 let threshold = settings.prefilter_settings.threshold;
@@ -215,7 +229,17 @@ impl ExtractComponent for BloomSettings {
                     aspect: AspectRatio::from_pixels(size.x, size.y).into(),
                 };
 
-                Some((settings.clone(), uniform))
+                let extracted_settings = ExtractedBloomSettings {
+                    intensity: settings.intensity,
+                    low_frequency_boost: settings.low_frequency_boost,
+                    low_frequency_boost_curvature: settings.low_frequency_boost_curvature,
+                    high_pass_frequency: settings.high_pass_frequency,
+                    prefilter_settings: settings.prefilter_settings,
+                    composite_mode: settings.composite_mode,
+                    view_target_format: camera.target_format,
+                };
+
+                Some((extracted_settings, uniform))
             }
             _ => None,
         }

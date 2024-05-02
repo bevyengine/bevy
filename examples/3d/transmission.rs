@@ -30,6 +30,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
+        texture::ViewTargetFormat,
         view::ColorGrading,
     },
 };
@@ -340,7 +341,7 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -505,7 +506,11 @@ fn example_control_system(
     ) = camera.single_mut();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if camera.target_format.is_unclamped() {
+            camera.target_format = ViewTargetFormat::DEFAULT;
+        } else {
+            camera.target_format = ViewTargetFormat::UNCLAMPED_DEFAULT;
+        }
     }
 
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -598,7 +603,7 @@ fn example_control_system(
             "         U / I  Reflectance: {:.2}\n",
             "    Arrow Keys  Control Camera\n",
             "             C  Randomize Colors\n",
-            "             H  HDR + Bloom: {}\n",
+            "             H  Bloom: {}\n",
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
@@ -610,7 +615,11 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         state.reflectance,
-        if camera.hdr { "ON " } else { "OFF" },
+        if camera.target_format.is_unclamped() {
+            "ON "
+        } else {
+            "OFF"
+        },
         if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "

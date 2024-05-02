@@ -392,9 +392,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_view_target_format(view.target_format);
 
-        if !view.hdr {
+        // If the target format is clamped the tonemapping pipeline doesn't run and we have to tonemap ourselves
+        if !view.target_format.is_unclamped() {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
                 view_key |= tonemapping_pipeline_key(*tonemapping);

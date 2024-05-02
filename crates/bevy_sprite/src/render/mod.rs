@@ -28,11 +28,12 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        ViewTargetFormat,
     },
     view::{
-        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility, VisibleEntities,
+        ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
+        VisibleEntities,
     },
     Extract,
 };
@@ -122,9 +123,8 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -135,15 +135,32 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
 impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const VIEW_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
     #[inline]
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -158,11 +175,50 @@ impl SpritePipelineKey {
     }
 
     #[inline]
-    pub const fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            SpritePipelineKey::HDR
+    pub fn from_view_target_format(format: ViewTargetFormat) -> Self {
+        match format {
+            ViewTargetFormat::R8Unorm => Self::VIEW_TARGET_FORMAT_R8UNORM,
+            ViewTargetFormat::Rg8Unorm => Self::VIEW_TARGET_FORMAT_RG8UNORM,
+            ViewTargetFormat::Rgba8Unorm => Self::VIEW_TARGET_FORMAT_RGBA8UNORM,
+            ViewTargetFormat::Rgba8UnormSrgb => Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB,
+            ViewTargetFormat::Bgra8Unorm => Self::VIEW_TARGET_FORMAT_BGRA8UNORM,
+            ViewTargetFormat::Bgra8UnormSrgb => Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB,
+            ViewTargetFormat::R16Float => Self::VIEW_TARGET_FORMAT_R16FLOAT,
+            ViewTargetFormat::Rg16Float => Self::VIEW_TARGET_FORMAT_RG16FLOAT,
+            ViewTargetFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
+            ViewTargetFormat::Rb11b10Float => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
+            ViewTargetFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
+        }
+    }
+
+    #[inline]
+    pub fn view_target_format(&self) -> ViewTargetFormat {
+        let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::VIEW_TARGET_FORMAT_R8UNORM {
+            ViewTargetFormat::R8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG8UNORM {
+            ViewTargetFormat::Rg8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORM {
+            ViewTargetFormat::Rgba8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB {
+            ViewTargetFormat::Rgba8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORM {
+            ViewTargetFormat::Bgra8Unorm
+        } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB {
+            ViewTargetFormat::Bgra8UnormSrgb
+        } else if target_format == Self::VIEW_TARGET_FORMAT_R16FLOAT {
+            ViewTargetFormat::R16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RG16FLOAT {
+            ViewTargetFormat::Rg16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA16FLOAT {
+            ViewTargetFormat::Rgba16Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RB11B10FLOAT {
+            ViewTargetFormat::Rb11b10Float
+        } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
+            ViewTargetFormat::Rgb10a2Unorm
         } else {
-            SpritePipelineKey::NONE
+            unreachable!()
         }
     }
 }
@@ -202,10 +258,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.view_target_format().into();
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -460,9 +513,11 @@ pub fn queue_sprites(
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
     for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let mut view_key =
+            SpritePipelineKey::from_view_target_format(view.target_format) | msaa_key;
 
-        if !view.hdr {
+        // If the target format is clamped the tonemapping pipeline doesn't run and we have to tonemap ourselves
+        if !view.target_format.is_unclamped() {
             if let Some(tonemapping) = tonemapping {
                 view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
                 view_key |= match tonemapping {

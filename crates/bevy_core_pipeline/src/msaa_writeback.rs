@@ -136,7 +136,7 @@ fn prepare_msaa_writeback_pipelines(
         if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
         {
             let key = BlitPipelineKey {
-                texture_format: view_target.main_texture_format(),
+                texture_format: view_target.main_texture_format().into(),
                 samples: msaa.samples(),
                 blend_state: None,
             };

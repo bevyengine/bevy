@@ -8,7 +8,7 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
+        texture::{ImageSampler, ImageSamplerDescriptor, ViewTargetFormat},
         view::ColorGrading,
     },
     utils::HashMap,
@@ -59,7 +59,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true,
+                // Tonemapping works best with unclamped formats
+                target_format: ViewTargetFormat::UNCLAMPED_DEFAULT,
                 ..default()
             },
             transform: camera_transform.0,

@@ -697,7 +697,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
                     view_projection: None,
-                    hdr: camera.hdr,
+                    target_format: camera.target_format,
                     viewport: UVec4::new(
                         physical_origin.x,
                         physical_origin.y,
@@ -893,7 +893,9 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
+            UiPipelineKey {
+                target_format: view.target_format,
+            },
         );
         transparent_phase.add(TransparentUi {
             draw_function,
