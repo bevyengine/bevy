@@ -264,7 +264,7 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             gtao_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
+                div_ceil(camera_size.x, 16),
                 div_ceil(camera_size.y, 8),
                 1,
             );

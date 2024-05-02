@@ -87,7 +87,7 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32
 }
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 8, 1)
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let slice_count = f32(#SLICE_COUNT);
     let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
