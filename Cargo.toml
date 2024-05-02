@@ -2919,7 +2919,7 @@ doc-scrape-examples = true
 name = "Depth of field"
 description = "Demonstrates depth of field"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"

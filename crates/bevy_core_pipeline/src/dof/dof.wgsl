@@ -16,6 +16,7 @@
 // [1]: https://colinbarrebrisebois.com/2017/04/18/hexagonal-bokeh-blur-revisited-part-2-improved-2-pass-version/
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::view_transformations::depth_ndc_to_view_z
 #import bevy_render::view::View
 
@@ -70,26 +71,23 @@ struct DualOutput {
     @location(1) output_1: vec4<f32>,
 }
 
-// The view uniforms, containing the camera matrices.
-//
-// These may look unused, but they're actually used by some of the helper
-// functions (e.g. `depth_ndc_to_view_z`).
-@group(0) @binding(0) var<uniform> view: View;
+// @group(0) @binding(0) is `mesh_view_bindings::view`.
 
 // The depth texture for the main view.
 #ifdef MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
-#else
+#else   // MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_2d;
-#endif
+#endif  // MULTISAMPLED
 
+// The main color texture.
 @group(0) @binding(2) var color_texture_a: texture_2d<f32>;
 
 // The auxiliary color texture that were sampling from. This is only used as
 // part of the second bokeh pass.
 #ifdef DUAL_INPUT
 @group(0) @binding(3) var color_texture_b: texture_2d<f32>;
-#endif
+#endif  // DUAL_INPUT
 
 // The global uniforms, representing data backed by buffers shared among all
 // views in the scene.

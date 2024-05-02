@@ -53,9 +53,9 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{prelude::default, warn_once};
+use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
 
 use crate::{
@@ -195,8 +195,7 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(ExtractComponentPlugin::<DepthOfFieldSettings>::default())
-            .add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+        app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -205,6 +204,7 @@ impl Plugin for DepthOfFieldPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
+            .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
                 (
@@ -790,26 +790,30 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
-impl ExtractComponent for DepthOfFieldSettings {
-    type QueryData = (Read<DepthOfFieldSettings>, Read<Projection>);
+/// Extracts all [`DepthOfFieldSettings`] components into the render world.
+fn extract_depth_of_field_settings(
+    mut commands: Commands,
+    msaa: Extract<Res<Msaa>>,
+    mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
+) {
+    if **msaa != Msaa::Off && !depth_textures_are_supported() {
+        info_once!(
+            "Disabling depth of field on this platform because depth textures aren't available"
+        );
+        return;
+    }
 
-    type QueryFilter = ();
-
-    type Out = (DepthOfFieldSettings, DepthOfFieldUniform);
-
-    fn extract_component(
-        (dof_settings, projection): QueryItem<'_, Self::QueryData>,
-    ) -> Option<Self::Out> {
+    for (entity, dof_settings, projection) in query.iter_mut() {
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            return None;
+            continue;
         };
 
         let focal_length =
             calculate_focal_length(dof_settings.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfFieldSettings` to `DepthOfFieldUniform`.
-        Some((
+        commands.get_or_spawn(entity).insert((
             *dof_settings,
             DepthOfFieldUniform {
                 focal_distance: dof_settings.focal_distance,
@@ -822,7 +826,7 @@ impl ExtractComponent for DepthOfFieldSettings {
                 pad_b: 0,
                 pad_c: 0,
             },
-        ))
+        ));
     }
 }
 
@@ -879,4 +883,28 @@ impl DepthOfFieldPipelines {
             ],
         }
     }
+}
+
+/// Returns true if multisampled depth textures are supported on this platform.
+///
+/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
+/// because of a silly bug whereby Naga assumes that all depth textures are
+/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
+/// perform non-percentage-closer-filtering with such a sampler. Therefore we
+/// disable depth of field entirely on WebGL 2.
+#[cfg(target_arch = "wasm32")]
+fn depth_textures_are_supported() -> bool {
+    false
+}
+
+/// Returns true if multisampled depth textures are supported on this platform.
+///
+/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
+/// because of a silly bug whereby Naga assumes that all depth textures are
+/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
+/// perform non-percentage-closer-filtering with such a sampler. Therefore we
+/// disable depth of field entirely on WebGL 2.
+#[cfg(not(target_arch = "wasm32"))]
+fn depth_textures_are_supported() -> bool {
+    true
 }
