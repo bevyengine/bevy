@@ -71,7 +71,11 @@ fn setup(
     });
 
     let plane = meshes.add(Mesh::from(
-        Plane3d { normal: -Dir3::Z }.mesh().size(4.0, 1.0),
+        Plane3d {
+            normal: -Dir3::Z,
+            half_size: Vec2::new(2.0, 0.5),
+        }
+        .mesh(),
     ));
 
     // Build a dimly lit box around the camera, with a slot to see the bright skybox.
