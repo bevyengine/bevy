@@ -789,8 +789,7 @@ impl<S: InnerStateSet> StateSet for S {
             );
     }
 }
-/// Trait defining a state whose value is automatically computed from other [`States`].
-///
+
 /// A sub-state is a state that exists only when the source state meet certain conditions,
 /// but unlike [`ComputedStates`] - while they exist they can be manually modified.
 ///
