@@ -386,6 +386,11 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
         self.buffer_view.write(offset, val);
     }
+
+    #[inline]
+    fn write_slice(&mut self, offset: usize, val: &[u8]) {
+        self.buffer_view.write_slice(offset, val);
+    }
 }
 
 impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicUniformBuffer<T> {
