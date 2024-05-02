@@ -8,23 +8,25 @@ use crate::{
 };
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, NewRenderResource, RenderHandle,
-    RenderResource, UsagesRenderResource, WriteRenderResource,
+    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
+    NewRenderResource, RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
+    #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_texture_direct(None, resource)
     }
 
+    #[inline]
     fn get_from_store<'a>(
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_texture(resource)
     }
 }
 
@@ -33,14 +35,16 @@ impl WriteRenderResource for Texture {}
 impl DescribedRenderResource for Texture {
     type Descriptor = TextureDescriptor<'static>;
 
+    #[inline]
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Option<Self::Descriptor>,
+        descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_texture_direct(Some(descriptor), resource)
     }
 
+    #[inline]
     fn get_descriptor<'g>(
         graph: &RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
@@ -49,9 +53,20 @@ impl DescribedRenderResource for Texture {
     }
 }
 
+impl FromDescriptorRenderResource for Texture {
+    #[inline]
+    fn new_from_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+    ) -> RenderHandle<'g, Self> {
+        graph.new_texture_descriptor(descriptor)
+    }
+}
+
 impl UsagesRenderResource for Texture {
     type Usages = TextureUsages;
 
+    #[inline]
     fn get_descriptor_mut<'a, 'g: 'a>(
         graph: &'a mut RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
@@ -59,10 +74,12 @@ impl UsagesRenderResource for Texture {
         todo!()
     }
 
+    #[inline]
     fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
         descriptor.usage.contains(*usages)
     }
 
+    #[inline]
     fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
         descriptor.usage.insert(usages);
     }
@@ -71,6 +88,7 @@ impl UsagesRenderResource for Texture {
 impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
     type Resource = Texture;
 
+    #[inline]
     fn into_render_resource(
         self,
         graph: &mut RenderGraphBuilder<'g>,
@@ -80,55 +98,71 @@ impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
 }
 
 impl RenderResource for TextureView {
+    #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_texture_view_direct(None, None, resource)
     }
 
+    #[inline]
     fn get_from_store<'a>(
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_texture_view(resource)
     }
 }
 
 impl WriteRenderResource for TextureView {}
 
 impl RenderResource for Sampler {
+    #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_sampler_direct(None, resource)
     }
 
+    #[inline]
     fn get_from_store<'a>(
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_sampler(resource)
     }
 }
 
 impl DescribedRenderResource for Sampler {
     type Descriptor = RenderGraphSamplerDescriptor;
 
+    #[inline]
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Option<Self::Descriptor>,
+        descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_sampler_direct(Some(descriptor), resource)
     }
 
+    #[inline]
     fn get_descriptor<'g>(
         graph: &RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'g Self::Descriptor> {
         todo!()
+    }
+}
+
+impl FromDescriptorRenderResource for Sampler {
+    #[inline]
+    fn new_from_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+    ) -> RenderHandle<'g, Self> {
+        graph.new_sampler_descriptor(descriptor)
     }
 }
 

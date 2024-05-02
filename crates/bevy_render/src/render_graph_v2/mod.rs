@@ -3,8 +3,9 @@ pub mod resource;
 
 use crate::{
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, ComputePipeline, RenderPipeline, Sampler, Texture,
-        TextureView,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer, ComputePipeline,
+        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+        Sampler, Texture, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
 };
@@ -17,11 +18,17 @@ use bevy_ecs::{
 
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
-use wgpu::CommandEncoder;
+use wgpu::{
+    BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferDescriptor,
+    CommandEncoder, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor,
+};
 
 use self::resource::{
-    ref_eq::RefEq, CachedResources, DescribedRenderResource, RenderDependencies,
-    RenderResourceGeneration, RenderResourceId, ResourceTracker, UsagesRenderResource,
+    pipeline::{CachedRenderGraphPipelines, RenderGraphPipelines},
+    ref_eq::RefEq,
+    texture::RenderGraphSamplerDescriptor,
+    CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
+    RenderResourceId, ResourceTracker, UsagesRenderResource,
 };
 
 // Roadmap:
@@ -38,8 +45,7 @@ use self::resource::{
 pub struct RenderGraphPersistentResources {
     bind_group_layouts: CachedResources<BindGroupLayout>,
     samplers: CachedResources<Sampler>,
-    render_pipelines: CachedResources<RenderPipeline>,
-    compute_pipelines: CachedResources<ComputePipeline>,
+    pipelines: CachedRenderGraphPipelines,
 }
 
 pub struct RenderGraph<'g> {
@@ -50,25 +56,30 @@ pub struct RenderGraph<'g> {
     // texture_views: SimpleRenderResourceStore<'g, TextureView>,
     samplers: RenderResources<'g, Sampler>,
     buffers: RenderResources<'g, Buffer>,
-    render_pipelines: RenderResources<'g, RenderPipeline>,
-    compute_pipelines: RenderResources<'g, ComputePipeline>,
+    pipelines: RenderGraphPipelines<'g>,
     //TODO:: store node graph here
 }
 
 impl<'g> RenderGraph<'g> {
     fn new() -> Self {
-        todo!()
+        Self {
+            resources: ResourceTracker::default(),
+            bind_group_layouts: RenderResources::new(
+                |device, desc: &Box<[BindGroupLayoutEntry]>| {
+                    device.create_bind_group_layout(None, &desc)
+                },
+            ),
+            textures: RenderResources::new(RenderDevice::create_texture),
+            samplers: RenderResources::new(|device, RenderGraphSamplerDescriptor(desc)| {
+                device.create_sampler(desc)
+            }),
+            buffers: RenderResources::new(RenderDevice::create_buffer),
+            pipelines: RenderGraphPipelines::new(),
+        }
     }
 
     fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         // TODO
-    }
-
-    fn new_resource_id(
-        &mut self,
-        dependencies: Option<RenderDependencies<'g>>,
-    ) -> RenderResourceId {
-        self.resources.new_resource(dependencies)
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
@@ -81,9 +92,24 @@ impl<'g> RenderGraph<'g> {
             .for_each(|id| self.resources.write(id));
         self
     }
-}
 
-impl<'g> RenderGraph<'g> {}
+    fn create_queued_resources(
+        &mut self,
+        cache: &'g mut RenderGraphPersistentResources,
+        render_device: &RenderDevice,
+        world: &World,
+    ) {
+        self.bind_group_layouts
+            .create_queued_resources_cached(&mut cache.bind_group_layouts, render_device);
+        //pipelines here
+        self.textures.create_queued_resources(render_device);
+        //texture views here
+        self.samplers
+            .create_queued_resources_cached(&mut cache.samplers, render_device);
+        self.buffers.create_queued_resources(render_device);
+        //bind groups here
+    }
+}
 
 pub struct RenderGraphBuilder<'g> {
     graph: &'g mut RenderGraph<'g>,
@@ -134,7 +160,7 @@ impl<'g> RenderGraphBuilder<'g> {
                 .unwrap_or(true); //if no descriptor available, defer to wgpu to detect incorrect usage
             if !has_usages {
                 panic!(
-                    "Descriptor for resource {:?} does not contain usages: {:?}",
+                    "Descriptor for resource {:?} does not contain necessary usages: {:?}",
                     resource, usages
                 )
             }
@@ -200,6 +226,172 @@ impl<'a> RenderGraphBuilder<'a> {
 
     pub fn world(&'a self) -> &'a World {
         self.world
+    }
+}
+
+impl<'g> RenderGraphBuilder<'g> {
+    #[inline]
+    fn new_bind_group_layout_direct(
+        &mut self,
+        descriptor: Option<Box<[BindGroupLayoutEntry]>>,
+        bind_group_layout: RefEq<'g, BindGroupLayout>,
+    ) -> RenderHandle<'g, BindGroupLayout> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_bind_group_layout_descriptor(
+        &mut self,
+        descriptor: Box<[BindGroupLayoutEntry]>,
+    ) -> RenderHandle<'g, BindGroupLayout> {
+        todo!();
+    }
+
+    #[inline]
+    fn new_bind_group_direct(
+        &mut self,
+        dependencies: RenderDependencies<'g>,
+        bind_group: RefEq<'g, BindGroup>,
+    ) -> RenderHandle<'g, BindGroup> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_bind_group_descriptor(
+        &mut self,
+        layout: RenderHandle<'g, BindGroupLayout>,
+        dependencies: RenderDependencies<'g>,
+        bind_group: impl FnOnce(NodeContext<'g>, &RenderDevice) -> Vec<BindGroupEntry<'g>>,
+    ) -> RenderHandle<'g, BindGroup> {
+        todo!();
+    }
+
+    #[inline]
+    fn new_texture_direct(
+        &mut self,
+        descriptor: Option<TextureDescriptor<'static>>,
+        texture: RefEq<'g, Texture>,
+    ) -> RenderHandle<'g, Texture> {
+        let id = self
+            .graph
+            .textures
+            .new_direct(&mut self.graph.resources, descriptor, texture);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_texture_descriptor(
+        &mut self,
+        descriptor: TextureDescriptor<'static>,
+    ) -> RenderHandle<'g, Texture> {
+        let id = self
+            .graph
+            .textures
+            .new_from_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_texture_view_direct(
+        &mut self,
+        source: Option<RenderHandle<'g, Texture>>,
+        descriptor: Option<TextureViewDescriptor<'static>>,
+        texture_view: RefEq<'g, TextureView>,
+    ) -> RenderHandle<'g, TextureView> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_texture_view_descriptor(
+        &mut self,
+        source: RenderHandle<'g, Texture>,
+        descriptor: TextureViewDescriptor<'static>,
+    ) -> RenderHandle<'g, TextureView> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_sampler_direct(
+        &mut self,
+        descriptor: Option<RenderGraphSamplerDescriptor>,
+        sampler: RefEq<'g, Sampler>,
+    ) -> RenderHandle<'g, Sampler> {
+        let id = self
+            .graph
+            .samplers
+            .new_direct(&mut self.graph.resources, descriptor, sampler);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_sampler_descriptor(
+        &mut self,
+        descriptor: RenderGraphSamplerDescriptor,
+    ) -> RenderHandle<'g, Sampler> {
+        let id = self
+            .graph
+            .samplers
+            .new_from_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_buffer_direct(
+        &mut self,
+        descriptor: Option<BufferDescriptor<'static>>,
+        buffer: RefEq<'g, Buffer>,
+    ) -> RenderHandle<'g, Buffer> {
+        let id = self
+            .graph
+            .buffers
+            .new_direct(&mut self.graph.resources, descriptor, buffer);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_buffer_descriptor(
+        &mut self,
+        descriptor: BufferDescriptor<'static>,
+    ) -> RenderHandle<'g, Buffer> {
+        let id = self
+            .graph
+            .buffers
+            .new_from_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn new_render_pipeline_direct(
+        &mut self,
+        descriptor: Option<RenderPipelineDescriptor>,
+        render_pipeline: RefEq<'g, RenderPipeline>,
+    ) -> RenderHandle<'g, RenderPipeline> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_render_pipeline_descriptor(
+        &mut self,
+        descriptor: RenderPipelineDescriptor,
+    ) -> RenderHandle<'g, RenderPipeline> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_compute_pipeline_direct(
+        &mut self,
+        descriptor: Option<ComputePipelineDescriptor>,
+        compute_pipeline: RefEq<'g, ComputePipeline>,
+    ) -> RenderHandle<'g, ComputePipeline> {
+        todo!()
+    }
+
+    #[inline]
+    fn new_compute_pipeline_descriptor(
+        &mut self,
+        descriptor: ComputePipelineDescriptor,
+    ) -> RenderHandle<'g, ComputePipeline> {
+        todo!()
     }
 }
 

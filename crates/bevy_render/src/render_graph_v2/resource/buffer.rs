@@ -7,8 +7,8 @@ use crate::{
 };
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderHandle, RenderResource,
-    UsagesRenderResource, WriteRenderResource,
+    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
+    RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
@@ -34,7 +34,7 @@ impl DescribedRenderResource for Buffer {
 
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Option<Self::Descriptor>,
+        descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         todo!()
@@ -45,6 +45,15 @@ impl DescribedRenderResource for Buffer {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'g Self::Descriptor> {
         todo!()
+    }
+}
+
+impl FromDescriptorRenderResource for Buffer {
+    fn new_from_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+    ) -> RenderHandle<'g, Self> {
+        graph.new_buffer_descriptor(descriptor)
     }
 }
 

@@ -1,6 +1,8 @@
 use std::borrow::Borrow;
 use std::hash::Hash;
 
+//Note: I never ended up using much of the actual functionality of this, aside from it being Cow
+//without requiring Clone.
 pub enum RefEq<'a, T> {
     Borrowed(&'a T),
     Owned(T),

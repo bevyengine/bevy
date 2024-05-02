@@ -107,7 +107,7 @@ pub trait DescribedRenderResource: RenderResource {
 
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Option<Self::Descriptor>,
+        descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
@@ -115,6 +115,13 @@ pub trait DescribedRenderResource: RenderResource {
         graph: &RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'g Self::Descriptor>;
+}
+
+pub trait FromDescriptorRenderResource: DescribedRenderResource {
+    fn new_from_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+    ) -> RenderHandle<'g, Self>;
 }
 
 pub trait UsagesRenderResource: DescribedRenderResource {
@@ -155,16 +162,16 @@ pub struct RenderResources<'g, R: DescribedRenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
     existing_borrows: HashMap<*const R, RenderResourceId>,
     queued_resources: HashMap<RenderResourceId, R::Descriptor>,
-    resource_factory: &'g dyn Fn(&RenderDevice, &R::Descriptor) -> R,
+    resource_factory: Box<dyn Fn(&RenderDevice, &R::Descriptor) -> R>,
 }
 
 impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
-    pub fn new<F: Fn(&RenderDevice, &R::Descriptor) -> R>(factory: &'g F) -> Self {
+    pub fn new(factory: impl Fn(&RenderDevice, &R::Descriptor) -> R + 'static) -> Self {
         Self {
             resources: Default::default(),
             existing_borrows: Default::default(),
             queued_resources: Default::default(),
-            resource_factory: factory,
+            resource_factory: Box::new(factory),
         }
     }
 
@@ -355,13 +362,12 @@ pub type RenderResourceGeneration = u16;
 
 pub struct RenderHandle<'g, R: RenderResource> {
     id: RenderResourceId,
-    // deps: DependencySet,
     data: PhantomData<&'g R>,
 }
 
 impl<'g, R: RenderResource> PartialEq for RenderHandle<'g, R> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id //&& self.deps == other.deps
+        self.id == other.id
     }
 }
 
@@ -400,10 +406,6 @@ impl<'g, R: RenderResource> RenderHandle<'g, R> {
     pub(super) fn id(&self) -> RenderResourceId {
         self.id
     }
-
-    pub(super) fn generation(&self, graph: &RenderGraph) -> RenderResourceGeneration {
-        graph.generation(self.id)
-    }
 }
 
 #[derive(Default, PartialEq, Eq, Clone)]
@@ -414,6 +416,10 @@ pub struct RenderDependencies<'g> {
 }
 
 impl<'g> RenderDependencies<'g> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn add(&mut self, dependency: impl Into<RenderDependency<'g>>) -> &mut Self {
         let dep: RenderDependency = dependency.into();
         match dep.usage {
@@ -450,8 +456,9 @@ pub fn render_deps<'g>(dependencies: impl IntoRenderDependencies<'g>) -> RenderD
     RenderDependencies::of(dependencies)
 }
 
-struct RenderDependency<'g> {
+pub struct RenderDependency<'g> {
     id: RenderResourceId,
+    //TODO:: add generation here. How have I not done this already?
     usage: RenderResourceUsage,
     data: PhantomData<RenderGraph<'g>>,
 }
