@@ -8,7 +8,7 @@
 // out, and scattered in. To determine in-scattering, we sample the shadow map
 // for the light to determine whether the point was in shadow or not.
 //
-// [1]: <https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html>
+// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
 //
 // [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
@@ -116,9 +116,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // infinitely-far directional light combined with an infinite amount of fog
     // would result in complete absorption of the light. So instead we pretend
     // that the directional light is `max_depth` units away and do the
-    // calculation in those terms. This simplification also allows us to avoid
-    // shooting secondary rays toward the directional light, which
-    // asymptotically improves performance.
+    // calculation in those terms. Because the fake distance to the directional
+    // light is a constant, this lets us perform the calculation once up here
+    // instead of marching secondary rays toward the light during the
+    // raymarching step, which improves performance dramatically.
     //
     // [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
     //
