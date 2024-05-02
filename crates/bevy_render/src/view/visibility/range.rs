@@ -329,12 +329,13 @@ impl VisibleEntityRanges {
     /// entity doesn't have that component, this method will return false.
     #[inline]
     pub fn entity_is_in_range_of_view(&self, entity: Entity, view: Entity) -> bool {
-        match (self.entities.get(&entity), self.views.get(&view)) {
-            (Some(visibility_bitmask), Some(view_index)) => {
-                (visibility_bitmask & (1 << view_index)) != 0
-            }
-            _ => false,
-        }
+        let Some(visibility_bitmask) = self.entities.get(&entity) else {
+            return false;
+        };
+        let Some(view_index) = self.views.get(&view) else {
+            return false;
+        };
+        (visibility_bitmask & (1 << view_index)) != 0
     }
 
     /// Returns true if the entity is in range of any view.
