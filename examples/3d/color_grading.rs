@@ -639,7 +639,7 @@ fn update_ui_state(
         {
             if let Some(ref value_label) = value_label {
                 for section in &mut text.sections {
-                    section.value = value_label.clone();
+                    section.value.clone_from(&value_label);
                 }
             }
         }
