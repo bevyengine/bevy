@@ -8,7 +8,7 @@ use argh::FromArgs;
 /// Alias for running the `compile-fail`, `bench-check`, `example-check`, `compile-check`, and `test-check` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "compile")]
-pub(crate) struct CompileCommand {}
+pub struct CompileCommand {}
 
 impl Prepare for CompileCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {

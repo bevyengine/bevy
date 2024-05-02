@@ -17,6 +17,7 @@ fn main() {
     {
         let mut lens_a = query.transmute_lens::<&mut Foo>();
         let mut lens_b = query.transmute_lens::<&mut Foo>();
+        //~^ E0499
 
         let mut query_a = lens_a.query();
         let mut query_b = lens_b.query();
@@ -31,6 +32,7 @@ fn main() {
 
         let mut query_a = lens.query();
         let mut query_b = lens.query();
+        //~^ E0499
 
         let a = query_a.single_mut();
         let b = query_b.single_mut(); // oops 2 mutable references to same Foo

@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Check code formatting.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "format")]
-pub(crate) struct FormatCommand {}
+pub struct FormatCommand {}
 
 impl Prepare for FormatCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {

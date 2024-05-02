@@ -20,7 +20,7 @@ const ASSET_URL: &str = "https://github.com/JMS55/bevy_meshlet_asset/blob/bd8698
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
-        println!("ERROR: Asset at path <bevy>/assets/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
+        eprintln!("ERROR: Asset at path <bevy>/assets/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
         return ExitCode::FAILURE;
     }
 

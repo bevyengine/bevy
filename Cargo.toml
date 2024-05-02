@@ -19,6 +19,7 @@ exclude = [
   "crates/bevy_ecs_compile_fail_tests",
   "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_compile_test_utils",
 ]
 members = [
   "crates/*",
@@ -2907,6 +2908,17 @@ required-features = ["bevy_dev_tools"]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "color_grading"
+path = "examples/3d/color_grading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_grading]
+name = "Color grading"
+description = "Demonstrates color grading"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]
