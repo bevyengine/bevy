@@ -87,6 +87,7 @@ Each label has a prefix denoting its category:
   * When applied to an issue, these labels reflect the estimated level of expertise (not time) required to fix the issue.
   * When applied to a PR, these labels reflect the estimated level of expertise required to *review* the PR.
   * The `D-Domain-Expert` and `D-Domain-Agnostic` labels are modifiers, which describe if unusually high or low degrees of domain-specific knowledge are required.
+  * The `D-Unsafe` label is applied to any code that touches `unsafe` Rust, which requires special skills and scrutiny.
 * **X:** Controversiality. In order, these are:
   * `X-Uncontroversial`: everyone should agree that this is a good idea
   * `X-Contentious`: there's real design thought needed to ensure that this is the right path forward
