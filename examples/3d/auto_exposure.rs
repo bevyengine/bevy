@@ -1,4 +1,5 @@
-//! This example showcases auto exposure
+//! This example showcases auto exposure,
+//! which automatically (but not instantly) adjusts the brightness of the scene in a way that mimics the function of the human eye.
 //! Auto exposure requires compute shader capabilities, so it's not available on WebGL.
 //!
 //! ## Controls

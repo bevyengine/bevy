@@ -1,7 +1,7 @@
 #import bevy_render::view::View
 #import bevy_render::globals::Globals
 
-// Constant to convert RGB to luminance, taken from RTR vol 4 pg. 278
+// Constant to convert RGB to luminance, taken from Real Time Rendering, Vol 4 pg. 278, 4th edition
 const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
 
 struct AutoExposure {
