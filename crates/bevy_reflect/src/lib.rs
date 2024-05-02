@@ -480,6 +480,7 @@ mod list;
 mod map;
 mod path;
 mod reflect;
+mod remote;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -534,6 +535,7 @@ pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use remote::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
@@ -2333,6 +2335,312 @@ bevy_reflect::tests::Test {
         assert_impl_all!(Struct: Reflect);
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
+    }
+
+    #[test]
+    fn should_reflect_remote_type() {
+        mod external_crate {
+            #[derive(Debug, Default)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(MyType::type_info()));
+        patch.insert("value", "Goodbye".to_string());
+
+        let mut data = MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        });
+
+        assert_eq!("Hello", data.0.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.0.value);
+
+        // === Struct Container === //
+        #[derive(Reflect, Debug)]
+        #[reflect(from_reflect = false)]
+        struct ContainerStruct {
+            #[reflect(remote = "MyType")]
+            their_type: external_crate::TheirType,
+        }
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.insert(
+            "their_type",
+            MyType(external_crate::TheirType {
+                value: "Goodbye".to_string(),
+            }),
+        );
+
+        let mut data = ContainerStruct {
+            their_type: external_crate::TheirType {
+                value: "Hello".to_string(),
+            },
+        };
+
+        assert_eq!("Hello", data.their_type.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.their_type.value);
+
+        // === Tuple Struct Container === //
+        #[derive(Reflect, Debug)]
+        struct ContainerTupleStruct(#[reflect(remote = "MyType")] external_crate::TheirType);
+
+        let mut patch = DynamicTupleStruct::default();
+        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.insert(MyType(external_crate::TheirType {
+            value: "Goodbye".to_string(),
+        }));
+
+        let mut data = ContainerTupleStruct(external_crate::TheirType {
+            value: "Hello".to_string(),
+        });
+
+        assert_eq!("Hello", data.0.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.0.value);
+    }
+
+    #[test]
+    fn should_reflect_remote_enum() {
+        mod external_crate {
+            #[derive(Debug, PartialEq, Eq)]
+            pub enum TheirType {
+                Unit,
+                Tuple(usize),
+                Struct { value: String },
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug)]
+        #[reflect(Debug)]
+        enum MyType {
+            Unit,
+            Tuple(usize),
+            Struct { value: String },
+        }
+
+        let mut patch = DynamicEnum::from(MyType(external_crate::TheirType::Tuple(123)));
+
+        let mut data = MyType(external_crate::TheirType::Unit);
+
+        assert_eq!(external_crate::TheirType::Unit, data.0);
+        data.apply(&patch);
+        assert_eq!(external_crate::TheirType::Tuple(123), data.0);
+
+        patch = DynamicEnum::from(MyType(external_crate::TheirType::Struct {
+            value: "Hello world!".to_string(),
+        }));
+
+        data.apply(&patch);
+        assert_eq!(
+            external_crate::TheirType::Struct {
+                value: "Hello world!".to_string()
+            },
+            data.0
+        );
+
+        // === Enum Container === //
+        #[derive(Reflect, Debug, PartialEq)]
+        enum ContainerEnum {
+            Foo,
+            Bar {
+                #[reflect(remote = "MyType")]
+                their_type: external_crate::TheirType,
+            },
+        }
+
+        let patch = DynamicEnum::from(ContainerEnum::Bar {
+            their_type: external_crate::TheirType::Tuple(123),
+        });
+
+        let mut data = ContainerEnum::Foo;
+
+        assert_eq!(ContainerEnum::Foo, data);
+        data.apply(&patch);
+        assert_eq!(
+            ContainerEnum::Bar {
+                their_type: external_crate::TheirType::Tuple(123)
+            },
+            data
+        );
+    }
+
+    #[test]
+    fn should_reflect_nested_remote_type() {
+        mod external_crate {
+            pub struct TheirOuter<T> {
+                pub a: TheirInner<T>,
+                pub b: TheirInner<bool>,
+            }
+
+            pub struct TheirInner<T>(pub T);
+        }
+
+        #[reflect_remote(external_crate::TheirOuter<T>)]
+        struct MyOuter<T: FromReflect + GetTypeRegistration> {
+            #[reflect(remote = "MyInner<T>")]
+            pub a: external_crate::TheirInner<T>,
+            #[reflect(remote = "MyInner<bool>")]
+            pub b: external_crate::TheirInner<bool>,
+        }
+
+        #[reflect_remote(external_crate::TheirInner<T>)]
+        struct MyInner<T: FromReflect>(pub T);
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
+        patch.insert("a", MyInner(external_crate::TheirInner(321_i32)));
+        patch.insert("b", MyInner(external_crate::TheirInner(true)));
+
+        let mut data = MyOuter(external_crate::TheirOuter {
+            a: external_crate::TheirInner(123_i32),
+            b: external_crate::TheirInner(false),
+        });
+
+        assert_eq!(123, data.0.a.0);
+        assert!(!data.0.b.0);
+        data.apply(&patch);
+        assert_eq!(321, data.0.a.0);
+        assert!(data.0.b.0);
+    }
+
+    #[test]
+    fn should_reflect_nested_remote_enum() {
+        mod external_crate {
+            use std::fmt::Debug;
+
+            #[derive(Debug)]
+            pub enum TheirOuter<T: Debug> {
+                Unit,
+                Tuple(TheirInner<T>),
+                Struct { value: TheirInner<T> },
+            }
+            #[derive(Debug)]
+            pub enum TheirInner<T: Debug> {
+                Unit,
+                Tuple(T),
+                Struct { value: T },
+            }
+        }
+
+        #[reflect_remote(external_crate::TheirOuter<T>)]
+        #[derive(Debug)]
+        enum MyOuter<T: FromReflect + Debug + GetTypeRegistration> {
+            Unit,
+            Tuple(#[reflect(remote = "MyInner<T>")] external_crate::TheirInner<T>),
+            Struct {
+                #[reflect(remote = "MyInner<T>")]
+                value: external_crate::TheirInner<T>,
+            },
+        }
+
+        #[reflect_remote(external_crate::TheirInner<T>)]
+        #[derive(Debug)]
+        enum MyInner<T: FromReflect + Debug> {
+            Unit,
+            Tuple(T),
+            Struct { value: T },
+        }
+
+        let mut patch = DynamicEnum::default();
+        let mut value = DynamicStruct::default();
+        value.insert("value", MyInner(external_crate::TheirInner::Tuple(123)));
+        patch.set_variant("Struct", value);
+
+        let mut data = MyOuter(external_crate::TheirOuter::<i32>::Unit);
+
+        assert!(matches!(
+            data,
+            MyOuter(external_crate::TheirOuter::<i32>::Unit)
+        ));
+        data.apply(&patch);
+        assert!(matches!(
+            data,
+            MyOuter(external_crate::TheirOuter::Struct {
+                value: external_crate::TheirInner::Tuple(123)
+            })
+        ));
+    }
+
+    #[test]
+    fn should_take_remote_type() {
+        mod external_crate {
+            #[derive(Debug, Default, PartialEq, Eq)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let input: Box<dyn Reflect> = Box::new(MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        }));
+
+        let output: external_crate::TheirType = input
+            .take()
+            .expect("should downcast to `external_crate::TheirType`");
+        assert_eq!(
+            external_crate::TheirType {
+                value: "Hello".to_string(),
+            },
+            output
+        );
+    }
+
+    #[test]
+    fn should_take_nested_remote_type() {
+        mod external_crate {
+            #[derive(PartialEq, Eq, Debug)]
+            pub struct TheirOuter<T> {
+                pub inner: TheirInner<T>,
+            }
+            #[derive(PartialEq, Eq, Debug)]
+            pub struct TheirInner<T>(pub T);
+        }
+
+        #[reflect_remote(external_crate::TheirOuter<T>)]
+        struct MyOuter<T: FromReflect + GetTypeRegistration> {
+            #[reflect(remote = "MyInner<T>")]
+            pub inner: external_crate::TheirInner<T>,
+        }
+
+        #[reflect_remote(external_crate::TheirInner<T>)]
+        struct MyInner<T: FromReflect>(pub T);
+
+        let input: Box<dyn Reflect> = Box::new(MyOuter(external_crate::TheirOuter {
+            inner: external_crate::TheirInner(123),
+        }));
+
+        let output: external_crate::TheirOuter<i32> = input
+            .take()
+            .expect("should downcast to `external_crate::TheirOuter`");
+        assert_eq!(
+            external_crate::TheirOuter {
+                inner: external_crate::TheirInner(123),
+            },
+            output
+        );
     }
 
     #[cfg(feature = "glam")]

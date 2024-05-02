@@ -1,0 +1,13 @@
+error[E0277]: the trait bound `MyFoo: ReflectRemote` is not satisfied
+  --> tests/reflect_remote/incorrect_wrapper.fail.rs:18:24
+   |
+18 |     #[reflect(remote = "MyFoo")]
+   |                        ^^^^^^^ the trait `ReflectRemote` is not implemented for `MyFoo`
+
+error[E0277]: the trait bound `MyFoo: ReflectRemote` is not satisfied
+  --> tests/reflect_remote/incorrect_wrapper.fail.rs:14:10
+   |
+14 | #[derive(Reflect)]
+   |          ^^^^^^^ the trait `ReflectRemote` is not implemented for `MyFoo`
+   |
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)

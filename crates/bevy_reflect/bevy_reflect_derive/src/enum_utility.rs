@@ -1,7 +1,6 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::DefaultBehavior;
 use crate::{
-    derive_data::{EnumVariantFields, ReflectEnum},
+    derive_data::{EnumVariantFields, ReflectEnum, StructField},
+    field_attributes::DefaultBehavior,
     utility::ident_or_index,
 };
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};
@@ -42,7 +41,7 @@ pub(crate) fn get_variant_constructors(
         let mut reflect_index: usize = 0;
         let constructor_fields = fields.iter().enumerate().map(|(declare_index, field)| {
             let field_ident = ident_or_index(field.data.ident.as_ref(), declare_index);
-            let field_ty = &field.data.ty;
+            let field_ty = field.reflected_type();
 
             let field_value = if field.attrs.ignore.is_ignored() {
                 match &field.attrs.default {
@@ -74,7 +73,7 @@ pub(crate) fn get_variant_constructors(
                 };
                 reflect_index += 1;
 
-                match &field.attrs.default {
+                let resolve_from_reflect = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {
                         if let #FQOption::Some(field) = #field_accessor {
                             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
@@ -95,6 +94,14 @@ pub(crate) fn get_variant_constructors(
                         <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#field_accessor #resolve_missing)
                         #resolve_error
                     },
+                };
+
+                if field.attrs.remote.is_some() {
+                    quote! {
+                        <#field_ty as #bevy_reflect_path::ReflectRemote>::into_remote(#resolve_from_reflect)
+                    }
+                } else {
+                    resolve_from_reflect
                 }
             };
             quote! { #field_ident : #field_value }

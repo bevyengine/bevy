@@ -1,0 +1,23 @@
+error[E0609]: no field `value` on type `&MyType`
+  --> tests/reflect_remote/macro_order.fail.rs:15:9
+   |
+15 |     pub value: String,
+   |         ^^^^^ unknown field
+   |
+help: one of the expressions' fields has a field of the same name
+   |
+15 |     pub 0.value: String,
+   |         ++
+
+error[E0560]: struct `MyType` has no field named `value`
+  --> tests/reflect_remote/macro_order.fail.rs:15:5
+   |
+14 | struct MyType {
+   |        ------ `MyType` defined here
+15 |     pub value: String,
+   |     ^^^^^^^^^^^^^^^^^ field does not exist
+   |
+help: `MyType` is a tuple struct, use the appropriate syntax
+   |
+11 | #[derive(Debug, MyType(/* fields */))]
+   |                 ~~~~~~~~~~~~~~~~~~~~

@@ -154,13 +154,17 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         &self,
         where_clause: Option<&WhereClause>,
     ) -> proc_macro2::TokenStream {
+        // We would normally just use `Self`, but that won't work for generating things like assertion functions
+        let this = self.meta.type_path().true_type();
+
         let required_bounds = self.required_bounds();
+
         // Maintain existing where clause, if any.
         let mut generic_where_clause = if let Some(where_clause) = where_clause {
             let predicates = where_clause.predicates.iter();
-            quote! {where Self: #required_bounds, #(#predicates,)*}
+            quote! {where #this: #required_bounds, #(#predicates,)*}
         } else {
-            quote!(where Self: #required_bounds,)
+            quote!(where #this: #required_bounds,)
         };
 
         // Add additional reflection trait bounds

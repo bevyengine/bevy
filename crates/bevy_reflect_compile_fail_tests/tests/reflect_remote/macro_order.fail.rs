@@ -1,0 +1,18 @@
+use bevy_reflect::{reflect_remote, std_traits::ReflectDefault};
+
+mod external_crate {
+    #[derive(Debug, Default)]
+    pub struct TheirType {
+        pub value: String,
+    }
+}
+
+// Reason: `reflect_remote` macro must come before other macros
+#[derive(Debug, Default)]
+#[reflect_remote(external_crate::TheirType)]
+#[reflect(Debug, Default)]
+struct MyType {
+    pub value: String,
+}
+
+fn main() {}

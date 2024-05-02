@@ -1,0 +1,51 @@
+error: unexpected token
+  --> tests/reflect_remote/invalid_definition.fail.rs:42:49
+   |
+42 |     #[reflect_remote(external_crate::TheirStruct, FromReflect)]
+   |                                                 ^
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/invalid_definition.fail.rs:10:5
+   |
+10 |     #[reflect_remote(external_crate::TheirStruct)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `bool`
+   |
+   = note: `?` operator cannot convert from `bool` to `u32`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/invalid_definition.fail.rs:13:20
+   |
+10 |     #[reflect_remote(external_crate::TheirStruct)]
+   |     ----------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
+...
+13 |         pub value: bool,
+   |                    ^^^^ expected `u32`, found `bool`
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/invalid_definition.fail.rs:24:5
+   |
+24 |     #[reflect_remote(external_crate::TheirStruct)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `bool`
+   |
+   = note: `?` operator cannot convert from `bool` to `u32`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/invalid_definition.fail.rs:27:13
+   |
+24 |     #[reflect_remote(external_crate::TheirStruct)]
+   |     ----------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
+...
+27 |         pub bool,
+   |             ^^^^ expected `u32`, found `bool`
+   |
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
