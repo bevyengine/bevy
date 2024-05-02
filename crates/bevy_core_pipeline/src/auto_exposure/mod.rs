@@ -23,7 +23,9 @@ mod settings;
 use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use node::AutoExposureNode;
-use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, METERING_SHADER_HANDLE};
+use pipeline::{
+    AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
+};
 pub use settings::AutoExposureSettings;
 
 use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
@@ -115,9 +117,9 @@ fn queue_view_auto_exposure_pipelines(
 ) {
     for (entity, settings) in view_targets.iter() {
         let histogram_pipeline =
-            compute_pipelines.specialize(&pipeline_cache, &pipeline, Pass::Histogram);
+            compute_pipelines.specialize(&pipeline_cache, &pipeline, AutoExposurePass::Histogram);
         let average_pipeline =
-            compute_pipelines.specialize(&pipeline_cache, &pipeline, Pass::Average);
+            compute_pipelines.specialize(&pipeline_cache, &pipeline, AutoExposurePass::Average);
 
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,

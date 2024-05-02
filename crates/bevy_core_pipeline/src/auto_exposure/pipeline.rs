@@ -39,7 +39,7 @@ pub struct AutoExposureSettingsUniform {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub enum Pass {
+pub enum AutoExposurePass {
     Histogram,
     Average,
 }
@@ -76,17 +76,17 @@ impl FromWorld for AutoExposurePipeline {
 }
 
 impl SpecializedComputePipeline for AutoExposurePipeline {
-    type Key = Pass;
+    type Key = AutoExposurePass;
 
-    fn specialize(&self, pass: Pass) -> ComputePipelineDescriptor {
+    fn specialize(&self, pass: AutoExposurePass) -> ComputePipelineDescriptor {
         ComputePipelineDescriptor {
             label: Some("luminance compute pipeline".into()),
             layout: vec![self.histogram_layout.clone()],
             shader: self.histogram_shader.clone(),
             shader_defs: vec![],
             entry_point: match pass {
-                Pass::Histogram => "compute_histogram".into(),
-                Pass::Average => "compute_average".into(),
+                AutoExposurePass::Histogram => "compute_histogram".into(),
+                AutoExposurePass::Average => "compute_average".into(),
             },
             push_constant_ranges: vec![],
         }
