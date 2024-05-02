@@ -20,10 +20,21 @@ const LUT_SIZE: usize = 256;
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct AutoExposureCompensationCurve {
+    /// The minimum log luminance value in the curve. (the x-axis)
     min_log_lum: f32,
+    /// The maximum log luminance value in the curve. (the x-axis)
     max_log_lum: f32,
+    /// The minimum exposure compensation value in the curve. (the y-axis)
     min_compensation: f32,
+    /// The maximum exposure compensation value in the curve. (the y-axis)
     max_compensation: f32,
+    /// The lookup table for the curve. Uploaded to the GPU as a 1D texture.
+    /// Each value in the LUT is a `u8` representing a normalized exposure compensation value:
+    /// * `0` maps to `min_compensation`
+    /// * `255` maps to `max_compensation`
+    /// The position in the LUT corresponds to the normalized log luminance value.
+    /// * `0` maps to `min_log_lum
+    /// * `LUT_SIZE - 1` maps to `max_log_lum`
     lut: [u8; LUT_SIZE],
 }
 

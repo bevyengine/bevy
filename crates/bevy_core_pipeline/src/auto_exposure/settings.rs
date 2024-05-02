@@ -13,9 +13,11 @@ use bevy_utils::default;
 /// simulate the human eye's ability to adapt to different lighting conditions.
 ///
 /// Bevy's implementation builds a 64 bin histogram of the scene's luminance,
-/// and then adjusts the exposure based on that histogram. Using a histogram
-/// allows the system to ignore outliers like shadows and specular highlights,
-/// and it allows to give more weight to certain areas based on a mask.
+/// and then adjusts the exposure so that the average brightness of the final
+/// render will be middle gray. Because it's using a histogram, some details can
+/// be selectively ignored or emphasized. Outliers like shadows and specular
+/// highlights can be ignored, and certain areas can be given more (or less)
+/// weight based on a mask.
 ///
 /// # Usage Notes
 ///
