@@ -42,7 +42,7 @@ pub use wgpu::{
     Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
     FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,
     ImageDataLayout, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, Maintain,
-    MapMode, MultisampleState, Operations, Origin3d, PipelineLayout, PipelineLayoutDescriptor,
+    MapMode, MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
     PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,

@@ -332,6 +332,12 @@ pub async fn initialize_renderer(
             max_color_attachment_bytes_per_sample: limits
                 .max_color_attachment_bytes_per_sample
                 .min(constrained_limits.max_color_attachment_bytes_per_sample),
+            min_subgroup_size: limits
+                .min_subgroup_size
+                .max(constrained_limits.min_subgroup_size),
+            max_subgroup_size: limits
+                .max_subgroup_size
+                .min(constrained_limits.max_subgroup_size),
         };
     }
 

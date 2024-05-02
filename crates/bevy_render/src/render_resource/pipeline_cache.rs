@@ -25,7 +25,10 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    DownlevelFlags, Features, PipelineCompilationOptions,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 use crate::render_resource::resource_macros::*;
 
@@ -791,6 +794,12 @@ impl PipelineCache {
                     )
                 });
 
+                // TODO: Expose this somehow
+                let compilation_options = PipelineCompilationOptions {
+                    constants: &std::collections::HashMap::new(),
+                    zero_initialize_workgroup_memory: false,
+                };
+
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
@@ -802,6 +811,8 @@ impl PipelineCache {
                         buffers: &vertex_buffer_layouts,
                         entry_point: descriptor.vertex.entry_point.deref(),
                         module: &vertex_module,
+                        // TODO: Should this be the same as the fragment compilation options?
+                        compilation_options: compilation_options.clone(),
                     },
                     fragment: fragment_data
                         .as_ref()
@@ -809,6 +820,8 @@ impl PipelineCache {
                             entry_point,
                             module,
                             targets,
+                            // TODO: Should this be the same as the vertex compilation options?
+                            compilation_options,
                         }),
                 };
 
@@ -861,6 +874,11 @@ impl PipelineCache {
                     layout: layout.as_deref(),
                     module: &compute_module,
                     entry_point: &descriptor.entry_point,
+                    // TODO: Expose this somehow
+                    compilation_options: PipelineCompilationOptions {
+                        constants: &std::collections::HashMap::new(),
+                        zero_initialize_workgroup_memory: false,
+                    },
                 };
 
                 Ok(Pipeline::ComputePipeline(

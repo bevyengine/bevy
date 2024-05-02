@@ -16,7 +16,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
-wgpu-types = { git = "https://github.com/gfx-rs/wgpu.git", rev = "b731495e053fe3a15879ff2637c2fb8db74ace3e" default-features = false, optional = true }
+wgpu-types = { version = "0.20", default-features = false, optional = true }
 encase = { version = "0.8", default-features = false }
 
 [features]

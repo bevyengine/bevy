@@ -1138,6 +1138,7 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Unorm8x4 => 4,
             VertexFormat::Snorm8x2 => 2,
             VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Unorm10_10_10_2 => 4,
             VertexFormat::Uint16x2 => 2 * 2,
             VertexFormat::Uint16x4 => 2 * 4,
             VertexFormat::Sint16x2 => 2 * 2,
