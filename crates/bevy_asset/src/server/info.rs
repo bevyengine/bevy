@@ -191,10 +191,13 @@ impl AssetInfos {
             self.get_or_create_path_handle(path, loading_mode, meta_transform);
 
         if should_load {
-            self.pending_load_tasks.insert(
-                handle.id().untyped(),
-                IoTaskPool::get().spawn(load_fn(handle.clone_weak())),
-            );
+            let task = IoTaskPool::get().spawn(load_fn(handle.clone_weak()));
+
+            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi-threaded"))))]
+            self.pending_load_tasks.insert(handle.id().untyped(), task);
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+            let _ = task;
         }
 
         handle
