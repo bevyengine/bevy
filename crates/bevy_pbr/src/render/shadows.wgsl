@@ -3,7 +3,7 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
-    utils::hsv2rgb,
+    utils::{hsv_to_rgb, PI_2},
     shadow_sampling::{SPOT_SHADOW_TEXEL_SIZE, sample_shadow_cubemap, sample_shadow_map}
 }
 
@@ -190,7 +190,11 @@ fn cascade_debug_visualization(
 ) -> vec3<f32> {
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
-    let cascade_color = hsv2rgb(f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u), 1.0, 0.5);
+    let cascade_color = hsv_to_rgb(
+        f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u) * PI_2,
+        1.0,
+        0.5
+    );
     return vec3<f32>(
         (1.0 - overlay_alpha) * output_color.rgb + overlay_alpha * cascade_color
     );
