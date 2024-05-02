@@ -177,7 +177,7 @@ There are several paths for PRs to be closed:
 1. Obviously, authors may close their own PRs for any reason at any time.
 2. If a PR is clearly spam or malicious, anyone with triage rights is encouraged to close out the PR and report it to Github.
 3. If the work has already been done elsewhere, adopted or otherwise obsoleted, anyone with triage rights is encouraged to close out the PR with an explanatory comment.
-4. Anyone may nominate a PR for closure, by bringing it to the attention of the author and/or one of the SMEs / maintainers. Let them press the button, but this is generally well-received and helpful.
+4. Anyone may nominate a PR for closure, by bringing it to the attention of the author and / or one of the SMEs / maintainers. Let them press the button, but this is generally well-received and helpful.
 5. SMEs or maintainers may and are encouraged to unilaterally close PRs that fall into one or more of the remaining categories.
 6. In the case of PRs where some members of the community (other than the author) are in favor and some are opposed, any two relevant SMEs or maintainers may act in concert to close the PR.
 
