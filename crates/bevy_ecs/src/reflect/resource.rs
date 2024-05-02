@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
 
-use super::from_reflect_or_world;
+use super::from_reflect_with_fallback;
 
 /// A struct used to operate on reflected [`Resource`] of a type.
 ///
@@ -180,7 +180,7 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
-                let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
+                let resource = from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                 world.insert_resource(resource);
             },
             apply: |world, reflected_resource| {
@@ -191,7 +191,8 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
                     resource.apply(reflected_resource);
                 } else {
-                    let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
+                    let resource =
+                        from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                     world.insert_resource(resource);
                 }
             },
@@ -212,7 +213,7 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
             copy: |source_world, destination_world, registry| {
                 let source_resource = source_world.resource::<R>();
                 let destination_resource =
-                    from_reflect_or_world::<R>(source_resource, destination_world, registry);
+                    from_reflect_with_fallback::<R>(source_resource, destination_world, registry);
                 destination_world.insert_resource(destination_resource);
             },
         })
