@@ -7,7 +7,6 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-readme = "README.md"
 
 [features]
 default = ["smallvec"]
