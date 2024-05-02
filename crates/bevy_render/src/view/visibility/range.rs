@@ -80,11 +80,11 @@ impl Plugin for VisibilityRangePlugin {
 /// transitions gradually from invisible to visible using a dithering effect.
 ///
 /// You can also use this feature to replace multiple meshes with a single mesh
-/// when the camera is distant—hence the term *hierarchical*. This can be useful
-/// for reducing drawcall count. Note that you must place the
-/// [`VisibilityRange`] component on each entity you want to be part of a LOD
-/// group, as [`VisibilityRange`] isn't automatically propagated down to
-/// children.
+/// when the camera is distant. This is the reason for the term "*hierarchical*
+/// level of detail". Reducing the number of meshes can be useful for reducing
+/// drawcall count. Note that you must place the [`VisibilityRange`] component
+/// on each entity you want to be part of a LOD group, as [`VisibilityRange`]
+/// isn't automatically propagated down to children.
 ///
 /// A typical use of this feature might look like this:
 ///
