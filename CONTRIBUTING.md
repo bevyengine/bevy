@@ -98,7 +98,7 @@ Each label has a prefix denoting its category:
   * Most work is not explicitly categorized by priority: volunteer work mostly occurs on an ad hoc basis depending on contributor interests
 * **S:** Status (e.g. S-Blocked, S-Needs-Review, S-Needs-Design).
 
-The rules for how PRs get merged depends on their classification by controversy and difficulty.
+The rules for how PRs get merged depend on their classification by controversy and difficulty.
 More difficult PRs will require more careful review from experts,
 while more controversial PRs will require rewrites to reduce the costs involved and/or sign-off from Subject Matter Experts and Maintainers.
 
