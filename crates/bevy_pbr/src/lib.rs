@@ -37,7 +37,6 @@ mod ssao;
 
 use bevy_color::{Color, LinearRgba, Srgba};
 use std::marker::PhantomData;
-
 pub use bundle::*;
 pub use extended_material::*;
 pub use fog::*;
