@@ -79,6 +79,13 @@ impl Plugin for VisibilityRangePlugin {
 /// between levels, each level has a *margin*, within which the object
 /// transitions gradually from invisible to visible using a dithering effect.
 ///
+/// You can also use this feature to replace multiple meshes with a single mesh
+/// when the camera is distant—hence the term *hierarchical*. This can be useful
+/// for reducing drawcall count. Note that you must place the
+/// [`VisibilityRange`] component on each entity you want to be part of a LOD
+/// group, as [`VisibilityRange`] isn't automatically propagated down to
+/// children.
+///
 /// A typical use of this feature might look like this:
 ///
 /// | Entity                  | `start_margin` | `end_margin` |
