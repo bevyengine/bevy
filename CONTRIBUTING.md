@@ -76,25 +76,33 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 
 ### Classifying PRs
 
-Our merge strategy relies on the classification of PRs on two axes:
+[Labels](https://github.com/bevyengine/bevy/labels) are our primary tool to organize work.
+Each label has a prefix denoting its category:
 
-* How controversial are the design decisions.
-* How complex is the implementation.
+* **D:** Difficulty. In order, these are:
+  * `D-Trivial`: typos, obviously incorrect one-line bug fixes, code reorganization, renames
+  * `D-Straightforward`: simple bug fixes and API improvements, docs, test and examples
+  * `D-Modest`: new features, refactors, challenging bug fixes
+  * `D-Complex`: rewrites and unusually complex features
+  * When applied to an issue, these labels reflect the estimated level of expertise (not time) required to fix the issue.
+  * When applied to a PR, these labels reflect the estimated level of expertise required to *review* the PR.
+  * The `D-Domain-Expert` and `D-Domain-Agnostic` labels are modifiers, which describe if unusually high or low degrees of domain-specific knowledge are required.
+  * The `D-Unsafe` label is applied to any code that touches `unsafe` Rust, which requires special skills and scrutiny.
+* **X:** Controversiality. In order, these are:
+  * `X-Uncontroversial`: everyone should agree that this is a good idea
+  * `X-Contentious`: there's real design thought needed to ensure that this is the right path forward
+  * `X-Controversial`: there's active disagreement and/or large-scale architectural implications involved
+  * `X-Blessed`: work that was controversial, but whose controversial (but perhaps not technical) elements have been endorsed by the relevant decision makers.
+* **A:** Area (e.g. A-Animation, A-ECS, A-Rendering, ...).
+* **C:** Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs, ...).
+* **O:** Operating System (e.g. O-Linux, O-Web, O-Windows, ...).
+* **P:** Priority (e.g. P-Critical, P-High, ...)
+  * Most work is not explicitly categorized by priority: volunteer work mostly occurs on an ad hoc basis depending on contributor interests
+* **S:** Status (e.g. S-Blocked, S-Needs-Review, S-Needs-Design, ...).
 
-Each [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
-
-* A: Area (e.g. A-Animation, A-ECS, A-Rendering).
-* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs).
-* D: Difficulty (e.g. D-Complex, D-Good-First-Issue).
-* O: Operating System (e.g. O-Linux, O-Web, O-Windows).
-* P: Priority (e.g. P-Critical, P-High).
-* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design).
-
-PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
-the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
-
-PRs that are non-trivial to review are given the [`D-Complex`] label. This indicates that the PR
-should be reviewed more thoroughly and by people with experience in the area that the PR touches.
+The rules for how PRs get merged depend on their classification by controversy and difficulty.
+More difficult PRs will require more careful review from experts,
+while more controversial PRs will require rewrites to reduce the costs involved and/or sign-off from Subject Matter Experts and Maintainers.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
 It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for them to be reviewed together.
