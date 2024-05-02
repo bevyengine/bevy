@@ -33,7 +33,7 @@ use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    mesh::Mesh,
+    mesh::{Mesh, MeshSlabHash},
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
         PhaseItemExtraIndex,
@@ -128,19 +128,21 @@ pub struct Opaque3dPrepass {
 /// The data used to bin each opaque 3D mesh in the prepass and deferred pass.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpaqueNoLightmap3dBinKey {
+    pub slab_hash: MeshSlabHash,
+
     /// The ID of the GPU pipeline.
     pub pipeline: CachedRenderPipelineId,
 
     /// The function used to draw the mesh.
     pub draw_function: DrawFunctionId,
 
-    /// The ID of the mesh.
-    pub asset_id: AssetId<Mesh>,
-
     /// The ID of a bind group specific to the material.
     ///
     /// In the case of PBR, this is the `MaterialBindGroupId`.
     pub material_bind_group_id: Option<BindGroupId>,
+
+    /// The ID of the mesh.
+    pub asset_id: AssetId<Mesh>,
 }
 
 impl PhaseItem for Opaque3dPrepass {

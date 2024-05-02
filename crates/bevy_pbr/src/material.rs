@@ -7,8 +7,8 @@ use crate::*;
 use bevy_asset::{Asset, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
-        Transmissive3d, Transparent3d,
+        AlphaMask3d, Camera3d, MeshCompareFlags, Opaque3d, Opaque3dBinKey,
+        ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
     },
     prepass::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
@@ -723,7 +723,8 @@ pub fn queue_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
                             material_bind_group_id: material.get_bind_group_id().0,
-                            lightmap_image,
+                            lightmap_image: lightmap_image.unwrap_or_default(),
+                            flags: MeshCompareFlags::new(lightmap_image.is_some(), mesh.slab_hash),
                         };
                         opaque_phase.add(bin_key, *visible_entity, mesh_instance.should_batch());
                     }
@@ -746,6 +747,7 @@ pub fn queue_material_meshes<M: Material>(
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             asset_id: mesh_instance.mesh_asset_id,
+                            slab_hash: mesh.slab_hash,
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(

@@ -53,7 +53,7 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    mesh::Mesh,
+    mesh::{Mesh, MeshSlabHash},
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -71,6 +71,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
+
+use bitflags::bitflags;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -191,14 +193,14 @@ pub struct Opaque3d {
 /// Data that must be identical in order to batch meshes together.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
+    /// Various flags.
+    pub flags: MeshCompareFlags,
+
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
-
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
 
     /// The ID of a bind group specific to the material.
     ///
@@ -206,7 +208,29 @@ pub struct Opaque3dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 
     /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    pub lightmap_image: AssetId<Image>,
+
+    /// The mesh.
+    ///
+    /// This is at the end to minimize binding changes.
+    pub asset_id: AssetId<Mesh>,
+}
+
+bitflags! {
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    pub struct MeshCompareFlags: u32 {
+        /// Whether this has a lightmap.
+        const HAS_LIGHTMAP = 0x0000_0001;
+    }
+}
+
+impl MeshCompareFlags {
+    pub fn new(has_lightmap: bool, slab_hash: MeshSlabHash) -> MeshCompareFlags {
+        let mut flags = MeshCompareFlags::empty();
+        flags.set(MeshCompareFlags::HAS_LIGHTMAP, has_lightmap);
+        flags.insert(MeshCompareFlags::from_bits_retain(*slab_hash));
+        flags
+    }
 }
 
 impl PhaseItem for Opaque3d {

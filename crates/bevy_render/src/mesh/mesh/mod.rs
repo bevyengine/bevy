@@ -5,15 +5,16 @@ use bitflags::bitflags;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
+    allocator::{GpuAllocation, GpuAllocationClass, GpuAllocator},
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice,
+    render_resource::{TextureView, VertexBufferLayout},
+    renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
-use bevy_derive::EnumVariantMeta;
+use bevy_derive::{Deref, DerefMut, EnumVariantMeta};
 use bevy_ecs::system::{
     lifetimeless::{SRes, SResMut},
     SystemParamItem,
@@ -24,10 +25,7 @@ use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
-use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
-    VertexStepMode,
-};
+use wgpu::{IndexFormat, VertexAttribute, VertexFormat, VertexStepMode};
 
 use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 
@@ -1432,17 +1430,44 @@ impl BaseMeshPipelineKey {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Deref, DerefMut, Hash, Debug)]
+#[repr(transparent)]
+pub struct MeshSlabHash(pub u32);
+
+impl MeshSlabHash {
+    const VBO_SLAB_ID_SHIFT: u32 = 8;
+    const VBO_SLAB_ID_MASK: u32 = 0xfff << Self::VBO_SLAB_ID_SHIFT;
+    const IBO_SLAB_ID_SHIFT: u32 = 20;
+    const IBO_SLAB_ID_MASK: u32 = 0xfff << Self::IBO_SLAB_ID_SHIFT;
+
+    fn new(vertex_buffer: &GpuAllocation, buffer_info: &GpuBufferInfo) -> MeshSlabHash {
+        const C: u32 = 3559;
+        const A: u32 = 4005;
+
+        let mut hash = ((A * *vertex_buffer.slab_id() + C) << Self::VBO_SLAB_ID_SHIFT)
+            & Self::VBO_SLAB_ID_MASK;
+
+        if let GpuBufferInfo::Indexed { ref allocation, .. } = *buffer_info {
+            hash |= ((A * *allocation.slab_id() + C) << Self::IBO_SLAB_ID_SHIFT)
+                & Self::IBO_SLAB_ID_MASK;
+        }
+
+        MeshSlabHash(hash)
+    }
+}
+
 /// The GPU-representation of a [`Mesh`].
 /// Consists of a vertex data buffer and an optional index data buffer.
 #[derive(Debug, Clone)]
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
-    pub vertex_buffer: Buffer,
+    pub vertex_buffer: GpuAllocation,
     pub vertex_count: u32,
     pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
     pub key_bits: BaseMeshPipelineKey,
     pub layout: MeshVertexBufferLayoutRef,
+    pub slab_hash: MeshSlabHash,
 }
 
 impl GpuMesh {
@@ -1457,7 +1482,7 @@ impl GpuMesh {
 pub enum GpuBufferInfo {
     Indexed {
         /// Contains all index data of a mesh.
-        buffer: Buffer,
+        allocation: GpuAllocation,
         count: u32,
         index_format: IndexFormat,
     },
@@ -1468,8 +1493,10 @@ impl RenderAsset for GpuMesh {
     type SourceAsset = Mesh;
     type Param = (
         SRes<RenderDevice>,
+        SRes<RenderQueue>,
         SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
+        SResMut<GpuAllocator>,
     );
 
     #[inline]
@@ -1492,9 +1519,13 @@ impl RenderAsset for GpuMesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
-            Self::Param,
-        >,
+        (
+            render_device,
+            render_queue,
+            images,
+            ref mut mesh_vertex_buffer_layouts,
+            ref mut allocator,
+        ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets.as_ref() {
             Some(mt) => {
@@ -1506,20 +1537,25 @@ impl RenderAsset for GpuMesh {
             None => None,
         };
 
+        let mesh_vertex_buffer_layout =
+            mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
+
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
-            label: Some("Mesh Vertex Buffer"),
-            contents: &vertex_buffer_data,
-        });
+        let vertex_buffer = allocator.allocate_with(
+            render_device,
+            render_queue,
+            &GpuAllocationClass::VertexBuffer(mesh_vertex_buffer_layout.clone()),
+            bytemuck::cast_slice(&vertex_buffer_data),
+        );
 
         let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
-                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::INDEX,
-                    contents: data,
-                    label: Some("Mesh Index Buffer"),
-                }),
+                allocation: allocator.allocate_with(
+                    render_device,
+                    render_queue,
+                    &GpuAllocationClass::IndexBuffer(mesh.indices().unwrap().into()),
+                    bytemuck::cast_slice(data),
+                ),
                 count: mesh.indices().unwrap().len() as u32,
                 index_format: mesh.indices().unwrap().into(),
             }
@@ -1527,14 +1563,13 @@ impl RenderAsset for GpuMesh {
             GpuBufferInfo::NonIndexed
         };
 
-        let mesh_vertex_buffer_layout =
-            mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
-
         let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
         key_bits.set(
             BaseMeshPipelineKey::MORPH_TARGETS,
             mesh.morph_targets.is_some(),
         );
+
+        let slab_hash = MeshSlabHash::new(&vertex_buffer, &buffer_info);
 
         Ok(GpuMesh {
             vertex_buffer,
@@ -1543,6 +1578,7 @@ impl RenderAsset for GpuMesh {
             key_bits,
             layout: mesh_vertex_buffer_layout,
             morph_targets,
+            slab_hash,
         })
     }
 }
