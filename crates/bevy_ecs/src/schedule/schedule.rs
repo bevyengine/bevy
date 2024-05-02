@@ -902,9 +902,14 @@ impl ScheduleGraph {
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for Dependency { kind: _, set } in &graph_info.dependencies {
-            if let Some(set_id) = self.system_set_ids.get(set) {
-                if id == set_id {
-                    return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
+            match self.system_set_ids.get(set) {
+                Some(set_id) => {
+                    if id == set_id {
+                        return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
+                    }
+                }
+                None => {
+                    self.add_set(*set);
                 }
             }
         }
