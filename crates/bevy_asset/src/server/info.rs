@@ -6,10 +6,9 @@ use crate::{
 };
 use bevy_ecs::world::World;
 use bevy_tasks::{IoTaskPool, Task};
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, ConditionalSendFuture};
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
-use futures_lite::Future;
 use std::{
     any::TypeId,
     sync::{Arc, Weak},
@@ -178,14 +177,13 @@ impl AssetInfos {
 
     pub(crate) fn get_or_create_path_handle_and_load<
         A: Asset,
-        FU: Future<Output = ()> + Send + 'static,
-        F: FnOnce(Handle<A>) -> FU,
+        F: ConditionalSendFuture<Output = ()> + 'static,
     >(
         &mut self,
         path: AssetPath<'static>,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
-        load_fn: F,
+        load_fn: impl FnOnce(Handle<A>) -> F,
     ) -> Handle<A> {
         let (handle, should_load) =
             self.get_or_create_path_handle(path, loading_mode, meta_transform);

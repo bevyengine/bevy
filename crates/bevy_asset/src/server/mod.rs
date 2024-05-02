@@ -296,7 +296,7 @@ impl AssetServer {
         self.data
             .infos
             .write()
-            .get_or_create_path_handle_and_load::<A, _, _>(
+            .get_or_create_path_handle_and_load::<A, _>(
                 path.clone(),
                 HandleLoadingMode::Request,
                 meta_transform,
@@ -359,7 +359,7 @@ impl AssetServer {
             .data
             .infos
             .write()
-            .get_or_create_path_handle_and_load::<LoadedUntypedAsset, _, _>(
+            .get_or_create_path_handle_and_load::<LoadedUntypedAsset, _>(
                 path.clone().with_source(untyped_source),
                 HandleLoadingMode::Request,
                 None,
