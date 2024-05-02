@@ -91,7 +91,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Starting at the end depth, which we got above, figure out how long the
     // ray we want to trace is and the length of each increment.
     let end_depth = min(
-        volumetric_fog.max_depth,
+        max_depth,
         -position_ndc_to_view(frag_coord_to_ndc(vec4(in.position.xy, depth, 1.0))).z
     );
     let step_size = end_depth / f32(step_count);
@@ -190,13 +190,16 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
                 vec4(P_world + depth_offset, 1.0)
             );
 
+            // If we're outside the shadow map entirely, local light attenuation
+            // is zero.
             var local_light_attenuation = f32(light_local.w != 0.0);
+
+            // Otherwise, sample the shadow map to determine whether, and by how
+            // much, this sample is in the light.
             if (local_light_attenuation != 0.0) {
-                // Sample the shadow map to determine whether, and by how much,
-                // this sample is in the light.
                 let cascade = &(*light).cascades[cascade_index];
                 let array_index = i32((*light).depth_texture_base_index + cascade_index);
-                local_light_attenuation *=
+                local_light_attenuation =
                     sample_shadow_map_hardware(light_local.xy, light_local.z, array_index);
             }
 
