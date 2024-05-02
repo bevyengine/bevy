@@ -8,7 +8,7 @@ use wgpu::BindingResource;
 use crate::{
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        SortedPhaseItem, SortedRenderPhase,
+        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
@@ -43,6 +43,19 @@ where
     }
 }
 
+/// A system that clears out the [`BatchedInstanceBuffer`] for the frame.
+///
+/// This needs to run before the CPU batched instance buffers are used.
+pub fn clear_batched_cpu_instance_buffers<GBD>(
+    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GBD::BufferData>>>,
+) where
+    GBD: GetBatchData,
+{
+    if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
+        cpu_batched_instance_buffer.clear();
+    }
+}
+
 /// Batch the items in a sorted render phase, when GPU instance buffer building
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
@@ -66,8 +79,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
             let buffer_index = batched_instance_buffer.push(buffer_data);
 
             let index = buffer_index.index;
-            *item.batch_range_mut() = index..index + 1;
-            *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
+            let (batch_range, extra_index) = item.batch_range_and_extra_index_mut();
+            *batch_range = index..index + 1;
+            *extra_index = PhaseItemExtraIndex::maybe_dynamic_offset(buffer_index.dynamic_offset);
 
             compare_data
         });
@@ -77,13 +91,14 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
 /// Creates batches for a render phase that uses bins, when GPU batch data
 /// building isn't in use.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
-    mut buffer: ResMut<BatchedInstanceBuffer<GFBD::BufferData>>,
+    gpu_array_buffer: ResMut<BatchedInstanceBuffer<GFBD::BufferData>>,
     mut views: Query<&mut BinnedRenderPhase<BPI>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
 {
+    let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
     for mut phase in &mut views {
@@ -98,7 +113,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 else {
                     continue;
                 };
-                let instance = buffer.push(buffer_data);
+                let instance = gpu_array_buffer.push(buffer_data);
 
                 // If the dynamic offset has changed, flush the batch.
                 //
@@ -107,12 +122,15 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 // with no storage buffers.
                 if !batch_set.last().is_some_and(|batch| {
                     batch.instance_range.end == instance.index
-                        && batch.dynamic_offset == instance.dynamic_offset
+                        && batch.extra_index
+                            == PhaseItemExtraIndex::maybe_dynamic_offset(instance.dynamic_offset)
                 }) {
                     batch_set.push(BinnedRenderPhaseBatch {
                         representative_entity: entity,
                         instance_range: instance.index..instance.index,
-                        dynamic_offset: instance.dynamic_offset,
+                        extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(
+                            instance.dynamic_offset,
+                        ),
                     });
                 }
 
@@ -132,8 +150,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 else {
                     continue;
                 };
-                let instance = buffer.push(buffer_data);
-                unbatchables.buffer_indices.add(instance);
+                let instance = gpu_array_buffer.push(buffer_data);
+                unbatchables.buffer_indices.add(instance.into());
             }
         }
     }

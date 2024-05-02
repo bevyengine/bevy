@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
@@ -171,6 +172,7 @@ pub struct CursorLeft {
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
+#[deprecated(since = "0.14.0", note = "Use `KeyboardInput` instead.")]
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -278,7 +280,7 @@ pub struct WindowOccluded {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
-    /// Window that had it's scale factor changed.
+    /// Window that had its scale factor changed.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
@@ -293,7 +295,7 @@ pub struct WindowScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
-    /// Window that had it's scale factor changed by the backend.
+    /// Window that had its scale factor changed by the backend.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,

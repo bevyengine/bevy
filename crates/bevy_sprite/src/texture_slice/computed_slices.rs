@@ -53,9 +53,20 @@ impl ComputedTextureSlices {
                 flip_x,
                 flip_y,
                 image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
+                anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
             }
         })
+    }
+
+    fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
+        let sprite_size = sprite
+            .custom_size
+            .unwrap_or(sprite.rect.unwrap_or_default().size());
+        if sprite_size == Vec2::ZERO {
+            sprite.anchor.as_vec()
+        } else {
+            sprite.anchor.as_vec() * sprite_size / slice.draw_size
+        }
     }
 }
 

@@ -22,7 +22,6 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
-use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -1690,7 +1689,8 @@ pub fn queue_shadows<M: Material>(
                     AlphaMode::Mask(_)
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
-                    | AlphaMode::Add => MeshPipelineKey::MAY_DISCARD,
+                    | AlphaMode::Add
+                    | AlphaMode::AlphaToCoverage => MeshPipelineKey::MAY_DISCARD,
                     _ => MeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
@@ -1733,7 +1733,7 @@ pub struct Shadow {
     pub key: ShadowBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1770,13 +1770,13 @@ impl PhaseItem for Shadow {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -1788,13 +1788,13 @@ impl BinnedPhaseItem for Shadow {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Shadow {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -1849,8 +1849,7 @@ impl Node for ShadowPassNode {
                 let diagnostics = render_context.diagnostic_recorder();
                 render_context.add_command_buffer_generation_task(move |render_device| {
                     #[cfg(feature = "trace")]
-                    let _shadow_pass_span = info_span!("shadow_pass").entered();
-
+                    let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
                     let mut command_encoder =
                         render_device.create_command_encoder(&CommandEncoderDescriptor {
                             label: Some("shadow_pass_command_encoder"),

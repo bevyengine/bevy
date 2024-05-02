@@ -52,13 +52,16 @@ pub mod prelude {
     };
 }
 
+use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
+use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::mesh::GpuMesh;
@@ -124,7 +127,7 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
@@ -332,7 +335,11 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            BatchingPlugin,
         ));
+
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -375,7 +382,14 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
+                .insert_resource(adapter_info)
+                .add_systems(
+                    Render,
+                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
+                        bpf.reset();
+                    })
+                    .in_set(RenderSet::Cleanup),
+                );
         }
     }
 }

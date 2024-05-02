@@ -19,7 +19,11 @@ fn ellipse_inner(half_size: Vec2, segments: usize) -> impl Iterator<Item = Vec2>
     })
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an ellipse in 3D at `position` with the flat side facing `normal`.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
@@ -48,7 +52,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         rotation: Quat,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> EllipseBuilder<'_, 'w, 's, T> {
+    ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
             position,
@@ -87,7 +91,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         angle: f32,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
+    ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
@@ -126,7 +130,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         normal: Dir3,
         radius: f32,
         color: impl Into<Color>,
-    ) -> EllipseBuilder<'_, 'w, 's, T> {
+    ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
             position,
@@ -164,7 +168,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec2,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, 'w, 's, T> {
+    ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
             position,
@@ -177,8 +181,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 /// A builder returned by [`Gizmos::ellipse`].
-pub struct EllipseBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct EllipseBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec3,
     rotation: Quat,
     half_size: Vec2,
@@ -186,7 +194,11 @@ pub struct EllipseBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> EllipseBuilder<'_, '_, '_, T> {
+impl<Config, Clear> EllipseBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of line-segments for this ellipse.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -194,7 +206,11 @@ impl<T: GizmoConfigGroup> EllipseBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for EllipseBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for EllipseBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -208,8 +224,12 @@ impl<T: GizmoConfigGroup> Drop for EllipseBuilder<'_, '_, '_, T> {
 }
 
 /// A builder returned by [`Gizmos::ellipse_2d`].
-pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec2,
     rotation: Mat2,
     half_size: Vec2,
@@ -217,7 +237,11 @@ pub struct Ellipse2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     segments: usize,
 }
 
-impl<T: GizmoConfigGroup> Ellipse2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the number of line-segments for this ellipse.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -225,7 +249,12 @@ impl<T: GizmoConfigGroup> Ellipse2dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Ellipse2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments for this ellipse.
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;

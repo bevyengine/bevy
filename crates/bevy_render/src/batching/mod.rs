@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Query, ResMut, SystemParam, SystemParamItem},
+    system::{Query, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
@@ -13,6 +13,8 @@ use crate::{
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
+
+use self::gpu_preprocessing::IndirectParametersBuffer;
 
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
@@ -40,7 +42,7 @@ struct BatchMeta<T: PartialEq> {
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
     pipeline_id: CachedRenderPipelineId,
-    /// The draw function id defines the RenderCommands that are called to
+    /// The draw function id defines the `RenderCommands` that are called to
     /// set the pipeline and bindings, and make the draw command
     draw_function_id: DrawFunctionId,
     dynamic_offset: Option<NonMaxU32>,
@@ -52,7 +54,7 @@ impl<T: PartialEq> BatchMeta<T> {
         BatchMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.dynamic_offset(),
+            dynamic_offset: item.extra_index().as_dynamic_offset(),
             user_data,
         }
     }
@@ -133,30 +135,19 @@ pub trait GetFullBatchData: GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<NonMaxU32>;
-}
 
-/// A system that runs early in extraction and clears out all the
-/// [`gpu_preprocessing::BatchedInstanceBuffers`] for the frame.
-///
-/// We have to run this during extraction because, if GPU preprocessing is in
-/// use, the extraction phase will write to the mesh input uniform buffers
-/// directly, so the buffers need to be cleared before then.
-pub fn clear_batched_instance_buffers<GFBD>(
-    cpu_batched_instance_buffer: Option<
-        ResMut<no_gpu_preprocessing::BatchedInstanceBuffer<GFBD::BufferData>>,
-    >,
-    gpu_batched_instance_buffers: Option<
-        ResMut<gpu_preprocessing::BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    >,
-) where
-    GFBD: GetFullBatchData,
-{
-    if let Some(mut cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        cpu_batched_instance_buffer.clear();
-    }
-    if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        gpu_batched_instance_buffers.clear();
-    }
+    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
+    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// index.
+    ///
+    /// This is only used if GPU culling is enabled (which requires GPU
+    /// preprocessing).
+    fn get_batch_indirect_parameters_index(
+        param: &SystemParamItem<Self::Param>,
+        indirect_parameters_buffer: &mut IndirectParametersBuffer,
+        entity: Entity,
+        instance_index: u32,
+    ) -> Option<NonMaxU32>;
 }
 
 /// Sorts a render phase that uses bins.

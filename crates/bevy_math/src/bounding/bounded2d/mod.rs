@@ -133,7 +133,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn grow(&self, amount: Self::HalfSize) -> Self {
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         let b = Self {
             min: self.min - amount,
             max: self.max + amount,
@@ -143,7 +144,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn shrink(&self, amount: Self::HalfSize) -> Self {
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         let b = Self {
             min: self.min + amount,
             max: self.max - amount,
@@ -153,7 +155,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
+        let scale = scale.into();
         let b = Self {
             min: self.center() - (self.half_size() * scale),
             max: self.center() + (self.half_size() * scale),
@@ -172,7 +175,7 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn transformed_by(
         mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) -> Self {
         self.transform_by(translation, rotation);
@@ -189,7 +192,7 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn transform_by(
         &mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) {
         self.rotate_by(rotation);
@@ -197,7 +200,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Self::Translation) {
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
+        let translation = translation.into();
         self.min += translation;
         self.max += translation;
     }
@@ -557,27 +561,30 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn grow(&self, amount: Self::HalfSize) -> Self {
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         debug_assert!(amount >= 0.);
         Self::new(self.center, self.radius() + amount)
     }
 
     #[inline(always)]
-    fn shrink(&self, amount: Self::HalfSize) -> Self {
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         debug_assert!(amount >= 0.);
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
     }
 
     #[inline(always)]
-    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
+        let scale = scale.into();
         debug_assert!(scale >= 0.);
         Self::new(self.center, self.radius() * scale)
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Self::Translation) {
-        self.center += translation;
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
+        self.center += translation.into();
     }
 
     #[inline(always)]

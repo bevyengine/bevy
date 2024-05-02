@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, WithMesh2d, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -19,8 +19,8 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
-        SortedRenderPhase, TrackedRenderPass,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -296,7 +296,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
-    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
 }
@@ -490,7 +490,7 @@ pub fn queue_sprites(
         view_entities.clear();
         view_entities.extend(
             visible_entities
-                .iter::<WithMesh2d>()
+                .iter::<WithSprite>()
                 .map(|e| e.index() as usize),
         );
 
@@ -516,7 +516,7 @@ pub fn queue_sprites(
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }

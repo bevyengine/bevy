@@ -22,7 +22,9 @@ use bevy_ecs::{
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
+    render_phase::{
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
+    },
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -348,7 +350,7 @@ fn queue_line_gizmos_3d(
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
@@ -437,7 +439,7 @@ fn queue_line_joint_gizmos_3d(
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
