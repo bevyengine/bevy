@@ -55,16 +55,13 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        env:
-          # Needs to be in sync with [package.metadata.docs.rs], except for `--html-in-header`.
-          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --html-in-header header.html
-        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
+        run: cargo run -p ci -- doc-generate
 
-      # This adds the following:
-      #  - A top level redirect to the bevy crate documentation.
-      #  - A CNAME file for redirecting the dev-docs domain to the API reference.
-      #  - A robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
-      #  - It also removes a .lock file with invalid permissions.
+      # This does the following:
+      #  - Adds a top level redirect to the bevy crate documentation.
+      #  - Adds a CNAME file for redirecting the dev-docs domain to the API reference.
+      #  - Adds a robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
+      #  - Removes a .lock file with invalid permissions.
       - name: Finalize docs
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
