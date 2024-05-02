@@ -62,16 +62,22 @@ pub struct SystemSchedule {
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
+    /// Number of systems that the system immediately depends on.
     pub(super) system_dependencies: Vec<usize>,
     /// Indexed by system node id.
+    /// List of systems that immediately depend on the system.
     pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
+    /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     /// List of system set node ids.
     pub(super) set_ids: Vec<NodeId>,
     /// Indexed by system set node id.
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system set node id.
+    /// List of systems that are in sets that have conditions.
+    ///
+    /// If a set doesn't run because of its conditions, this is used to skip all systems in it.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
 }
 
