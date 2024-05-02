@@ -46,15 +46,19 @@ pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(154213739044
 ///
 /// To derive this, first we convert from RGB to [CIE 1931 XYZ]:
 ///
-///     ⎡ X ⎤   ⎡ 0.490  0.310  0.200 ⎤ ⎡ R ⎤
-///     ⎢ Y ⎥ = ⎢ 0.177  0.812  0.011 ⎥ ⎢ G ⎥
-///     ⎣ Z ⎦   ⎣ 0.000  0.010  0.990 ⎦ ⎣ B ⎦
+/// ```text
+/// ⎡ X ⎤   ⎡ 0.490  0.310  0.200 ⎤ ⎡ R ⎤
+/// ⎢ Y ⎥ = ⎢ 0.177  0.812  0.011 ⎥ ⎢ G ⎥
+/// ⎣ Z ⎦   ⎣ 0.000  0.010  0.990 ⎦ ⎣ B ⎦
+/// ```
 ///
 /// Then we convert to LMS according to the [CAM16 standard matrix]:
 ///
-///     ⎡ L ⎤   ⎡  0.401   0.650  -0.051 ⎤ ⎡ X ⎤
-///     ⎢ M ⎥ = ⎢ -0.250   1.204   0.046 ⎥ ⎢ Y ⎥
-///     ⎣ S ⎦   ⎣ -0.002   0.049   0.953 ⎦ ⎣ Z ⎦
+/// ```text
+/// ⎡ L ⎤   ⎡  0.401   0.650  -0.051 ⎤ ⎡ X ⎤
+/// ⎢ M ⎥ = ⎢ -0.250   1.204   0.046 ⎥ ⎢ Y ⎥
+/// ⎣ S ⎦   ⎣ -0.002   0.049   0.953 ⎦ ⎣ Z ⎦
+/// ```
 ///
 /// The resulting matrix is just the concatenation of these two matrices, to do
 /// the conversion in one step.
@@ -298,7 +302,9 @@ pub struct ColorGradingSection {
     /// This is the *n* exponent in the standard [ASC CDL] formula for color
     /// correction:
     ///
-    ///     out = (i × s + o)ⁿ
+    /// ```text
+    /// out = (i × s + o)ⁿ
+    /// ```
     ///
     /// [ASC CDL]: https://en.wikipedia.org/wiki/ASC_CDL#Combined_Function
     pub gamma: f32,
@@ -309,7 +315,9 @@ pub struct ColorGradingSection {
     /// This is the *s* factor in the standard [ASC CDL] formula for color
     /// correction:
     ///
-    ///     out = (i × s + o)ⁿ
+    /// ```text
+    /// out = (i × s + o)ⁿ
+    /// ```
     ///
     /// [ASC CDL]: https://en.wikipedia.org/wiki/ASC_CDL#Combined_Function
     pub gain: f32,
@@ -320,7 +328,9 @@ pub struct ColorGradingSection {
     /// This is the *o* term in the standard [ASC CDL] formula for color
     /// correction:
     ///
-    ///     out = (i × s + o)ⁿ
+    /// ```text
+    /// out = (i × s + o)ⁿ
+    /// ```
     ///
     /// [ASC CDL]: https://en.wikipedia.org/wiki/ASC_CDL#Combined_Function
     pub lift: f32,
