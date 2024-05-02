@@ -92,6 +92,7 @@ Each label has a prefix denoting its category:
   * `X-Uncontroversial`: everyone should agree that this is a good idea
   * `X-Contentious`: there's real design thought needed to ensure that this is the right path forward
   * `X-Controversial`: there's active disagreement and/or large-scale architectural implications involved
+  * `X-Blessed`: work that was controversial, but whose controversial (but perhaps not technical) elements have been endorsed by the relevant decision makers.
 * **A:** Area (e.g. A-Animation, A-ECS, A-Rendering, ...).
 * **C:** Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs, ...).
 * **O:** Operating System (e.g. O-Linux, O-Web, O-Windows, ...).
