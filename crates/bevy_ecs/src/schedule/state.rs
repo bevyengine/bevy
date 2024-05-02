@@ -404,6 +404,9 @@ pub fn setup_state_transitions_in_world(
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
 /// should be done at App creation or at your own risk.
+///
+/// For [`SubStates`] - it only applies the state if the `SubState` currently exists. Otherwise, it is wiped.
+/// When a `SubState` is re-created, it will use the result of it's `should_exist` method.
 pub fn apply_state_transition<S: FreelyMutableState>(
     event: EventWriter<StateTransitionEvent<S>>,
     commands: Commands,
@@ -411,20 +414,22 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     next_state: Option<ResMut<NextState<S>>>,
 ) {
     // We want to check if the State and NextState resources exist
-    let (Some(next_state_resource), Some(current_state)) = (next_state, current_state) else {
+    let Some(next_state_resource) = next_state else {
         return;
     };
 
     match next_state_resource.as_ref() {
         NextState::Pending(new_state) => {
-            if new_state != current_state.get() {
-                let new_state = new_state.clone();
-                internal_apply_state_transition(
-                    event,
-                    commands,
-                    Some(current_state),
-                    Some(new_state),
-                );
+            if let Some(current_state) = current_state {
+                if new_state != current_state.get() {
+                    let new_state = new_state.clone();
+                    internal_apply_state_transition(
+                        event,
+                        commands,
+                        Some(current_state),
+                        Some(new_state),
+                    );
+                }
             }
         }
         NextState::Unchanged => {
