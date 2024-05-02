@@ -2,20 +2,53 @@
 
 #import bevy_pbr::rgb9e5
 
-const PI: f32 = 3.141592653589793;
-const HALF_PI: f32 = 1.57079632679;
-const E: f32 = 2.718281828459045;
+const PI: f32 = 3.141592653589793;      // π
+const PI_2: f32 = 6.283185307179586;    // 2π
+const HALF_PI: f32 = 1.57079632679;     // π/2
+const FRAC_PI_3: f32 = 1.0471975512;    // π/3
+const E: f32 = 2.718281828459045;       // exp(1)
 
-fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
-    let rgb = clamp(
-        abs(
-            ((hue * 6.0 + vec3<f32>(0.0, 4.0, 2.0)) % 6.0) - 3.0
-        ) - 1.0,
-        vec3<f32>(0.0),
-        vec3<f32>(1.0)
-    );
+// Converts HSV to RGB.
+//
+// Input: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
+// Output: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
+//
+// <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB_alternative>
+fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
+    let n = vec3(5.0, 3.0, 1.0);
+    let k = (n + hsv.x / FRAC_PI_3) % 6.0;
+    return hsv.z - hsv.z * hsv.y * max(vec3(0.0), min(k, min(4.0 - k, vec3(1.0))));
+}
 
-    return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
+// Converts RGB to HSV.
+//
+// Input: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
+// Output: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
+//
+// <https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB>
+fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
+    let x_max = max(rgb.r, max(rgb.g, rgb.b));  // i.e. V
+    let x_min = min(rgb.r, min(rgb.g, rgb.b));
+    let c = x_max - x_min;  // chroma
+
+    var swizzle = vec3<f32>(0.0);
+    if (x_max == rgb.r) {
+        swizzle = vec3(rgb.gb, 0.0);
+    } else if (x_max == rgb.g) {
+        swizzle = vec3(rgb.br, 2.0);
+    } else {
+        swizzle = vec3(rgb.rg, 4.0);
+    }
+
+    let h = FRAC_PI_3 * (((swizzle.x - swizzle.y) / c + swizzle.z) % 6.0);
+
+    // Avoid division by zero.
+    var s = 0.0;
+    if (x_max > 0.0) {
+        s = c / x_max;
+    }
+
+    return vec3(h, s, x_max);
 }
 
 // Generates a random u32 in range [0, u32::MAX].

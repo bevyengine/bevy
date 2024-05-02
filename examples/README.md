@@ -129,6 +129,7 @@ Example | Description
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture

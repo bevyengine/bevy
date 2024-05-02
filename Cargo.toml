@@ -8,7 +8,6 @@ exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.77.0"
@@ -2918,6 +2917,17 @@ doc-scrape-examples = true
 [package.metadata.example.visibility_range]
 name = "Visibility range"
 description = "Demonstrates visibility ranges"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "color_grading"
+path = "examples/3d/color_grading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_grading]
+name = "Color grading"
+description = "Demonstrates color grading"
 category = "3D Rendering"
 wasm = true
 

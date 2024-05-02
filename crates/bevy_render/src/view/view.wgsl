@@ -1,9 +1,15 @@
 #define_import_path bevy_render::view
 
 struct ColorGrading {
+    balance: mat3x3<f32>,
+    saturation: vec3<f32>,
+    contrast: vec3<f32>,
+    gamma: vec3<f32>,
+    gain: vec3<f32>,
+    lift: vec3<f32>,
+    midtone_range: vec2<f32>,
     exposure: f32,
-    gamma: f32,
-    pre_saturation: f32,
+    hue: f32,
     post_saturation: f32,
 }
 
