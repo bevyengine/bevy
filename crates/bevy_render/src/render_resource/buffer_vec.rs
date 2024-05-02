@@ -228,6 +228,11 @@ where
         self.len = 0;
     }
 
+    /// Returns the length of the buffer.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
     /// Materializes the buffer on the GPU with space for `capacity` elements.
     ///
     /// If the buffer is already big enough, this function doesn't reallocate

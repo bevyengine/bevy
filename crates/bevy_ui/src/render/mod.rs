@@ -7,8 +7,12 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::texture::GpuImage;
-use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
+use bevy_render::{
+    render_phase::{PhaseItem, PhaseItemExtraIndex},
+    texture::GpuImage,
+    view::ViewVisibility,
+    ExtractSchedule, Render,
+};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -901,7 +905,7 @@ pub fn queue_uinodes(
             ),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
-            dynamic_offset: None,
+            extra_index: PhaseItemExtraIndex::NONE,
         });
     }
 }
@@ -1142,7 +1146,7 @@ pub fn prepare_uinodes(
                             flags: flags | shader_flags::CORNERS[i],
                             radius: extracted_uinode.border_radius,
                             border: extracted_uinode.border,
-                            size: transformed_rect_size.xy().into(),
+                            size: rect_size.xy().into(),
                         });
                     }
 

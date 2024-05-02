@@ -13,6 +13,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
@@ -31,8 +32,9 @@ jobs:
             target
           key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
-        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
       - name: Build and install iOS app in iOS Simulator.
         run: cd examples/mobile && make install

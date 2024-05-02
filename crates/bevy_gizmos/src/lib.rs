@@ -67,7 +67,7 @@ pub mod prelude {
 }
 
 use aabb::AabbGizmoPlugin;
-use bevy_app::{App, Last, Plugin};
+use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -93,13 +93,14 @@ use bevy_render::{
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
 use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
     GizmoMeshConfig,
 };
-use gizmos::GizmoStorage;
+use gizmos::{GizmoStorage, Swap};
 #[cfg(feature = "bevy_pbr")]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
@@ -186,66 +187,74 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-/// A trait adding `init_gizmo_group<T>()` to the app
+/// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
 pub trait AppGizmoBuilder {
-    /// Registers [`GizmoConfigGroup`] `T` in the app enabling the use of [Gizmos&lt;T&gt;](crate::gizmos::Gizmos).
+    /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
-    fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self;
+    fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
 
-    /// Insert the [`GizmoConfigGroup`] in the app with the given value and [`GizmoConfig`].
+    /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].
     ///
     /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
-    fn insert_gizmo_group<T: GizmoConfigGroup>(
+    fn insert_gizmo_config<Config: GizmoConfigGroup>(
         &mut self,
-        group: T,
+        group: Config,
         config: GizmoConfig,
     ) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
-    fn init_gizmo_group<T: GizmoConfigGroup + Default>(&mut self) -> &mut Self {
-        if self.world().contains_resource::<GizmoStorage<T>>() {
+    fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self {
+        if self.world().contains_resource::<GizmoStorage<Config, ()>>() {
             return self;
         }
+
+        self.world_mut()
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .register::<Config>();
 
         let mut handles = self
             .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
-        handles.list.insert(TypeId::of::<T>(), None);
-        handles.strip.insert(TypeId::of::<T>(), None);
 
-        self.init_resource::<GizmoStorage<T>>()
-            .add_systems(Last, update_gizmo_meshes::<T>);
+        handles.list.insert(TypeId::of::<Config>(), None);
+        handles.strip.insert(TypeId::of::<Config>(), None);
 
-        self.world_mut()
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
-            .register::<T>();
+        self.init_resource::<GizmoStorage<Config, ()>>()
+            .init_resource::<GizmoStorage<Config, Fixed>>()
+            .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
+            .add_systems(
+                RunFixedMainLoop,
+                start_gizmo_context::<Config, Fixed>.before(bevy_time::run_fixed_main_schedule),
+            )
+            .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
+            .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
+            .add_systems(
+                RunFixedMainLoop,
+                end_gizmo_context::<Config, Fixed>.after(bevy_time::run_fixed_main_schedule),
+            )
+            .add_systems(
+                Last,
+                (
+                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
+                    update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+                ),
+            );
 
         self
     }
 
-    fn insert_gizmo_group<T: GizmoConfigGroup>(
+    fn insert_gizmo_config<Config: GizmoConfigGroup>(
         &mut self,
-        group: T,
+        group: Config,
         config: GizmoConfig,
     ) -> &mut Self {
+        self.init_gizmo_group::<Config>();
+
         self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .insert(config, group);
-
-        if self.world().contains_resource::<GizmoStorage<T>>() {
-            return self;
-        }
-
-        let mut handles = self
-            .world_mut()
-            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
-        handles.list.insert(TypeId::of::<T>(), None);
-        handles.strip.insert(TypeId::of::<T>(), None);
-
-        self.init_resource::<GizmoStorage<T>>()
-            .add_systems(Last, update_gizmo_meshes::<T>);
 
         self
     }
@@ -262,15 +271,87 @@ struct LineGizmoHandles {
     strip: TypeIdMap<Option<Handle<LineGizmo>>>,
 }
 
-fn update_gizmo_meshes<T: GizmoConfigGroup>(
+/// Start a new gizmo clearing context.
+///
+/// Internally this pushes the parent default context into a swap buffer.
+/// Gizmo contexts should be handled like a stack, so if you push a new context,
+/// you must pop the context before the parent context ends.
+pub fn start_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    default.swap(&mut *swap);
+}
+
+/// End this gizmo clearing context.
+///
+/// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
+///
+/// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
+pub fn end_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    default.clear();
+    default.swap(&mut *swap);
+}
+
+/// Collect the requested gizmos into a specific clear context.
+pub fn collect_requested_gizmos<Config, Clear>(
+    mut update: ResMut<GizmoStorage<Config, ()>>,
+    mut context: ResMut<GizmoStorage<Config, Clear>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    context.append_storage(&update);
+    update.clear();
+}
+
+/// Clear out the contextual gizmos.
+pub fn clear_gizmo_context<Config, Clear>(mut context: ResMut<GizmoStorage<Config, Clear>>)
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    context.clear();
+}
+
+/// Propagate the contextual gizmo into the `Update` storage for rendering.
+///
+/// This should be before [`UpdateGizmoMeshes`].
+pub fn propagate_gizmos<Config, Clear>(
+    mut update_storage: ResMut<GizmoStorage<Config, ()>>,
+    contextual_storage: Res<GizmoStorage<Config, Clear>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    update_storage.append_storage(&*contextual_storage);
+}
+
+/// System set for updating the rendering meshes for drawing gizmos.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct UpdateGizmoMeshes;
+
+/// Prepare gizmos for rendering.
+///
+/// This also clears the default `GizmoStorage`.
+fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
-    mut storage: ResMut<GizmoStorage<T>>,
+    mut storage: ResMut<GizmoStorage<Config, ()>>,
     config_store: Res<GizmoConfigStore>,
 ) {
     if storage.list_positions.is_empty() {
-        handles.list.insert(TypeId::of::<T>(), None);
-    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<T>()) {
+        handles.list.insert(TypeId::of::<Config>(), None);
+    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
             let list = line_gizmos.get_mut(handle.id()).unwrap();
 
@@ -289,10 +370,10 @@ fn update_gizmo_meshes<T: GizmoConfigGroup>(
         }
     }
 
-    let (config, _) = config_store.config::<T>();
+    let (config, _) = config_store.config::<Config>();
     if storage.strip_positions.is_empty() {
-        handles.strip.insert(TypeId::of::<T>(), None);
-    } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<T>()) {
+        handles.strip.insert(TypeId::of::<Config>(), None);
+    } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
             let strip = line_gizmos.get_mut(handle.id()).unwrap();
 

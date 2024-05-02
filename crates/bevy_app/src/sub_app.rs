@@ -10,16 +10,10 @@ use bevy_ecs::{
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use std::fmt::Debug;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
-
-#[derive(Default)]
-pub(crate) struct PluginStore {
-    pub(crate) registry: Vec<Box<dyn Plugin>>,
-    pub(crate) names: HashSet<String>,
-}
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -67,8 +61,11 @@ pub(crate) struct PluginStore {
 pub struct SubApp {
     /// The data of this application.
     world: World,
-    /// Metadata for installed plugins.
-    pub(crate) plugins: PluginStore,
+    /// List of plugins that have been added.
+    pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
+    /// The names of plugins that have been added to this app. (used to track duplicates and
+    /// already-registered plugins)
+    pub(crate) plugin_names: HashSet<String>,
     /// Panics if an update is attempted while plugins are building.
     pub(crate) plugin_build_depth: usize,
     pub(crate) plugins_state: PluginsState,
@@ -91,7 +88,8 @@ impl Default for SubApp {
         world.init_resource::<Schedules>();
         Self {
             world,
-            plugins: default(),
+            plugin_registry: Vec::default(),
+            plugin_names: HashSet::default(),
             plugin_build_depth: 0,
             plugins_state: PluginsState::Adding,
             update_schedule: None,
@@ -409,10 +407,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugins
-            .registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_names.contains(std::any::type_name::<T>())
     }
 
     /// See [`App::get_added_plugins`].
@@ -420,8 +415,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugins
-            .registry
+        self.plugin_registry
             .iter()
             .filter_map(|p| p.downcast_ref())
             .collect()
@@ -438,16 +432,16 @@ impl SubApp {
         match self.plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugins);
+                let plugins = std::mem::take(&mut self.plugin_registry);
                 self.run_as_app(|app| {
-                    for plugin in &plugins.registry {
+                    for plugin in &plugins {
                         if !plugin.ready(app) {
                             state = PluginsState::Adding;
                             return;
                         }
                     }
                 });
-                self.plugins = plugins;
+                self.plugin_registry = plugins;
                 state
             }
             state => state,
@@ -456,25 +450,25 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugins);
+        let plugins = std::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
-            for plugin in &plugins.registry {
+            for plugin in &plugins {
                 plugin.finish(app);
             }
         });
-        self.plugins = plugins;
+        self.plugin_registry = plugins;
         self.plugins_state = PluginsState::Finished;
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugins);
+        let plugins = std::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
-            for plugin in &plugins.registry {
+            for plugin in &plugins {
                 plugin.cleanup(app);
             }
         });
-        self.plugins = plugins;
+        self.plugin_registry = plugins;
         self.plugins_state = PluginsState::Cleaned;
     }
 
