@@ -266,7 +266,7 @@ impl App {
 
     /// Initializes a [`State`] with standard starting values.
     ///
-    /// If the [`State`] already exists, nothing happens.
+    /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
