@@ -532,15 +532,27 @@ impl SystemNode {
 }
 
 /// Metadata for a [`Schedule`].
+///
+/// The order isn't optimized; calling `ScheduleGraph::build_schedule` will return a
+/// `SystemSchedule` where the order is optimized for execution.
 #[derive(Default)]
 pub struct ScheduleGraph {
+    /// List of systems in the schedule
     systems: Vec<SystemNode>,
+    /// List of conditions for each system, in the same order as `systems`
     system_conditions: Vec<Vec<BoxedCondition>>,
+    /// List of system sets in the schedule
     system_sets: Vec<SystemSetNode>,
+    /// List of conditions for each system set, in the same order as `system_sets`
     system_set_conditions: Vec<Vec<BoxedCondition>>,
+    /// Map from system set to node id
     system_set_ids: HashMap<InternedSystemSet, NodeId>,
+    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
+    /// (all the conditions after that index still need to be initialized)
     uninit: Vec<(NodeId, usize)>,
+    /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
+    /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
@@ -548,6 +560,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
+    /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
@@ -613,7 +626,7 @@ impl ScheduleGraph {
             .unwrap()
     }
 
-    /// Returns an iterator over all systems in this schedule.
+    /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
     pub fn systems(
         &self,
     ) -> impl Iterator<Item = (NodeId, &dyn System<In = (), Out = ()>, &[BoxedCondition])> {
@@ -627,7 +640,8 @@ impl ScheduleGraph {
             })
     }
 
-    /// Returns an iterator over all system sets in this schedule.
+    /// Returns an iterator over all system sets in this schedule, along with the conditions for each
+    /// system set.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
@@ -787,6 +801,7 @@ impl ScheduleGraph {
         }
     }
 
+    /// Add a [`SystemConfig`] to the graph, including its dependencies and conditions.
     fn add_system_inner(&mut self, config: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
         let id = NodeId::System(self.systems.len());
 
@@ -806,6 +821,7 @@ impl ScheduleGraph {
         self.process_configs(sets.into_configs(), false);
     }
 
+    /// Add a single `SystemSetConfig` to the graph, including its dependencies and conditions.
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
             node: set,
@@ -837,7 +853,9 @@ impl ScheduleGraph {
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
+    /// Checks that a system set isn't included in itself.
+    /// If not present, add the set to the graph.
+    fn check_hierarchy_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
         match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
@@ -858,32 +876,31 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
-    fn check_sets(
+    /// Check that no set is included in itself.
+    /// Add all the sets from the [`GraphInfo`]'s hierarchy to the graph.
+    fn check_hierarchy_sets(
         &mut self,
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for &set in &graph_info.sets {
-            self.check_set(id, set)?;
+        for &set in &graph_info.hierarchy {
+            self.check_hierarchy_set(id, set)?;
         }
 
         Ok(())
     }
 
+    /// Checks that no system set is dependent on itself.
+    /// Add all the sets from the [`GraphInfo`]'s dependencies to the graph.
     fn check_edges(
         &mut self,
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
         for Dependency { kind: _, set } in &graph_info.dependencies {
-            match self.system_set_ids.get(set) {
-                Some(set_id) => {
-                    if id == set_id {
-                        return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
-                    }
-                }
-                None => {
-                    self.add_set(*set);
+            if let Some(set_id) = self.system_set_ids.get(set) {
+                if id == set_id {
+                    return Err(ScheduleBuildError::DependencyLoop(self.get_node_name(id)));
                 }
             }
         }
@@ -899,17 +916,18 @@ impl ScheduleGraph {
         Ok(())
     }
 
+    /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
     fn update_graphs(
         &mut self,
         id: NodeId,
         graph_info: GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        self.check_sets(&id, &graph_info)?;
+        self.check_hierarchy_sets(&id, &graph_info)?;
         self.check_edges(&id, &graph_info)?;
         self.changed = true;
 
         let GraphInfo {
-            sets,
+            hierarchy: sets,
             dependencies,
             ambiguous_with,
             ..
@@ -1137,6 +1155,9 @@ impl ScheduleGraph {
             .unwrap()
     }
 
+    /// Return a map from system set `NodeId` to a list of system `NodeId`s that are included in the set.
+    /// Also return a map from system set `NodeId` to a `FixedBitSet` of system `NodeId`s that are included in the set,
+    /// where the bitset order is the same as `self.systems`
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
