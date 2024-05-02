@@ -271,7 +271,7 @@ where
     }
 
     /// Creates a [`Buffer`] on the [`RenderDevice`] with size
-    /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
+    /// at least `std::mem::size_of::<T>() * capacity`, unless such a buffer already exists.
     ///
     /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
     /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s
