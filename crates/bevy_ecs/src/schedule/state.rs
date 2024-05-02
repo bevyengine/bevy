@@ -11,9 +11,9 @@
 //!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
 //! - [`ComputedStates`] are fully derived from other states - they provide a [`compute`](ComputedStates::compute) method
 //!   that takes in the source states and returns their derived value. They are particularly useful for situations
-//!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state derived
+//!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state, derived
 //!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)
-//!   to see a sampling of uses for these states.
+//!   to see usage samples for these states.
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or
 //! determining whether to run certain systems, though they can be used more directly as well. This
