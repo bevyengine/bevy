@@ -1,18 +1,24 @@
-use bevy_utils::all_tuples;
+use bevy_utils::{all_tuples, synccell::SyncCell};
 
-use super::{
-    BuildableSystemParam, FunctionSystem, Local, Res, ResMut, Resource, SystemMeta, SystemParam,
-    SystemParamFunction, SystemState,
+use crate::{
+    prelude::QueryBuilder,
+    query::{QueryData, QueryFilter, QueryState},
+    system::{
+        system_param::{Local, ParamSet, SystemParam},
+        Query, SystemMeta,
+    },
+    world::{FromWorld, World},
 };
-use crate::prelude::{FromWorld, Query, World};
-use crate::query::{QueryData, QueryFilter};
+use std::fmt::Debug;
 
-/// Builder struct used to construct state for [`SystemParam`] passed to a system.
+use super::{init_query_param, Res, ResMut, Resource, SystemState};
+
+/// A builder that can create a [`SystemParam`]
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs_macros::SystemParam;
-/// # use bevy_ecs::system::RunSystemOnce;
+/// # use bevy_ecs::system::{RunSystemOnce, ParamBuilder, LocalBuilder, QueryParamBuilder};
 /// #
 /// # #[derive(Component)]
 /// # struct A;
@@ -28,121 +34,280 @@ use crate::query::{QueryData, QueryFilter};
 /// #
 /// # let mut world = World::new();
 /// # world.insert_resource(R);
-///
+/// #
 /// fn my_system(res: Res<R>, query: Query<&A>, param: MyParam) {
 ///     // ...
 /// }
 ///
-/// // Create a builder from the world, helper methods exist to add `SystemParam`,
-/// // alternatively use `.param::<T>()` for any other `SystemParam` types.
-/// let system = SystemBuilder::<()>::new(&mut world)
-///     .resource::<R>()
-///     .query::<&A>()
-///     .param::<MyParam>()
-///     .build(my_system);
+/// // To build a system, create a tuple of `SystemParamBuilder`s with a builder for each param.
+/// // `ParamBuilder` can be used to build a parameter using its default initialization,
+/// // and has helper methods to create typed builders.
+/// let system = (
+///     ParamBuilder,
+///     ParamBuilder::query::<&A>(),
+///     ParamBuilder::of::<MyParam>(),
+/// )
+///     .build_state(&mut world)
+///     .build_system(my_system);
 ///
-/// // Parameters that the builder is initialised with will appear first in the arguments.
-/// let system = SystemBuilder::<(Res<R>, Query<&A>)>::new(&mut world)
-///     .param::<MyParam>()
-///     .build(my_system);
+/// // Other implementations of `SystemParamBuilder` can be used to configure the parameters.
+/// let system = (
+///     ParamBuilder,
+///     QueryParamBuilder::new::<&A, ()>(|builder| {
+///         builder.with::<B>();
+///     }),
+///     ParamBuilder,
+/// )
+///     .build_state(&mut world)
+///     .build_system(my_system);
 ///
-/// // Parameters that implement `BuildableSystemParam` can use `.builder::<T>()` to build in place.
-/// let system = SystemBuilder::<()>::new(&mut world)
-///     .resource::<R>()
-///     .builder::<Query<&A>>(|builder| { builder.with::<B>(); })
-///     .param::<MyParam>()
-///     .build(my_system);
+/// fn single_parameter_system(local: Local<u64>) {
+///     // ...
+/// }
+///
+/// // Note that the builder for a system must be a tuple, even if there is only one parameter.
+/// let system = (LocalBuilder(2),)
+///     .build_state(&mut world)
+///     .build_system(single_parameter_system);
 ///
 /// world.run_system_once(system);
 ///```
-pub struct SystemBuilder<'w, T: SystemParam = ()> {
-    pub(crate) meta: SystemMeta,
-    pub(crate) state: T::State,
-    pub(crate) world: &'w mut World,
+///
+/// # Safety
+///
+/// The implementor must ensure the following is true.
+/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used
+///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered
+///   on `system_meta`.
+///
+/// Note that this depends on the implementation of [`SystemParam::get_param`],
+/// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
+/// or another [`SystemParamBuilder::build`]
+pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
+    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// and creates a new instance of this param's [`State`](SystemParam::State).
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> P::State;
+
+    /// Create a [`SystemState`] from a [`SystemParamBuilder`].
+    /// To create a system, call [`SystemState::build_system`] on the result.
+    fn build_state(self, world: &mut World) -> SystemState<P> {
+        SystemState::from_builder(world, self)
+    }
 }
 
-impl<'w, T: SystemParam> SystemBuilder<'w, T> {
-    /// Construct a new builder with the default state for `T`
-    pub fn new(world: &'w mut World) -> Self {
-        let mut meta = SystemMeta::new::<T>();
-        Self {
-            state: T::init_state(world, &mut meta),
-            meta,
-            world,
-        }
+/// A [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct ParamBuilder;
+
+// SAFETY: Calls `SystemParam::init_state`
+unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> P::State {
+        P::init_state(world, meta)
+    }
+}
+
+impl ParamBuilder {
+    /// Creates a [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
+    pub fn of<T: SystemParam>() -> impl SystemParamBuilder<T> {
+        Self
     }
 
-    /// Construct the a system with the built params
-    pub fn build<F, Marker>(self, func: F) -> FunctionSystem<Marker, F>
-    where
-        F: SystemParamFunction<Marker, Param = T>,
+    /// Helper method for reading a [`Resource`] as a param, equivalent to `of::<Res<T>>()`
+    pub fn resource<'w, T: Resource>() -> impl SystemParamBuilder<Res<'w, T>> {
+        Self
+    }
+
+    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
+    pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
+        Self
+    }
+
+    /// Helper method for adding a [`Local`] as a param, equivalent to `of::<Local<T>>()`
+    pub fn local<'s, T: FromWorld + Send + 'static>() -> impl SystemParamBuilder<Local<'s, T>> {
+        Self
+    }
+
+    /// Helper method for adding a [`Query`] as a param, equivalent to `of::<Query<D>>()`
+    pub fn query<'w, 's, D: QueryData + 'static>() -> impl SystemParamBuilder<Query<'w, 's, D, ()>>
     {
-        FunctionSystem::from_builder(self, func)
+        Self
     }
 
-    /// Return the constructed [`SystemState`]
-    pub fn state(self) -> SystemState<T> {
-        SystemState::from_builder(self)
+    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D, F>>()`
+    pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
+    ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
+        Self
     }
 }
 
-macro_rules! impl_system_builder {
-    ($($curr: ident),*) => {
-        impl<'w, $($curr: SystemParam,)*> SystemBuilder<'w, ($($curr,)*)> {
-            /// Add `T` as a parameter built from the world
-            pub fn param<T: SystemParam>(mut self) -> SystemBuilder<'w, ($($curr,)* T,)> {
+// SAFETY: Calls `init_query_param`, just like `Query::init_state`.
+unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
+    SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
+{
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+        self.validate_world(world.id());
+        init_query_param(world, system_meta, &self);
+        self
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Query`].
+pub struct QueryParamBuilder<T>(T);
+
+impl<T> QueryParamBuilder<T> {
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
+    pub fn new<D: QueryData, F: QueryFilter>(f: T) -> Self
+    where
+        T: FnOnce(&mut QueryBuilder<D, F>),
+    {
+        Self(f)
+    }
+}
+
+impl<'a, D: QueryData, F: QueryFilter>
+    QueryParamBuilder<Box<dyn FnOnce(&mut QueryBuilder<D, F>) + 'a>>
+{
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
+    /// This boxes the callback so that it has a common type and can be put in a `Vec`.
+    pub fn new_box(f: impl FnOnce(&mut QueryBuilder<D, F>) + 'a) -> Self {
+        Self(Box::new(f))
+    }
+}
+
+// SAFETY: Calls `init_query_param`, just like `Query::init_state`.
+unsafe impl<
+        'w,
+        's,
+        D: QueryData + 'static,
+        F: QueryFilter + 'static,
+        T: FnOnce(&mut QueryBuilder<D, F>),
+    > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
+{
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+        let mut builder = QueryBuilder::new(world);
+        (self.0)(&mut builder);
+        let state = builder.build();
+        init_query_param(world, system_meta, &state);
+        state
+    }
+}
+
+macro_rules! impl_system_param_builder_tuple {
+    ($(($param: ident, $builder: ident)),*) => {
+        // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
+        unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
+            fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 #[allow(non_snake_case)]
-                let ($($curr,)*) = self.state;
-                SystemBuilder {
-                    state: ($($curr,)* T::init_state(self.world, &mut self.meta),),
-                    meta: self.meta,
-                    world: self.world,
-                }
-            }
-
-            /// Helper method for reading a [`Resource`] as a param, equivalent to `.param::<Res<T>>()`
-            pub fn resource<T: Resource>(self) -> SystemBuilder<'w,  ($($curr,)* Res<'static, T>,)> {
-                self.param::<Res<T>>()
-            }
-
-            /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `.param::<ResMut<T>>()`
-            pub fn resource_mut<T: Resource>(self) -> SystemBuilder<'w,  ($($curr,)* ResMut<'static, T>,)> {
-                self.param::<ResMut<T>>()
-            }
-
-            /// Helper method for adding a [`Local`] as a param, equivalent to `.param::<Local<T>>()`
-            pub fn local<T: Send + FromWorld>(self) -> SystemBuilder<'w,  ($($curr,)* Local<'static, T>,)> {
-                self.param::<Local<T>>()
-            }
-
-            /// Helper method for adding a [`Query`] as a param, equivalent to `.param::<Query<D>>()`
-            pub fn query<D: QueryData>(self) -> SystemBuilder<'w,  ($($curr,)* Query<'static, 'static, D, ()>,)> {
-                self.query_filtered::<D, ()>()
-            }
-
-            /// Helper method for adding a filtered [`Query`] as a param, equivalent to `.param::<Query<D, F>>()`
-            pub fn query_filtered<D: QueryData, F: QueryFilter>(self) -> SystemBuilder<'w,  ($($curr,)* Query<'static, 'static, D, F>,)> {
-                self.param::<Query<D, F>>()
-            }
-
-            /// Add `T` as a parameter built with the given function
-            pub fn builder<T: BuildableSystemParam>(
-                mut self,
-                func: impl FnOnce(&mut T::Builder<'_>),
-            ) -> SystemBuilder<'w, ($($curr,)* T,)> {
-                #[allow(non_snake_case)]
-                let ($($curr,)*) = self.state;
-                SystemBuilder {
-                    state: ($($curr,)* T::build(self.world, &mut self.meta, func),),
-                    meta: self.meta,
-                    world: self.world,
-                }
+                let ($($builder,)*) = self;
+                #[allow(clippy::unused_unit)]
+                ($($builder.build(_world, _meta),)*)
             }
         }
     };
 }
 
-all_tuples!(impl_system_builder, 0, 15, P);
+all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
+
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world, meta))
+            .collect()
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`ParamSet`].
+/// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
+/// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
+pub struct ParamSetBuilder<T>(T);
+
+macro_rules! impl_param_set_builder_tuple {
+    ($(($param: ident, $builder: ident, $meta: ident)),*) => {
+        // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
+        unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
+            #[allow(non_snake_case)]
+            fn build(self, _world: &mut World, _system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+                let ParamSetBuilder(($($builder,)*)) = self;
+                // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
+                // One call populates an empty `SystemMeta` with the new access, while the other runs against a cloned `SystemMeta` to check for conflicts.
+                // Builders can only be invoked once, so we do both in a single call here.
+                // That means that any `filtered_accesses` in the `component_access_set` will get copied to every `$meta`
+                // and will appear multiple times in the final `SystemMeta`.
+                $(
+                    let mut $meta = _system_meta.clone();
+                    let $param = $builder.build(_world, &mut $meta);
+                )*
+                // Make the ParamSet non-send if any of its parameters are non-send.
+                if false $(|| !$meta.is_send())* {
+                    _system_meta.set_non_send();
+                }
+                $(
+                    _system_meta
+                        .component_access_set
+                        .extend($meta.component_access_set);
+                    _system_meta
+                        .archetype_component_access
+                        .extend(&$meta.archetype_component_access);
+                )*
+                #[allow(clippy::unused_unit)]
+                ($($param,)*)
+            }
+        }
+    };
+}
+
+all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
+
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+// with any prior access, a panic will occur.
+unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
+{
+    fn build(
+        self,
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Vec<P> as SystemParam>::State {
+        let mut states = Vec::with_capacity(self.0.len());
+        let mut metas = Vec::with_capacity(self.0.len());
+        for builder in self.0 {
+            let mut meta = system_meta.clone();
+            states.push(builder.build(world, &mut meta));
+            metas.push(meta);
+        }
+        if metas.iter().any(|m| !m.is_send()) {
+            system_meta.set_non_send();
+        }
+        for meta in metas {
+            system_meta
+                .component_access_set
+                .extend(meta.component_access_set);
+            system_meta
+                .archetype_component_access
+                .extend(&meta.archetype_component_access);
+        }
+        states
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Local`].
+/// The provided value will be used as the initial value of the `Local`.
+pub struct LocalBuilder<T>(pub T);
+
+// SAFETY: `Local` performs no world access.
+unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
+    for LocalBuilder<T>
+{
+    fn build(
+        self,
+        _world: &mut World,
+        _meta: &mut SystemMeta,
+    ) -> <Local<'s, T> as SystemParam>::State {
+        SyncCell::new(self.0)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -154,6 +319,12 @@ mod tests {
 
     #[derive(Component)]
     struct A;
+
+    #[derive(Component)]
+    struct B;
+
+    #[derive(Component)]
+    struct C;
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
@@ -171,9 +342,9 @@ mod tests {
     fn local_builder() {
         let mut world = World::new();
 
-        let system = SystemBuilder::<()>::new(&mut world)
-            .builder::<Local<u64>>(|x| *x = 10)
-            .build(local_system);
+        let system = (LocalBuilder(10),)
+            .build_state(&mut world)
+            .build_system(local_system);
 
         let result = world.run_system_once(system);
         assert_eq!(result, 10);
@@ -186,11 +357,26 @@ mod tests {
         world.spawn(A);
         world.spawn_empty();
 
-        let system = SystemBuilder::<()>::new(&mut world)
-            .builder::<Query<()>>(|query| {
-                query.with::<A>();
-            })
-            .build(query_system);
+        let system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_state(&mut world)
+            .build_system(query_system);
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 1);
+    }
+
+    #[test]
+    fn query_builder_state() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let state = QueryBuilder::new(&mut world).with::<A>().build();
+
+        let system = (state,).build_state(&mut world).build_system(query_system);
 
         let result = world.run_system_once(system);
         assert_eq!(result, 1);
@@ -203,12 +389,67 @@ mod tests {
         world.spawn(A);
         world.spawn_empty();
 
-        let system = SystemBuilder::<()>::new(&mut world)
-            .local::<u64>()
-            .param::<Local<u64>>()
-            .build(multi_param_system);
+        let system = (LocalBuilder(0), ParamBuilder)
+            .build_state(&mut world)
+            .build_system(multi_param_system);
 
         let result = world.run_system_once(system);
         assert_eq!(result, 1);
+    }
+
+    #[test]
+    fn param_set_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (ParamSetBuilder((
+            QueryParamBuilder::new(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.with::<C>();
+            }),
+        )),)
+            .build_state(&mut world)
+            .build_system(|mut params: ParamSet<(Query<&mut A>, Query<&mut A>)>| {
+                params.p0().iter().count() + params.p1().iter().count()
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn param_set_vec_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (ParamSetBuilder(vec![
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<C>();
+            }),
+        ]),)
+            .build_state(&mut world)
+            .build_system(|mut params: ParamSet<Vec<Query<&mut A>>>| {
+                let mut count = 0;
+                params.for_each(|mut query| count += query.iter_mut().count());
+                count
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 5);
     }
 }
