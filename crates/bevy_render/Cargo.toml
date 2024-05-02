@@ -70,7 +70,7 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "0.19.3", default-features = false, features = [
+wgpu = { version = "0.20.0", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
