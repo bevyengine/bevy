@@ -38,7 +38,7 @@ struct RenderWorldSender(Sender<Vec<u32>>);
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::BLACK.into()))
         .add_plugins((DefaultPlugins, GpuReadbackPlugin))
         .add_systems(Update, receive)
         .run();

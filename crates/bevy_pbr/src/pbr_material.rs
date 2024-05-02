@@ -614,6 +614,13 @@ impl From<LinearRgba> for StandardMaterial {
     }
 }
 
+impl From<Color> for StandardMaterial {
+    fn from(color: Color) -> Self {
+        let linear_rgba: LinearRgba = color.into();
+        linear_rgba.into()
+    }
+}
+
 impl From<Srgba> for StandardMaterial {
     fn from(color: Srgba) -> Self {
         let linear_rgba: LinearRgba = color.into();
