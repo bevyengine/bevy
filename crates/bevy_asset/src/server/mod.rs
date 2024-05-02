@@ -22,11 +22,12 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
-use futures_lite::StreamExt;
+use futures_lite::{FutureExt, StreamExt};
+pub(crate) use info::HandleDropResult;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::{any::Any, path::PathBuf};
+use std::{any::Any, panic::AssertUnwindSafe, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -291,25 +292,23 @@ impl AssetServer {
         meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
         let path = path.into().into_owned();
-        let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
-            path.clone(),
-            HandleLoadingMode::Request,
-            meta_transform,
-        );
-
-        if should_load {
-            let owned_handle = Some(handle.clone().untyped());
-            let server = self.clone();
-            IoTaskPool::get()
-                .spawn(async move {
-                    if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
+        let server = self.clone();
+        self.data
+            .infos
+            .write()
+            .get_or_create_path_handle_and_load::<A, _, _>(
+                path.clone(),
+                HandleLoadingMode::Request,
+                meta_transform,
+                |handle| async move {
+                    if let Err(err) = server
+                        .load_internal(Some(handle.untyped()), path, false, None)
+                        .await
+                    {
                         error!("{}", err);
                     }
-                })
-                .detach();
-        }
-
-        handle
+                },
+            )
     }
 
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
@@ -355,44 +354,38 @@ impl AssetServer {
                 CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
             }
         });
-        let (handle, should_load) = self
+        let server = self.clone();
+        let handle = self
             .data
             .infos
             .write()
-            .get_or_create_path_handle::<LoadedUntypedAsset>(
+            .get_or_create_path_handle_and_load::<LoadedUntypedAsset, _, _>(
                 path.clone().with_source(untyped_source),
                 HandleLoadingMode::Request,
                 None,
-            );
-        if !should_load {
-            return handle;
-        }
-        let id = handle.id().untyped();
-
-        let server = self.clone();
-        IoTaskPool::get()
-            .spawn(async move {
-                let path_clone = path.clone();
-                match server.load_untyped_async(path).await {
-                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
-                        id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedUntypedAsset { handle },
-                            None,
-                        )
-                        .into(),
-                    }),
-                    Err(err) => {
-                        error!("{err}");
-                        server.send_asset_event(InternalAssetEvent::Failed {
+                |handle| async move {
+                    let id = handle.id().untyped();
+                    let path_clone = path.clone();
+                    match server.load_untyped_async(path).await {
+                        Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                             id,
-                            path: path_clone,
-                            error: err,
-                        });
+                            loaded_asset: LoadedAsset::new_with_dependencies(
+                                LoadedUntypedAsset { handle },
+                                None,
+                            )
+                            .into(),
+                        }),
+                        Err(err) => {
+                            error!("{err}");
+                            server.send_asset_event(InternalAssetEvent::Failed {
+                                id,
+                                path: path_clone,
+                                error: err,
+                            });
+                        }
                     }
-                }
-            })
-            .detach();
+                },
+            );
 
         handle
     }
@@ -1044,13 +1037,20 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        loader.load(reader, meta, load_context).await.map_err(|e| {
-            AssetLoadError::AssetLoaderError(AssetLoaderError {
+        AssertUnwindSafe(loader.load(reader, meta, load_context))
+            .catch_unwind()
+            .await
+            .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_name(),
-                error: e.into(),
+            })?
+            .map_err(|e| {
+                AssetLoadError::AssetLoaderError(AssetLoaderError {
+                    path: asset_path.clone_owned(),
+                    loader_name: loader.type_name(),
+                    error: e.into(),
+                })
             })
-        })
     }
 }
 
@@ -1272,6 +1272,11 @@ pub enum AssetLoadError {
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
+    #[error("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
+    AssetLoaderPanic {
+        path: AssetPath<'static>,
+        loader_name: &'static str,
+    },
     #[error(transparent)]
     AssetLoaderError(#[from] AssetLoaderError),
     #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",

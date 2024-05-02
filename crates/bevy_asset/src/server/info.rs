@@ -5,9 +5,11 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
+use bevy_tasks::{IoTaskPool, Task};
 use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
+use futures_lite::Future;
 use std::{
     any::TypeId,
     sync::{Arc, Weak},
@@ -76,6 +78,16 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
+    pub(crate) pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
+}
+
+pub(crate) enum HandleDropResult {
+    // asset already dropped, was never created, or new handles have been created
+    NotDropped,
+    // asset can be dropped and infos data has been cleaned up
+    Dropped,
+    // asset load is still in progress externally and cannot be cancelled
+    CantDropYet,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -162,6 +174,30 @@ impl AssetInfos {
         let (handle, should_load) =
             unwrap_with_context(result, std::any::type_name::<A>()).unwrap();
         (handle.typed_unchecked(), should_load)
+    }
+
+    pub(crate) fn get_or_create_path_handle_and_load<
+        A: Asset,
+        FU: Future<Output = ()> + Send + 'static,
+        F: FnOnce(Handle<A>) -> FU,
+    >(
+        &mut self,
+        path: AssetPath<'static>,
+        loading_mode: HandleLoadingMode,
+        meta_transform: Option<MetaTransform>,
+        load_fn: F,
+    ) -> Handle<A> {
+        let (handle, should_load) =
+            self.get_or_create_path_handle(path, loading_mode, meta_transform);
+
+        if should_load {
+            self.pending_load_tasks.insert(
+                handle.id().untyped(),
+                IoTaskPool::get().spawn(load_fn(handle.clone_weak())),
+            );
+        }
+
+        handle
     }
 
     pub(crate) fn get_or_create_path_handle_untyped(
@@ -358,12 +394,13 @@ impl AssetInfos {
     }
 
     /// Returns `true` if the asset should be removed from the collection.
-    pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
+    pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> HandleDropResult {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
             &mut self.loader_dependants,
             &mut self.living_labeled_assets,
+            &mut self.pending_load_tasks,
             self.watching_for_changes,
             id,
         )
@@ -522,6 +559,8 @@ impl AssetInfos {
                 }
             }
         }
+
+        self.pending_load_tasks.remove(&loaded_asset_id);
     }
 
     /// Recursively propagates loaded state up the dependency tree.
@@ -642,25 +681,33 @@ impl AssetInfos {
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
+        pending_load_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
-    ) -> bool {
+    ) -> HandleDropResult {
         let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            return false;
+            return HandleDropResult::NotDropped;
         };
 
         if entry.get_mut().handle_drops_to_skip > 0 {
             entry.get_mut().handle_drops_to_skip -= 1;
-            return false;
+            return HandleDropResult::NotDropped;
         }
 
         let type_id = entry.key().type_id();
 
+        // drop the associated load task
+        if let LoadState::Loading | LoadState::NotLoaded = entry.get().load_state {
+            if pending_load_tasks.remove(&id).is_none() {
+                return HandleDropResult::CantDropYet;
+            }
+        }
+
         let info = entry.remove();
         let Some(path) = &info.path else {
-            return true;
+            return HandleDropResult::Dropped;
         };
 
         if watching_for_changes {
@@ -680,7 +727,7 @@ impl AssetInfos {
             }
         };
 
-        true
+        HandleDropResult::Dropped
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -698,6 +745,7 @@ impl AssetInfos {
                         &mut self.path_to_id,
                         &mut self.loader_dependants,
                         &mut self.living_labeled_assets,
+                        &mut self.pending_load_tasks,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );
