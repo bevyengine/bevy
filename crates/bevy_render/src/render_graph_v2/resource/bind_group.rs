@@ -6,7 +6,8 @@ use crate::{
 };
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderHandle, RenderResource,
+    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
+    RenderDependencies, RenderHandle, RenderResource,
 };
 
 impl RenderResource for BindGroupLayout {
@@ -14,7 +15,7 @@ impl RenderResource for BindGroupLayout {
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_bind_group_layout_direct(None, resource)
     }
 
     fn get_from_store<'a>(
@@ -30,10 +31,10 @@ impl DescribedRenderResource for BindGroupLayout {
 
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Option<Self::Descriptor>,
+        descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_bind_group_layout_direct(Some(descriptor), resource)
     }
 
     fn get_descriptor<'g>(
@@ -44,12 +45,21 @@ impl DescribedRenderResource for BindGroupLayout {
     }
 }
 
+impl FromDescriptorRenderResource for BindGroupLayout {
+    fn new_from_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+    ) -> RenderHandle<'g, Self> {
+        graph.new_bind_group_layout_descriptor(descriptor)
+    }
+}
+
 impl RenderResource for BindGroup {
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_bind_group_direct(RenderDependencies::new(), resource)
     }
 
     fn get_from_store<'a>(
