@@ -183,7 +183,7 @@ pub struct IndirectParameters {
     pub instance_count: u32,
 
     /// The index of the first vertex we're to draw.
-    pub first_vertex: u32,
+    pub first_vertex_or_index: u32,
 
     /// For `ArrayIndirectParameters`, `first_instance`; for
     /// `ElementIndirectParameters`, `base_vertex`.

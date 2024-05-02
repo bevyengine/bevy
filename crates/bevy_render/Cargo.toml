@@ -101,6 +101,8 @@ profiling = { version = "1", features = [
 async-channel = "2.2.0"
 nonmax = "0.5"
 smallvec = "1.11"
+offset-allocator = "0.1"
+slotmap = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.

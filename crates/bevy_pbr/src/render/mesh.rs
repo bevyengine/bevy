@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
+    allocator::GpuAllocator,
     batching::{
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
@@ -1298,23 +1299,30 @@ fn get_batch_indirect_parameters_index(
     let mesh_instance = mesh_instances.get(&entity)?;
     let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
 
+    let vertex_offset = mesh.vertex_buffer.offset();
+
     // Note that `IndirectParameters` covers both of these structures, even
     // though they actually have distinct layouts. See the comment above that
     // type for more information.
     let indirect_parameters = match mesh.buffer_info {
         GpuBufferInfo::Indexed {
-            count: index_count, ..
-        } => IndirectParameters {
-            vertex_or_index_count: index_count,
-            instance_count: 0,
-            first_vertex: 0,
-            base_vertex_or_first_instance: 0,
-            first_instance: instance_index,
-        },
+            ref allocation,
+            count: index_count,
+            ..
+        } => {
+            let index_offset = allocation.offset();
+            IndirectParameters {
+                vertex_or_index_count: index_count,
+                instance_count: 0,
+                first_vertex_or_index: index_offset,
+                base_vertex_or_first_instance: vertex_offset,
+                first_instance: instance_index,
+            }
+        }
         GpuBufferInfo::NonIndexed => IndirectParameters {
             vertex_or_index_count: mesh.vertex_count,
             instance_count: 0,
-            first_vertex: 0,
+            first_vertex_or_index: vertex_offset,
             base_vertex_or_first_instance: instance_index,
             first_instance: instance_index,
         },
@@ -2043,6 +2051,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         SRes<RenderMeshInstances>,
         SRes<IndirectParametersBuffer>,
         SRes<PipelineCache>,
+        SRes<GpuAllocator>,
         Option<SRes<PreprocessPipelines>>,
     );
     type ViewQuery = Has<PreprocessBindGroup>;
@@ -2052,7 +2061,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         item: &P,
         has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
         _item_query: Option<()>,
-        (meshes, mesh_instances, indirect_parameters_buffer, pipeline_cache, preprocess_pipelines): SystemParamItem<'w, '_, Self::Param>,
+        (
+            meshes,
+            mesh_instances,
+            indirect_parameters_buffer,
+            pipeline_cache,
+            allocator,
+            preprocess_pipelines,
+        ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         // If we're using GPU preprocessing, then we're dependent on that
@@ -2069,6 +2085,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
         let indirect_parameters_buffer = indirect_parameters_buffer.into_inner();
+        let allocator = allocator.into_inner();
 
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
             return RenderCommandResult::Failure;
@@ -2092,21 +2109,32 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             },
         };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        let vertex_buffer = allocator.buffer(&gpu_mesh.vertex_buffer);
+        let vertex_offset = gpu_mesh.vertex_buffer.offset();
+
+        pass.set_vertex_buffer(0, vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
 
         // Draw either directly or indirectly, as appropriate.
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
-                buffer,
+                allocation,
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                let index_buffer = allocator.buffer(allocation);
+                let index_offset = allocation.offset();
+
+                pass.set_index_buffer(index_buffer.slice(..), 0, *index_format);
+
                 match indirect_parameters {
                     None => {
-                        pass.draw_indexed(0..*count, 0, batch_range.clone());
+                        pass.draw_indexed(
+                            index_offset..(index_offset + *count),
+                            vertex_offset as i32,
+                            batch_range.clone(),
+                        );
                     }
                     Some((indirect_parameters_offset, indirect_parameters_buffer)) => pass
                         .draw_indexed_indirect(
@@ -2117,7 +2145,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             }
             GpuBufferInfo::NonIndexed => match indirect_parameters {
                 None => {
-                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                    pass.draw(
+                        vertex_offset..(vertex_offset + gpu_mesh.vertex_count),
+                        batch_range.clone(),
+                    );
                 }
                 Some((indirect_parameters_offset, indirect_parameters_buffer)) => {
                     pass.draw_indirect(indirect_parameters_buffer, indirect_parameters_offset);

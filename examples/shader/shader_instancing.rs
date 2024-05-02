@@ -11,6 +11,7 @@ use bevy::{
     },
     prelude::*,
     render::{
+        allocator::GpuAllocator,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
         render_asset::RenderAssets,
@@ -233,7 +234,11 @@ type DrawCustom = (
 struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
-    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMeshInstances>);
+    type Param = (
+        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderMeshInstances>,
+        SRes<GpuAllocator>,
+    );
     type ViewQuery = ();
     type ItemQuery = Read<InstanceBuffer>;
 
@@ -242,7 +247,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         item: &P,
         _view: (),
         instance_buffer: Option<&'w InstanceBuffer>,
-        (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, render_mesh_instances, allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
@@ -255,21 +260,35 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Failure;
         };
+        let allocator = allocator.into_inner();
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        let vertex_buffer = allocator.buffer(&gpu_mesh.vertex_buffer);
+        let vertex_offset = gpu_mesh.vertex_buffer.offset();
+
+        pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
-                buffer,
+                allocation,
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
+                let index_buffer = allocator.buffer(allocation);
+                let index_offset = allocation.offset();
+
+                pass.set_index_buffer(index_buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(
+                    index_offset..(index_offset + *count),
+                    vertex_offset as i32,
+                    0..instance_buffer.length as u32,
+                );
             }
             GpuBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, 0..instance_buffer.length as u32);
+                pass.draw(
+                    vertex_offset..(vertex_offset + gpu_mesh.vertex_count),
+                    0..instance_buffer.length as u32,
+                );
             }
         }
         RenderCommandResult::Success

@@ -860,6 +860,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id,
                                 material_bind_group_id: material.get_bind_group_id().0,
+                                slab_hash: mesh.slab_hash,
                             },
                             *visible_entity,
                             mesh_instance.should_batch(),
@@ -871,6 +872,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id,
                                 material_bind_group_id: material.get_bind_group_id().0,
+                                slab_hash: mesh.slab_hash,
                             },
                             *visible_entity,
                             mesh_instance.should_batch(),
@@ -885,6 +887,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id,
                             material_bind_group_id: material.get_bind_group_id().0,
+                            slab_hash: mesh.slab_hash,
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -897,6 +900,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: alpha_mask_draw_prepass,
                             asset_id: mesh_instance.mesh_asset_id,
                             material_bind_group_id: material.get_bind_group_id().0,
+                            slab_hash: mesh.slab_hash,
                         };
                         alpha_mask_phase.add(
                             bin_key,

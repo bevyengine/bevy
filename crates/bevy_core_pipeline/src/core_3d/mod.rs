@@ -53,7 +53,7 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    mesh::Mesh,
+    mesh::{Mesh, MeshSlabHash},
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -71,6 +71,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
+
+use bitflags::bitflags;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -191,22 +193,57 @@ pub struct Opaque3d {
 /// Data that must be identical in order to batch meshes together.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
+    /// Various flags, with the [`MeshSlabHash`] in the top bits.
+    ///
+    /// We want this to be first to minimize IBO and VBO changes. See the
+    /// comments in [`MeshSlabHash`] for more details.
+    pub flags: MeshCompareFlags,
+
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
-
     /// The ID of a bind group specific to the material.
     ///
     /// In the case of PBR, this is the `MaterialBindGroupId`.
     pub material_bind_group_id: Option<BindGroupId>,
 
-    /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    /// The lightmap, if present; if not present, this is `AssetId::default()`.
+    pub lightmap_image: AssetId<Image>,
+
+    /// The mesh.
+    ///
+    /// Although we don't have multidraw capability yet, we place this at the
+    /// end to maximize multidraw opportunities in the future.
+    pub asset_id: AssetId<Mesh>,
+}
+
+bitflags! {
+    /// Flags that are used as part of the decision to batch or not batch a
+    /// mesh.
+    ///
+    /// This 8-bit flag field is concatenated with [`MeshSlabHash`] to form the
+    /// `flags` field of a bin key or compare data.
+    #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    pub struct MeshCompareFlags: u32 {
+        /// A lightmap is present.
+        const HAS_LIGHTMAP = 0x0000_0001;
+    }
+}
+
+impl MeshCompareFlags {
+    /// Creates a new [`MeshCompareFlags`] for a mesh and corresponding slab
+    /// hash.
+    ///
+    /// `has_lightmap` should be true if the mesh has a lightmap.
+    pub fn new(has_lightmap: bool, slab_hash: MeshSlabHash) -> MeshCompareFlags {
+        let mut flags = MeshCompareFlags::empty();
+        flags.set(MeshCompareFlags::HAS_LIGHTMAP, has_lightmap);
+        flags.insert(MeshCompareFlags::from_bits_retain(*slab_hash));
+        flags
+    }
 }
 
 impl PhaseItem for Opaque3d {

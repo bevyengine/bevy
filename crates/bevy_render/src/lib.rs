@@ -12,6 +12,7 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod allocator;
 pub mod alpha;
 pub mod batching;
 pub mod camera;
@@ -52,6 +53,7 @@ pub mod prelude {
     };
 }
 
+use allocator::GpuAllocatorPlugin;
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
@@ -336,6 +338,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
+            GpuAllocatorPlugin::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
