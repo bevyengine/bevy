@@ -855,7 +855,11 @@ impl ScheduleGraph {
 
     /// Checks that a system set isn't included in itself.
     /// If not present, add the set to the graph.
-    fn check_hierarchy_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
+    fn check_hierarchy_set(
+        &mut self,
+        id: &NodeId,
+        set: InternedSystemSet,
+    ) -> Result<(), ScheduleBuildError> {
         match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
