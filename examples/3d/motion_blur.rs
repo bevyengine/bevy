@@ -55,7 +55,7 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
+        color: Color::WHITE.into(),
         brightness: 300.0,
     });
     commands.insert_resource(CameraMode::Chase);
@@ -73,7 +73,7 @@ fn setup_scene(
         mesh: meshes.add(Sphere::default()),
         material: materials.add(StandardMaterial {
             unlit: true,
-            base_color: Color::linear_rgb(0.1, 0.6, 1.0),
+            base_color: Color::linear_rgb(0.1, 0.6, 1.0).into(),
             ..default()
         }),
         transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
@@ -87,7 +87,7 @@ fn setup_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(plane),
         material: materials.add(StandardMaterial {
-            base_color: Color::WHITE,
+            base_color: Color::WHITE.into(),
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
             ..default()
@@ -112,7 +112,7 @@ fn spawn_cars(
     let cylinder = meshes.add(Cylinder::default());
     let logo = asset_server.load("branding/icon.png");
     let wheel_matl = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
+        base_color: Color::WHITE.into(),
         base_color_texture: Some(logo.clone()),
         ..default()
     });
@@ -125,14 +125,14 @@ fn spawn_cars(
     };
 
     let colors = [
-        matl(Color::linear_rgb(1.0, 0.0, 0.0)),
-        matl(Color::linear_rgb(1.0, 1.0, 0.0)),
-        matl(Color::BLACK),
-        matl(Color::linear_rgb(0.0, 0.0, 1.0)),
-        matl(Color::linear_rgb(0.0, 1.0, 0.0)),
-        matl(Color::linear_rgb(1.0, 0.0, 1.0)),
-        matl(Color::linear_rgb(0.5, 0.5, 0.0)),
-        matl(Color::linear_rgb(1.0, 0.5, 0.0)),
+        matl(Color::linear_rgb(1.0, 0.0, 0.0).into()),
+        matl(Color::linear_rgb(1.0, 1.0, 0.0).into()),
+        matl(Color::BLACK.into()),
+        matl(Color::linear_rgb(0.0, 0.0, 1.0).into()),
+        matl(Color::linear_rgb(0.0, 1.0, 0.0).into()),
+        matl(Color::linear_rgb(1.0, 0.0, 1.0).into()),
+        matl(Color::linear_rgb(0.5, 0.5, 0.0).into()),
+        matl(Color::linear_rgb(1.0, 0.5, 0.0).into()),
     ];
 
     for i in 0..N_CARS {
@@ -186,7 +186,7 @@ fn spawn_barriers(
     const N_CONES: usize = 100;
     let capsule = meshes.add(Capsule3d::default());
     let matl = materials.add(StandardMaterial {
-        base_color: Color::srgb_u8(255, 87, 51),
+        base_color: Color::srgb_u8(255, 87, 51).into(),
         reflectance: 1.0,
         ..default()
     });
@@ -216,8 +216,8 @@ fn spawn_trees(
     const N_TREES: usize = 30;
     let capsule = meshes.add(Capsule3d::default());
     let sphere = meshes.add(Sphere::default());
-    let leaves = materials.add(Color::linear_rgb(0.0, 1.0, 0.0));
-    let trunk = materials.add(Color::linear_rgb(0.4, 0.2, 0.2));
+    let leaves: Handle<StandardMaterial> = materials.add(Color::linear_rgb(0.0, 1.0, 0.0));
+    let trunk: Handle<StandardMaterial> = materials.add(Color::linear_rgb(0.4, 0.2, 0.2));
 
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_TREES {

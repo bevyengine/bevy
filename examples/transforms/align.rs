@@ -135,18 +135,18 @@ fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
 
     // Local X-axis arrow
     let x_ends = arrow_ends(cube_transform, Vec3::X, 1.5);
-    gizmos.arrow(x_ends.0, x_ends.1, RED);
+    gizmos.arrow(x_ends.0, x_ends.1, RED.into());
 
     // local Y-axis arrow
     let y_ends = arrow_ends(cube_transform, Vec3::Y, 1.5);
-    gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.));
+    gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.).into());
 }
 
 // Draw the randomly generated axes
 fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
     let RandomAxes(v1, v2) = query.single();
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
-    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE.into());
+    gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY.into());
 }
 
 // Actually update the cube's transform according to its initial source and target
