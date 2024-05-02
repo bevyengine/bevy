@@ -442,7 +442,7 @@ fn handle_winit_event(
                             &accessibility_requested,
                         );
 
-                        let wrapper = RawHandleWrapper::new(winit_window);
+                        let wrapper = RawHandleWrapper::new(winit_window).unwrap();
 
                         app.world_mut().entity_mut(entity).insert(wrapper);
                     }
