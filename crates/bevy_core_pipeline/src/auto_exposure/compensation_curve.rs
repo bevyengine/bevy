@@ -33,7 +33,7 @@ pub struct AutoExposureCompensationCurve {
     /// * `0` maps to `min_compensation`
     /// * `255` maps to `max_compensation`
     /// The position in the LUT corresponds to the normalized log luminance value.
-    /// * `0` maps to `min_log_lum
+    /// * `0` maps to `min_log_lum`
     /// * `LUT_SIZE - 1` maps to `max_log_lum`
     lut: [u8; LUT_SIZE],
 }
