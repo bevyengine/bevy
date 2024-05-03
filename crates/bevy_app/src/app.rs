@@ -7,9 +7,11 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
-    schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
+#[cfg(feature = "bevy_state")]
+use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
@@ -264,6 +266,7 @@ impl App {
         self.sub_apps.iter().any(|s| s.is_building_plugins())
     }
 
+    #[cfg(feature = "bevy_state")]
     /// Initializes a [`State`] with standard starting values.
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
@@ -281,6 +284,7 @@ impl App {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
     ///
@@ -297,6 +301,7 @@ impl App {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// Sets up a type implementing [`ComputedStates`].
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
@@ -308,6 +313,7 @@ impl App {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// Sets up a type implementing [`SubStates`].
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
@@ -983,10 +989,7 @@ impl Termination for AppExit {
 mod tests {
     use std::{marker::PhantomData, mem};
 
-    use bevy_ecs::{
-        schedule::{OnEnter, States},
-        system::Commands,
-    };
+    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
 
     use crate::{App, AppExit, Plugin};
 
@@ -1059,11 +1062,9 @@ mod tests {
         App::new().add_plugins(PluginRun);
     }
 
-    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
-    enum AppState {
-        #[default]
-        MainMenu,
-    }
+    #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+    struct EnterMainMenu;
+
     fn bar(mut commands: Commands) {
         commands.spawn_empty();
     }
@@ -1075,20 +1076,18 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.init_state::<AppState>()
-            .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
+        app.add_systems(EnterMainMenu, (foo, bar));
 
-        app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
+        app.world_mut().run_schedule(EnterMainMenu);
         assert_eq!(app.world().entities().len(), 2);
     }
 
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist2() {
         let mut app = App::new();
-        app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
-            .init_state::<AppState>();
+        app.add_systems(EnterMainMenu, (foo, bar));
 
-        app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
+        app.world_mut().run_schedule(EnterMainMenu);
         assert_eq!(app.world().entities().len(), 2);
     }
 

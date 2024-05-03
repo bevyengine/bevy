@@ -8,6 +8,7 @@
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
 use bevy::prelude::*;
+use bevy::state::state::StateTransitionEvent;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {

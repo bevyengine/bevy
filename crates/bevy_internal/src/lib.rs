@@ -14,8 +14,6 @@ mod default_plugins;
 pub use default_plugins::*;
 
 pub use bevy_a11y as a11y;
-#[cfg(feature = "bevy_state")]
-pub use bevy_state as state;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
 pub use bevy_app as app;
@@ -54,6 +52,8 @@ pub use bevy_render as render;
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_state")]
+pub use bevy_state as state;
 pub use bevy_tasks as tasks;
 #[cfg(feature = "bevy_text")]
 pub use bevy_text as text;

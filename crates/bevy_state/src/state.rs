@@ -27,28 +27,29 @@
 //! - The [`in_state<S>`](crate::schedule::condition::in_state) and [`state_changed<S>`](crate::schedule::condition:state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+use std::borrow::BorrowMut;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::mem;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
-use crate as bevy_ecs;
-use crate::event::{Event, EventReader, EventWriter};
-use crate::prelude::{FromWorld, Local, Res, ResMut};
+use bevy_ecs::event::{Event, EventReader, EventWriter};
+use bevy_ecs::prelude::{FromWorld, Local, Res, ResMut};
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectResource;
-use crate::schedule::ScheduleLabel;
-use crate::system::{Commands, In, IntoSystem, Resource};
-use crate::world::World;
+use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::system::{Commands, In, IntoSystem, Resource};
+use bevy_ecs::world::World;
 
-use bevy_ecs_macros::SystemSet;
-pub use bevy_ecs_macros::{States, SubStates};
+use bevy_ecs::prelude::SystemSet;
+pub use bevy_state_macros::{States, SubStates};
 use bevy_utils::all_tuples;
 
 use self::sealed::StateSetSealed;
 
-use super::{InternedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, Schedules};
+use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, Schedules};
+use bevy_ecs::schedule::InternedScheduleLabel;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -414,7 +415,7 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     next_state: Option<ResMut<NextState<S>>>,
 ) {
     // We want to check if the State and NextState resources exist
-    let Some(next_state_resource) = next_state else {
+    let Some(mut next_state_resource) = next_state else {
         return;
     };
 
@@ -438,16 +439,17 @@ pub fn apply_state_transition<S: FreelyMutableState>(
         }
     }
 
-    *next_state_resource.value = NextState::<S>::Unchanged;
+    *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
 fn should_run_transition<S: States, T: ScheduleLabel>(
-    first: Local<bool>,
+    mut first: Local<bool>,
     res: Option<Res<State<S>>>,
     mut event: EventReader<StateTransitionEvent<S>>,
 ) -> (Option<StateTransitionEvent<S>>, PhantomData<T>) {
-    if !*first.0 {
-        *first.0 = true;
+    let first_mut = first.deref_mut();
+    if !*first_mut {
+        *first_mut = true;
         if let Some(res) = res {
             event.clear();
 
@@ -1034,14 +1036,15 @@ all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s, ereader);
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::SubStates;
+    use bevy_state_macros::SubStates;
 
     use super::*;
-    use crate as bevy_ecs;
 
-    use crate::event::EventRegistry;
+    use bevy_ecs::event::EventRegistry;
 
-    use crate::prelude::ResMut;
+    use bevy_ecs::prelude::ResMut;
+
+    use crate as bevy_state;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum SimpleState {

@@ -1,14 +1,12 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod condition;
+pub mod state;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::condition::*;
+    #[doc(hidden)]
+    pub use crate::state::{
+        apply_state_transition, ComputedStates, NextState, OnEnter, OnExit, OnTransition, State,
+        StateSet, StateTransition, StateTransitionEvent, States, SubStates,
+    };
 }
