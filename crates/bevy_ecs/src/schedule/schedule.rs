@@ -80,8 +80,7 @@ impl Schedules {
 
     /// Returns a mutable reference to the schedules associated with `label`, creating one if it doesn't already exist.
     pub fn entry(&mut self, label: impl ScheduleLabel) -> &mut Schedule {
-       self
-            .inner
+        self.inner
             .entry(label.intern())
             .or_insert_with(|| Schedule::new(label))
     }
@@ -161,7 +160,6 @@ impl Schedules {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        
         self.entry(schedule).add_systems(systems);
 
         self
@@ -179,7 +177,7 @@ impl Schedules {
         self
     }
 
-     /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     ///
     /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
@@ -196,7 +194,7 @@ impl Schedules {
         S1: IntoSystemSet<M1>,
         S2: IntoSystemSet<M2>,
     {
-       self.entry(schedule).ignore_ambiguity(a, b);
+        self.entry(schedule).ignore_ambiguity(a, b);
 
         self
     }
