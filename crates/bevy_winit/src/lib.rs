@@ -19,7 +19,7 @@ mod winit_config;
 pub mod winit_event;
 mod winit_windows;
 
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{sync_channel, SyncSender};
 
 use approx::relative_eq;
 use bevy_a11y::AccessibilityRequested;
@@ -281,9 +281,8 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
     let mut runner_state = WinitAppRunnerState::default();
 
-    // TODO: AppExit is effectively a u8 we could use a AtomicU8 here instead of a mutex.
-    let mut exit_status = Arc::new(Mutex::new(AppExit::Success));
-    let handle_exit_status = exit_status.clone();
+    // Create a channel with a size of 1, since ideally only one exit code will be sent before exiting the app.
+    let (exit_sender, exit_receiver) = sync_channel(1);
 
     // prepare structures to access data in the world
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
@@ -303,8 +302,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
     let mut winit_events = Vec::default();
     // set up the event loop
     let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
-        let mut exit_status = handle_exit_status.lock().unwrap();
-
         handle_winit_event(
             &mut app,
             &mut runner_state,
@@ -313,7 +310,7 @@ pub fn winit_runner(mut app: App) -> AppExit {
             &mut focused_windows_state,
             &mut redraw_event_reader,
             &mut winit_events,
-            &mut exit_status,
+            &exit_sender,
             event,
             event_loop,
         );
@@ -325,10 +322,10 @@ pub fn winit_runner(mut app: App) -> AppExit {
         error!("winit event loop returned an error: {err}");
     }
 
-    // We should be the only ones holding this `Arc` since the event loop exiting cleanly
-    // should drop the event handler. if this is not the case something funky is happening.
-    Arc::get_mut(&mut exit_status)
-        .map(|mutex| mutex.get_mut().unwrap().clone())
+    // If everything is working correctly then the event loop only exits after it's sent a exit code.
+    exit_receiver
+        .try_recv()
+        .map_err(|err| error!("Failed to receive a app exit code! This is a bug. Reason: {err}"))
         .unwrap_or(AppExit::error())
 }
 
@@ -346,7 +343,7 @@ fn handle_winit_event(
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
-    exit_status: &mut AppExit,
+    exit_notify: &SyncSender<AppExit>,
     event: Event<UserEvent>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
 ) {
@@ -779,7 +776,9 @@ fn handle_winit_event(
     }
 
     if let Some(app_exit) = app.should_exit() {
-        *exit_status = app_exit;
+        if let Err(err) = exit_notify.try_send(app_exit) {
+            error!("Failed to send a app exit notification! This is a bug. Reason: {err}");
+        };
         event_loop.exit();
         return;
     }
