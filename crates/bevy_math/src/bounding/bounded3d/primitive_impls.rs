@@ -309,7 +309,7 @@ impl Bounded3d for Ramp {
             self.half_size * Vec3::new(-1.0, -1.0, 1.0),
             self.half_size * Vec3::NEG_ONE,
         ];
-        Aabb3d::from_point_cloud(translation, rotation, &points)
+        Aabb3d::from_point_cloud(translation, rotation, points.into_iter())
     }
 
     fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
@@ -631,11 +631,11 @@ mod tests {
         let translation = Vec3::new(-3.0, 1.75, 0.0);
 
         let aabb = ramp.aabb_3d(translation, Quat::IDENTITY);
-        assert_eq!(aabb.min, Vec3::new(-3.5, 0.25, -2.0));
-        assert_eq!(aabb.max, Vec3::new(-2.5, 3.25, 2.0));
+        assert_eq!(aabb.min, Vec3A::new(-3.5, 0.25, -2.0));
+        assert_eq!(aabb.max, Vec3A::new(-2.5, 3.25, 2.0));
 
         let bounding_sphere = ramp.bounding_sphere(translation, Quat::IDENTITY);
-        assert_eq!(bounding_sphere.center, translation);
+        assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 2.5495098);
     }
 }
