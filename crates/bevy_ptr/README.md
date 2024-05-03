@@ -1,4 +1,4 @@
-# Bevy Ptr
+# Bevy Pointer
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ptr.svg)](https://crates.io/crates/bevy_ptr)
