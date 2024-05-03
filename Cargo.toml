@@ -8,7 +8,6 @@ exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.77.0"
@@ -19,6 +18,7 @@ exclude = [
   "crates/bevy_ecs_compile_fail_tests",
   "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_compile_test_utils",
 ]
 members = [
   "crates/*",
@@ -767,6 +767,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
@@ -986,6 +997,14 @@ name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
+setup = [
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
+]
 
 [[example]]
 name = "lightmaps"
@@ -1678,6 +1697,28 @@ doc-scrape-examples = true
 [package.metadata.example.state]
 name = "State"
 description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "sub_states"
+path = "examples/ecs/sub_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2896,6 +2937,28 @@ required-features = ["bevy_dev_tools"]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "color_grading"
+path = "examples/3d/color_grading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_grading]
+name = "Color grading"
+description = "Demonstrates color grading"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]

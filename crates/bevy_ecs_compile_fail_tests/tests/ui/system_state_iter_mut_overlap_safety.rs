@@ -16,6 +16,7 @@ fn main() {
         assert_eq!(
             // this should fail to compile due to the later use of mut_vec
             query.iter().collect::<Vec<&A>>(),
+            //~^ E0502
             vec![&A(1), &A(2)],
             "both components returned by iter of &mut"
         );
