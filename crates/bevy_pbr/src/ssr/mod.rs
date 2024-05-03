@@ -407,7 +407,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),
             "DEFERRED_PREPASS".into(),
-            "SSR".into(),
+            "SCREEN_SPACE_REFLECTIONS".into(),
         ];
 
         if key.has_environment_maps {

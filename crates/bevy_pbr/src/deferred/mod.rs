@@ -306,7 +306,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         }
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
-            shader_defs.push("SSR".into());
+            shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
         }
 
         // Always true, since we're in the deferred lighting pipeline
