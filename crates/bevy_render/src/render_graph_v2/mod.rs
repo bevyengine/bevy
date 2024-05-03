@@ -97,7 +97,6 @@ impl<'g> RenderGraph<'g> {
         &mut self,
         cache: &'g mut RenderGraphPersistentResources,
         render_device: &RenderDevice,
-        world: &World,
     ) {
         self.bind_group_layouts
             .create_queued_resources_cached(&mut cache.bind_group_layouts, render_device);
@@ -108,6 +107,92 @@ impl<'g> RenderGraph<'g> {
             .create_queued_resources_cached(&mut cache.samplers, render_device);
         self.buffers.create_queued_resources(render_device);
         //bind groups here
+    }
+}
+
+impl<'g> RenderGraph<'g> {
+    #[inline]
+    fn get_bind_group_layout_descriptor(
+        &self,
+        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
+    ) -> Option<&Box<[BindGroupLayoutEntry]>> {
+        self.bind_group_layouts
+            .get_descriptor(bind_group_layout.id())
+    }
+
+    #[inline]
+    fn get_texture_descriptor(
+        &self,
+        texture: RenderHandle<'g, Texture>,
+    ) -> Option<&TextureDescriptor<'static>> {
+        self.textures.get_descriptor(texture.id())
+    }
+
+    #[inline]
+    fn get_texture_descriptor_mut(
+        &mut self,
+        texture: RenderHandle<'g, Texture>,
+    ) -> Option<&mut TextureDescriptor<'static>> {
+        self.textures.get_descriptor_mut(texture.id())
+    }
+
+    #[inline]
+    fn get_texture_view_descriptor(
+        &self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> Option<&TextureViewDescriptor<'static>> {
+        todo!()
+        // self.texture_views.get_descriptor(texture_view.id())
+    }
+
+    #[inline]
+    fn get_sampler_descriptor(
+        &self,
+        sampler: RenderHandle<'g, Sampler>,
+    ) -> Option<&RenderGraphSamplerDescriptor> {
+        self.samplers.get_descriptor(sampler.id())
+    }
+
+    #[inline]
+    fn get_buffer_descriptor(
+        &self,
+        buffer: RenderHandle<'g, Buffer>,
+    ) -> Option<&BufferDescriptor<'static>> {
+        self.buffers.get_descriptor(buffer.id())
+    }
+
+    #[inline]
+    fn get_buffer_descriptor_mut(
+        &mut self,
+        buffer: RenderHandle<'g, Buffer>,
+    ) -> Option<&mut BufferDescriptor<'static>> {
+        self.buffers.get_descriptor_mut(buffer.id())
+    }
+
+    #[inline]
+    fn get_render_pipeline_descriptor<'a>(
+        &'a self,
+        render_pipeline: RenderHandle<'g, RenderPipeline>,
+        pipeline_cache: &'a PipelineCache,
+    ) -> Option<&'a RenderPipelineDescriptor>
+    where
+        'g: 'a,
+    {
+        self.pipelines
+            .get_render_pipeline_descriptor(pipeline_cache, render_pipeline.id())
+    }
+
+    #[inline]
+    fn get_compute_pipeline_descriptor<'a>(
+        &'a self,
+        compute_pipeline: RenderHandle<'g, ComputePipeline>,
+        pipeline_cache: &'a PipelineCache,
+    ) -> Option<&'a ComputePipelineDescriptor>
+    where
+        'g: 'a,
+    {
+        self.pipelines
+            .get_compute_pipeline_descriptor(pipeline_cache, compute_pipeline.id())
     }
 }
 
@@ -134,14 +219,14 @@ impl<'g> RenderGraphBuilder<'g> {
     pub fn get_descriptor_of<R: DescribedRenderResource>(
         &self,
         resource: RenderHandle<'g, R>,
-    ) -> Option<&'g R::Descriptor> {
+    ) -> Option<&R::Descriptor> {
         R::get_descriptor(self.graph, resource)
     }
 
     pub fn descriptor_of<R: DescribedRenderResource>(
         &self,
         resource: RenderHandle<'g, R>,
-    ) -> &'g R::Descriptor {
+    ) -> &R::Descriptor {
         self.get_descriptor_of(resource)
             .expect("No descriptor found for resource")
     }

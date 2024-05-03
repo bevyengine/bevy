@@ -111,10 +111,10 @@ pub trait DescribedRenderResource: RenderResource {
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor>;
+    ) -> Option<&'a Self::Descriptor>;
 }
 
 pub trait FromDescriptorRenderResource: DescribedRenderResource {
@@ -263,9 +263,12 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
     }
 
     pub fn get_descriptor(&self, id: RenderResourceId) -> Option<&R::Descriptor> {
-        self.resources
+        let check_normal = self
+            .resources
             .get(&id)
-            .and_then(|meta| meta.descriptor.as_ref())
+            .and_then(|meta| meta.descriptor.as_ref());
+        let check_queued = self.queued_resources.get(&id);
+        check_normal.or(check_queued)
     }
 
     pub fn get(&self, id: RenderResourceId) -> Option<&R> {
@@ -289,6 +292,10 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
 }
 
 impl<'g, R: UsagesRenderResource> RenderResources<'g, R> {
+    pub fn get_descriptor_mut(&mut self, id: RenderResourceId) -> Option<&mut R::Descriptor> {
+        self.queued_resources.get_mut(&id)
+    }
+
     pub fn add_usages(&mut self, id: RenderResourceId, usages: R::Usages) {
         if let Some(descriptor) = self.queued_resources.get_mut(&id) {
             R::add_usages(descriptor, usages);

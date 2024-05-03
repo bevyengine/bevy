@@ -16,14 +16,14 @@ impl RenderResource for Buffer {
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_buffer_direct(None, resource)
     }
 
     fn get_from_store<'a>(
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_buffer(resource)
     }
 }
 
@@ -37,14 +37,14 @@ impl DescribedRenderResource for Buffer {
         descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_buffer_direct(Some(descriptor), resource)
     }
 
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
-        todo!()
+    ) -> Option<&'a Self::Descriptor> {
+        graph.get_buffer_descriptor(resource)
     }
 }
 

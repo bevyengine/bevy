@@ -1,6 +1,6 @@
 use bevy_math::FloatOrd;
 use std::hash::Hash;
-use wgpu::TextureUsages;
+use wgpu::{TextureUsages, TextureViewDescriptor};
 
 use crate::{
     render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
@@ -44,12 +44,11 @@ impl DescribedRenderResource for Texture {
         graph.new_texture_direct(Some(descriptor), resource)
     }
 
-    #[inline]
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
-        todo!()
+    ) -> Option<&'a Self::Descriptor> {
+        graph.get_texture_descriptor(resource)
     }
 }
 
@@ -117,6 +116,25 @@ impl RenderResource for TextureView {
 
 impl WriteRenderResource for TextureView {}
 
+impl DescribedRenderResource for TextureView {
+    type Descriptor = TextureViewDescriptor<'static>;
+
+    fn new_with_descriptor<'g>(
+        graph: &mut RenderGraphBuilder<'g>,
+        descriptor: Self::Descriptor,
+        resource: RefEq<'g, Self>,
+    ) -> RenderHandle<'g, Self> {
+        graph.new_texture_view_direct(None, Some(descriptor), resource)
+    }
+
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Descriptor> {
+        graph.get_texture_view_descriptor(resource)
+    }
+}
+
 impl RenderResource for Sampler {
     #[inline]
     fn new_direct<'g>(
@@ -147,12 +165,11 @@ impl DescribedRenderResource for Sampler {
         graph.new_sampler_direct(Some(descriptor), resource)
     }
 
-    #[inline]
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
-        todo!()
+    ) -> Option<&'a Self::Descriptor> {
+        graph.get_sampler_descriptor(resource)
     }
 }
 

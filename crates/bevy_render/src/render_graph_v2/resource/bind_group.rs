@@ -37,10 +37,10 @@ impl DescribedRenderResource for BindGroupLayout {
         graph.new_bind_group_layout_direct(Some(descriptor), resource)
     }
 
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
+    ) -> Option<&'a Self::Descriptor> {
         todo!()
     }
 }
@@ -53,6 +53,8 @@ impl FromDescriptorRenderResource for BindGroupLayout {
         graph.new_bind_group_layout_descriptor(descriptor)
     }
 }
+
+pub struct RenderGraphBindGroups {}
 
 impl RenderResource for BindGroup {
     fn new_direct<'g>(

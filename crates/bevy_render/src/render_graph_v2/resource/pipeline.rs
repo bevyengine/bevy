@@ -190,11 +190,10 @@ impl DescribedRenderResource for RenderPipeline {
         todo!()
     }
 
-    #[inline]
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
+    ) -> Option<&'a Self::Descriptor> {
         todo!()
     }
 }
@@ -242,11 +241,12 @@ impl DescribedRenderResource for ComputePipeline {
     }
 
     #[inline]
-    fn get_descriptor<'g>(
-        graph: &RenderGraph<'g>,
+    fn get_descriptor<'a, 'g: 'a>(
+        graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'g Self::Descriptor> {
+    ) -> Option<&'a Self::Descriptor> {
         todo!()
+        // graph.get_compute_pipeline_descriptor(compute_pipeline, pipeline_cache)
     }
 }
 
