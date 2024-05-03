@@ -1,18 +1,16 @@
-use fixedbitset::FixedBitSet;
+#[cfg(all(test, feature = "bevy_debug_stepping"))]
+use bevy_utils::tracing::debug;
 use std::any::TypeId;
 use std::collections::HashMap;
+#[cfg(feature = "bevy_debug_stepping")]
+use {crate::schedule::Schedule, fixedbitset::FixedBitSet};
 
 use crate::{
-    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
+    schedule::{InternedScheduleLabel, NodeId, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-};
+use bevy_utils::tracing::{error, info, warn};
 use thiserror::Error;
-
-#[cfg(test)]
-use bevy_utils::tracing::debug;
 
 use crate as bevy_ecs;
 use crate::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
@@ -49,6 +47,7 @@ enum SystemBehavior {
     /// this system unless it's the first system run when continuing
     Break,
 
+    #[allow(dead_code)]
     /// When [`Action::Waiting`] this system will not be run
     /// When [`Action::Step`] this system will be stepped
     /// When [`Action::Continue`] this system will be run
@@ -564,9 +563,9 @@ impl Stepping {
         }
     }
 
-    #[cfg(feature = "bevy_debug_stepping")]
     /// get the list of systems this schedule should skip for this render
     /// frame
+    #[cfg(feature = "bevy_debug_stepping")]
     pub fn skipped_systems(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
         if self.action == Action::RunAll {
             return None;
@@ -741,7 +740,6 @@ impl ScheduleState {
         self.first = None;
     }
 
-
     // apply system behavior updates by looking up the node id of the system in
     // the schedule, and updating `systems`
     #[cfg(feature = "bevy_debug_stepping")]
@@ -749,9 +747,14 @@ impl ScheduleState {
         // For system sets, we will apply the behaviour to every system inside the system set
         for (node_id, set, _) in schedule.graph().system_sets() {
             // get the system_set behaviour by node or type_id
-            if let Some(behavior) = self.behavior_updates.get(&SystemIdentifier::Node(node_id)).or_else(|| {
-                self.behavior_updates.get(&SystemIdentifier::Set(set.intern()))
-            }) {
+            if let Some(behavior) = self
+                .behavior_updates
+                .get(&SystemIdentifier::Node(node_id))
+                .or_else(|| {
+                    self.behavior_updates
+                        .get(&SystemIdentifier::Set(set.intern()))
+                })
+            {
                 let systems_in_set = schedule.graph().sets_to_systems.get(&node_id).unwrap();
                 for node_id in systems_in_set {
                     if let Some(behavior) = behavior {
@@ -769,7 +772,9 @@ impl ScheduleState {
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
         for (node_id, system) in schedule.systems().unwrap() {
-            let behavior = self.behavior_updates.get(&SystemIdentifier::Type(system.type_id()));
+            let behavior = self
+                .behavior_updates
+                .get(&SystemIdentifier::Type(system.type_id()));
             match behavior {
                 None => continue,
                 Some(None) => {
@@ -965,9 +970,11 @@ mod tests {
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
         let mut schedule = Schedule::new(TestSchedule);
-        schedule.add_systems((first_system.in_set(TestSets::SetAlpha), second_system)
-            .chain()
-            .in_set(TestSets::SetBravo));
+        schedule.add_systems(
+            (first_system.in_set(TestSets::SetAlpha), second_system)
+                .chain()
+                .in_set(TestSets::SetBravo),
+        );
         schedule.configure_sets(TestSets::SetBravo.in_set(TestSets::SetCharlie));
         schedule.initialize(&mut world).unwrap();
         (schedule, world)
@@ -1386,7 +1393,7 @@ mod tests {
             .enable()
             .never_run_set(TestSchedule, TestSets::SetBravo)
             .continue_frame();
-        assert_schedule_runs!(&schedule, &mut stepping, );
+        assert_schedule_runs!(&schedule, &mut stepping,);
 
         stepping.clear_system(TestSchedule, second_system);
         stepping.continue_frame();

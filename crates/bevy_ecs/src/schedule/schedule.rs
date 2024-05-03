@@ -700,7 +700,9 @@ impl ScheduleGraph {
 
     /// Returns an iterator over all system sets in this schedule, along with the conditions for each
     /// system set.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &InternedSystemSet, &[BoxedCondition])> {
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &InternedSystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = &set_node.inner;
