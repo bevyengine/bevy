@@ -184,7 +184,7 @@ impl Plugin for MeshletPlugin {
             .features()
             .contains(WgpuFeatures::PUSH_CONSTANTS)
         {
-            return;
+            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
         }
 
         render_app
