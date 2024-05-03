@@ -17,7 +17,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, Image},
+    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{Msaa, ViewUniform, ViewUniforms},
 };
 
@@ -370,7 +370,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
-        Res<RenderAssets<Image>>,
+        Res<RenderAssets<GpuImage>>,
         FallbackImageMsaa,
         Res<FallbackImage>,
         Res<FallbackImageZero>,
@@ -496,7 +496,8 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
+            let lut_bindings =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling

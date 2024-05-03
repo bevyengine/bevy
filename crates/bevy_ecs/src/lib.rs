@@ -2,6 +2,7 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![allow(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -11,12 +12,15 @@
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 pub mod archetype;
+pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
 pub mod identifier;
+pub mod intern;
+pub mod label;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;

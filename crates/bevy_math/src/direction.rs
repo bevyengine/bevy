@@ -470,6 +470,18 @@ impl Dir3A {
     }
 }
 
+impl From<Dir3> for Dir3A {
+    fn from(value: Dir3) -> Self {
+        Self(value.0.into())
+    }
+}
+
+impl From<Dir3A> for Dir3 {
+    fn from(value: Dir3A) -> Self {
+        Self(value.0.into())
+    }
+}
+
 impl TryFrom<Vec3A> for Dir3A {
     type Error = InvalidDirectionError;
 
@@ -564,7 +576,6 @@ impl approx::UlpsEq for Dir3A {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::InvalidDirectionError;
 
     #[test]
     fn dir2_creation() {

@@ -263,6 +263,20 @@ impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
     }
 }
 
+impl<A: Asset> From<&mut Handle<A>> for AssetId<A> {
+    #[inline]
+    fn from(value: &mut Handle<A>) -> Self {
+        value.id()
+    }
+}
+
+impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
+    #[inline]
+    fn from(value: &mut Handle<A>) -> Self {
+        value.id().into()
+    }
+}
+
 /// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
 /// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types
 /// to be stored together and compared.

@@ -8,7 +8,7 @@ use bevy_render::{
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -128,6 +128,19 @@ pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub extension: E,
 }
 
+impl<B, E> Default for ExtendedMaterial<B, E>
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
+{
+    fn default() -> Self {
+        Self {
+            base: B::default(),
+            extension: E::default(),
+        }
+    }
+}
+
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
@@ -139,7 +152,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material

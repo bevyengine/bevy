@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -12,207 +13,53 @@ pub mod prelude;
 mod default_plugins;
 pub use default_plugins::*;
 
-pub mod a11y {
-    //! Integrate with platform accessibility APIs.
-    pub use bevy_a11y::*;
-}
-
-pub mod app {
-    //! Build bevy apps, create plugins, and read events.
-    pub use bevy_app::*;
-}
-
-#[cfg(feature = "bevy_asset")]
-pub mod asset {
-    //! Load and store assets and resources for Apps.
-    pub use bevy_asset::*;
-}
-
-pub mod core {
-    //! Contains core plugins.
-    pub use bevy_core::*;
-}
-
-#[cfg(feature = "bevy_color")]
-pub mod color {
-    //! Shared color types and operations.
-    pub use bevy_color::*;
-}
-
-pub mod diagnostic {
-    //! Useful diagnostic plugins and types for bevy apps.
-    pub use bevy_diagnostic::*;
-}
-
-pub mod ecs {
-    //! Bevy's entity-component-system.
-    pub use bevy_ecs::*;
-}
-
-pub mod input {
-    //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
-    pub use bevy_input::*;
-}
-
-pub mod log {
-    //! Logging capabilities
-    pub use bevy_log::*;
-}
-
-pub mod panic_handler {
-    //! Platform-specific panic handlers
-    pub use bevy_panic_handler::*;
-}
-
-pub mod math {
-    //! Math types (Vec3, Mat4, Quat, etc) and helpers.
-    pub use bevy_math::*;
-}
-
-pub mod ptr {
-    //! Utilities for working with untyped pointers in a more safe way.
-    pub use bevy_ptr::*;
-}
-
-pub mod reflect {
-    //! Type reflection used for dynamically interacting with rust types.
-    pub use bevy_reflect::*;
-}
-
-#[cfg(feature = "bevy_scene")]
-pub mod scene {
-    //! Save/load collections of entities and components to/from file.
-    pub use bevy_scene::*;
-}
-
-pub mod tasks {
-    //! Pools for async, IO, and compute tasks.
-    pub use bevy_tasks::*;
-}
-
-pub mod time {
-    //! Contains time utilities.
-    pub use bevy_time::*;
-}
-
-pub mod hierarchy {
-    //! Entity hierarchies and property inheritance
-    pub use bevy_hierarchy::*;
-}
-
-pub mod transform {
-    //! Local and global transforms (e.g. translation, scale, rotation).
-    pub use bevy_transform::*;
-}
-
-pub mod utils {
-    //! Various miscellaneous utilities for easing development
-    pub use bevy_utils::*;
-}
-
-pub mod window {
-    //! Configuration, creation, and management of one or more windows.
-    pub use bevy_window::*;
-}
-
+pub use bevy_a11y as a11y;
 #[cfg(feature = "bevy_animation")]
-pub mod animation {
-    //! Provides types and plugins for animations.
-    pub use bevy_animation::*;
-}
-
+pub use bevy_animation as animation;
+pub use bevy_app as app;
+#[cfg(feature = "bevy_asset")]
+pub use bevy_asset as asset;
 #[cfg(feature = "bevy_audio")]
-pub mod audio {
-    //! Provides types and plugins for audio playback.
-    pub use bevy_audio::*;
-}
-
+pub use bevy_audio as audio;
+#[cfg(feature = "bevy_color")]
+pub use bevy_color as color;
+pub use bevy_core as core;
 #[cfg(feature = "bevy_core_pipeline")]
-pub mod core_pipeline {
-    //! Core render pipeline.
-    pub use bevy_core_pipeline::*;
-}
-
-#[cfg(feature = "bevy_gilrs")]
-pub mod gilrs {
-    //! Bevy interface with `GilRs` - "Game Input Library for Rust" - to handle gamepad inputs.
-    pub use bevy_gilrs::*;
-}
-
-#[cfg(feature = "bevy_gltf")]
-pub mod gltf {
-    //! Support for GLTF file loading.
-    pub use bevy_gltf::*;
-}
-
-#[cfg(feature = "bevy_pbr")]
-pub mod pbr {
-    //! Physically based rendering.
-    pub use bevy_pbr::*;
-}
-
-#[cfg(feature = "bevy_render")]
-pub mod render {
-    //! Cameras, meshes, textures, shaders, and pipelines.
-    //! Use [`RenderDevice::features`](renderer::RenderDevice::features),
-    //! [`RenderDevice::limits`](renderer::RenderDevice::limits), and the
-    //! [`RenderAdapterInfo`](renderer::RenderAdapterInfo) resource to
-    //! get runtime information about the actual adapter, backend, features, and limits.
-    pub use bevy_render::*;
-}
-
-#[cfg(feature = "bevy_sprite")]
-pub mod sprite {
-    //! Items for sprites, rects, texture atlases, etc.
-    pub use bevy_sprite::*;
-}
-
-#[cfg(feature = "bevy_text")]
-pub mod text {
-    //! Text drawing, styling, and font assets.
-    pub use bevy_text::*;
-}
-
-#[cfg(feature = "bevy_ui")]
-pub mod ui {
-    //! User interface components and widgets.
-    pub use bevy_ui::*;
-}
-
-#[cfg(feature = "bevy_winit")]
-pub mod winit {
-    //! Window creation, configuration, and handling
-    pub use bevy_winit::*;
-}
-
-#[cfg(feature = "bevy_gizmos")]
-pub mod gizmos {
-    //! Immediate mode drawing api for visual debugging.
-    //!
-    //! # Example
-    //! ```
-    //! # use bevy_gizmos::prelude::*;
-    //! # use bevy_render::prelude::*;
-    //! # use bevy_math::prelude::*;
-    //! # use bevy_color::palettes::basic::GREEN;
-    //! fn system(mut gizmos: Gizmos) {
-    //!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
-    //! }
-    //! # bevy_ecs::system::assert_is_system(system);
-    //! ```
-    //!
-    //! See the documentation on [`Gizmos`](gizmos::Gizmos) for more examples.
-    pub use bevy_gizmos::*;
-}
-
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub mod dynamic_plugin {
-    //! Dynamic linking of plugins
-    pub use bevy_dynamic_plugin::*;
-}
-
+pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_dev_tools")]
-pub mod dev_tools {
-    //! Collection of developer tools
-    pub use bevy_dev_tools::*;
-}
+pub use bevy_dev_tools as dev_tools;
+pub use bevy_diagnostic as diagnostic;
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub use bevy_dynamic_plugin as dynamic_plugin;
+pub use bevy_ecs as ecs;
+#[cfg(feature = "bevy_gilrs")]
+pub use bevy_gilrs as gilrs;
+#[cfg(feature = "bevy_gizmos")]
+pub use bevy_gizmos as gizmos;
+#[cfg(feature = "bevy_gltf")]
+pub use bevy_gltf as gltf;
+pub use bevy_hierarchy as hierarchy;
+pub use bevy_input as input;
+pub use bevy_log as log;
+pub use bevy_math as math;
+#[cfg(feature = "bevy_pbr")]
+pub use bevy_pbr as pbr;
+pub use bevy_ptr as ptr;
+pub use bevy_reflect as reflect;
+#[cfg(feature = "bevy_render")]
+pub use bevy_render as render;
+#[cfg(feature = "bevy_scene")]
+pub use bevy_scene as scene;
+#[cfg(feature = "bevy_sprite")]
+pub use bevy_sprite as sprite;
+pub use bevy_tasks as tasks;
+#[cfg(feature = "bevy_text")]
+pub use bevy_text as text;
+pub use bevy_time as time;
+pub use bevy_transform as transform;
+#[cfg(feature = "bevy_ui")]
+pub use bevy_ui as ui;
+pub use bevy_utils as utils;
+pub use bevy_window as window;
+#[cfg(feature = "bevy_winit")]
+pub use bevy_winit as winit;

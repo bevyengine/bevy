@@ -11,7 +11,6 @@ use bevy_window::{
     RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
 };
 
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
@@ -75,10 +74,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .set_scale_factor(winit_window.scale_factor() as f32);
         commands
             .entity(entity)
-            .insert(RawHandleWrapper {
-                window_handle: winit_window.window_handle().unwrap().as_raw(),
-                display_handle: winit_window.display_handle().unwrap().as_raw(),
-            })
+            .insert(RawHandleWrapper::new(winit_window).unwrap())
             .insert(CachedWindow {
                 window: window.clone(),
             });
@@ -293,7 +289,7 @@ pub(crate) fn changed_windows(
 
         #[cfg(target_arch = "wasm32")]
         if window.canvas != cache.window.canvas {
-            window.canvas = cache.window.canvas.clone();
+            window.canvas.clone_from(&cache.window.canvas);
             warn!(
                 "Bevy currently doesn't support modifying the window canvas after initialization."
             );

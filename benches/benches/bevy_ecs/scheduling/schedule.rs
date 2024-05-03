@@ -127,19 +127,19 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
     group.bench_function("SingleThreaded", |bencher| {
-        bencher.iter(|| schedule.run(&mut app.world));
+        bencher.iter(|| schedule.run(app.world_mut()));
     });
 
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
     group.bench_function("MultiThreaded", |bencher| {
-        bencher.iter(|| schedule.run(&mut app.world));
+        bencher.iter(|| schedule.run(app.world_mut()));
     });
 
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::Simple);
     group.bench_function("Simple", |bencher| {
-        bencher.iter(|| schedule.run(&mut app.world));
+        bencher.iter(|| schedule.run(app.world_mut()));
     });
     group.finish();
 }
