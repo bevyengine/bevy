@@ -853,7 +853,7 @@ pub fn extract_cameras(
         gpu_culling,
     ) in query.iter()
     {
-        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if !camera.is_active {
             continue;
