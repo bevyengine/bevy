@@ -71,7 +71,7 @@ pub struct StandardMaterial {
     /// like bloom, but it's important to note that **an emissive material won't
     /// light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
-    pub emissive: Color,
+    pub emissive: LinearRgba,
 
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
@@ -554,7 +554,7 @@ impl Default for StandardMaterial {
             // a texture.
             base_color: LinearRgba::WHITE,
             base_color_texture: None,
-            emissive: Color::BLACK,
+            emissive: LinearRgba::BLACK,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
