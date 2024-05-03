@@ -2940,6 +2940,17 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true

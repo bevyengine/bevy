@@ -14,7 +14,10 @@ use bevy_render::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
+    view::{
+        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
+        VisibleEntityRanges, WithMesh,
+    },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
@@ -1863,6 +1866,7 @@ pub fn check_light_mesh_visibility(
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
+            Has<VisibilityRange>,
         ),
         (
             Without<NotShadowCaster>,
@@ -1870,6 +1874,7 @@ pub fn check_light_mesh_visibility(
             With<Handle<Mesh>>,
         ),
     >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     fn shrink_entities(visible_entities: &mut VisibleEntities) {
         // Check that visible entities capacity() is no more than two times greater than len()
@@ -1886,6 +1891,8 @@ pub fn check_light_mesh_visibility(
 
         visible_entities.entities.shrink_to(reserved);
     }
+
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
 
     // Directional lights
     for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
@@ -1928,6 +1935,7 @@ pub fn check_light_mesh_visibility(
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
+            has_visibility_range,
         ) in &mut visible_entity_query
         {
             if !inherited_visibility.get() {
@@ -1946,6 +1954,15 @@ pub fn check_light_mesh_visibility(
                         .entities
                         .get_mut(view)
                         .expect("Per-view visible entities should have been inserted already");
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
+                        })
+                    {
+                        continue;
+                    }
 
                     for (frustum, frustum_visible_entities) in
                         view_frusta.iter().zip(view_visible_entities)
@@ -2012,6 +2029,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
+                    has_visibility_range,
                 ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
@@ -2020,6 +2038,15 @@ pub fn check_light_mesh_visibility(
 
                     let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
+                        continue;
+                    }
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                        })
+                    {
                         continue;
                     }
 
@@ -2077,6 +2104,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
+                    has_visibility_range,
                 ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
@@ -2085,6 +2113,15 @@ pub fn check_light_mesh_visibility(
 
                     let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
+                        continue;
+                    }
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                        })
+                    {
                         continue;
                     }
 
