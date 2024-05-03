@@ -1749,7 +1749,7 @@ path = "examples/ecs/system_param.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.system_param]
-name = "System Paraeter"
+name = "System Parameter"
 description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false

@@ -788,7 +788,7 @@ impl ScheduleState {
 
     #[cfg(feature = "bevy_debug_stepping")]
     /// Get the list of systems to skip in this [`Schedule`],
-    /// and the index of the next system to run in this Schdule, if there is any
+    /// and the index of the next system to run in this Schedule, if there is any
     fn skipped_systems(
         &mut self,
         schedule: &Schedule,
