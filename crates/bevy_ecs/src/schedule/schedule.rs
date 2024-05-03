@@ -78,6 +78,14 @@ impl Schedules {
         self.inner.get_mut(&label.intern())
     }
 
+    /// Returns a mutable reference to the schedules associated with `label`, creating one if it doesn't already exist.
+    pub fn entry(&mut self, label: impl ScheduleLabel) -> &mut Schedule {
+       self
+            .inner
+            .entry(label.intern())
+            .or_insert_with(|| Schedule::new(label))
+    }
+
     /// Returns an iterator over all schedules. Iteration order is undefined.
     pub fn iter(&self) -> impl Iterator<Item = (&dyn ScheduleLabel, &Schedule)> {
         self.inner
@@ -153,12 +161,8 @@ impl Schedules {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let label = schedule.intern();
-        let schedule = self
-            .inner
-            .entry(label)
-            .or_insert_with(|| Schedule::new(schedule));
-        schedule.add_systems(systems);
+        
+        self.entry(schedule).add_systems(systems);
 
         self
     }
@@ -170,12 +174,7 @@ impl Schedules {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let label = schedule.intern();
-        let schedule = self
-            .inner
-            .entry(label)
-            .or_insert_with(|| Schedule::new(schedule));
-        schedule.configure_sets(sets);
+        self.entry(schedule).configure_sets(sets);
 
         self
     }
@@ -197,12 +196,7 @@ impl Schedules {
         S1: IntoSystemSet<M1>,
         S2: IntoSystemSet<M2>,
     {
-        let label = schedule.intern();
-        let schedule = self
-            .inner
-            .entry(label)
-            .or_insert_with(|| Schedule::new(schedule));
-        schedule.ignore_ambiguity(a, b);
+       self.entry(schedule).ignore_ambiguity(a, b);
 
         self
     }
