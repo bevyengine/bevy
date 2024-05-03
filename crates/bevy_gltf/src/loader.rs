@@ -931,23 +931,27 @@ fn load_material(
 
         #[cfg(feature = "pbr_transmission_textures")]
         let (specular_transmission, specular_transmission_channel, specular_transmission_texture) =
-            material.transmission().map_or((0.0, None), |transmission| {
-                let specular_transmission_channel = transmission
-                    .transmission_texture()
-                    .map(|info| get_uv_channel(material, "specular/transmission", info.tex_coord()))
-                    .unwrap_or_default();
-                let transmission_texture: Option<Handle<Image>> = transmission
-                    .transmission_texture()
-                    .map(|transmission_texture| {
-                        texture_handle(load_context, &transmission_texture.texture())
-                    });
+            material
+                .transmission()
+                .map_or((0.0, UvChannel::Uv0, None), |transmission| {
+                    let specular_transmission_channel = transmission
+                        .transmission_texture()
+                        .map(|info| {
+                            get_uv_channel(material, "specular/transmission", info.tex_coord())
+                        })
+                        .unwrap_or_default();
+                    let transmission_texture: Option<Handle<Image>> = transmission
+                        .transmission_texture()
+                        .map(|transmission_texture| {
+                            texture_handle(load_context, &transmission_texture.texture())
+                        });
 
-                (
-                    transmission.transmission_factor(),
-                    specular_transmission_channel,
-                    transmission_texture,
-                )
-            });
+                    (
+                        transmission.transmission_factor(),
+                        specular_transmission_channel,
+                        transmission_texture,
+                    )
+                });
 
         #[cfg(not(feature = "pbr_transmission_textures"))]
         let specular_transmission = material
@@ -961,9 +965,9 @@ fn load_material(
             thickness_texture,
             attenuation_distance,
             attenuation_color,
-        ) = material
-            .volume()
-            .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+        ) = material.volume().map_or(
+            (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
+            |volume| {
                 let thickness_channel = volume
                     .thickness_texture()
                     .map(|info| get_uv_channel(material, "thickness", info.tex_coord()))
@@ -980,7 +984,8 @@ fn load_material(
                     volume.attenuation_distance(),
                     volume.attenuation_color(),
                 )
-            });
+            },
+        );
 
         #[cfg(not(feature = "pbr_transmission_textures"))]
         let (thickness, attenuation_distance, attenuation_color) =

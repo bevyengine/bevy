@@ -247,6 +247,7 @@ fn pbr_input_from_standard_material(
 #endif  // VERTEX_UVS
 
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
             var specular_transmission_uv = uv;
@@ -261,9 +262,11 @@ fn pbr_input_from_standard_material(
             ).r;
         }
 #endif
+#endif
         pbr_input.material.specular_transmission = specular_transmission;
 
         var thickness: f32 = pbr_bindings::material.thickness;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             var thickness_uv = uv;
@@ -278,6 +281,7 @@ fn pbr_input_from_standard_material(
             ).g;
         }
 #endif
+#endif
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
         // TODO: Meshlet support
 #ifndef MESHLET_MESH_MATERIAL_PASS
@@ -288,6 +292,7 @@ fn pbr_input_from_standard_material(
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
             var diffuse_transmission_uv = uv;
@@ -301,6 +306,7 @@ fn pbr_input_from_standard_material(
                 bias,
             ).a;
         }
+#endif
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
 
