@@ -25,6 +25,7 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+
     #[arg(long)]
     /// Pagination control - page number. To use with --per-page
     page: Option<usize>,
@@ -61,6 +62,10 @@ enum Action {
         #[arg(long)]
         /// Report execution details in files
         report_details: bool,
+
+        #[arg(long)]
+        /// Show the logs during execution
+        show_logs: bool,
 
         #[arg(long)]
         /// File containing the list of examples to run, incompatible with pagination
@@ -137,6 +142,7 @@ fn main() {
             in_ci,
             ignore_stress_tests,
             report_details,
+            show_logs,
             example_list,
             only_default_features,
         } => {
@@ -168,7 +174,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: None, frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -178,7 +184,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -186,7 +192,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(250))").unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -263,6 +269,12 @@ fn main() {
 
             let mut pb = ProgressBar::new(work_to_do().count() as u64);
 
+            let reports_path = "example-showcase-reports";
+            if report_details {
+                std::fs::create_dir(reports_path)
+                    .expect("Failed to create example-showcase-reports directory");
+            }
+
             for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
@@ -306,7 +318,7 @@ fn main() {
                 }
 
                 let before = Instant::now();
-                if report_details {
+                if report_details || show_logs {
                     cmd = cmd.ignore_status();
                 }
                 let result = cmd.output();
@@ -337,17 +349,22 @@ fn main() {
                     failed_examples.push((to_run, duration));
                 }
 
-                if report_details {
+                if report_details || show_logs {
                     let result = result.unwrap();
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
-                    println!("{}", stdout);
-                    println!("{}", stderr);
-                    let mut file = File::create(format!("{}.log", example)).unwrap();
-                    file.write_all(b"==== stdout ====\n").unwrap();
-                    file.write_all(stdout.as_bytes()).unwrap();
-                    file.write_all(b"\n==== stderr ====\n").unwrap();
-                    file.write_all(stderr.as_bytes()).unwrap();
+                    if show_logs {
+                        println!("{}", stdout);
+                        println!("{}", stderr);
+                    }
+                    if report_details {
+                        let mut file =
+                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                        file.write_all(b"==== stdout ====\n").unwrap();
+                        file.write_all(stdout.as_bytes()).unwrap();
+                        file.write_all(b"\n==== stderr ====\n").unwrap();
+                        file.write_all(stderr.as_bytes()).unwrap();
+                    }
                 }
 
                 thread::sleep(Duration::from_secs(1));
@@ -357,7 +374,7 @@ fn main() {
 
             if report_details {
                 let _ = fs::write(
-                    "successes",
+                    format!("{reports_path}/successes"),
                     successful_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -372,7 +389,7 @@ fn main() {
                         .join("\n"),
                 );
                 let _ = fs::write(
-                    "failures",
+                    format!("{reports_path}/failures"),
                     failed_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -388,7 +405,7 @@ fn main() {
                 );
                 if screenshot {
                     let _ = fs::write(
-                        "no_screenshots",
+                        format!("{reports_path}/no_screenshots"),
                         no_screenshot_examples
                             .iter()
                             .map(|(example, duration)| {
