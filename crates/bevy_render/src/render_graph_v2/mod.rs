@@ -280,12 +280,12 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 }
 
-impl<'a> RenderGraphBuilder<'a> {
-    pub fn world_resource<R: Resource>(&'a self) -> &'a R {
+impl<'g> RenderGraphBuilder<'g> {
+    pub fn world_resource<R: Resource>(&self) -> &'g R {
         self.world.resource()
     }
 
-    pub fn get_world_resource<R: Resource>(&'a self) -> Option<&'a R> {
+    pub fn get_world_resource<R: Resource>(&self) -> Option<&'g R> {
         self.world.get_resource()
     }
 
@@ -293,23 +293,23 @@ impl<'a> RenderGraphBuilder<'a> {
         self.view_entity.id()
     }
 
-    pub fn view_contains<C: Component>(&'a self) -> bool {
+    pub fn view_contains<C: Component>(&self) -> bool {
         self.view_entity.contains::<C>()
     }
 
-    pub fn view_get<C: Component>(&'a self) -> Option<&'a C> {
+    pub fn view_get<C: Component>(&self) -> Option<&'g C> {
         self.view_entity.get()
     }
 
-    pub fn view_get_ref<C: Component>(&'a self) -> Option<Ref<'a, C>> {
+    pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
         self.view_entity.get_ref()
     }
 
-    pub fn view_entity(&'a self) -> EntityRef<'a> {
+    pub fn view_entity(&self) -> EntityRef<'g> {
         self.view_entity
     }
 
-    pub fn world(&'a self) -> &'a World {
+    pub fn world(&self) -> &'g World {
         self.world
     }
 }

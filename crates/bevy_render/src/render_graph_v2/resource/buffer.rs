@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
+    NewRenderResource, RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
@@ -64,7 +64,7 @@ impl UsagesRenderResource for Buffer {
         graph: &'a mut RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Descriptor> {
-        todo!()
+        graph.get_buffer_descriptor_mut(resource)
     }
 
     fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
@@ -72,7 +72,7 @@ impl UsagesRenderResource for Buffer {
     }
 
     fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
-        descriptor.usage.insert(usages)
+        descriptor.usage.insert(usages);
     }
 }
 
@@ -83,6 +83,6 @@ impl<'g> IntoRenderResource<'g> for BufferDescriptor<'static> {
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        graph.new_buffer_descriptor(self)
     }
 }

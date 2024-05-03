@@ -70,7 +70,7 @@ impl UsagesRenderResource for Texture {
         graph: &'a mut RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Descriptor> {
-        todo!()
+        graph.get_texture_descriptor_mut(resource)
     }
 
     #[inline]
@@ -92,7 +92,7 @@ impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_resource(NewRenderResource::FromDescriptor(self))
+        graph.new_texture_descriptor(self)
     }
 }
 

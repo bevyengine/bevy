@@ -41,7 +41,7 @@ impl DescribedRenderResource for BindGroupLayout {
         graph: &'a RenderGraph<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
-        todo!()
+        graph.get_bind_group_layout_descriptor(resource)
     }
 }
 

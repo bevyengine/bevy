@@ -237,7 +237,7 @@ impl DescribedRenderResource for ComputePipeline {
         descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_compute_pipeline_direct(Some(descriptor), resource)
     }
 
     #[inline]
@@ -257,7 +257,7 @@ impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        graph.new_compute_pipeline_descriptor(self)
     }
 }
 
@@ -272,7 +272,9 @@ impl<'g, P: SpecializedRenderPipeline + Resource> IntoRenderResource<'g>
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        let layout = graph.world_resource::<P>();
+        let descriptor = layout.specialize(self.0);
+        graph.new_resource(descriptor)
     }
 }
 
@@ -287,7 +289,9 @@ impl<'g, P: SpecializedComputePipeline + Resource> IntoRenderResource<'g>
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        let layout = graph.world_resource::<P>();
+        let descriptor = layout.specialize(self.0);
+        graph.new_resource(descriptor)
     }
 }
 
@@ -305,6 +309,8 @@ impl<'g, P: SpecializedMeshPipeline + Resource> IntoRenderResource<'g>
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        let layout = graph.world_resource::<P>();
+        let descriptor = layout.specialize(self.1, &self.0).unwrap();
+        graph.new_resource(descriptor)
     }
 }
