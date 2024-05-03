@@ -1095,18 +1095,16 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Ramp> for Gizmos<'w, 's, T> {
             return;
         }
 
-        let [half_extend_x, half_extend_y, half_extend_z] = primitive.half_size.to_array();
-
         // transform the points from the reference unit cube-like ramp to the actual ramp coords
         let [a, b, c, d, e, f] = [
-            [-1.0, -1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
+            Vec3::new(-1.0, -1.0, -1.0),
+            Vec3::new(-1.0, -1.0, 1.0),
+            Vec3::new(1.0, -1.0, -1.0),
+            Vec3::new(1.0, -1.0, 1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 1.0, 1.0),
         ]
-        .map(|[sx, sy, sz]| Vec3::new(sx * half_extend_x, sy * half_extend_y, sz * half_extend_z))
+        .map(|s| s * primitive.half_size)
         .map(rotate_then_translate_3d(rotation, position));
 
         let lines = vec![
