@@ -7,6 +7,9 @@ use bevy_ecs::{
 
 use super::{freely_mutable_state::FreelyMutableState, states::States};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectResource;
+
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`](crate::state::OnEnter) and [`OnExit(state)`](crate::state::OnExit)).
 ///
