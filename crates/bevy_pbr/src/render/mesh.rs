@@ -31,14 +31,17 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
-    view::{prepare_view_targets, GpuCulling, ViewTarget, ViewUniformOffset, ViewVisibility},
+    view::{
+        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        ViewVisibility, VisibilityRange,
+    },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
 use bytemuck::{Pod, Zeroable};
-use nonmax::NonMaxU32;
+use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
 use crate::render::{
@@ -346,21 +349,30 @@ impl MeshUniform {
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
+    /// Various flags and tightly-packed values on a mesh.
+    ///
+    /// Flags grow from the top bit down; other values grow from the bottom bit
+    /// up.
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
-        const SHADOW_RECEIVER             = 1 << 0;
-        const TRANSMITTED_SHADOW_RECEIVER = 1 << 1;
+        /// Bitmask for the 16-bit index into the LOD array.
+        ///
+        /// This will be `u16::MAX` if this mesh has no LOD.
+        const LOD_INDEX_MASK              = (1 << 16) - 1;
+        const SHADOW_RECEIVER             = 1 << 29;
+        const TRANSMITTED_SHADOW_RECEIVER = 1 << 30;
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
         const SIGN_DETERMINANT_MODEL_3X3  = 1 << 31;
         const NONE                        = 0;
-        const UNINITIALIZED               = 0xFFFF;
+        const UNINITIALIZED               = 0xFFFFFFFF;
     }
 }
 
 impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
+        lod_index: Option<NonMaxU16>,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
     ) -> MeshFlags {
@@ -376,8 +388,18 @@ impl MeshFlags {
             mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
 
+        let lod_index_bits = match lod_index {
+            None => u16::MAX,
+            Some(lod_index) => u16::from(lod_index),
+        };
+        mesh_flags |=
+            MeshFlags::from_bits_retain((lod_index_bits as u32) << MeshFlags::LOD_INDEX_SHIFT);
+
         mesh_flags
     }
+
+    /// The first bit of the LOD index.
+    pub const LOD_INDEX_SHIFT: u32 = 0;
 }
 
 bitflags::bitflags! {
@@ -746,6 +768,7 @@ pub struct ExtractMeshesSet;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
         Query<(
@@ -758,6 +781,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
+            Has<VisibilityRange>,
         )>,
     >,
 ) {
@@ -774,13 +798,23 @@ pub fn extract_meshes_for_cpu_building(
             transmitted_receiver,
             not_shadow_caster,
             no_automatic_batching,
+            visibility_range,
         )| {
             if !view_visibility.get() {
                 return;
             }
 
-            let mesh_flags =
-                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+            let mut lod_index = None;
+            if visibility_range {
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+            }
+
+            let mesh_flags = MeshFlags::from_components(
+                transform,
+                lod_index,
+                not_shadow_receiver,
+                transmitted_receiver,
+            );
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
@@ -829,6 +863,7 @@ pub fn extract_meshes_for_cpu_building(
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut batched_instance_buffers: ResMut<
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
@@ -847,6 +882,7 @@ pub fn extract_meshes_for_gpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
+            Has<VisibilityRange>,
         )>,
     >,
     cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
@@ -880,13 +916,23 @@ pub fn extract_meshes_for_gpu_building(
             transmitted_receiver,
             not_shadow_caster,
             no_automatic_batching,
+            visibility_range,
         )| {
             if !view_visibility.get() {
                 return;
             }
 
-            let mesh_flags =
-                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+            let mut lod_index = None;
+            if visibility_range {
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+            }
+
+            let mesh_flags = MeshFlags::from_components(
+                transform,
+                lod_index,
+                not_shadow_receiver,
+                transmitted_receiver,
+            );
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
@@ -1291,7 +1337,8 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 15;
+        const VISIBILITY_RANGE_DITHER           = 1 << 15;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
         const LAST_FLAG                         = Self::SCREEN_SPACE_REFLECTIONS.bits();
 
         // Bitfields
@@ -1681,6 +1728,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 _ => unreachable!(), // Not possible, since the mask is 2 bits, and we've covered all 4 cases
             },
         ));
+
+        if key.contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER) {
+            shader_defs.push("VISIBILITY_RANGE_DITHER".into());
+        }
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());

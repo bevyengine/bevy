@@ -13,7 +13,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///         ShaderStages::FRAGMENT,
 ///         (
 ///             // Screen texture
-///             (2, tepxture_2d(TextureSampleType::Float { filterable: true })),
+///             (2, texture_2d(TextureSampleType::Float { filterable: true })),
 ///             // Sampler
 ///             (3, sampler(SamplerBindingType::Filtering)),
 ///         ),

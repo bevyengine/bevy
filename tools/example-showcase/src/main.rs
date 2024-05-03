@@ -168,7 +168,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: None, frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -178,7 +178,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -186,7 +186,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(250))").unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -276,6 +276,13 @@ fn main() {
                     .map(|s| s.to_string())
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
+
+                for command in &to_run.setup {
+                    let exe = &command[0];
+                    let args = &command[1..];
+                    cmd!(sh, "{exe} {args...}").run().unwrap();
+                }
+
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -726,18 +733,49 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                setup: metadata
+                    .get("setup")
+                    .map(|setup| {
+                        setup
+                            .as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| {
+                                v.as_array()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|v| v.as_str().unwrap().to_string())
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
 }
 
+/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its associated metadata.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
+    // From the example entry
+    /// Name of the example, used to start it from the cargo CLI with `--example`
     technical_name: String,
+    /// Path to the example file
     path: String,
-    name: String,
-    description: String,
-    category: String,
-    wasm: bool,
+    /// List of non default required features
     required_features: Vec<String>,
+
+    // From the example metadata
+    /// Pretty name, used for display
+    name: String,
+    /// Description of the example, for discoverability
+    description: String,
+    /// Pretty category name, matching the folder containing the example
+    category: String,
+    /// Does this example work in wasm?
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on wasm without a renderer)
+    wasm: bool,
+    /// List of commands to run before the example. Can be used for example to specify data to download
+    setup: Vec<Vec<String>>,
 }

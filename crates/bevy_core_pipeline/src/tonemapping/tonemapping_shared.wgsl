@@ -8,8 +8,8 @@
     @group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
     @group(0) @binding(4) var dt_lut_sampler: sampler;
 #else
-    @group(0) @binding(19) var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(20) var dt_lut_sampler: sampler;
+    @group(0) @binding(20) var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(21) var dt_lut_sampler: sampler;
 #endif
 
 // Half the size of the crossfade region between shadows and midtones and

@@ -997,6 +997,14 @@ name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
+setup = [
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
+]
 
 [[example]]
 name = "lightmaps"
@@ -1689,6 +1697,28 @@ doc-scrape-examples = true
 [package.metadata.example.state]
 name = "State"
 description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "sub_states"
+path = "examples/ecs/sub_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2907,6 +2937,17 @@ required-features = ["bevy_dev_tools"]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
 wasm = true
 
 [[example]]
