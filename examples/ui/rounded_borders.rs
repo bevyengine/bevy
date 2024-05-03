@@ -146,7 +146,7 @@ fn setup(mut commands: Commands) {
                 Outline {
                     width: Val::Px(6.),
                     offset: Val::Px(6.),
-                    color: Color::WHITE,
+                    color: LinearRgba::WHITE,
                 },
             ))
             .add_child(inner_spot)

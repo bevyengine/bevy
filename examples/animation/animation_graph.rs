@@ -312,7 +312,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     border_color: WHITE.into(),
                     ..default()
                 },
-                Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
+                Outline::new(Val::Px(1.), Val::ZERO, LinearRgba::WHITE),
             ));
 
             if let NodeType::Clip(ref clip) = node_type {

@@ -1,6 +1,6 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_color::{Color, LinearRgba};
+use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -1802,14 +1802,14 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`Color::NONE`] to hide the outline.
-    /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
-    pub color: Color,
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`LinearRgba::NONE`] to hide the outline.
+    /// This avoids the table moves that would occur from the repeated insertion and removal of the [`Outline`] component.
+    pub color: LinearRgba,
 }
 
 impl Outline {
     /// Create a new outline
-    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+    pub const fn new(width: Val, offset: Val, color: LinearRgba) -> Self {
         Self {
             width,
             offset,

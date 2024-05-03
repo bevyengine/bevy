@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Outline {
                                         width: Val::Px(2.),
                                         offset: Val::Px(2.),
-                                        color: Color::NONE,
+                                        color: LinearRgba::NONE,
                                     },
                                 ));
                             });
