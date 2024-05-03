@@ -6,14 +6,8 @@ extern crate proc_macro;
 
 mod states;
 
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
+use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
-use quote::{format_ident, quote};
-use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
-};
 
 #[proc_macro_derive(States)]
 pub fn derive_states(input: TokenStream) -> TokenStream {
