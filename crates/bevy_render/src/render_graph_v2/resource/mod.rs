@@ -81,7 +81,7 @@ impl<'g> ResourceTracker<'g> {
         let mut dependencies = self.generations[id.id as usize]
             .dependencies
             .clone()
-            .unwrap_or(Default::default());
+            .unwrap_or_default();
         //TODO: THIS IS IMPORTANT
         todo!();
         dependencies
@@ -237,28 +237,33 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
 
     pub fn create_queued_resources_cached(
         &mut self,
-        cache: &'g mut CachedResources<R>,
+        cache: &mut CachedResources<R>,
         render_device: &RenderDevice,
     ) where
         R::Descriptor: Clone + Hash + Eq,
     {
-        let mut resources_to_borrow = Vec::new();
-        for (id, descriptor) in self.queued_resources.drain() {
+        for (_, descriptor) in &self.queued_resources {
             cache
                 .cached_resources
                 .entry(descriptor.clone())
-                .or_insert_with(|| (self.resource_factory)(render_device, &descriptor));
-            resources_to_borrow.push((id, descriptor));
+                .or_insert_with(|| (self.resource_factory)(render_device, descriptor));
         }
-        for (id, descriptor) in resources_to_borrow {
-            let resource = cache.cached_resources.get(&descriptor).unwrap();
-            self.resources.insert(
-                id,
-                RenderResourceMeta {
-                    descriptor: Some(descriptor),
-                    resource: RefEq::Borrowed(resource),
-                },
-            );
+    }
+
+    pub fn borrow_cached_resources(&mut self, cache: &'g CachedResources<R>)
+    where
+        R::Descriptor: Clone + Hash + Eq,
+    {
+        for (id, descriptor) in self.queued_resources.drain() {
+            if let Some(resource) = cache.cached_resources.get(&descriptor) {
+                self.resources.insert(
+                    id,
+                    RenderResourceMeta {
+                        descriptor: Some(descriptor),
+                        resource: RefEq::Borrowed(resource),
+                    },
+                );
+            }
         }
     }
 
