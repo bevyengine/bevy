@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
-                        color: Color::srgb(0.85, 0.85, 0.85),
+                        color: LinearRgba::rgb(0.85, 0.85, 0.85),
                         ..default()
                     },
                 )

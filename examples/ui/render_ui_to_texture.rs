@@ -96,7 +96,7 @@ fn setup(
                 "This is a cube",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::BLACK,
+                    color: LinearRgba::BLACK,
                     ..default()
                 },
             ));

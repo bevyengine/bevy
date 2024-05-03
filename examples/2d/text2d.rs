@@ -140,17 +140,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 
     for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(LIME)),
-        (Anchor::BottomRight, Color::Srgba(BLUE)),
-        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
+        (Anchor::TopLeft, RED),
+        (Anchor::TopRight, LIME),
+        (Anchor::BottomRight, BLUE),
+        (Anchor::BottomLeft, YELLOW),
     ] {
         commands.spawn(Text2dBundle {
             text: Text {
                 sections: vec![TextSection::new(
                     format!(" Anchor::{text_anchor:?} "),
                     TextStyle {
-                        color,
+                        color: color.into(),
                         ..slightly_smaller_text_style.clone()
                     },
                 )],

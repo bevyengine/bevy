@@ -111,7 +111,7 @@ fn setup(
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 30.0,
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
     };
     commands.spawn((
         Text2dBundle {

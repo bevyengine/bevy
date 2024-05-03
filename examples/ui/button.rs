@@ -29,18 +29,18 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
-                image.color = PRESSED_BUTTON;
+                image.color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                image.color = HOVERED_BUTTON;
-                border_color.0 = Color::WHITE;
+                image.color = HOVERED_BUTTON.into();
+                border_color.0 = LinearRgba::WHITE;
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                image.color = NORMAL_BUTTON;
-                border_color.0 = Color::BLACK;
+                image.color = NORMAL_BUTTON.into();
+                border_color.0 = LinearRgba::BLACK;
             }
         }
     }
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
+                    border_color: BorderColor(LinearRgba::BLACK),
                     border_radius: BorderRadius::MAX,
                     image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: LinearRgba::rgb(0.9, 0.9, 0.9),
                         },
                     ));
                 });

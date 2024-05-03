@@ -2,7 +2,7 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::Handle;
-use bevy_color::Color;
+use bevy_color::LinearRgba;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
@@ -67,7 +67,7 @@ impl Default for FpsOverlayConfig {
             text_config: TextStyle {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                color: Color::WHITE,
+                color: LinearRgba::WHITE,
             },
         }
     }

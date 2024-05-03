@@ -93,7 +93,7 @@ fn setup_scene(
             "",
             TextStyle {
                 font_size: 20.0,
-                color: Color::WHITE,
+                color: LinearRgba::WHITE,
                 ..default()
             },
         )

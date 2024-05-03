@@ -1,8 +1,8 @@
 //! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
 use bevy::prelude::*;
 
-const ALIGN_ITEMS_COLOR: Color = Color::srgb(1., 0.066, 0.349);
-const JUSTIFY_CONTENT_COLOR: Color = Color::srgb(0.102, 0.522, 1.);
+const ALIGN_ITEMS_COLOR: Srgba = Srgba::rgb(1., 0.066, 0.349);
+const JUSTIFY_CONTENT_COLOR: Srgba = Srgba::rgb(0.102, 0.522, 1.);
 const MARGIN: Val = Val::Px(12.);
 
 fn main() {
@@ -33,7 +33,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 row_gap: MARGIN,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(LinearRgba::BLACK),
             ..Default::default()
         })
         .with_children(|builder| {
@@ -134,7 +134,7 @@ fn spawn_child_node(
                 height: Val::Percent(100.),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+            background_color: Srgba::rgb(0.25, 0.25, 0.25).into(),
             ..Default::default()
         })
         .with_children(|builder| {
@@ -158,7 +158,7 @@ fn spawn_child_node(
 fn spawn_nested_text_bundle(
     builder: &mut ChildBuilder,
     font: Handle<Font>,
-    background_color: Color,
+    background_color: impl Into<LinearRgba>,
     margin: UiRect,
     text: &str,
 ) {
@@ -169,7 +169,7 @@ fn spawn_nested_text_bundle(
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(background_color),
+            background_color: BackgroundColor(background_color.into()),
             ..Default::default()
         })
         .with_children(|builder| {
@@ -178,7 +178,7 @@ fn spawn_nested_text_bundle(
                 TextStyle {
                     font,
                     font_size: 24.0,
-                    color: Color::BLACK,
+                    color: LinearRgba::BLACK,
                 },
             ));
         });

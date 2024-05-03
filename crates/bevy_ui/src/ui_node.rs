@@ -1,6 +1,6 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -1690,10 +1690,10 @@ pub enum GridPlacementError {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BackgroundColor(pub Color);
+pub struct BackgroundColor(pub LinearRgba);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    pub const DEFAULT: Self = Self(LinearRgba::WHITE);
 }
 
 impl Default for BackgroundColor {
@@ -1702,7 +1702,7 @@ impl Default for BackgroundColor {
     }
 }
 
-impl<T: Into<Color>> From<T> for BackgroundColor {
+impl<T: Into<LinearRgba>> From<T> for BackgroundColor {
     fn from(color: T) -> Self {
         Self(color.into())
     }
@@ -1716,16 +1716,16 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BorderColor(pub Color);
+pub struct BorderColor(pub LinearRgba);
 
-impl<T: Into<Color>> From<T> for BorderColor {
+impl<T: Into<LinearRgba>> From<T> for BorderColor {
     fn from(color: T) -> Self {
         Self(color.into())
     }
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    pub const DEFAULT: Self = BorderColor(LinearRgba::WHITE);
 }
 
 impl Default for BorderColor {
@@ -1823,7 +1823,7 @@ impl Outline {
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// The tint color used to draw the image
-    pub color: Color,
+    pub color: LinearRgba,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1842,8 +1842,8 @@ impl UiImage {
 
     /// Set the color tint
     #[must_use]
-    pub const fn with_color(mut self, color: Color) -> Self {
-        self.color = color;
+    pub fn with_color(mut self, color: impl Into<LinearRgba>) -> Self {
+        self.color = color.into();
         self
     }
 

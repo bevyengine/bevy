@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Srgba = Srgba::rgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -180,7 +180,7 @@ mod game {
                                 "Will be back to the menu shortly...",
                                 TextStyle {
                                     font_size: 80.0,
-                                    color: TEXT_COLOR,
+                                    color: TEXT_COLOR.into(),
                                     ..default()
                                 },
                             )
@@ -203,7 +203,7 @@ mod game {
                                     " - ",
                                     TextStyle {
                                         font_size: 60.0,
-                                        color: TEXT_COLOR,
+                                        color: TEXT_COLOR.into(),
                                         ..default()
                                     },
                                 ),
@@ -321,10 +321,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
-    const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+    const NORMAL_BUTTON: Srgba = Srgba::rgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: Srgba = Srgba::rgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: Srgba = Srgba::rgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: Srgba = Srgba::rgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark which setting is currently selected
     #[derive(Component)]
@@ -356,6 +356,7 @@ mod menu {
                 (Interaction::Hovered, None) => HOVERED_BUTTON,
                 (Interaction::None, None) => NORMAL_BUTTON,
             }
+            .into()
         }
     }
 
@@ -370,7 +371,7 @@ mod menu {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
                 let (previous_button, mut previous_image) = selected_query.single_mut();
-                previous_image.color = NORMAL_BUTTON;
+                previous_image.color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -402,7 +403,7 @@ mod menu {
         };
         let button_text_style = TextStyle {
             font_size: 40.0,
-            color: TEXT_COLOR,
+            color: TEXT_COLOR.into(),
             ..default()
         };
 
@@ -438,7 +439,7 @@ mod menu {
                                 "Bevy Game Menu UI",
                                 TextStyle {
                                     font_size: 80.0,
-                                    color: TEXT_COLOR,
+                                    color: TEXT_COLOR.into(),
                                     ..default()
                                 },
                             )
@@ -528,7 +529,7 @@ mod menu {
 
         let button_text_style = TextStyle {
             font_size: 40.0,
-            color: TEXT_COLOR,
+            color: TEXT_COLOR.into(),
             ..default()
         };
 
@@ -594,7 +595,7 @@ mod menu {
         };
         let button_text_style = TextStyle {
             font_size: 40.0,
-            color: TEXT_COLOR,
+            color: TEXT_COLOR.into(),
             ..default()
         };
 
@@ -698,7 +699,7 @@ mod menu {
         };
         let button_text_style = TextStyle {
             font_size: 40.0,
-            color: TEXT_COLOR,
+            color: TEXT_COLOR.into(),
             ..default()
         };
 

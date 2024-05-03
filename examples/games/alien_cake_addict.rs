@@ -178,7 +178,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             "Score:",
             TextStyle {
                 font_size: 40.0,
-                color: Color::srgb(0.5, 0.5, 1.0),
+                color: Srgba::rgb(0.5, 0.5, 1.0).into(),
                 ..default()
             },
         )
@@ -412,7 +412,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
                     font_size: 80.0,
-                    color: Color::srgb(0.5, 0.5, 1.0),
+                    color: Srgba::rgb(0.5, 0.5, 1.0).into(),
                     ..default()
                 },
             ));

@@ -247,7 +247,7 @@ fn add_buttons_for_section(
         })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
-            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
+            add_text(parent, &section.to_string(), font, LinearRgba::WHITE).insert(Style {
                 width: Val::Px(125.0),
                 ..default()
             });
@@ -282,9 +282,9 @@ fn add_button_for_value(
     let is_selected = currently_selected_option == option;
 
     let (bg_color, fg_color) = if is_selected {
-        (Color::WHITE, Color::BLACK)
+        (LinearRgba::WHITE, LinearRgba::BLACK)
     } else {
-        (Color::BLACK, Color::WHITE)
+        (LinearRgba::BLACK, LinearRgba::WHITE)
     };
 
     // Add the button node.
@@ -299,7 +299,7 @@ fn add_button_for_value(
                 margin: UiRect::right(Val::Px(12.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
+            border_color: BorderColor(LinearRgba::WHITE),
             border_radius: BorderRadius::MAX,
             image: UiImage::default().with_color(bg_color),
             ..default()
@@ -361,7 +361,7 @@ fn add_help_text(
                 TextStyle {
                     font: font.clone(),
                     font_size: 24.0,
-                    color: Color::WHITE,
+                    color: LinearRgba::WHITE,
                 },
             )
         })
@@ -373,7 +373,7 @@ fn add_text<'a>(
     parent: &'a mut ChildBuilder,
     label: &str,
     font: &Handle<Font>,
-    color: Color,
+    color: LinearRgba,
 ) -> EntityCommands<'a> {
     parent.spawn(TextBundle::from_section(
         label,
@@ -608,9 +608,9 @@ fn update_ui_state(
     // The currently-selected option is drawn with inverted colors.
     for (mut image, widget) in buttons.iter_mut() {
         image.color = if *currently_selected_option == widget.option {
-            Color::WHITE
+            LinearRgba::WHITE
         } else {
-            Color::BLACK
+            LinearRgba::BLACK
         };
     }
 
@@ -624,9 +624,9 @@ fn update_ui_state(
         // Set the text color.
 
         let color = if *currently_selected_option == widget.option {
-            Color::BLACK
+            LinearRgba::BLACK
         } else {
-            Color::WHITE
+            LinearRgba::WHITE
         };
 
         for section in &mut text.sections {

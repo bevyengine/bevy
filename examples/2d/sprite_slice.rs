@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
     };
 
     // Load textures

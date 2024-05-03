@@ -124,7 +124,7 @@ fn setup(
     let text_style: TextStyle = TextStyle {
         font: font.clone(),
         font_size: 50.0,
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
     };
 
     // labels to indicate padding
@@ -173,7 +173,7 @@ fn setup(
     let sampling_label_style = TextStyle {
         font,
         font_size: 30.0,
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
     };
 
     let base_y = 170.0; // y position of the sprites

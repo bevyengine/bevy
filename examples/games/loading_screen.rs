@@ -83,7 +83,7 @@ fn setup(mut commands: Commands) {
     };
     commands
         .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::NONE),
+            background_color: BackgroundColor(LinearRgba::NONE),
             style: Style {
                 justify_self: JustifySelf::Center,
                 align_self: AlignSelf::FlexEnd,
@@ -285,7 +285,7 @@ fn load_loading_screen(mut commands: Commands) {
     commands
         .spawn((
             NodeBundle {
-                background_color: BackgroundColor(Color::BLACK),
+                background_color: BackgroundColor(LinearRgba::BLACK),
                 style: Style {
                     height: Val::Percent(100.0),
                     width: Val::Percent(100.0),

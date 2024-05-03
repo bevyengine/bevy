@@ -110,7 +110,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 40.0,
-                    color: Color::srgb(0.8, 0.2, 0.7),
+                    color: Srgba::rgb(0.8, 0.2, 0.7).into(),
                 },
             )
             .with_text_justify(JustifyText::Center)
@@ -143,7 +143,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: Color::WHITE,
+                        color: LinearRgba::WHITE,
                     },
                 ),
                 TextSection::new(

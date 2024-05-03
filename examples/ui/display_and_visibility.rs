@@ -7,7 +7,7 @@ use bevy::{
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
-const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
+const HIDDEN_COLOR: Srgba = Srgba::rgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
         },
-        background_color: BackgroundColor(Color::BLACK),
+        background_color: BackgroundColor(LinearRgba::BLACK),
         ..Default::default()
     }).with_children(|parent| {
         parent.spawn(TextBundle {
@@ -160,7 +160,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 builder.spawn(TextBundle {
                     text: Text::from_section(
                         "Display::None\nVisibility::Hidden\nVisibility::Inherited",
-                        TextStyle { color: HIDDEN_COLOR, ..text_style.clone() }
+                        TextStyle { color: HIDDEN_COLOR.into(), ..text_style.clone() }
                         ).with_justify(JustifyText::Center),
                     ..Default::default()
                     });
@@ -187,13 +187,13 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LinearRgba::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    background_color: BackgroundColor(Color::BLACK),
+                    background_color: BackgroundColor(LinearRgba::BLACK),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -204,7 +204,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                 justify_content: JustifyContent::FlexEnd,
                                 ..Default::default()
                             },
-                            background_color: BackgroundColor(palette[0]),
+                            background_color: palette[0].into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -225,7 +225,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         justify_content: JustifyContent::FlexEnd,
                                         ..Default::default()
                                     },
-                                    background_color: BackgroundColor(palette[1]),
+                                    background_color: palette[1].into(),
                                     ..Default::default()
                                 })
                                 .with_children(|parent| {
@@ -246,7 +246,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                 justify_content: JustifyContent::FlexEnd,
                                                 ..Default::default()
                                             },
-                                            background_color: BackgroundColor(palette[2]),
+                                            background_color: palette[2].into(),
                                             ..Default::default()
                                         })
                                         .with_children(|parent| {
@@ -266,7 +266,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                         height: Val::Px(200.),
                                                         ..Default::default()
                                                     },
-                                                    background_color: BackgroundColor(palette[3]),
+                                                    background_color: palette[3].into(),
                                                     ..Default::default()
                                                 })
                                                 .id();
@@ -301,7 +301,7 @@ fn spawn_right_panel(
                 padding: UiRect::all(Val::Px(10.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LinearRgba::WHITE),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -320,7 +320,7 @@ fn spawn_right_panel(
                         },
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(palette[0]),
+                    background_color: palette[0].into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -341,7 +341,7 @@ fn spawn_right_panel(
                                 },
                                 ..Default::default()
                             },
-                            background_color: BackgroundColor(palette[1]),
+                            background_color: palette[1].into(),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -362,7 +362,7 @@ fn spawn_right_panel(
                                         },
                                         ..Default::default()
                                     },
-                                    background_color: BackgroundColor(palette[2]),
+                                    background_color: palette[2].into(),
                                     ..Default::default()
                                 })
                                 .with_children(|parent| {
@@ -383,7 +383,7 @@ fn spawn_right_panel(
                                                 },
                                                 ..Default::default()
                                             },
-                                            background_color: BackgroundColor(palette[3]),
+                                            background_color: palette[3].into(),
                                             ..Default::default()
                                         })
                                         .with_children(|parent| {
@@ -450,9 +450,9 @@ fn buttons_handler<T>(
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
                         || text.sections[0].value.contains("Hidden")
                     {
-                        Color::srgb(1.0, 0.7, 0.7)
+                        Srgba::rgb(1.0, 0.7, 0.7).into()
                     } else {
-                        Color::WHITE
+                        LinearRgba::WHITE
                     };
                 }
             }
@@ -467,7 +467,7 @@ fn text_hover(
     for (interaction, mut image, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                image.color = Color::BLACK.with_alpha(0.6);
+                image.color = LinearRgba::BLACK.with_alpha(0.6);
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
@@ -476,16 +476,16 @@ fn text_hover(
                 }
             }
             _ => {
-                image.color = Color::BLACK.with_alpha(0.5);
+                image.color = LinearRgba::BLACK.with_alpha(0.5);
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =
                             if text.sections[0].value.contains("None")
                                 || text.sections[0].value.contains("Hidden")
                             {
-                                HIDDEN_COLOR
+                                HIDDEN_COLOR.into()
                             } else {
-                                Color::WHITE
+                                LinearRgba::WHITE
                             };
                     }
                 }

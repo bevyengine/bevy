@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_color::Color;
+use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
@@ -195,7 +195,7 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    pub color: Color,
+    pub color: LinearRgba,
 }
 
 impl Default for TextStyle {
@@ -203,7 +203,7 @@ impl Default for TextStyle {
         Self {
             font: Default::default(),
             font_size: 12.0,
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
         }
     }
 }

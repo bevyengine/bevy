@@ -335,7 +335,7 @@ fn setup_text(
     let style = TextStyle {
         font,
         font_size,
-        color: Color::WHITE,
+        color: LinearRgba::WHITE,
     };
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/previous primitive";

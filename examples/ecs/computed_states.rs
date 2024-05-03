@@ -232,13 +232,13 @@ enum MenuButton {
     Tutorial,
 }
 
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Srgba = Srgba::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Srgba = Srgba::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Srgba = Srgba::rgb(0.35, 0.75, 0.35);
 
-const ACTIVE_BUTTON: Color = Color::srgb(0.15, 0.85, 0.15);
-const HOVERED_ACTIVE_BUTTON: Color = Color::srgb(0.25, 0.55, 0.25);
-const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
+const ACTIVE_BUTTON: Srgba = Srgba::rgb(0.15, 0.85, 0.15);
+const HOVERED_ACTIVE_BUTTON: Srgba = Srgba::rgb(0.25, 0.55, 0.25);
+const PRESSED_ACTIVE_BUTTON: Srgba = Srgba::rgb(0.35, 0.95, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -282,7 +282,7 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: LinearRgba::rgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -313,7 +313,7 @@ fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>)
                         "Tutorial",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: LinearRgba::rgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -341,9 +341,9 @@ fn menu(
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    PRESSED_ACTIVE_BUTTON
+                    PRESSED_ACTIVE_BUTTON.into()
                 } else {
-                    PRESSED_BUTTON
+                    PRESSED_BUTTON.into()
                 };
 
                 match menu_button {
@@ -361,18 +361,18 @@ fn menu(
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = HOVERED_ACTIVE_BUTTON;
+                    *color = HOVERED_ACTIVE_BUTTON.into();
                 } else {
-                    *color = HOVERED_BUTTON;
+                    *color = HOVERED_BUTTON.into();
                 }
             }
             Interaction::None => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = ACTIVE_BUTTON;
+                    *color = ACTIVE_BUTTON.into();
                 } else {
-                    *color = NORMAL_BUTTON;
+                    *color = NORMAL_BUTTON.into();
                 }
             }
         }
@@ -498,7 +498,7 @@ fn setup_paused_screen(mut commands: Commands) {
                         "Paused",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: LinearRgba::rgb(0.9, 0.9, 0.9),
                             ..default()
                         },
                     ));
@@ -545,7 +545,7 @@ fn setup_turbo_text(mut commands: Commands) {
                 "TURBO MODE",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.9, 0.3, 0.1),
+                    color: Srgba::rgb(0.9, 0.3, 0.1).into(),
                     ..default()
                 },
             ));
@@ -593,7 +593,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Move the bevy logo with the arrow keys",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));
@@ -601,7 +601,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press T to enter TURBO MODE",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));
@@ -610,7 +610,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press SPACE to pause",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));
@@ -619,7 +619,7 @@ fn movement_instructions(mut commands: Commands) {
                 "Press ESCAPE to return to the menu",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));
@@ -650,7 +650,7 @@ fn pause_instructions(mut commands: Commands) {
                 "Press SPACE to resume",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));
@@ -659,7 +659,7 @@ fn pause_instructions(mut commands: Commands) {
                 "Press ESCAPE to return to the menu",
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
+                    color: Srgba::rgb(0.3, 0.3, 0.7).into(),
                     ..default()
                 },
             ));

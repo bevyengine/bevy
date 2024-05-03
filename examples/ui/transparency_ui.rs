@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(Color::srgb(0.1, 0.5, 0.1)),
+                    image: UiImage::default().with_color(Srgba::rgb(0.1, 0.5, 0.1)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            color: Srgba::new(1.0, 1.0, 1.0, 0.2).into(),
                         },
                     ));
                 });
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(Color::srgb(0.5, 0.1, 0.5)),
+                    image: UiImage::default().with_color(Srgba::rgb(0.5, 0.1, 0.5)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            color: Srgba::new(1.0, 1.0, 1.0, 0.2).into(),
                         },
                     ));
                 });

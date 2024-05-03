@@ -43,7 +43,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
+            background_color: BackgroundColor(LinearRgba::WHITE),
             ..default()
         })
         .with_children(|builder| {
@@ -87,7 +87,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                    background_color: Srgba::rgb(0.25, 0.25, 0.25).into(),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -182,7 +182,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::WHITE.with_alpha(0.8)),
+                background_color: Srgba::WHITE.with_alpha(0.8).into(),
                 ..default()
             });
         });
@@ -216,7 +216,7 @@ fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text
         TextStyle {
             font,
             font_size: 24.0,
-            color: Color::BLACK,
+            color: LinearRgba::BLACK,
         },
     ));
 }

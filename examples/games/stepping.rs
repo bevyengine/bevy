@@ -121,7 +121,7 @@ fn build_ui(
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
                 font_size: FONT_SIZE,
-                color: FONT_COLOR,
+                color: FONT_COLOR.into(),
             },
         ));
 
@@ -148,7 +148,7 @@ fn build_ui(
                 TextStyle {
                     font: asset_server.load(FONT_MEDIUM),
                     font_size: FONT_SIZE,
-                    color: FONT_COLOR,
+                    color: FONT_COLOR.into(),
                 },
             ));
 
@@ -158,7 +158,7 @@ fn build_ui(
                 TextStyle {
                     font: asset_server.load(FONT_MEDIUM),
                     font_size: FONT_SIZE,
-                    color: FONT_COLOR,
+                    color: FONT_COLOR.into(),
                 },
             ));
         }
@@ -179,7 +179,7 @@ fn build_ui(
                 padding: UiRect::all(Val::Px(10.0)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
+            background_color: Srgba::new(1.0, 1.0, 1.0, 0.33).into(),
             visibility: Visibility::Hidden,
             ..default()
         },
@@ -199,7 +199,7 @@ fn build_stepping_hint(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextStyle {
             font: asset_server.load(FONT_MEDIUM),
             font_size: 18.0,
-            color: FONT_COLOR,
+            color: FONT_COLOR.into(),
         },
     )])
     .with_style(Style {

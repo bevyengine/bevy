@@ -37,7 +37,7 @@ fn button_system(
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                image.color = Color::WHITE;
+                image.color = LinearRgba::WHITE;
             }
         }
     }
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                                color: Srgba::rgb(0.9, 0.9, 0.9).into(),
                             },
                         ));
                     });

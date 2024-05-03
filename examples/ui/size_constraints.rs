@@ -11,15 +11,15 @@ fn main() {
         .run();
 }
 
-const ACTIVE_BORDER_COLOR: Color = Color::Srgba(ANTIQUE_WHITE);
-const INACTIVE_BORDER_COLOR: Color = Color::BLACK;
+const ACTIVE_BORDER_COLOR: Srgba = ANTIQUE_WHITE;
+const INACTIVE_BORDER_COLOR: Srgba = BLACK;
 
-const ACTIVE_INNER_COLOR: Color = Color::WHITE;
-const INACTIVE_INNER_COLOR: Color = Color::Srgba(NAVY);
+const ACTIVE_INNER_COLOR: Srgba = WHITE;
+const INACTIVE_INNER_COLOR: Srgba = NAVY;
 
-const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
-const HOVERED_TEXT_COLOR: Color = Color::WHITE;
-const UNHOVERED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const ACTIVE_TEXT_COLOR: Srgba = BLACK;
+const HOVERED_TEXT_COLOR: Srgba = WHITE;
+const UNHOVERED_TEXT_COLOR: Srgba = Srgba::rgb(0.5, 0.5, 0.5);
 
 #[derive(Component)]
 struct Bar;
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 40.0,
-        color: Color::srgb(0.9, 0.9, 0.9),
+        color: Srgba::rgb(0.9, 0.9, 0.9).into(),
     };
 
     commands
@@ -277,9 +277,9 @@ fn spawn_button(
                             label,
                             TextStyle {
                                 color: if active {
-                                    ACTIVE_TEXT_COLOR
+                                    ACTIVE_TEXT_COLOR.into()
                                 } else {
-                                    UNHOVERED_TEXT_COLOR
+                                    UNHOVERED_TEXT_COLOR.into()
                                 },
                                 ..text_style
                             },
@@ -327,8 +327,8 @@ fn update_buttons(
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
                                 if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = HOVERED_TEXT_COLOR;
+                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR.into() {
+                                        text.sections[0].style.color = HOVERED_TEXT_COLOR.into();
                                     }
                                 }
                             }
@@ -342,8 +342,8 @@ fn update_buttons(
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
                                 if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = UNHOVERED_TEXT_COLOR;
+                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR.into() {
+                                        text.sections[0].style.color = UNHOVERED_TEXT_COLOR.into();
                                     }
                                 }
                             }
@@ -381,12 +381,12 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                image_query.get_mut(id).unwrap().color = border_color;
+                image_query.get_mut(id).unwrap().color = border_color.into();
                 for &child in children_query.get(id).into_iter().flatten() {
-                    color_query.get_mut(child).unwrap().0 = inner_color;
+                    color_query.get_mut(child).unwrap().0 = inner_color.into();
                     for &grandchild in children_query.get(child).into_iter().flatten() {
                         if let Ok(mut text) = text_query.get_mut(grandchild) {
-                            text.sections[0].style.color = text_color;
+                            text.sections[0].style.color = text_color.into();
                         }
                     }
                 }

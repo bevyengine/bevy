@@ -10,7 +10,7 @@ use crate::{
     UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
@@ -232,7 +232,7 @@ impl Default for TextBundle {
             view_visibility: Default::default(),
             z_index: Default::default(),
             // Transparent background
-            background_color: BackgroundColor(Color::NONE),
+            background_color: BackgroundColor(LinearRgba::NONE),
         }
     }
 }
@@ -272,7 +272,7 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
-    pub const fn with_background_color(mut self, color: Color) -> Self {
+    pub const fn with_background_color(mut self, color: LinearRgba) -> Self {
         self.background_color = BackgroundColor(color);
         self
     }
@@ -348,7 +348,7 @@ impl Default for ButtonBundle {
             style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
-            border_color: BorderColor(Color::NONE),
+            border_color: BorderColor(LinearRgba::NONE),
             border_radius: BorderRadius::default(),
             image: Default::default(),
             transform: Default::default(),

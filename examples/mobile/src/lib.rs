@@ -115,10 +115,10 @@ fn setup_scene(
                     bottom: Val::Px(50.0),
                     ..default()
                 },
-                image: UiImage::default().with_color(Color::NONE),
+                image: UiImage::default().with_color(LinearRgba::NONE),
                 ..default()
             },
-            BackgroundColor(Color::WHITE),
+            BackgroundColor(LinearRgba::WHITE),
         ))
         .with_children(|b| {
             b.spawn(
@@ -126,7 +126,7 @@ fn setup_scene(
                     "Test Button",
                     TextStyle {
                         font_size: 30.0,
-                        color: Color::BLACK,
+                        color: LinearRgba::BLACK,
                         ..default()
                     },
                 )

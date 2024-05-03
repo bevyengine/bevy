@@ -66,9 +66,9 @@ struct MenuData {
     button_entity: Entity,
 }
 
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Srgba = Srgba::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Srgba = Srgba::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Srgba = Srgba::rgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -107,7 +107,7 @@ fn setup_menu(mut commands: Commands) {
                         "Play",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: Srgba::rgb(0.9, 0.9, 0.9).into(),
                             ..default()
                         },
                     ));
@@ -128,14 +128,14 @@ fn menu(
         let color = &mut image.color;
         match *interaction {
             Interaction::Pressed => {
-                *color = PRESSED_BUTTON;
+                *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                *color = HOVERED_BUTTON;
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                *color = NORMAL_BUTTON;
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -256,7 +256,7 @@ fn setup_paused_screen(mut commands: Commands) {
                         "Paused",
                         TextStyle {
                             font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                            color: Srgba::rgb(0.9, 0.9, 0.9).into(),
                             ..default()
                         },
                     ));
