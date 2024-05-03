@@ -55,6 +55,7 @@ workspace = true
 default = [
   "animation",
   "bevy_asset",
+  "bevy_state",
   "bevy_audio",
   "bevy_color",
   "bevy_gilrs",
@@ -328,6 +329,9 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
+
+# Enable built in global state machines
+bevy_state = ["bevy_internal/bevy_state"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }

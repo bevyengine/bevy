@@ -1,0 +1,12 @@
+[package]
+name = "bevy_state"
+version = "0.14.0-dev"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+
+[lints]
+workspace = true
