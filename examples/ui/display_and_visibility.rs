@@ -417,7 +417,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                image: UiImage::default().with_color(Color::BLACK.with_alpha(0.5)),
+                image: UiImage::default().with_color(LinearRgba::BLACK.with_alpha(0.5)),
                 ..Default::default()
             },
             Target::<T>::new(target),

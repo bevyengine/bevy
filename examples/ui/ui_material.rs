@@ -16,7 +16,7 @@ fn main() {
 fn update(time: Res<Time>, mut ui_materials: ResMut<Assets<CustomUiMaterial>>) {
     for (_, material) in ui_materials.iter_mut() {
         // rainbow color effect
-        let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
+        let new_color = Hsla::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
         material.color = LinearRgba::from(new_color).to_f32_array().into();
     }
 }

@@ -71,7 +71,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(StandardMaterial {
-            base_color: Color::srgba(0.5, 1.0, 0.5, 0.0).into(),
+            base_color: Srgba::new(0.5, 1.0, 0.5, 0.0).into(),
             alpha_mode: AlphaMode::AlphaToCoverage,
             ..default()
         }),

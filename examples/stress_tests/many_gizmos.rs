@@ -64,7 +64,7 @@ fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
 fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     if !config.fancy {
         for _ in 0..(config.line_count / SYSTEM_COUNT) {
-            draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK.into());
+            draw.line(Vec3::NEG_Y, Vec3::Y, LinearRgba::BLACK.into());
         }
     } else {
         for i in 0..(config.line_count / SYSTEM_COUNT) {

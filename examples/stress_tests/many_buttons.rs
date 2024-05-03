@@ -146,7 +146,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                     .with_children(|commands| {
                         for row in 0..args.buttons {
                             let color = LinearRgba::from(as_rainbow(row % column.max(1)));
-                            let border_color = Color::WHITE.with_alpha(0.5).into();
+                            let border_color = LinearRgba::WHITE.with_alpha(0.5).into();
                             spawn_button(
                                 commands,
                                 color,
@@ -200,7 +200,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
                     let color = LinearRgba::from(as_rainbow(row % column.max(1)));
-                    let border_color = Color::WHITE.with_alpha(0.5).into();
+                    let border_color = LinearRgba::WHITE.with_alpha(0.5).into();
                     spawn_button(
                         commands,
                         color,

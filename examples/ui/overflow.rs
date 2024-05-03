@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..Default::default()
                                 },
-                                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+                                background_color: Srgba::rgb(0.25, 0.25, 0.25).into(),
                                 ..Default::default()
                             })
                             .with_children(|parent| {
@@ -116,7 +116,7 @@ fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) 
             outline.color = match *interaction {
                 Interaction::Pressed => RED.into(),
                 Interaction::Hovered => WHITE.into(),
-                Interaction::None => Color::NONE,
+                Interaction::None => LinearRgba::NONE,
             };
         }
     }

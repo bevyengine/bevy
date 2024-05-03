@@ -139,7 +139,7 @@ fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
 
     // local Y-axis arrow
     let y_ends = arrow_ends(cube_transform, Vec3::Y, 1.5);
-    gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.).into());
+    gizmos.arrow(y_ends.0, y_ends.1, Srgba::rgb(0.65, 0., 0.).into());
 }
 
 // Draw the randomly generated axes

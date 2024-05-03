@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: LinearRgba::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {
@@ -130,7 +130,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         padding: UiRect::all(Val::Px(4.)),
                         ..Default::default()
                     },
-                    background_color: Color::BLACK.into(),
+                    background_color: LinearRgba::BLACK.into(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -139,7 +139,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                             style: Style {
                                 ..Default::default()
                             },
-                            background_color: Color::WHITE.into(),
+                            background_color: LinearRgba::WHITE.into(),
                             ..Default::default()
                         },
                         Bar,
@@ -164,7 +164,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: LinearRgba::BLACK.into(),
             ..Default::default()
         })
         .with_children(|parent| {

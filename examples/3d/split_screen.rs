@@ -145,8 +145,8 @@ fn setup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: Color::WHITE.into(),
-                    image: UiImage::default().with_color(Color::srgb(0.25, 0.25, 0.25)),
+                    border_color: LinearRgba::WHITE.into(),
+                    image: UiImage::default().with_color(Srgba::rgb(0.25, 0.25, 0.25)),
                     ..default()
                 },
             ))

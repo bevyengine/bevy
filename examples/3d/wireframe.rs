@@ -89,7 +89,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(Color::from(BLUE)),
+            material: materials.add(BLUE),
             ..default()
         },
         // You can insert this component without the `Wireframe` component

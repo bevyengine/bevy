@@ -62,7 +62,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
-            background_color: Color::BLACK.into(),
+            background_color: LinearRgba::BLACK.into(),
             ..Default::default()
         })
         .id();
@@ -107,7 +107,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         overflow: Overflow::clip_x(),
                         ..Default::default()
                     },
-                    background_color: Color::srgb(0.5, c, 1.0 - c).into(),
+                    background_color: Srgba::rgb(0.5, c, 1.0 - c).into(),
                     ..Default::default()
                 })
                 .id();
@@ -131,7 +131,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let text_id = commands
                     .spawn(TextBundle {
                         text,
-                        background_color: Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
+                        background_color: Srgba::rgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
                         ..Default::default()
                     })
                     .id();

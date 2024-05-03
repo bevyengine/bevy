@@ -86,7 +86,7 @@ fn initialized(state: Res<State>) -> bool {
 }
 
 const FONT_SIZE: f32 = 20.0;
-const FONT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
+const FONT_COLOR: Srgba = Srgba::rgb(0.2, 0.2, 0.2);
 const FONT_BOLD: &str = "fonts/FiraSans-Bold.ttf";
 const FONT_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
 

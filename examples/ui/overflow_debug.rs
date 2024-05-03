@@ -196,7 +196,7 @@ fn spawn_container(
                     overflow: Overflow::clip(),
                     ..default()
                 },
-                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+                background_color: Srgba::rgb(0.25, 0.25, 0.25).into(),
                 ..default()
             },
             Container(0),

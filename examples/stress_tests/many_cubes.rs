@@ -192,7 +192,7 @@ fn setup(
             commands.spawn((
                 PbrBundle {
                     mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
+                    material: material_assets.add(StandardMaterial::from(LinearRgba::WHITE)),
                     transform: Transform::from_scale(-Vec3::ONE),
                     ..default()
                 },
@@ -250,7 +250,7 @@ fn setup(
             commands.spawn((
                 PbrBundle {
                     mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
+                    material: material_assets.add(StandardMaterial::from(LinearRgba::WHITE)),
                     transform: Transform::from_scale(-Vec3::ONE).with_translation(center),
                     ..default()
                 },

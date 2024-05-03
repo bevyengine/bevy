@@ -170,7 +170,7 @@ mod game {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::BLACK.into(),
+                        background_color: LinearRgba::BLACK.into(),
                         ..default()
                     })
                     .with_children(|parent| {
