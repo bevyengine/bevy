@@ -249,7 +249,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
-        let corner_radius = size.min_element() / 10.0;
+        let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
@@ -305,7 +305,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
-        let corner_radius = size.min_element() / 10.0;
+        let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
@@ -361,7 +361,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         size: Vec3,
         color: impl Into<Color>,
     ) -> RoundedCuboidBuilder<'_, 'w, 's, T> {
-        let corner_radius = size.min_element() / 10.0;
+        let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedCuboidBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
@@ -377,3 +377,4 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
 }
 
 const DEFAULT_ARC_SEGMENTS: usize = 8;
+const DEFAULT_CORNER_RADIUS: f32 = 0.1;
