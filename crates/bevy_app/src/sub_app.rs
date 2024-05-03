@@ -177,15 +177,8 @@ impl SubApp {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.add_systems(systems);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.add_systems(systems);
-            schedules.insert(new_schedule);
-        }
+        schedules.add_systems(schedule, systems);
 
         self
     }
