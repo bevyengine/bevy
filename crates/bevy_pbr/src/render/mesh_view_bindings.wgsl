@@ -38,7 +38,7 @@
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
 @group(0) @binding(12) var<storage> visibility_ranges: array<vec4<f32>>;
 #else
-@group(0) @binding(12) var<uniform> visibility_ranges: array<vec4<f32>>;
+@group(0) @binding(12) var<uniform> visibility_ranges: array<vec4<f32>, 1024u>;
 #endif
 
 @group(0) @binding(13) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
