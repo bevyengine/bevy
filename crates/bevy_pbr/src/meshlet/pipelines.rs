@@ -24,7 +24,8 @@ pub struct MeshletPipelines {
     fill_cluster_buffers: CachedComputePipelineId,
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
-    downsample_depth: CachedRenderPipelineId,
+    downsample_depth_first: CachedComputePipelineId,
+    downsample_depth_second: CachedComputePipelineId,
     visibility_buffer_raster: CachedRenderPipelineId,
     visibility_buffer_raster_depth_only: CachedRenderPipelineId,
     visibility_buffer_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
@@ -81,25 +82,33 @@ impl FromWorld for MeshletPipelines {
                 entry_point: "cull_meshlets".into(),
             }),
 
-            downsample_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("meshlet_downsample_depth".into()),
-                layout: vec![downsample_depth_layout],
-                push_constant_ranges: vec![],
-                vertex: fullscreen_shader_vertex_state(),
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-                fragment: Some(FragmentState {
+            downsample_depth_first: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_downsample_depth_first_pipeline".into()),
+                    layout: vec![downsample_depth_layout.clone()],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],
-                    entry_point: "downsample_depth".into(),
-                    targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::R32Float,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-            }),
+                    entry_point: "downsample_depth_first".into(),
+                },
+            ),
+
+            downsample_depth_second: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_downsample_depth_second_pipeline".into()),
+                    layout: vec![downsample_depth_layout],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
+                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "downsample_depth_second".into(),
+                },
+            ),
 
             visibility_buffer_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
@@ -233,7 +242,7 @@ impl FromWorld for MeshletPipelines {
             ),
 
             copy_material_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("meshlet_copy_material_depth".into()),
+                label: Some("meshlet_copy_material_depth_pipeline".into()),
                 layout: vec![copy_material_depth_layout],
                 push_constant_ranges: vec![],
                 vertex: fullscreen_shader_vertex_state(),
@@ -264,7 +273,8 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
-        &RenderPipeline,
+        &ComputePipeline,
+        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -276,7 +286,8 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.fill_cluster_buffers)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
-            pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
+            pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first)?,
+            pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_second)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_depth_only)?,
             pipeline_cache

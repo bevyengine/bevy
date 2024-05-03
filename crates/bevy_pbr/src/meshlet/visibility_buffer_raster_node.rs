@@ -53,6 +53,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         self.view_light_query.update_archetypes(world);
     }
 
+    // TODO: Reuse compute/render passes between logical passes where possible, as they're expensive
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -76,7 +77,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             fill_cluster_buffers_pipeline,
             culling_first_pipeline,
             culling_second_pipeline,
-            downsample_depth_pipeline,
+            downsample_depth_first_pipeline,
+            downsample_depth_second_pipeline,
             visibility_buffer_raster_pipeline,
             visibility_buffer_raster_depth_only_pipeline,
             visibility_buffer_raster_depth_only_clamp_ortho,
@@ -136,7 +138,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             meshlet_view_resources,
             meshlet_view_bind_groups,
-            downsample_depth_pipeline,
+            downsample_depth_first_pipeline,
+            downsample_depth_second_pipeline,
         );
         cull_pass(
             "culling_second",
@@ -169,7 +172,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             render_context,
             meshlet_view_resources,
             meshlet_view_bind_groups,
-            downsample_depth_pipeline,
+            downsample_depth_first_pipeline,
+            downsample_depth_second_pipeline,
         );
         render_context.command_encoder().pop_debug_group();
 
@@ -224,7 +228,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 meshlet_view_resources,
                 meshlet_view_bind_groups,
-                downsample_depth_pipeline,
+                downsample_depth_first_pipeline,
+                downsample_depth_second_pipeline,
             );
             cull_pass(
                 "culling_second",
@@ -250,7 +255,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 meshlet_view_resources,
                 meshlet_view_bind_groups,
-                downsample_depth_pipeline,
+                downsample_depth_first_pipeline,
+                downsample_depth_second_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
         }
@@ -259,7 +265,6 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
     }
 }
 
-// TODO: Reuse same compute pass as cull_pass
 fn fill_cluster_buffers_pass(
     render_context: &mut RenderContext,
     fill_cluster_buffers_bind_group: &BindGroup,
@@ -379,35 +384,34 @@ fn downsample_depth(
     render_context: &mut RenderContext,
     meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
-    downsample_depth_pipeline: &RenderPipeline,
+    downsample_depth_first_pipeline: &ComputePipeline,
+    downsample_depth_second_pipeline: &ComputePipeline,
 ) {
-    render_context
-        .command_encoder()
-        .push_debug_group("meshlet_downsample_depth");
+    let command_encoder = render_context.command_encoder();
+    let mut downsample_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("downsample_depth"),
+        timestamp_writes: None,
+    });
+    downsample_pass.set_pipeline(downsample_depth_first_pipeline);
+    downsample_pass.set_push_constants(
+        0,
+        &meshlet_view_resources.depth_pyramid_mip_count.to_le_bytes(),
+    );
+    downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth, &[]);
+    downsample_pass.dispatch_workgroups(
+        meshlet_view_resources.view_size.x.div_ceil(64),
+        meshlet_view_resources.view_size.y.div_ceil(64),
+        1,
+    );
 
-    for i in 0..meshlet_view_resources.depth_pyramid_mips.len() {
-        let downsample_pass = RenderPassDescriptor {
-            label: Some("downsample_depth"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: &meshlet_view_resources.depth_pyramid_mips[i],
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let mut downsample_pass = render_context.begin_tracked_render_pass(downsample_pass);
-        downsample_pass.set_render_pipeline(downsample_depth_pipeline);
-        downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth[i], &[]);
-        downsample_pass.draw(0..3, 0..1);
+    if meshlet_view_resources.depth_pyramid_mip_count >= 7 {
+        downsample_pass.set_pipeline(downsample_depth_second_pipeline);
+        downsample_pass.dispatch_workgroups(
+            meshlet_view_resources.view_size.x.div_ceil(64),
+            meshlet_view_resources.view_size.y.div_ceil(64),
+            1,
+        );
     }
-
-    render_context.command_encoder().pop_debug_group();
 }
 
 fn copy_material_depth_pass(
