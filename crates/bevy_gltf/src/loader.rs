@@ -607,6 +607,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &Transform::default(),
                         #[cfg(feature = "bevy_animation")]
                         &animation_roots,
+                        #[cfg(feature = "bevy_animation")]
                         None,
                     );
                     if result.is_err() {
@@ -1012,9 +1013,8 @@ fn load_node(
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
-    #[cfg(feature = "bevy_animation")]
-    animation_roots: &HashSet<usize>,
-    mut animation_context: Option<AnimationContext>,
+    #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1265,6 +1265,7 @@ fn load_node(
                 &world_transform,
                 #[cfg(feature = "bevy_animation")]
                 animation_roots,
+                #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
             ) {
                 gltf_error = Some(err);
@@ -1634,10 +1635,6 @@ struct AnimationContext {
     // animation target UUIDs.
     path: SmallVec<[Name; 8]>,
 }
-
-#[cfg(not(feature = "bevy_animation"))]
-#[derive(Clone)]
-struct AnimationContext;
 
 #[cfg(test)]
 mod test {
