@@ -1077,15 +1077,6 @@ mod tests {
     }
 
     #[test]
-    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
-        let mut app = App::new();
-        app.add_systems(EnterMainMenu, (foo, bar));
-
-        app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entities().len(), 2);
-    }
-
-    #[test]
     #[should_panic]
     fn test_is_plugin_added_works_during_finish() {
         let mut app = App::new();
