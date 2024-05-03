@@ -958,9 +958,9 @@ mod tests {
 
     #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
     enum TestSets {
-        SetAlpha,
-        SetBravo,
-        SetCharlie,
+        Alpha,
+        Bravo,
+        Charlie,
     }
 
     fn first_system() {}
@@ -971,11 +971,11 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::new(TestSchedule);
         schedule.add_systems(
-            (first_system.in_set(TestSets::SetAlpha), second_system)
+            (first_system.in_set(TestSets::Alpha), second_system)
                 .chain()
-                .in_set(TestSets::SetBravo),
+                .in_set(TestSets::Bravo),
         );
-        schedule.configure_sets(TestSets::SetBravo.in_set(TestSets::SetCharlie));
+        schedule.configure_sets(TestSets::Bravo.in_set(TestSets::Charlie));
         schedule.initialize(&mut world).unwrap();
         (schedule, world)
     }
@@ -1125,7 +1125,7 @@ mod tests {
         stepping
             .add_schedule(TestSchedule)
             .enable()
-            .always_run_set(TestSchedule, TestSets::SetAlpha);
+            .always_run_set(TestSchedule, TestSets::Alpha);
 
         assert_schedule_runs!(&schedule, &mut stepping, first_system);
     }
@@ -1138,7 +1138,7 @@ mod tests {
         stepping
             .add_schedule(TestSchedule)
             .enable()
-            .always_run_set(TestSchedule, TestSets::SetBravo);
+            .always_run_set(TestSchedule, TestSets::Bravo);
 
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
     }
@@ -1151,7 +1151,7 @@ mod tests {
         stepping
             .add_schedule(TestSchedule)
             .enable()
-            .always_run_set(TestSchedule, TestSets::SetCharlie);
+            .always_run_set(TestSchedule, TestSets::Charlie);
 
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
     }
@@ -1231,7 +1231,7 @@ mod tests {
         stepping
             .add_schedule(TestSchedule)
             .enable()
-            .never_run_set(TestSchedule, TestSets::SetAlpha)
+            .never_run_set(TestSchedule, TestSets::Alpha)
             .step_frame();
 
         assert_schedule_runs!(&schedule, &mut stepping, second_system);
@@ -1391,7 +1391,7 @@ mod tests {
         stepping
             .add_schedule(TestSchedule)
             .enable()
-            .never_run_set(TestSchedule, TestSets::SetBravo)
+            .never_run_set(TestSchedule, TestSets::Bravo)
             .continue_frame();
         assert_schedule_runs!(&schedule, &mut stepping,);
 
