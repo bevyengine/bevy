@@ -605,6 +605,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
                         &Transform::default(),
+                        #[cfg(feature = "bevy_animation")]
                         &animation_roots,
                         None,
                     );
@@ -1011,6 +1012,7 @@ fn load_node(
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
+    #[cfg(feature = "bevy_animation")]
     animation_roots: &HashSet<usize>,
     mut animation_context: Option<AnimationContext>,
 ) -> Result<(), GltfError> {
@@ -1261,6 +1263,7 @@ fn load_node(
                 entity_to_skin_index_map,
                 active_camera_found,
                 &world_transform,
+                #[cfg(feature = "bevy_animation")]
                 animation_roots,
                 animation_context.clone(),
             ) {
