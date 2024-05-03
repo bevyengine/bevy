@@ -12,7 +12,7 @@ publish = false
 bevy_reflect = { path = "../", version = "0.14.0-dev" }
 
 [dev-dependencies]
-bevy_compile_test_utils = { path = "../../../tools/bevy_compile_test_utils" }
+compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
 
 [[test]]
 name = "derive"

@@ -1,3 +1,3 @@
-fn main() -> bevy_compile_test_utils::ui_test::Result<()> {
-    bevy_compile_test_utils::test("tests/ui")
+fn main() -> compile_fail_utils::ui_test::Result<()> {
+    compile_fail_utils::test("tests/ui")
 }

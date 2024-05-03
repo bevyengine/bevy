@@ -1,5 +1,5 @@
 [package]
-name = "compile_test_utils"
+name = "compile_fail_utils"
 edition = "2021"
 description = "Utils for compile tests used in the engine"
 homepage = "https://bevyengine.org"
