@@ -49,7 +49,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::srgb_u8(43, 44, 47),
+            color: Srgba::rgb_u8(43, 44, 47).into(),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,

@@ -56,14 +56,14 @@ pub struct FogSettings {
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
     /// changing the fog falloff mode or parameters.
-    pub color: Color,
+    pub color: LinearRgba,
 
     /// Color used to modulate the influence of directional light colors on the
     /// fog, where the view direction aligns with each directional light direction,
     /// producing a “glow” or light dispersion effect. (e.g. around the sun)
     ///
-    /// Use [`Color::NONE`] to disable the effect.
-    pub directional_light_color: Color,
+    /// Use [`LinearRgba::NONE`] to disable the effect.
+    pub directional_light_color: LinearRgba,
 
     /// The exponent applied to the directional light alignment calculation.
     /// A higher value means a more concentrated “glow”.
@@ -466,12 +466,12 @@ impl FogFalloff {
 impl Default for FogSettings {
     fn default() -> Self {
         FogSettings {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,
             },
-            directional_light_color: Color::NONE,
+            directional_light_color: LinearRgba::NONE,
             directional_light_exponent: 8.0,
         }
     }

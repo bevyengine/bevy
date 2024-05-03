@@ -329,7 +329,7 @@ fn setup(
             intensity: 150.0,
         },
         FogSettings {
-            color: Color::srgba_u8(43, 44, 47, 255),
+            color: Srgba::rgb_u8(43, 44, 47).into(),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 4.0,

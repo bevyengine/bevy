@@ -31,8 +31,8 @@ fn setup_camera_fog(mut commands: Commands) {
             ..default()
         },
         FogSettings {
-            color: Color::srgba(0.35, 0.48, 0.66, 1.0),
-            directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
+            color: Srgba::new(0.35, 0.48, 0.66, 1.0).into(),
+            directional_light_color: Srgba::new(1.0, 0.95, 0.85, 0.5).into(),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
                 15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
