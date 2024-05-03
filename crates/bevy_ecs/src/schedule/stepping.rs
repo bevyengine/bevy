@@ -63,11 +63,14 @@ struct Cursor {
     pub system: usize,
 }
 
-// Two methods of referring to Systems, via TypeId, or per-Schedule NodeId
+/// Identifies a node that we want to apply stepping-behavior to
 #[derive(Hash, PartialEq, Eq)]
 enum SystemIdentifier {
+    /// A system set
     Set(InternedSystemSet),
+    /// A system identified by its type
     Type(TypeId),
+    /// A node in the schedule graph
     Node(NodeId),
 }
 
@@ -263,10 +266,7 @@ impl Stepping {
         self
     }
 
-    /// Ensure this system always runs when stepping is enabled
-    ///
-    /// Note: if the system is run multiple times in the [`Schedule`], this
-    /// will apply for all instances of the system.
+    /// Ensure this [`SystemSet`] always runs when stepping is enabled
     pub fn always_run_set<Marker>(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -307,7 +307,7 @@ impl Stepping {
         self
     }
 
-    /// Ensure this system set never runs when stepping is enabled
+    /// Ensure this [`SystemSet`] never runs when stepping is enabled
     pub fn never_run_set<Marker>(
         &mut self,
         schedule: impl ScheduleLabel,
