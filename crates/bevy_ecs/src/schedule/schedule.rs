@@ -146,6 +146,15 @@ impl Schedules {
 
         info!("{}", message);
     }
+
+    /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
+    pub fn add_systems<M>(&mut self, schedule: impl ScheduleLabel, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+        let label = schedule.intern();
+        let schedule = self.inner.entry(label).or_insert_with(|| Schedule::new(schedule));
+        schedule.add_systems(systems);
+
+        self
+    }
 }
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
@@ -1985,15 +1994,19 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::ScheduleLabel;
+
     use crate::{
         self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
-            IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet
         },
         system::Commands,
         world::World,
     };
+
+    use super::Schedules;
 
     #[derive(Resource)]
     struct Resource1;
@@ -2451,5 +2464,45 @@ mod tests {
                 );
             });
         }
+    }
+
+    #[derive(ScheduleLabel, Hash, Debug, Clone, PartialEq, Eq)]
+    struct TestSchedule;
+
+    #[derive(Resource)]
+    struct CheckSystemRan(usize);
+    
+    #[test]
+    fn add_systems_to_existing_schedule() {
+        let mut schedules = Schedules::default();
+        let schedule = Schedule::new(TestSchedule);
+
+        schedules.insert(schedule);
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world.get_resource::<CheckSystemRan>().expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 1);
+    }
+
+    #[test]
+    fn add_systems_to_non_existing_schedule() {
+        let mut schedules = Schedules::default();
+        
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world.get_resource::<CheckSystemRan>().expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 1);
     }
 }
