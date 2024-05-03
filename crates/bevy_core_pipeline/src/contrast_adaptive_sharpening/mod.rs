@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::graph::{Labels2d, SubGraph2d},
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -116,7 +116,7 @@ impl Plugin for CASPlugin {
             UniformComponentPlugin::<CASUniform>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
@@ -125,42 +125,42 @@ impl Plugin for CASPlugin {
 
         {
             render_app
-                .add_render_graph_node::<CASNode>(SubGraph3d, Labels3d::ContrastAdaptiveSharpening)
+                .add_render_graph_node::<CASNode>(Core3d, Node3d::ContrastAdaptiveSharpening)
                 .add_render_graph_edge(
-                    SubGraph3d,
-                    Labels3d::Tonemapping,
-                    Labels3d::ContrastAdaptiveSharpening,
+                    Core3d,
+                    Node3d::Tonemapping,
+                    Node3d::ContrastAdaptiveSharpening,
                 )
                 .add_render_graph_edges(
-                    SubGraph3d,
+                    Core3d,
                     (
-                        Labels3d::Fxaa,
-                        Labels3d::ContrastAdaptiveSharpening,
-                        Labels3d::EndMainPassPostProcessing,
+                        Node3d::Fxaa,
+                        Node3d::ContrastAdaptiveSharpening,
+                        Node3d::EndMainPassPostProcessing,
                     ),
                 );
         }
         {
             render_app
-                .add_render_graph_node::<CASNode>(SubGraph2d, Labels2d::ConstrastAdaptiveSharpening)
+                .add_render_graph_node::<CASNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
                 .add_render_graph_edge(
-                    SubGraph2d,
-                    Labels2d::Tonemapping,
-                    Labels2d::ConstrastAdaptiveSharpening,
+                    Core2d,
+                    Node2d::Tonemapping,
+                    Node2d::ContrastAdaptiveSharpening,
                 )
                 .add_render_graph_edges(
-                    SubGraph2d,
+                    Core2d,
                     (
-                        Labels2d::Fxaa,
-                        Labels2d::ConstrastAdaptiveSharpening,
-                        Labels2d::EndMainPassPostProcessing,
+                        Node2d::Fxaa,
+                        Node2d::ContrastAdaptiveSharpening,
+                        Node2d::EndMainPassPostProcessing,
                     ),
                 );
         }
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app.init_resource::<CASPipeline>();

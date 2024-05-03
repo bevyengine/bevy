@@ -1,20 +1,20 @@
 #define_import_path bevy_pbr::mesh_functions
 
 #import bevy_pbr::{
-    mesh_view_bindings::view,
+    mesh_view_bindings::{view, visibility_ranges},
     mesh_bindings::mesh,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::position_world_to_clip,
 }
-#import bevy_render::maths::{affine_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 
 fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
-    return affine_to_square(mesh[instance_index].model);
+    return affine3_to_square(mesh[instance_index].model);
 }
 
 fn get_previous_model_matrix(instance_index: u32) -> mat4x4<f32> {
-    return affine_to_square(mesh[instance_index].previous_model);
+    return affine3_to_square(mesh[instance_index].previous_model);
 }
 
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
@@ -83,3 +83,29 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, in
         return vertex_tangent;
     }
 }
+
+// Returns an appropriate dither level for the current mesh instance.
+//
+// This looks up the LOD range in the `visibility_ranges` table and compares the
+// camera distance to determine the dithering level.
+#ifdef VISIBILITY_RANGE_DITHER
+fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
+    let visibility_buffer_index = mesh[instance_index].flags & 0xffffu;
+    if (visibility_buffer_index > arrayLength(&visibility_ranges)) {
+        return -16;
+    }
+
+    let lod_range = visibility_ranges[visibility_buffer_index];
+    let camera_distance = length(view.world_position.xyz - world_position.xyz);
+
+    // This encodes the following mapping:
+    //
+    //     `lod_range.`          x        y        z        w           camera distance
+    //                   ←───────┼────────┼────────┼────────┼────────→
+    //        LOD level  -16    -16       0        0        16      16  LOD level
+    let offset = select(-16, 0, camera_distance >= lod_range.z);
+    let bounds = select(lod_range.xy, lod_range.zw, camera_distance >= lod_range.z);
+    let level = i32(round((camera_distance - bounds.x) / (bounds.y - bounds.x) * 16.0));
+    return offset + clamp(level, 0, 16);
+}
+#endif

@@ -1,5 +1,6 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
+use bevy_ecs::system::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -24,8 +25,25 @@ impl Plugin for SystemInformationDiagnosticsPlugin {
 }
 
 impl SystemInformationDiagnosticsPlugin {
+    /// Total system cpu usage in %
     pub const CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/cpu_usage");
+    /// Total system memory usage in %
     pub const MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
+}
+
+/// A resource that stores diagnostic information about the system.
+/// This information can be useful for debugging and profiling purposes.
+///
+/// # See also
+///
+/// [`SystemInformationDiagnosticsPlugin`] for more information.
+#[derive(Debug, Resource)]
+pub struct SystemInfo {
+    pub os: String,
+    pub kernel: String,
+    pub cpu: String,
+    pub core_count: String,
+    pub memory: String,
 }
 
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
@@ -40,12 +58,12 @@ impl SystemInformationDiagnosticsPlugin {
 ))]
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_log::info;
+    use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
-    use super::SystemInformationDiagnosticsPlugin;
+    use super::{SystemInfo, SystemInformationDiagnosticsPlugin};
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
@@ -87,35 +105,33 @@ pub mod internal {
         });
     }
 
-    #[derive(Debug)]
-    // This is required because the Debug trait doesn't detect it's used when it's only used in a print :(
-    #[allow(dead_code)]
-    struct SystemInfo {
-        os: String,
-        kernel: String,
-        cpu: String,
-        core_count: String,
-        memory: String,
-    }
+    impl Default for SystemInfo {
+        fn default() -> Self {
+            let sys = System::new_with_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new())
+                    .with_memory(MemoryRefreshKind::new().with_ram()),
+            );
 
-    pub(crate) fn log_system_info() {
-        let mut sys = sysinfo::System::new();
-        sys.refresh_cpu();
-        sys.refresh_memory();
+            let system_info = SystemInfo {
+                os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
+                kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
+                cpu: sys
+                    .cpus()
+                    .first()
+                    .map(|cpu| cpu.brand().trim().to_string())
+                    .unwrap_or_else(|| String::from("not available")),
+                core_count: sys
+                    .physical_core_count()
+                    .map(|x| x.to_string())
+                    .unwrap_or_else(|| String::from("not available")),
+                // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
+                memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
+            };
 
-        let info = SystemInfo {
-            os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
-            kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
-            cpu: sys.global_cpu_info().brand().trim().to_string(),
-            core_count: sys
-                .physical_core_count()
-                .map(|x| x.to_string())
-                .unwrap_or_else(|| String::from("not available")),
-            // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
-            memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
-        };
-
-        info!("{:?}", info);
+            info!("{:?}", system_info);
+            system_info
+        }
     }
 }
 
@@ -130,14 +146,23 @@ pub mod internal {
 )))]
 pub mod internal {
     pub(crate) fn setup_system() {
-        bevy_log::warn!("This platform and/or configuration is not supported!");
+        bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
     }
 
     pub(crate) fn diagnostic_system() {
         // no-op
     }
 
-    pub(crate) fn log_system_info() {
-        // no-op
+    impl Default for super::SystemInfo {
+        fn default() -> Self {
+            let unknown = "Unknown".to_string();
+            Self {
+                os: unknown.clone(),
+                kernel: unknown.clone(),
+                cpu: unknown.clone(),
+                core_count: unknown.clone(),
+                memory: unknown.clone(),
+            }
+        }
     }
 }

@@ -2,13 +2,13 @@
 
 #import bevy_pbr::{
     mesh_view_bindings as bindings,
-    utils::hsv2rgb,
+    utils::{PI_2, hsv_to_rgb, rand_f},
 }
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
     var z_slice: u32 = 0u;
-    if (is_orthographic) {
+    if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
         z_slice = u32(floor((view_z - bindings::lights.cluster_factors.z) * bindings::lights.cluster_factors.w));
     } else {
@@ -35,7 +35,7 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
 const CLUSTER_COUNT_SIZE = 9u;
 fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-        return bindings::cluster_offsets_and_counts.data[cluster_index].xyz;
+    return bindings::cluster_offsets_and_counts.data[cluster_index].xyz;
 #else
     let offset_and_counts = bindings::cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     //  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
@@ -61,22 +61,28 @@ fn get_light_id(index: u32) -> u32 {
 }
 
 fn cluster_debug_visualization(
-    output_color: vec4<f32>,
+    input_color: vec4<f32>,
     view_z: f32,
     is_orthographic: bool,
     offset_and_counts: vec3<u32>,
     cluster_index: u32,
 ) -> vec4<f32> {
+    var output_color = input_color;
+
     // Cluster allocation debug (using 'over' alpha blending)
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
     // NOTE: This debug mode visualises the z-slices
     let cluster_overlay_alpha = 0.1;
     var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
-    if ((z_slice & 1u) == 1u) {
+    if (z_slice & 1u) == 1u {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
-    let slice_color = hsv2rgb(f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+    let slice_color = hsv_to_rgb(
+        f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,
+        1.0,
+        0.5
+    );
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
         output_color.a
@@ -87,15 +93,14 @@ fn cluster_debug_visualization(
     // the fragment. It shows a sort of lighting complexity measure.
     let cluster_overlay_alpha = 0.1;
     let max_light_complexity_per_cluster = 64.0;
-    output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-        + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2]));
-    output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-        + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2])));
+    output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2]));
+    output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2])));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
-    let cluster_color = hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
+    var rng = cluster_index;
+    let cluster_color = hsv_to_rgb(rand_f(&rng) * PI_2, 1.0, 0.5);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
         output_color.a

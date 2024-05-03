@@ -27,11 +27,11 @@ pub enum ReflectPathError<'a> {
     InvalidDowncast,
 
     /// An error caused by an invalid path string that couldn't be parsed.
-    #[error("Encounted an error at offset {offset} while parsing `{path}`: {error}")]
+    #[error("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
-        /// The path that the error occured in.
+        /// The path that the error occurred in.
         path: &'a str,
         /// The underlying error.
         error: ParseError<'a>,
@@ -491,7 +491,6 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
-    use error::AccessErrorKind;
 
     #[derive(Reflect)]
     struct A {

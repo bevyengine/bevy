@@ -15,6 +15,7 @@ fn main() {
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
         let gotten2: A = e_mut.take::<A>().unwrap();
+        //~^ E0502
         assert_eq!(gotten, &gotten2); // oops UB
     }
 
@@ -23,6 +24,7 @@ fn main() {
     {
         let mut gotten: Mut<A> = e_mut.get_mut::<A>().unwrap();
         let mut gotten2: A = e_mut.take::<A>().unwrap();
+        //~^ E0499
         assert_eq!(&mut *gotten, &mut gotten2); // oops UB
     }
 
@@ -31,6 +33,7 @@ fn main() {
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
         e_mut.despawn();
+        //~^ E0505
         assert_eq!(gotten, &A(Box::new(14_usize))); // oops UB
     }
 
@@ -40,18 +43,21 @@ fn main() {
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+        //~^ E0502
         assert_eq!(gotten, &*gotten_mut); // oops UB
     }
 
     {
         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
         let gotten: &A = e_mut.get::<A>().unwrap();
+        //~^ E0502
         assert_eq!(gotten, &*gotten_mut); // oops UB
     }
 
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
         e_mut.insert::<B>(B);
+        //~^ E0502
         assert_eq!(gotten, &A(Box::new(16_usize))); // oops UB
         e_mut.remove::<B>();
     }
@@ -59,6 +65,7 @@ fn main() {
     {
         let mut gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
         e_mut.insert::<B>(B);
+        //~^ E0499
         assert_eq!(&mut *gotten_mut, &mut A(Box::new(16_usize))); // oops UB
     }
 }

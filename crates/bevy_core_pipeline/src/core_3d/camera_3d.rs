@@ -1,8 +1,11 @@
-use crate::tonemapping::{DebandDither, Tonemapping};
+use crate::{
+    core_3d::graph::Core3d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Projection},
+    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -11,9 +14,9 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-use super::graph::SubGraph3d;
-
 /// Configuration for the "main 3d render graph".
+/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -132,7 +135,9 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-#[derive(Bundle)]
+/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// This means "forward" is -Z.
+#[derive(Bundle, Clone)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
@@ -143,8 +148,9 @@ pub struct Camera3dBundle {
     pub global_transform: GlobalTransform,
     pub camera_3d: Camera3d,
     pub tonemapping: Tonemapping,
-    pub dither: DebandDither,
+    pub deband_dither: DebandDither,
     pub color_grading: ColorGrading,
+    pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
 }
 
@@ -152,7 +158,7 @@ pub struct Camera3dBundle {
 impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
-            camera_render_graph: CameraRenderGraph::new(SubGraph3d),
+            camera_render_graph: CameraRenderGraph::new(Core3d),
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
@@ -161,9 +167,10 @@ impl Default for Camera3dBundle {
             global_transform: Default::default(),
             camera_3d: Default::default(),
             tonemapping: Default::default(),
-            dither: DebandDither::Enabled,
-            color_grading: ColorGrading::default(),
+            color_grading: Default::default(),
+            exposure: Default::default(),
             main_texture_usages: Default::default(),
+            deband_dither: DebandDither::Enabled,
         }
     }
 }

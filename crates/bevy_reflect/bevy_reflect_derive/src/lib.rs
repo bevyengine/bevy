@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
 //! The main export of this crate is the derive macro for [`Reflect`]. This allows
@@ -30,7 +32,7 @@ mod type_path;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use container_attributes::ReflectTraits;
+use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -657,7 +659,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, ReflectTraits::default());
+    let meta = ReflectMeta::new(type_path, ContainerAttributes::default());
 
     let type_path_impl = impls::impl_type_path(&meta);
 

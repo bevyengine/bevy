@@ -1,12 +1,15 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
+    texture::GpuImage,
+    view::{
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+    },
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -17,16 +20,15 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_log::warn;
-use bevy_math::{
-    primitives::Direction3d, vec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
-};
+use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::{tracing::warn, warn_once};
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -89,16 +91,40 @@ pub struct ComputedCameraValues {
 /// How much energy a `Camera3d` absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
-#[derive(Component)]
-pub struct ExposureSettings {
+#[derive(Component, Clone, Copy, Reflect)]
+#[reflect_value(Component, Default)]
+pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
 }
 
-impl ExposureSettings {
+impl Exposure {
+    pub const SUNLIGHT: Self = Self {
+        ev100: Self::EV100_SUNLIGHT,
+    };
+    pub const OVERCAST: Self = Self {
+        ev100: Self::EV100_OVERCAST,
+    };
+    pub const INDOOR: Self = Self {
+        ev100: Self::EV100_INDOOR,
+    };
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const BLENDER: Self = Self {
+        ev100: Self::EV100_BLENDER,
+    };
+
     pub const EV100_SUNLIGHT: f32 = 15.0;
     pub const EV100_OVERCAST: f32 = 12.0;
     pub const EV100_INDOOR: f32 = 7.0;
+
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
+    /// It also happens to be a reasonable default.
+    ///
+    /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
+    pub const EV100_BLENDER: f32 = 9.7;
 
     pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
         Self {
@@ -114,16 +140,14 @@ impl ExposureSettings {
     }
 }
 
-impl Default for ExposureSettings {
+impl Default for Exposure {
     fn default() -> Self {
-        Self {
-            ev100: Self::EV100_INDOOR,
-        }
+        Self::BLENDER
     }
 }
 
 /// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`ExposureSettings`].
+/// EV100 values for use with [`Exposure`].
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -164,7 +188,7 @@ impl Default for PhysicalCameraParameters {
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -370,7 +394,7 @@ impl Camera {
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Direction3d::new(world_far_plane - world_near_plane).map_or(None, |direction| {
+        Dir3::new(world_far_plane - world_near_plane).map_or(None, |direction| {
             Some(Ray3d {
                 origin: world_near_plane,
                 direction,
@@ -462,7 +486,7 @@ pub enum CameraOutputMode {
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
     /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
     /// them to be lost. Only use this if you know what you are doing!
-    /// In camera setups with multiple active cameras rendering to the same RenderTarget, the Skip mode can be used to remove
+    /// In camera setups with multiple active cameras rendering to the same [`RenderTarget`], the Skip mode can be used to remove
     /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
     Skip,
 }
@@ -477,7 +501,8 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -560,7 +585,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
@@ -580,7 +605,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
@@ -607,10 +632,7 @@ impl NormalizedRenderTarget {
                 .into_iter()
                 .find(|(entity, _)| *entity == window_ref.entity())
                 .map(|(_, window)| RenderTargetInfo {
-                    physical_size: UVec2::new(
-                        window.resolution.physical_width(),
-                        window.resolution.physical_height(),
-                    ),
+                    physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
             NormalizedRenderTarget::Image(image_handle) => {
@@ -737,6 +759,20 @@ pub fn camera_system<T: CameraProjection + Component>(
                         }
                     }
                 }
+                // This check is needed because when changing WindowMode to SizedFullscreen, the viewport may have invalid
+                // arguments due to a sudden change on the window size to a lower value.
+                // If the size of the window is lower, the viewport will match that lower value.
+                if let Some(viewport) = &mut camera.viewport {
+                    let target_info = &new_computed_target_info;
+                    if let Some(target) = target_info {
+                        if viewport.physical_size.x > target.physical_size.x {
+                            viewport.physical_size.x = target.physical_size.x;
+                        }
+                        if viewport.physical_size.y > target.physical_size.y {
+                            viewport.physical_size.y = target.physical_size.y;
+                        }
+                    }
+                }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
@@ -752,7 +788,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 }
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
-#[derive(Component, ExtractComponent, Clone, Copy)]
+#[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
+#[reflect_value(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -790,13 +827,15 @@ pub fn extract_cameras(
             &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
-            Option<&ExposureSettings>,
+            Option<&Exposure>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
+            Has<GpuCulling>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -807,13 +846,14 @@ pub fn extract_cameras(
         visible_entities,
         frustum,
         color_grading,
-        exposure_settings,
+        exposure,
         temporal_jitter,
         render_layers,
         projection,
+        gpu_culling,
     ) in query.iter()
     {
-        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if !camera.is_active {
             continue;
@@ -850,9 +890,9 @@ pub fn extract_cameras(
                     clear_color: camera.clear_color.clone(),
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
-                    exposure: exposure_settings
+                    exposure: exposure
                         .map(|e| e.exposure())
-                        .unwrap_or_else(|| ExposureSettings::default().exposure()),
+                        .unwrap_or_else(|| Exposure::default().exposure()),
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
@@ -881,6 +921,16 @@ pub fn extract_cameras(
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            }
+
+            if gpu_culling {
+                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                    commands.insert(GpuCulling);
+                } else {
+                    warn_once!(
+                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
+                    );
+                }
             }
         }
     }
@@ -953,7 +1003,8 @@ pub fn sort_cameras(
 /// Do not use with [`OrthographicProjection`].
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Default, Component)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,
@@ -979,5 +1030,6 @@ impl TemporalJitter {
 /// Camera component specifying a mip bias to apply when sampling from material textures.
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
-#[derive(Component)]
+#[derive(Default, Component, Reflect)]
+#[reflect(Default, Component)]
 pub struct MipBias(pub f32);

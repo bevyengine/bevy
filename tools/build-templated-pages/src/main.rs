@@ -1,3 +1,5 @@
+//! Tool used to build the templated pages of the Bevy website.
+
 use bitflags::bitflags;
 
 mod examples;

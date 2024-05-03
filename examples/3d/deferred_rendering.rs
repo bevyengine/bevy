@@ -7,9 +7,10 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
-    pbr::NotShadowReceiver,
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
+    pbr::{
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
+        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    },
     prelude::*,
     render::render_resource::TextureFormat,
 };
@@ -18,10 +19,6 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .insert_resource(Normal(None))
@@ -52,7 +49,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -62,7 +59,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 2000.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -72,7 +69,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 4000.0,
+            illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
@@ -99,7 +96,7 @@ fn setup(
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
+    let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
@@ -127,7 +124,7 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = Color::rgb(10.0, 4.0, 1.0);
+    let sphere_color = Color::srgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
@@ -144,7 +141,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 150.0,
+            intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
@@ -160,21 +157,21 @@ fn setup(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
+                base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -197,7 +194,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("888888").unwrap(),
+                base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
                 ..default()

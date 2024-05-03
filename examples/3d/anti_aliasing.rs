@@ -261,7 +261,7 @@ fn setup(
     // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
         ..default()
     });
 
@@ -289,7 +289,7 @@ fn setup(
     // Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 3000.0,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
@@ -329,7 +329,7 @@ fn setup(
             intensity: 150.0,
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: Color::srgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 4.0,

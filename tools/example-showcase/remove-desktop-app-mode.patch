@@ -1,10 +1,10 @@
 diff --git a/crates/bevy_winit/src/winit_config.rs b/crates/bevy_winit/src/winit_config.rs
-index b91e25d34..48f19b708 100644
+index f2cb424ec..e68e01de0 100644
 --- a/crates/bevy_winit/src/winit_config.rs
 +++ b/crates/bevy_winit/src/winit_config.rs
-@@ -29,14 +29,7 @@ impl WinitSettings {
-     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
-     /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+@@ -31,14 +31,7 @@ impl WinitSettings {
+     ///
+     /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
      pub fn desktop_app() -> Self {
 -        WinitSettings {
 -            focused_mode: UpdateMode::Reactive {

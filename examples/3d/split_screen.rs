@@ -24,7 +24,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -37,7 +37,6 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
-            illuminance: 1500.0,
             shadows_enabled: true,
             ..default()
         },
@@ -51,81 +50,65 @@ fn setup(
         ..default()
     });
 
-    // Left Camera
-    let left_camera = commands
-        .spawn((
-            Camera3dBundle {
-                transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
-                ..default()
-            },
-            LeftCamera,
-        ))
-        .id();
+    // Cameras and their dedicated UI
+    for (index, (camera_name, camera_pos)) in [
+        ("Player 1", Vec3::new(0.0, 200.0, -150.0)),
+        ("Player 2", Vec3::new(150.0, 150., 50.0)),
+        ("Player 3", Vec3::new(100.0, 150., -150.0)),
+        ("Player 4", Vec3::new(-100.0, 80., 150.0)),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let camera = commands
+            .spawn((
+                Camera3dBundle {
+                    transform: Transform::from_translation(*camera_pos)
+                        .looking_at(Vec3::ZERO, Vec3::Y),
+                    camera: Camera {
+                        // Renders cameras with different priorities to prevent ambiguities
+                        order: index as isize,
+                        // Don't clear after the first camera because the first camera already cleared the entire window
+                        clear_color: if index > 0 {
+                            ClearColorConfig::None
+                        } else {
+                            ClearColorConfig::default()
+                        },
+                        ..default()
+                    },
+                    ..default()
+                },
+                CameraPosition {
+                    pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
+                },
+            ))
+            .id();
 
-    // Right Camera
-    let right_camera = commands
-        .spawn((
-            Camera3dBundle {
-                transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
-                camera: Camera {
-                    // Renders the right camera after the left camera, which has a default priority of 0
-                    order: 1,
-                    // don't clear on the second camera because the first camera already cleared the window
-                    clear_color: ClearColorConfig::None,
+        // Set up UI
+        commands
+            .spawn((
+                TargetCamera(camera),
+                NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        padding: UiRect::all(Val::Px(20.)),
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
-            },
-            RightCamera,
-        ))
-        .id();
-
-    // Set up UI
-    commands
-        .spawn((
-            TargetCamera(left_camera),
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Left",
-                TextStyle {
-                    font_size: 20.,
-                    ..default()
-                },
-            ));
-            buttons_panel(parent);
-        });
-
-    commands
-        .spawn((
-            TargetCamera(right_camera),
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Right",
-                TextStyle {
-                    font_size: 20.,
-                    ..default()
-                },
-            ));
-            buttons_panel(parent);
-        });
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    *camera_name,
+                    TextStyle {
+                        font_size: 20.,
+                        ..default()
+                    },
+                ));
+                buttons_panel(parent);
+            });
+    }
 
     fn buttons_panel(parent: &mut ChildBuilder) {
         parent
@@ -163,7 +146,7 @@ fn setup(
                         ..default()
                     },
                     border_color: Color::WHITE.into(),
-                    background_color: Color::DARK_GRAY.into(),
+                    image: UiImage::default().with_color(Color::srgb(0.25, 0.25, 0.25)),
                     ..default()
                 },
             ))
@@ -180,10 +163,9 @@ fn setup(
 }
 
 #[derive(Component)]
-struct LeftCamera;
-
-#[derive(Component)]
-struct RightCamera;
+struct CameraPosition {
+    pos: UVec2,
+}
 
 #[derive(Component)]
 struct RotateCamera(Direction);
@@ -196,33 +178,22 @@ enum Direction {
 fn set_camera_viewports(
     windows: Query<&Window>,
     mut resize_events: EventReader<WindowResized>,
-    mut left_camera: Query<&mut Camera, (With<LeftCamera>, Without<RightCamera>)>,
-    mut right_camera: Query<&mut Camera, With<RightCamera>>,
+    mut query: Query<(&CameraPosition, &mut Camera)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
     for resize_event in resize_events.read() {
         let window = windows.get(resize_event.window).unwrap();
-        let mut left_camera = left_camera.single_mut();
-        left_camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(0, 0),
-            physical_size: UVec2::new(
-                window.resolution.physical_width() / 2,
-                window.resolution.physical_height(),
-            ),
-            ..default()
-        });
+        let size = window.physical_size() / 2;
 
-        let mut right_camera = right_camera.single_mut();
-        right_camera.viewport = Some(Viewport {
-            physical_position: UVec2::new(window.resolution.physical_width() / 2, 0),
-            physical_size: UVec2::new(
-                window.resolution.physical_width() / 2,
-                window.resolution.physical_height(),
-            ),
-            ..default()
-        });
+        for (camera_position, mut camera) in &mut query {
+            camera.viewport = Some(Viewport {
+                physical_position: camera_position.pos * size,
+                physical_size: size,
+                ..default()
+            });
+        }
     }
 }
 

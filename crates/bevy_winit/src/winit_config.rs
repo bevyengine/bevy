@@ -2,7 +2,7 @@ use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Clone)]
 pub struct WinitSettings {
     /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
@@ -28,6 +28,8 @@ impl WinitSettings {
     ///
     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
     /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
@@ -42,10 +44,10 @@ impl WinitSettings {
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.
-    pub fn update_mode(&self, focused: bool) -> &UpdateMode {
+    pub fn update_mode(&self, focused: bool) -> UpdateMode {
         match focused {
-            true => &self.focused_mode,
-            false => &self.unfocused_mode,
+            true => self.focused_mode,
+            false => self.unfocused_mode,
         }
     }
 }
@@ -61,7 +63,7 @@ impl Default for WinitSettings {
 /// **Note:** This setting is independent of VSync. VSync is controlled by a window's
 /// [`PresentMode`](bevy_window::PresentMode) setting. If an app can update faster than the refresh
 /// rate, but VSync is enabled, the update rate will be indirectly limited by the renderer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UpdateMode {
     /// The [`App`](bevy_app::App) will update over and over, as fast as it possibly can, until an
     /// [`AppExit`](bevy_app::AppExit) event appears.
@@ -72,6 +74,7 @@ pub enum UpdateMode {
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
     /// events have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.
         ///
@@ -84,6 +87,7 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window events](`winit::event::WindowEvent`) have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     ///
     /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
     /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
