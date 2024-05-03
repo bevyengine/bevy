@@ -148,10 +148,34 @@ impl Schedules {
     }
 
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
-    pub fn add_systems<M>(&mut self, schedule: impl ScheduleLabel, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+    pub fn add_systems<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        systems: impl IntoSystemConfigs<M>,
+    ) -> &mut Self {
         let label = schedule.intern();
-        let schedule = self.inner.entry(label).or_insert_with(|| Schedule::new(schedule));
+        let schedule = self
+            .inner
+            .entry(label)
+            .or_insert_with(|| Schedule::new(schedule));
         schedule.add_systems(systems);
+
+        self
+    }
+
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
+    #[track_caller]
+    pub fn configure_sets(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        sets: impl IntoSystemSetConfigs,
+    ) -> &mut Self {
+        let label = schedule.intern();
+        let schedule = self
+            .inner
+            .entry(label)
+            .or_insert_with(|| Schedule::new(schedule));
+        schedule.configure_sets(sets);
 
         self
     }
@@ -2000,7 +2024,8 @@ mod tests {
         self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
-            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet
+            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
+            ScheduleBuildSettings, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2471,7 +2496,7 @@ mod tests {
 
     #[derive(Resource)]
     struct CheckSystemRan(usize);
-    
+
     #[test]
     fn add_systems_to_existing_schedule() {
         let mut schedules = Schedules::default();
@@ -2486,14 +2511,16 @@ mod tests {
         world.insert_resource(schedules);
         world.run_schedule(TestSchedule);
 
-        let value = world.get_resource::<CheckSystemRan>().expect("CheckSystemRan Resource Should Exist");
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 1);
     }
 
     #[test]
     fn add_systems_to_non_existing_schedule() {
         let mut schedules = Schedules::default();
-        
+
         schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
 
         let mut world = World::new();
@@ -2502,7 +2529,88 @@ mod tests {
         world.insert_resource(schedules);
         world.run_schedule(TestSchedule);
 
-        let value = world.get_resource::<CheckSystemRan>().expect("CheckSystemRan Resource Should Exist");
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 1);
+    }
+
+    #[derive(SystemSet, Debug, Hash, Clone, PartialEq, Eq)]
+    enum TestSet {
+        First,
+        Second,
+    }
+
+    #[test]
+    fn configure_set_on_existing_schedule() {
+        let mut schedules = Schedules::default();
+        let schedule = Schedule::new(TestSchedule);
+
+        schedules.insert(schedule);
+
+        schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 0);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::First),
+        );
+
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 1);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::Second),
+        );
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn configure_set_on_new_schedule() {
+        let mut schedules = Schedules::default();
+
+        schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 0);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::First),
+        );
+
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 1);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::Second),
+        );
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 2);
     }
 }

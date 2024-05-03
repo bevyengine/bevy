@@ -200,13 +200,7 @@ impl SubApp {
     ) -> &mut Self {
         let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.configure_sets(sets);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.configure_sets(sets);
-            schedules.insert(new_schedule);
-        }
+        schedules.configure_sets(schedule, sets);
         self
     }
 
