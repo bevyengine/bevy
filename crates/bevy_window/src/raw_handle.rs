@@ -45,6 +45,9 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    // This is causing apps to not stop when closing the window on macos
+    // TODO; find out why, see https://github.com/bevyengine/bevy/issues/13208
+    #[cfg(not(target_os = "macos"))]
     _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
     pub window_handle: RawWindowHandle,
@@ -58,6 +61,7 @@ impl RawHandleWrapper {
         window: &WindowWrapper<W>,
     ) -> Result<RawHandleWrapper, HandleError> {
         Ok(RawHandleWrapper {
+            #[cfg(not(target_os = "macos"))]
             _window: window.reference.clone(),
             window_handle: window.window_handle()?.as_raw(),
             display_handle: window.display_handle()?.as_raw(),
