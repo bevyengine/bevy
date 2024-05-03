@@ -58,7 +58,7 @@ pub struct AssetServer {
 pub(crate) struct AssetServerData {
     pub(crate) infos: RwLock<AssetInfos>,
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
-    asset_event_sender: Sender<InternalAssetEvent>,
+    pub(crate) asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
@@ -365,18 +365,25 @@ impl AssetServer {
                 None,
                 |handle| async move {
                     let id = handle.id().untyped();
+                    drop(handle);
                     let path_clone = path.clone();
                     match server.load_untyped_async(path).await {
-                        Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
-                            id,
-                            loaded_asset: LoadedAsset::new_with_dependencies(
-                                LoadedUntypedAsset { handle },
-                                None,
-                            )
-                            .into(),
-                        }),
+                        Ok(handle) => {
+                            // yield to prevent sending events if this task has been dropped
+                            futures_lite::future::yield_now().await;
+                            server.send_asset_event(InternalAssetEvent::Loaded {
+                                id,
+                                loaded_asset: LoadedAsset::new_with_dependencies(
+                                    LoadedUntypedAsset { handle },
+                                    None,
+                                )
+                                .into(),
+                            });
+                        }
                         Err(err) => {
                             error!("{err}");
+                            // yield to prevent sending events if this task has been dropped
+                            futures_lite::future::yield_now().await;
                             server.send_asset_event(InternalAssetEvent::Failed {
                                 id,
                                 path: path_clone,
@@ -396,7 +403,7 @@ impl AssetServer {
     /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
     async fn load_internal<'a>(
         &self,
-        input_handle: Option<UntypedHandle>,
+        mut input_handle: Option<UntypedHandle>,
         path: AssetPath<'a>,
         force: bool,
         meta_transform: Option<MetaTransform>,
@@ -420,6 +427,12 @@ impl AssetServer {
                 }
                 e
             })?;
+
+        if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+            (*meta_transform)(&mut *meta);
+        }
+        // downgrade the input handle so we don't keep the asset alive just because we're loading it
+        input_handle = input_handle.map(|h| h.clone_weak());
 
         // This contains Some(UntypedHandle), if it was retrievable
         // If it is None, that is because it was _not_ retrievable, due to
@@ -520,10 +533,14 @@ impl AssetServer {
                     handle.unwrap()
                 };
 
+                // yield to prevent sending events if this task has been dropped
+                futures_lite::future::yield_now().await;
                 self.send_loaded_asset(base_handle.id(), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
+                // yield to prevent sending events if this task has been dropped
+                futures_lite::future::yield_now().await;
                 self.send_asset_event(InternalAssetEvent::Failed {
                     id: base_handle.id(),
                     error: err.clone(),
@@ -1272,6 +1289,8 @@ pub enum AssetLoadError {
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
+    #[error("Cancelled asset '{path}', all handles were dropped before load completed")]
+    Cancelled { path: AssetPath<'static> },
     #[error("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
     AssetLoaderPanic {
         path: AssetPath<'static>,

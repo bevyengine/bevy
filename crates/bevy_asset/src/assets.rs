@@ -546,17 +546,19 @@ impl<A: Asset> Assets<A> {
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
+        let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {
                 // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                match infos.process_handle_drop(id.untyped()) {
+                match infos.process_handle_drop(id.untyped(), &asset_server.data.asset_event_sender)
+                {
                     // a new handle has been created, or the asset doesn't exist
                     HandleDropResult::NotDropped => continue,
-                    // an untracked load is in progress, refire the event for next frame
+                    // an load is in progress, refire the event for next frame
                     HandleDropResult::CantDropYet => {
-                        assets.handle_provider.drop_sender.send(drop_event).unwrap();
+                        not_ready.push(drop_event);
                         continue;
                     }
                     HandleDropResult::Dropped => (),
@@ -565,6 +567,13 @@ impl<A: Asset> Assets<A> {
 
             assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
+        }
+
+        // for internally tracked tasks (or their dependents) this will only refire each event once, as
+        // the task has been dropped and a fail event sent in `infos.process_handle_drop` above.
+        // for untracked load tasks this will refire until the load completes
+        for event in not_ready {
+            assets.handle_provider.drop_sender.send(event).unwrap();
         }
     }
 

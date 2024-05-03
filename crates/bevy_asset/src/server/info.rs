@@ -189,13 +189,13 @@ impl AssetInfos {
             self.get_or_create_path_handle(path, loading_mode, meta_transform);
 
         if should_load {
-            let task = IoTaskPool::get().spawn(load_fn(handle.clone_weak()));
+            let task = IoTaskPool::get().spawn(load_fn(handle.clone()));
 
             #[cfg(not(any(target_arch = "wasm32", not(feature = "multi-threaded"))))]
             self.pending_load_tasks.insert(handle.id().untyped(), task);
 
             #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-            let _ = task;
+            task.detach();
         }
 
         handle
@@ -395,13 +395,18 @@ impl AssetInfos {
     }
 
     /// Returns `true` if the asset should be removed from the collection.
-    pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> HandleDropResult {
+    pub(crate) fn process_handle_drop(
+        &mut self,
+        id: UntypedAssetId,
+        sender: &Sender<InternalAssetEvent>,
+    ) -> HandleDropResult {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
             &mut self.loader_dependants,
             &mut self.living_labeled_assets,
             &mut self.pending_load_tasks,
+            sender,
             self.watching_for_changes,
             id,
         )
@@ -646,6 +651,8 @@ impl AssetInfos {
         for waiting_id in dependants_waiting_on_rec_load {
             Self::propagate_failed_state(self, failed_id, waiting_id);
         }
+
+        self.pending_load_tasks.remove(&failed_id);
     }
 
     fn remove_dependants_and_labels(
@@ -677,12 +684,14 @@ impl AssetInfos {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         pending_load_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
+        sender: &Sender<InternalAssetEvent>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> HandleDropResult {
@@ -699,11 +708,20 @@ impl AssetInfos {
 
         let type_id = entry.key().type_id();
 
-        // drop the associated load task
-        if let LoadState::Loading | LoadState::NotLoaded = entry.get().load_state {
-            if pending_load_tasks.remove(&id).is_none() {
-                return HandleDropResult::CantDropYet;
+        if matches!(entry.get().load_state, LoadState::Loading) {
+            if pending_load_tasks.remove(&id).is_some() {
+                // drop the task and send a cancel error to move this asset out of Loading state
+                let path = entry.get().path.clone().unwrap_or_default();
+                sender
+                    .send(InternalAssetEvent::Failed {
+                        id,
+                        path: path.clone(),
+                        error: AssetLoadError::Cancelled { path },
+                    })
+                    .unwrap();
             }
+
+            return HandleDropResult::CantDropYet;
         }
 
         let info = entry.remove();
@@ -736,7 +754,7 @@ impl AssetInfos {
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     ///
     /// [`Assets`]: crate::Assets
-    pub(crate) fn consume_handle_drop_events(&mut self) {
+    pub(crate) fn consume_handle_drop_events(&mut self, sender: &Sender<InternalAssetEvent>) {
         for provider in self.handle_providers.values() {
             while let Ok(drop_event) = provider.drop_receiver.try_recv() {
                 let id = drop_event.id;
@@ -747,6 +765,7 @@ impl AssetInfos {
                         &mut self.loader_dependants,
                         &mut self.living_labeled_assets,
                         &mut self.pending_load_tasks,
+                        sender,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );
