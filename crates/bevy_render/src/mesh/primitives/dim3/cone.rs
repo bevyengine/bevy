@@ -74,7 +74,7 @@ impl ConeMeshBuilder {
         // The center of the texture is at the center of the lateral surface, at the tip of the cone.
         uvs.push([0.5, 0.5]);
 
-        /* Now we build the lateral surface, the side of the cone. */
+        // Now we build the lateral surface, the side of the cone.
 
         // The vertex normals will be perpendicular to the surface.
         //
@@ -110,7 +110,7 @@ impl ConeMeshBuilder {
         // Close the surface with a triangle between the tip, first base vertex, and last base vertex.
         indices.extend_from_slice(&[0, 1, self.resolution]);
 
-        /* Now we build the actual base of the cone. */
+        // Now we build the actual base of the cone.
 
         let index_offset = positions.len() as u32;
 
