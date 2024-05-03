@@ -15,8 +15,8 @@ rust-version = "1.77.0"
 [workspace]
 exclude = [
   "benches",
-  "crates/bevy_ecs/compile_fail",
   "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
   "crates/bevy_reflect/compile_fail",
 ]
 members = [
