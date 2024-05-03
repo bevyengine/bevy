@@ -180,15 +180,8 @@ impl SubApp {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.add_systems(systems);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.add_systems(systems);
-            schedules.insert(new_schedule);
-        }
+        schedules.add_systems(schedule, systems);
 
         self
     }
@@ -208,15 +201,8 @@ impl SubApp {
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.configure_sets(sets);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.configure_sets(sets);
-            schedules.insert(new_schedule);
-        }
+        schedules.configure_sets(schedule, sets);
         self
     }
 
@@ -307,14 +293,7 @@ impl SubApp {
         let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(schedule) = schedules.get_mut(schedule) {
-            let schedule: &mut Schedule = schedule;
-            schedule.ignore_ambiguity(a, b);
-        } else {
-            let mut new_schedule = Schedule::new(schedule);
-            new_schedule.ignore_ambiguity(a, b);
-            schedules.insert(new_schedule);
-        }
+        schedules.ignore_ambiguity(schedule, a, b);
 
         self
     }
